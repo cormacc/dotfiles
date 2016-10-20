@@ -1,0 +1,164 @@
+#!/usr/bin/ruby
+
+require 'xrandr'
+require 'thor'
+
+module Xrandr
+
+  class Resolution
+    include Comparable
+    @@matcher = /(?<x>\d+)x(?<y>\d+)/
+    attr_accessor :x
+    attr_accessor :y
+    def initialize(res_string)
+      resolution_tokens = @@matcher.match(res_string)
+      if resolution_tokens
+        @x = resolution_tokens[:x].to_i
+        @y = resolution_tokens[:y].to_i
+      end
+    end
+
+    def <=>(other)
+      #compare based on pixel count
+      @x*@y <=> other.x * other.y
+    end
+
+    def to_s
+      "#{@x.to_s}x#{@y.to_s}"
+    end
+  end
+
+  #Extend Xrandr::Output to report preferred resolution...
+  class Output
+    def preferred_mode
+      preferred_modes = modes.select { |mode| mode.preferred==true}
+      raise "Unable to identify preferred display mode" unless preferred_modes.length==1
+      preferred_modes[0]
+    end
+
+    def preferred_resolution
+      Resolution.new(preferred_mode.resolution)
+    end
+  end
+end
+
+class DisplayConfig < Thor
+  class_option :dryrun, :type =>:boolean, :default =>false
+  class_option :int, :type =>:string, :default => "eDP.*", :desc =>"Port (regex )for internal display."
+  class_option :ext, :type =>:string, :default => nil, :desc =>"Preferred port for external display. First available port used if disconnected or not specified."
+
+  class_option :int_res, :type =>:string, :default =>"2880x1800", :desc =>"Resolution for fallback internal display detection"
+
+  @@xrandr = Xrandr::Control.new
+  @@connected, @@disconnected = @@xrandr.outputs.partition { |display| display.connected == true}
+
+  no_commands {
+  def get_internal_display
+    #Many drivers (intel, nouveau) assign 'eDP-1' or 'eDP1' to the internal port, so match this first
+    #fall back to resolution based detection otherwise (
+    #The default res for this is set for macbook pro retina 2013 model)
+    internal = @@connected.select {|display| display.name =~ /#{options[:int]}/}
+
+    if internal.length == 0
+      internal = @@connected.select {|display| display.resolution == options[:int_res] }
+    end
+
+    if internal.length==0
+      raise "Unable to identify internal display"
+    end
+    puts "Identified internal display on #{internal[0].name}"
+
+    internal[0]
+  end
+
+  def get_external_displays(internal_display)
+    @@connected.select { |display| display != internal_display }
+  end
+
+  def select_primary_display(external_displays)
+    candidates = options[:ext] ? external_displays : external_displays.select { |display| display.name =~ /#{options[:ext]}/}
+
+    if candidates.length==0
+      puts "WARNING: Preferred external port (#{options[:ext]}) disconnected"
+      candidates = external_displays
+    end
+    
+
+    selected = candidates.max_by { |candidate| candidate.preferred_resolution }
+
+    puts "Selected #{selected.name} as primary display"
+    selected
+  end
+
+  def centre_external_over_internal_display(external, internal)
+    #Calculate offsets to center internal display below external display
+    ext_res = external.preferred_resolution
+    int_res = internal.preferred_resolution
+    y_offset = ext_res.y
+
+    if ext_res.x > int_res.x
+      x_offset = (ext_res.x - int_res.x)/2
+      #External display at origin...
+      @@xrandr.configure(external.name, auto: true, primary: true, pos: "0x0")
+      
+      #Internal display offset horizontally AND vertically
+      @@xrandr.configure(internal.name, auto: true, pos: "#{x_offset.to_s}x#{y_offset.to_s}")
+    else
+      x_offset = (int_res.x - ext_res.x)/2
+      #External display offset horizontally... 
+      @@xrandr.configure(external.name, auto: true, primary: true, pos: "#{x_offset.to_s}x0")
+      #Internal display offset vertically
+      @@xrandr.configure(internal.name, auto: true, pos: "0x#{y_offset.to_s}")
+    end
+
+  end
+
+  }
+
+  desc "auto", "Autodetect a single exernal display and position above the internal display."
+  def auto
+
+    internal = get_internal_display
+    external = get_external_displays(internal)
+
+
+    if external.length==0
+      puts "No external displays detected"
+      @@xrandr.configure(internal.name, auto: true, primary: true)
+    else
+
+      primary = select_primary_display(external)
+
+      centre_external_over_internal_display(primary, internal)
+
+      additional_displays = external.select {|display| display != primary }
+    
+      #Disable any additional connected displays
+      #additional_displays.each {|display| @@xrandr.configure(display.name, off: true)}
+
+      #... or configure them in a row...
+      primary_res = primary.preferred_resolution
+      x_offset = primary_res.x
+      additional_displays.each do |display|
+        display_res = display.preferred_resolution
+        y_offset = (display_res.y < primary_res.y) ? (primary_res.y - display_res.y)/2 : 0
+        @@xrandr.configure(display.name, auto: true, pos: "#{x_offset.to_s}x#{y_offset.to_s}")
+        x_offset += display_res.x
+      end
+
+    end
+
+    #Disable all disconnected outputs -- this is necessary to make some wms (e.g. i3) reassociate desktops with a connected screen after you detach an external monitor
+    @@disconnected.each { |output| @@xrandr.configure(output.name, off: true) }
+
+    puts @@xrandr.command
+
+    if options[:dryrun] == false
+      @@xrandr.apply!
+    end
+
+  end
+
+end
+
+DisplayConfig.start(ARGV)

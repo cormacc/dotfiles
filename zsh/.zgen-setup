@@ -1,0 +1,66 @@
+
+# Clone zgen if you haven't already
+if [[ ! -f ~/.zgen/zgen.zsh ]]; then
+  pushd ~
+  git clone https://github.com/tarjoilija/zgen.git .zgen
+  popd
+fi
+
+# load zgen
+source ~/.zgen/zgen.zsh
+
+load-plugins() {
+    echo "Creating a zgen save"
+
+    # oh-my-zsh modules
+    zgen oh-my-zsh
+
+
+    # load plugins...
+    zgen load zsh-users/zsh-syntax-highlighting
+    zgen load zsh-users/zsh-history-substring-search
+
+    # theme
+    # Other oh-my-zsh builtin options are 'agnoster','mortalscumbag', 'sunrise', 'ys'
+    # See here for gallery: https://github.com/robbyrussell/oh-my-zsh/wiki/themes
+    #zgen oh-my-zsh themes/agnoster
+    zgen load bhilburn/powerlevel9k powerlevel9k
+
+
+    # completions
+    zgen load zsh-users/zsh-completions src
+
+
+
+# save all to init script
+    zgen save
+}
+
+get_file_modification_time() {
+  modified_time=$(stat -c %Y "$1" 2> /dev/null) || modified_time=0
+  echo "${modified_time}"
+}
+
+zgen-autoupdate() {
+  if [[ -f ~/.zgen-setup ]]; then
+    REAL_ZGEN_SETUP=~/.zgen-setup
+  fi
+  if [[ -L ~/.zgen-setup ]]; then
+    REAL_ZGEN_SETUP="${HOME}/$(readlink ~/.zgen-setup)"
+  fi
+
+  # If .zgen-setup is newer than init.zsh, regenerate init.zsh
+  if [ $(get_file_modification_time ${REAL_ZGEN_SETUP}) -gt $(get_file_modification_time ~/.zgen/init.zsh) ]; then
+    echo "$(basename ${REAL_ZGEN_SETUP}) updated; creating a new init.zsh"
+    load-plugins
+  fi
+  unset REAL_ZGEN_SETUP 
+}
+
+
+# do initial build if the init scipt doesn't exist
+if ! zgen saved; then
+   load-plugins
+fi
+
+zgen-autoupdate

@@ -1,0 +1,64 @@
+#!/usr/bin/ruby
+# Look into using fasd with shell stuff: https://github.com/clvv/fasd
+# Original intention was to use this with stow, letting stow do symlinks and
+# rakefile handle stuff like updating path etc...
+# However that would require a convoluted directory structure
+# Better off sticking with stow altogether, or doing the whole lot in rake...
+
+# Another options
+
+require 'thor'
+module DotModule
+  def self.install(name)
+
+    raise ArgumentError, "Module '#{name}' not found" unless File.directory?(name)
+
+    puts "... installing #{name} ..."
+    system "stow #{name}"
+
+  end
+
+  def self.install_all
+
+    modules = Dir.glob('*').select { |f| File.directory? f}
+    puts "Installing #{modules.size} modules from current directory..."
+    modules.each { |m| install m}
+  end
+
+  class CLI < Thor
+    desc "install", "Install one or more modules"
+    # option :modules, :type => :array
+    def install(*modules)
+      # DotModule::install_all
+      if modules.size == 0
+        puts ""
+        DotModule::install_all if ask("No module argument passed. Install (a)ll/(n)one? [n]:") == 'a'
+      else
+        puts "Installing #{modules.size} modules..."
+        modules.each do |m|
+          begin
+            DotModule::install(m)
+          rescue ArgumentError
+            puts "WARNING: Module '#{m}' not found"
+            break unless ask("... (a)bort or (c)ontinue [a]: ") == 'c'
+          end
+        end
+      end
+    end
+  end
+
+end
+
+#Allow standalone use from the commandline
+DotModule::CLI.start(ARGV) if __FILE__==$0
+
+# desc "Install everything"
+# task :installall do
+#   install_all
+# end
+
+# desc "Install one"
+# task :install, [:module] do |t, args|
+#   mod = args[:module]
+#   install(mod)
+# end

@@ -1,0 +1,15 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    thor (0.19.1)
+    xrandr (0.0.5)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  thor
+  xrandr
+
+BUNDLED WITH
+   1.12.5
