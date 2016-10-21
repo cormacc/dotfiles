@@ -6,14 +6,14 @@ if test -d /usr/lib/jvm/default; then
 fi
 
 export PATH="$PATH:~/bin"
-export EDITOR="/usr/bin/emacs"
+export EDITOR="/usr/bin/vim"
 export VISUAL="/usr/bin/emacs"
 
 #Modules can dump environment config in a .profile.d folder
-if test -d ~/.profile.d; then
-    for autoload in ~/.profile.d/*.sh; do
-        test -r "$autoload" && . "$autoload"
-    done
-    unset autoload
+#This method doesn't give an error when directory contains no files
+if [ -d ~/.profile.d ]; then
+  find ~/.profile.d/. ! -name . -prune ! -name '.*' -name '*.sh' -type f -print0 | while IFS= read -r -d $'\0' autoload; do
+    source "$autoload"
+  done
 fi
 

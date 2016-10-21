@@ -6,7 +6,7 @@ exec --no-startup-id dropbox
 exec --no-startup-id dispad
 #exec --no-startup-id (xrandr --listproviders | grep -q "modesetting") && xrandr --setprovideroutputsource 1 0
 exec --no-startup-id redshift
-exec --no-startup-id ~/scripts/display_tool.rb auto
+exec --no-startup-id ~/bin/displayconfig auto
 
 focus_follows_mouse no
 
@@ -15,8 +15,8 @@ set $mod Mod4
 font pango:Hack 10 
 bindsym $mod+d exec dmenu_run -fn 'Hack-10'
 
-bindsym $mod+Return exec --no-startup-id termite -e fish
-bindsym $mod+Shift+Return exec --no-startup-id termite --title "float" -e fish
+bindsym $mod+Return exec --no-startup-id $TERMINAL
+bindsym $mod+Shift+Return exec --no-startup-id $TERMINAL --title "float"
 
 #screenshots
 # scrot & gimp - root

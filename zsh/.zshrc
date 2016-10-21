@@ -1,3 +1,5 @@
+source ~/.profile
+
 # Uncomment following line if you want red dots to be displayed while waiting for completion
 export COMPLETION_WAITING_DOTS="true"
 
