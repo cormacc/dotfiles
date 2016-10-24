@@ -1,0 +1,38 @@
+#!/usr/bin/ruby
+require 'pathname'
+
+module JetbrainsToolbox
+    DEFAULT_INSTALLATION_ROOT = Pathname.new("~/.local/share/JetBrains/Toolbox").expand_path
+    @installation_root = DEFAULT_INSTALLATION_ROOT
+    @app_root = DEFAULT_INSTALLATION_ROOT + 'apps'
+    class << self 
+        attr_reader :installation_root, :app_root
+        def set_installation_root(new_root)
+          raise ArgumentError.new("Installation root #{new_root}") unless Pathname.new(new_root).is_directory?
+        end 
+    end
+
+    class App
+        def initialize(name = "idea")
+            candidates = Dir.glob("#{JetbrainsToolbox.app_root}/**/#{name}.sh").sort
+            raise ArgumentError.new("No files named '#{name}.sh' found under '#{JetbrainsToolbox.app_root}") if candidates.length == 0
+            if candidates.length>1
+                puts "Multiple candidates found..."
+                puts candidates
+            end
+            pid = spawn(candidates.last)
+            puts "Launched #{candidates.last} with pid #{pid}"
+        end
+    end
+end
+
+if __FILE__==$0
+    if ARGV.length == 0
+        #JetbrainsToolbox::App.new
+        puts "Usage: 'jetbrains <appname>', where <appname> is one of 'clion','idea','rubymine' etc..."
+        puts "e.g. 'jetbrains clion' to find/launch latest toolbox installation of the CLion IDE"  
+    else
+        JetbrainsToolbox::App.new(ARGV[0]) 
+    end
+
+end

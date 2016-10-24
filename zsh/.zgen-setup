@@ -23,8 +23,8 @@ load-plugins() {
     # theme
     # Other oh-my-zsh builtin options are 'agnoster','mortalscumbag', 'sunrise', 'ys'
     # See here for gallery: https://github.com/robbyrussell/oh-my-zsh/wiki/themes
-    #zgen oh-my-zsh themes/agnoster
-    zgen load bhilburn/powerlevel9k powerlevel9k
+    zgen oh-my-zsh themes/ys
+    #zgen load bhilburn/powerlevel9k powerlevel9k
 
 
     # completions

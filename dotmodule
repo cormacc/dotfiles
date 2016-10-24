@@ -1,5 +1,5 @@
 #!/usr/bin/ruby
-# Look into using fasd with shell stuff: https://github.com/clvv/fasd
+
 # Original intention was to use this with stow, letting stow do symlinks and
 # rakefile handle stuff like updating path etc...
 # However that would require a convoluted directory structure
@@ -7,14 +7,35 @@
 
 # Another options
 
+#TODO: 
+# Look into using fasd with shell stuff: https://github.com/clvv/fasd
+
+require 'fileutils'
+require 'pathname'
 require 'thor'
 module DotModule
+  PROFILE_PATH = Pathname.new("~/.profile.d")
+  BIN_PATH = Pathname.new("~/bin")
+  DOT_PATHS = [PROFILE_PATH, BIN_PATH]
+  def self.create_paths
+    DOT_PATHS.each do |path|
+      abs_path = path.expand_path 
+      if !abs_path.directory?
+        puts "Directory '#{abs_path}' not found, creating..."
+        FileUtils.mkdir_p(abs_path)
+      end
+    end
+  end
+  
   def self.install(name)
-
+    self.create_paths
+    
     raise ArgumentError, "Module '#{name}' not found" unless File.directory?(name)
 
     puts "... installing #{name} ..."
     system "stow #{name}"
+
+    #TODO: Source any additions to .profile.d for the current session
 
   end
 
