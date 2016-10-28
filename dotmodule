@@ -1,4 +1,4 @@
-#!/usr/bin/ruby
+#!/usr/bin/env ruby
 
 # Original intention was to use this with stow, letting stow do symlinks and
 # rakefile handle stuff like updating path etc...
