@@ -4,7 +4,13 @@
 
 #This may be overridden with impunity, but base setting squashes an error
 # on some platforms if not specified elsewhere.  
-export TERMINAL=xterm-256color
+export TERM=xterm-256color
+
+#Set this to non-zero when debugging to list autoloads etc.
+export VERBOSE=1
+
+#TODO: Move this somewhere in .profile.d (?xorg module?)
+export TERMINAL=termite
 
 #Local bin directory, for dotmodule additions to the path
 export PATH="$PATH:$HOME/bin"
@@ -13,9 +19,9 @@ export PATH="$PATH:$HOME/bin"
 #This method doesn't give an error when directory contains no files
 #N.B. the '-xtype' argument to find resolves symbolic links to their target type
 if [ -d ~/.profile.d ]; then
-  echo Found .profile.d 
+  (($VERBOSE)) && echo Found .profile.d 
   find ~/.profile.d/. ! -name . -prune ! -name '.*' -name '*.sh' -xtype f -print0 | while IFS= read -r -d $'\0' autoload; do
-    echo Sourcing $autoload 
+    (($VERBOSE)) && echo Sourcing $autoload 
     source "$autoload"
   done
 fi

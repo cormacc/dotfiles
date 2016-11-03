@@ -6,7 +6,7 @@ exec --no-startup-id dropbox
 exec --no-startup-id dispad
 #exec --no-startup-id (xrandr --listproviders | grep -q "modesetting") && xrandr --setprovideroutputsource 1 0
 exec --no-startup-id redshift
-exec --no-startup-id ~/bin/displayconfig auto
+exec --no-startup-id displaytools auto
 
 focus_follows_mouse no
 
@@ -25,7 +25,7 @@ bindsym $mod+p exec scrot -e 'mv $f /tmp/ && gimp /tmp/$f'
 bindsym $mod+shift+print exec scrot -s -e 'mv $f /tmp/ && gimp /tmp/$f'
 
 #monitor control
-bindsym $mod+m          exec ~/bin/displayconfig auto
+bindsym $mod+m          exec displaytools auto
 
 #screen brightness control
 bindsym XF86MonBrightnessUp exec sudo /usr/bin/local/screen-backlight.sh up
@@ -46,15 +46,30 @@ bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute 1 toggle && killa
 bindsym $mod+z workspace back_and_forth
 bindsym $mod+Shift+z move container to workspace back_and_forth; workspace back_and_forth
 
-bindsym $mod+Left move container to output left
-bindsym $mod+Down move container to output down
-bindsym $mod+Up move container to output up
-bindsym $mod+Right move container to output right
+#Use move by workspace number instead
+#bindsym $mod+Left move container to output left
+#bindsym $mod+Down move container to output down
+#bindsym $mod+Up move container to output up
+#bindsym $mod+Right move container to output right
 
 bindsym $mod+Shift+Left move workspace to output left
 bindsym $mod+Shift+Down move workspace to output down
 bindsym $mod+Shift+Up move workspace to output up
 bindsym $mod+Shift+Right move workspace to output right
+
+#VIM keybindings
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+bindsym $mod+l focus right
+
+bindsym $mod+Shift+h move workspace to output left
+bindsym $mod+Shift+j move workspace to output down
+bindsym $mod+Shift+k move workspace to output up
+bindsym $mod+Shift+l move workspace to output right
+
+bindsym $mod+v split v
+bindsym $mod+Shift+v split h
 
 
 # switch to workspace
@@ -167,23 +182,23 @@ floating_modifier $mod
 #bindsym $mod+d exec --no-startup-id j4-dmenu-desktop --dmenu="dmenu -fn 'Dejavu Sans Mono-8'"
 
 # change focus
-bindsym $mod+j focus left
-bindsym $mod+k focus down
-bindsym $mod+l focus up
-bindsym $mod+semicolon focus right
+#bindsym $mod+j focus left
+#bindsym $mod+k focus down
+#bindsym $mod+l focus up
+#bindsym $mod+semicolon focus right
 
 
 # move focused window
-bindsym $mod+Shift+j move left
-bindsym $mod+Shift+k move down
-bindsym $mod+Shift+l move up
-bindsym $mod+Shift+semicolon move right
+#bindsym $mod+Shift+j move left
+#bindsym $mod+Shift+k move down
+#bindsym $mod+Shift+l move up
+#bindsym $mod+Shift+semicolon move right
 
 # split in horizontal orientation
-bindsym $mod+h split h
+#bindsym $mod+h split h
 
 # split in vertical orientation
-bindsym $mod+v split v
+#bindsym $mod+v split v
 
 # enter fullscreen mode for the focused container
 bindsym $mod+f fullscreen toggle
@@ -220,10 +235,10 @@ mode "resize" {
         # Pressing right will grow the window’s width.
         # Pressing up will shrink the window’s height.
         # Pressing down will grow the window’s height.
-        bindsym j resize shrink width 10 px or 10 ppt
-        bindsym k resize grow height 10 px or 10 ppt
-        bindsym l resize shrink height 10 px or 10 ppt
-        bindsym semicolon resize grow width 10 px or 10 ppt
+        bindsym h resize shrink width 10 px or 10 ppt
+        bindsym j resize grow height 10 px or 10 ppt
+        bindsym k resize shrink height 10 px or 10 ppt
+        bindsym l resize grow width 10 px or 10 ppt
 
         # same bindings, but for the arrow keys
         bindsym Left resize shrink width 10 px or 10 ppt

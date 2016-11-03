@@ -1,0 +1,41 @@
+#!/usr/bin/env zsh
+
+# Clone zplug if you haven't already
+if [[ ! -f ~/.zplug/init.zsh ]]; then
+  pushd ~
+  git clone https://github.com/zplug/zplug.git .zplug
+  popd
+  source ~/.zplug/init.zsh && zplug update --self
+fi
+
+# load zplug
+source ~/.zplug/init.zsh
+
+echo "Loading plugins..."
+
+# load plugins...
+zplug "zsh-users/zsh-syntax-highlighting"
+zplug "zsh-users/zsh-history-substring-search"
+
+zplug "zsh-users/zsh-completions"
+
+
+#Modules can dump zplug plugin config in a .zplug.d folder
+#This method doesn't give an error when directory contains no files
+#N.B. the '-xtype' argument to find resolves symbolic links to their target type
+if [[ -d ~/.zplug.d ]]; then
+    (($VERBOSE)) && echo Found .zplug.d 
+    for file in $HOME/.zplug.d/*.zsh; do
+        (($VERBOSE)) && echo Sourcing $file ... 
+        source $file
+    done
+fi
+
+
+if ! zplug check --verbose; then
+    zplug install
+fi
+
+zplug load
+
+
