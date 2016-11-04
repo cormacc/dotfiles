@@ -13,19 +13,19 @@ source ~/.zgen/zgen.zsh
 load-plugins() {
     echo "Creating a zgen save"
 
-    # oh-my-zsh modules (these are used in some of the .zgen.d autoloads)
+    # oh-my-zsh modules (these are used in some of the .zgenrc.d autoloads)
     zgen oh-my-zsh
 
     # load plugins...
     zgen load zsh-users/zsh-syntax-highlighting
     zgen load zsh-users/zsh-history-substring-search
 
-    #Modules can dump zgen plugin config in a .zgen.d folder
+    #Modules can dump zgen plugin config in a .zgenrc.d folder
     #This method doesn't give an error when directory contains no files
     #N.B. the '-xtype' argument to find resolves symbolic links to their target type
-    if [[ -d ~/.zgen.d ]]; then
-        echo Found .zgen.d 
-        find ~/.zgen.d/. ! -name . -prune ! -name '.*' -name '*.zsh' -xtype f -print0 | while IFS= read -r -d $'\0' autoload; do
+    if [[ -d ~/.zgenrc.d ]]; then
+        echo Found .zgenrc.d 
+        find ~/.zgenrc.d/. ! -name . -prune ! -name '.*' -name '*.zsh' -xtype f -print0 | while IFS= read -r -d $'\0' autoload; do
             echo Sourcing $autoload 
             source "$autoload"
         done
@@ -51,12 +51,12 @@ zgen-autoupdate() {
     REAL_ZGEN_SETUP="${HOME}/$(readlink ~/.zgen-setup)"
   fi
 
-  # If .zgen-setup is newer than init.zsh OR if content of .zgen.d has changed, regenerate init.zsh
+  # If .zgen-setup is newer than init.zsh OR if content of .zgenrc.d has changed, regenerate init.zsh
   if [[ ($(get_file_modification_time ${REAL_ZGEN_SETUP}) -gt $(get_file_modification_time ~/.zgen/init.zsh) ) ]]; then
     echo "Regenerating init.zsh ($(basename ${REAL_ZGEN_SETUP}) updated) ..."
     load-plugins
-  elif [[ ($(get_file_modification_time ~/.zgen.d) -gt $(get_file_modification_time ~/.zgen/init.zsh) ) ]]; then
-    echo "Regenerating init.zsh (.zgen.d updated) ..."
+  elif [[ ($(get_file_modification_time ~/.zgenrc.d) -gt $(get_file_modification_time ~/.zgen/init.zsh) ) ]]; then
+    echo "Regenerating init.zsh (.zgenrc.d updated) ..."
     load-plugins
   fi
   unset LAST_UPDATE_TIME

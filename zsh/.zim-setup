@@ -1,0 +1,10 @@
+#!/usr/bin/env zsh
+
+# Clone zim if you haven't already
+if [[ ! -f ~/.zim/init.zsh ]]; then
+    git clone --recursive https://github.com/Eriner/zim.git ${ZDOTDIR:-${HOME}}/.zim
+fi
+
+# load zim
+source ${ZDOTDIR:-${HOME}}/.zim/init.zsh
+
