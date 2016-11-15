@@ -1,0 +1,21 @@
+#!/bin/env sh
+
+#Adapted from ArchWiki: https://wiki.archlinux.org/index.php/emacs
+
+    if [ -z "$DISPLAY" ]; then
+        (($VERBOSE)) && echo Sniffed DISPLAY variable
+        IS_GRAPHICAL=true
+    else
+        (($VERBOSE)) && echo DISPLAY not set -- querying emacs
+        IS_GRAPHICAL=$(emacs --batch -Q --eval='(if (fboundp '"'"'tool-bar-mode) (message "true") (message "false"))' 2>&1)
+        (($VERBOSE)) && echo Finished querying emacs -- result $IS_GRAPHICAL
+    fi
+
+    if $IS_GRAPHICAL; then
+        (($VERBOSE)) && echo Opening graphical sesion
+        emacsclient -a "" -nc "$@"
+    else
+        (($VERBOSE)) && echo Opening text session
+        emacsclient -a "" -t "$@"
+    fi
+

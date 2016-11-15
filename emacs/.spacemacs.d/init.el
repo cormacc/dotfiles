@@ -37,7 +37,9 @@ values."
      mineo-rtags
      ivy
      go
-     (ruby :variables ruby-test-runner 'rspec)
+     (ruby :variables
+           ruby-test-runner 'rspec
+           ruby-version-manager 'chruby)
      (shell :variables
             shell-default-height 30
             shell-default-position 'bottom)
@@ -229,7 +231,7 @@ values."
    dotspacemacs-highlight-delimiters 'all
    ;; If non nil advises quit functions to keep server open when quitting.
    ;; (default nil)
-   dotspacemacs-persistent-server nil
+   dotspacemacs-persistent-server t
    ;; List of search tool executable names. Spacemacs uses the first installed
    ;; tool of the list. Supported tools are `ag', `pt', `ack' and `grep'.
    ;; (default '("ag" "pt" "ack" "grep"))

@@ -6,7 +6,9 @@ exec --no-startup-id dropbox
 exec --no-startup-id dispad
 #exec --no-startup-id (xrandr --listproviders | grep -q "modesetting") && xrandr --setprovideroutputsource 1 0
 exec --no-startup-id redshift
-exec --no-startup-id displaytools auto
+
+# Now running this from .xprofile instead...
+#exec --no-startup-id displaytools auto
 
 focus_follows_mouse no
 

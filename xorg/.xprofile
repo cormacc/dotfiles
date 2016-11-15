@@ -1,0 +1,4 @@
+PATH="$(ruby -e 'print Gem.user_dir')/bin:$PATH"
+# This assumes the displaytools gem is installed.
+# TODO: add xorg-pre script to do this, but can't publish the gem until my PR for the xrandr gem is accepted
+[[ $(type displaytools) ]] && displaytools auto || echo "displaytools is NOT in path"

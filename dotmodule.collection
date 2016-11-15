@@ -6,6 +6,9 @@
   - bin
   - .config
   - .profile.d
+  - .config/systemd/user
+
+#N.B. '.config' entry is redundant when we have a subdir entry (i.e. 'config/systemd/user'), but does no harm
 
 :core_modules:
   - base
