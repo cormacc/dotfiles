@@ -18,14 +18,14 @@ values."
    ;; of a list then all discovered layers will be installed.
    dotspacemacs-configuration-layers
    '(
-     javascript
-     vimscript
+     ;;javascript
+     ;;vimscript
      ;; ----------------------------------------------------------------
      ;; Example of useful layers you may want to use right away.
      ;; Uncomment some layer names and press <SPC f e R> (Vim style) or
      ;; <M-m f e R> (Emacs style) to install them.
      ;; ----------------------------------------------------------------
-     asm
+     ;;asm
      (auto-completion :variables auto-completion-enable-snippets-in-popup t)
      better-defaults
      (c-c++ :variables c-c++-enable-clang-support t)
@@ -142,7 +142,7 @@ values."
    ;; Default font. `powerline-scale' allows to quickly tweak the mode-line
    ;; size to make separators look not too crappy.
    dotspacemacs-default-font '("Hack"
-                               :size 24
+                               :size 18 
                                :weight normal
                                :width normal
                                :powerline-scale 1.2)
@@ -292,6 +292,12 @@ values."
 It is called immediately after `dotspacemacs/init'.  You are free to put almost
 any user code here.  The exception is org related code, which should be placed
 in `dotspacemacs/user-config'."
+  (setq tramp-default-method "ssh")
+  (setq tramp-password-prompt-regexp
+        "^.*\\([pP]assword\\|[pP]assphrase\\|Verification code\\).*:? *")
+  (setq tramp-ssh-controlmaster-options
+        (concat
+         "-o ControlPath=~/.ssh/%%r@%%h:%%p"))
   )
 
 (defun dotspacemacs/user-config ()

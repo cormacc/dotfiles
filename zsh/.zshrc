@@ -6,6 +6,8 @@
 # - .zprofile is basically the same as .zlogin except that it's sourced directly before .zshrc is sourced instead of directly after it. According to the zsh documentation, ".zprofile is meant as an alternative to `.zlogin' for ksh fans; the two are not intended to be used together, although this could certainly be done if desired."
 # - .zlogout is sometimes used to clear and reset the terminal.
 
+# This line is to prevent zsh config stalling emacs tramp connections to remote hosts
+[[ $TERM == "dumb" ]] && unsetopt zle && PS1='$ ' && return
 
 # Uncomment following line if you want red dots to be displayed while waiting for completion
 export COMPLETION_WAITING_DOTS="true"
