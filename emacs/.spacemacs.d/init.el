@@ -26,11 +26,13 @@ values."
      ;; <M-m f e R> (Emacs style) to install them.
      ;; ----------------------------------------------------------------
      ;;asm
-     (auto-completion :variables auto-completion-enable-snippets-in-popup t)
+     (auto-completion :variables
+                      auto-completion-enable-snippets-in-popup t
+                      auto-completion-private-snippets-directory "~/.spacemacs.d/snippets")
      better-defaults
      (c-c++ :variables c-c++-enable-clang-support t)
      clojure
-     cscope
+     ;;cscope
      (colors :variables
              colors-enable-nyan-cat-progress-bar t
              nyan-bar-length 8)
@@ -49,6 +51,7 @@ values."
           org-enable-reveal-js-support t)
      ;;(org :variables org-projectile-file "TODO.org")
      pandoc
+     plantuml
      (ranger :variables
              ranger-show-preview t
              ranger-cleanup-on-disable t
@@ -66,9 +69,10 @@ values."
      shell-scripts
      spell-checking
      syntax-checking
-     (version-control :variables
-                      version-control-diff-tool 'git-gutter
-                      version-control-global-margin t)
+     version-control
+     ;; (version-control :variables
+     ;;                  version-control-diff-tool 'git-gutter
+     ;;                  version-control-global-margin t)
      yaml
      )
    ;; List of additional packages that will be installed without being
@@ -142,7 +146,7 @@ values."
    ;; Default font. `powerline-scale' allows to quickly tweak the mode-line
    ;; size to make separators look not too crappy.
    dotspacemacs-default-font '("Hack"
-                               :size 18 
+                               :size 22 
                                :weight normal
                                :width normal
                                :powerline-scale 1.2)
@@ -261,6 +265,7 @@ values."
    ;; derivatives. If set to `relative', also turns on relative line numbers.
    ;; (default nil)
    dotspacemacs-line-numbers 'relative
+   ;;dotspacemacs-line-numbers t
    ;; If non-nil smartparens-strict-mode will be enabled in programming modes.
    ;; (default nil)
    dotspacemacs-smartparens-strict-mode nil
@@ -304,6 +309,8 @@ in `dotspacemacs/user-config'."
   "Configuration function for user code.
 This function is called at the very end of Spacemacs initialization after
 layers configuration. You are free to put any user code."
+  (define-key global-map (kbd "C-+") 'text-scale-increase)
+  (define-key global-map (kbd "C--") 'text-scale-decrease)
 
   (c-add-style "cormacc"
                '((indent-tabs-mode . nil)
@@ -383,7 +390,7 @@ layers configuration. You are free to put any user code."
     ("#dc322f" "#cb4b16" "#b58900" "#546E00" "#B4C342" "#00629D" "#2aa198" "#d33682" "#6c71c4")))
  '(package-selected-packages
    (quote
-    (clojure-snippets clj-refactor inflections edn paredit peg cider-eval-sexp-fu cider seq queue clojure-mode packed epresent web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor multiple-cursors js2-mode js-doc company-tern dash-functional tern coffee-mode alert ox-reveal pandoc-mode ox-pandoc ht helm-gtags helm-css-scss helm-cscope zenburn-theme monokai-theme solarized-theme powerline request spinner bind-key bind-map pcre2el vimrc-mode dactyl-mode ox-gfm xcscope x86-lookup stickyfunc-enhance srefactor rainbow-mode rainbow-identifiers quack nasm-mode key-chord ggtags geiser fiplr grizzl find-file-in-project engine-mode dired-subtree dired-narrow dired-hacks-utils color-identifiers-mode vmd-mode web-mode tagedit slim-mode scss-mode sass-mode pug-mode less-css-mode haml-mode emmet-mode company-web web-completion-data pcache git-gutter iedit go-mode yasnippet auto-complete inf-ruby company highlight anzu smartparens undo-tree flycheck projectile helm helm-core hydra markdown-mode magit magit-popup async dash s ranger go-guru git-commit with-editor org minitest insert-shebang hide-comnt fish-mode company-shell rtags cmake-ide levenshtein yaml-mode wgrep smex ivy-hydra flyspell-correct-ivy counsel-projectile counsel swiper ivy uuidgen rake org-projectile org-download mwim link-hint git-link flyspell-correct-helm flyspell-correct eyebrowse evil-visual-mark-mode evil-unimpaired evil-ediff eshell-z dumb-jump f column-enforce-mode xterm-color ws-butler window-numbering which-key volatile-highlights vi-tilde-fringe use-package toc-org spacemacs-theme spaceline smooth-scrolling smeargle shell-pop rvm ruby-tools ruby-test-mode rubocop rspec-mode robe restart-emacs rbenv rainbow-delimiters quelpa popwin persp-mode paradox page-break-lines orgit org-repo-todo org-present org-pomodoro org-plus-contrib org-bullets open-junk-file neotree multi-term move-text mmm-mode markdown-toc magit-gitflow macrostep lorem-ipsum linum-relative leuven-theme info+ indent-guide ido-vertical-mode hungry-delete htmlize hl-todo highlight-parentheses highlight-numbers highlight-indentation help-fns+ helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-gitignore helm-flyspell helm-flx helm-descbinds helm-company helm-c-yasnippet helm-ag google-translate golden-ratio go-eldoc gnuplot gitconfig-mode gitattributes-mode git-timemachine git-messenger git-gutter-fringe git-gutter-fringe+ gh-md flycheck-pos-tip flx-ido fill-column-indicator fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-magit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu eshell-prompt-extras esh-help elisp-slime-nav disaster diff-hl define-word company-statistics company-quickhelp company-go company-c-headers cmake-mode clean-aindent-mode clang-format chruby bundler buffer-move bracketed-paste auto-yasnippet auto-highlight-symbol auto-dictionary auto-compile aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line ac-ispell)))
+    (evil plantuml-mode clojure-snippets clj-refactor inflections edn paredit peg cider-eval-sexp-fu cider seq queue clojure-mode packed epresent web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor multiple-cursors js2-mode js-doc company-tern dash-functional tern coffee-mode alert ox-reveal pandoc-mode ox-pandoc ht helm-gtags helm-css-scss helm-cscope zenburn-theme monokai-theme solarized-theme powerline request spinner bind-key bind-map pcre2el vimrc-mode dactyl-mode ox-gfm xcscope x86-lookup stickyfunc-enhance srefactor rainbow-mode rainbow-identifiers quack nasm-mode key-chord ggtags geiser fiplr grizzl find-file-in-project engine-mode dired-subtree dired-narrow dired-hacks-utils color-identifiers-mode vmd-mode web-mode tagedit slim-mode scss-mode sass-mode pug-mode less-css-mode haml-mode emmet-mode company-web web-completion-data pcache git-gutter iedit go-mode yasnippet auto-complete inf-ruby company highlight anzu smartparens undo-tree flycheck projectile helm helm-core hydra markdown-mode magit magit-popup async dash s ranger go-guru git-commit with-editor org minitest insert-shebang hide-comnt fish-mode company-shell rtags cmake-ide levenshtein yaml-mode wgrep smex ivy-hydra flyspell-correct-ivy counsel-projectile counsel swiper ivy uuidgen rake org-projectile org-download mwim link-hint git-link flyspell-correct-helm flyspell-correct eyebrowse evil-visual-mark-mode evil-unimpaired evil-ediff eshell-z dumb-jump f column-enforce-mode xterm-color ws-butler window-numbering which-key volatile-highlights vi-tilde-fringe use-package toc-org spacemacs-theme spaceline smooth-scrolling smeargle shell-pop rvm ruby-tools ruby-test-mode rubocop rspec-mode robe restart-emacs rbenv rainbow-delimiters quelpa popwin persp-mode paradox page-break-lines orgit org-repo-todo org-present org-pomodoro org-plus-contrib org-bullets open-junk-file neotree multi-term move-text mmm-mode markdown-toc magit-gitflow macrostep lorem-ipsum linum-relative leuven-theme info+ indent-guide ido-vertical-mode hungry-delete htmlize hl-todo highlight-parentheses highlight-numbers highlight-indentation help-fns+ helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-gitignore helm-flyspell helm-flx helm-descbinds helm-company helm-c-yasnippet helm-ag google-translate golden-ratio go-eldoc gnuplot gitconfig-mode gitattributes-mode git-timemachine git-messenger git-gutter-fringe git-gutter-fringe+ gh-md flycheck-pos-tip flx-ido fill-column-indicator fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-magit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu eshell-prompt-extras esh-help elisp-slime-nav disaster diff-hl define-word company-statistics company-quickhelp company-go company-c-headers cmake-mode clean-aindent-mode clang-format chruby bundler buffer-move bracketed-paste auto-yasnippet auto-highlight-symbol auto-dictionary auto-compile aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line ac-ispell)))
  '(pos-tip-background-color "#A6E22E")
  '(pos-tip-foreground-color "#272822")
  '(smartrep-mode-line-active-bg (solarized-color-blend "#859900" "#073642" 0.2))
