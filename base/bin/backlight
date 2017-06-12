@@ -7,12 +7,15 @@ set -e
 #	Usage:
 #		screen-backlight	{up,down,total,off}
 #
+# For this to work without root privileges, you'll need to be a member of the 'video' group
+# and place a file called something like '90-backlight.rules' with the following content in
+# '/etc/udev/rules.d/'
+#
+# SUBSYSTEM=="backlight", ACTION=="add", \
+#         RUN+="/bin/chgrp video %S%p/brightness", \
+#         RUN+="/bin/chmod g+w %S%p/brightness"
+#
 
-
-if [ $UID -ne 0 ]; then
-	echo "Please run this program as superuser"
-	exit 1
-fi
 
 BLDIR=/sys/class/backlight/acpi_video0
 GMDIR=/sys/class/backlight/gmux_backlight

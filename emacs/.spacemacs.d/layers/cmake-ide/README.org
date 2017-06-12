@@ -1,0 +1,43 @@
+#+TITLE: cmake-ide layer
+
+# The maximum height of the logo should be 200 pixels.
+[[# img/cmake-ide.png]]
+
+# TOC links should be GitHub style anchors.
+* Table of Contents                                        :TOC_4_gh:noexport:
+ - [[#decsription][Description]]
+ - [[#install][Install]]
+ - [[#key-bindings][Key bindings]]
+
+* Description
+This layer does wonderful things:
+  - thing01
+
+This layer enables cmake-ide
+
+Based on this open Spacemacs PR https://github.com/syl20bnr/spacemacs/pull/7187.
+By 'based', I mean a complete rip off -- just took the contents and wrapped them in a private layer until
+the PR gets accepted.
+
+- Support for CMake configure/build (with limited support for other build systems),
+  automatic generation of =compile_commands.json= (compile flags), on-the-fly configuration
+  of flycheck, company-clang and RTags (if installed) with [[https://github.com/atilaneves/cmake-ide][cmake-ide]] .
+
+
+* Install
+To use this configuration layer, add it to your =~/.spacemacs=. You will need to
+add =cmake-ide= to the existing =dotspacemacs-configuration-layers= list in this
+file.
+
+* Key bindings
+
+| Key Binding | Description                       |
+|-------------+-----------------------------------|
+| ~SPC m p~   | Project / Build system management |
+| ~SPC m c c~ | Compile project                   |
+
+# Use GitHub URLs if you wish to link a Spacemacs documentation file or its heading.
+# Examples:
+# [[https://github.com/syl20bnr/spacemacs/blob/master/doc/VIMUSERS.org#sessions]]
+# [[https://github.com/syl20bnr/spacemacs/blob/master/layers/%2Bfun/emoji/README.org][Link to Emoji layer README.org]]
+# If space-doc-mode is enabled, Spacemacs will open a local copy of the linked file.

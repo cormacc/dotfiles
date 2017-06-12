@@ -7,14 +7,17 @@ set -e
 #	Usage:
 #		keyboard-backlight	{up,down,total,off}
 #
+# For this to work without root privileges, you'll need to be a member of the 'video' group
+# and place a file called something like '90-keylight.rules' with the following content in
+# '/etc/udev/rules.d/'
+#
+# SUBSYSTEM=="leds", ACTION=="add", KERNEL=="*::kbd_backlight", \
+#         RUN+="/bin/chgrp video %S%p/brightness", \
+#         RUN+="/bin/chmod g+w %S%p/brightness"
+#
 
 BACKLIGHT=$(cat /sys/class/leds/smc::kbd_backlight/brightness)
 INCREMENT=15
-
-if [ $UID -ne 0 ]; then
-	echo "Please run this program as superuser"
-	exit 1
-fi
 
 SET_VALUE=0
 case $1 in
