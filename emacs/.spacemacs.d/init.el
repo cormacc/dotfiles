@@ -423,7 +423,7 @@ you should place your code here."
     (setq octave-mode-hook
           (lambda () (progn (setq octave-comment-char ?%)
                             (setq comment-start "%")
-                            (setq indent-tabs-mode t)
+                            (setq indent-tabs-mode nil)
                             (setq comment-add 0)
                             (setq tab-width 2)
                             (setq tab-stop-list (number-sequence 2 200 2))
