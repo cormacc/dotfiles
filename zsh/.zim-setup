@@ -8,3 +8,4 @@ fi
 # load zim
 source ${ZDOTDIR:-${HOME}}/.zim/init.zsh
 
+prompt pure
