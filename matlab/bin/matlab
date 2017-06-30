@@ -1,0 +1,5 @@
+export J2D_D3D=false
+export MATLAB_JAVA=/usr/lib/jvm/default-runtime
+export LD_PRELOAD=/usr/lib/libstdc++.so
+export LD_LIBRARY_PATH=/usr/lib/xorg/modules/dri/
+/opt/matlab/r2016b/bin/matlab "$@"

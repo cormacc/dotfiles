@@ -7,13 +7,14 @@
 export TERM=xterm-256color
 
 #Set this to non-zero when debugging to list autoloads etc.
-#export VERBOSE=1
+export VERBOSE=0
 
 #TODO: Move this somewhere in .profile.d (?xorg module?)
-export TERMINAL=termite
+# export TERMINAL=termite
 
 #Local bin directory, for dotmodule additions to the path
-export PATH="$PATH:$HOME/bin"
+#export PATH="$HOME/bin:$(ruby -e 'print Gem.user_dir')/bin:$PATH"
+export PATH="$HOME/bin:$PATH"
 
 #Modules can dump environment config in a .profile.d folder
 #This method doesn't give an error when directory contains no files
@@ -22,11 +23,15 @@ if [ -d ~/.profile.d ]; then
   (($VERBOSE)) && echo Found .profile.d 
   find ~/.profile.d/. ! -name . -prune ! -name '.*' -name '*.sh' -xtype f -print0 | while IFS= read -r -d $'\0' autoload; do
     (($VERBOSE)) && echo Sourcing $autoload 
-    source "$autoload"
+    #source "$autoload"
+    . $autoload
   done
 fi
 # dotmodule framework end
 #------------------------------
+
+(($VERBOSE)) && echo Path "$PATH" 
+
 
 #... your additions below this line ...
 
