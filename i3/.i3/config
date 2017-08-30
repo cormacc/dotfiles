@@ -21,13 +21,14 @@ bindsym $mod+n border normal
 
 # Font for window titles. Will also be used by the bar unless a different font
 # is used in the bar {} block below.
-font xft:Noto Sans 10
+font xft:Noto Sans 8
 
 # Use Mouse+$mod to drag floating windows
 floating_modifier $mod
 
 # start a terminal
-bindsym $mod+Return exec terminal
+#bindsym $mod+Return exec terminal
+bindsym $mod+Return exec termite
 
 # kill focused window
 #bindsym $mod+Shift+q kill
@@ -352,7 +353,7 @@ exec_always --no-startup-id fix_xcursor
 
 #CC additions
 exec --no-startup-id dropbox
-#exec --no-startup-id insync
+exec --no-startup-id insync
 
 bindsym $mod+Ctrl+d exec dock
 bindsym $mod+Ctrl+u exec undock
@@ -368,7 +369,7 @@ bar {
 
 	bindsym button4 nop
 	bindsym button5 nop
-	font xft:Noto Sans 10.5
+	font xft:Noto Sans 8
 	strip_workspace_numbers yes
 
 	colors {

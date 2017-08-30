@@ -43,4 +43,5 @@ fi
 export EDITOR="/usr/bin/vim"
 export VISUAL="/usr/bin/vim"
 
-
+export PATH="$(ruby -e 'print Gem.user_dir')/bin:$PATH"
+export GEM_HOME=$(ruby -e 'print Gem.user_dir')
