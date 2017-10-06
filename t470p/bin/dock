@@ -1,0 +1,25 @@
+# Thinkpad dock only supports 30Hz for two 4k displays
+# One may have been auto-configured to 60Hz initially, 
+# so disable external displays first to avoid issues...
+xrandr --output DP3-1 --off
+xrandr --output DP3-2 --off
+
+# Set resolution for all displays
+xrandr --output eDP1 --auto
+xrandr --output DP3-1 --mode 3840x2160 --rate 30 --primary --above eDP1
+xrandr --output DP3-2 --mode 3840x2160 --rate 30 --right-of DP3-1
+
+# Scale the two 4k displays -- otherwise font sizes are inconsistent with internal display
+# Also need to update the position of right display, to prevent mouse passing through a dead zone between monitors
+#xrandr --output DP3-1 --scale 0.8x0.8
+#xrandr --output DP3-2 --scale 0.8x0.8 --pos 3072x0
+
+# Centre internal display below two external displays
+xrandr --output eDP1 --pos 2560x2160
+
+# Centre internal display below left display
+# xrandr --output eDP1 --pos 576x1728
+# Centre internal display below right display
+# xrandr --output eDP1 --pos 3648x1728
+
+localectl set-x11-keymap us kinesis

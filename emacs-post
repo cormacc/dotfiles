@@ -1,3 +1,4 @@
 #!/bin/env sh
 
-systemctl --user enable emacs && systemctl --user start emacs
+#Service-based approach unstable for some reason...
+#systemctl --user enable emacs && systemctl --user start emacs

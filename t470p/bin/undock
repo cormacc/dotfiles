@@ -1,0 +1,7 @@
+xrandr --output DP3-1 --off
+xrandr --output DP3-2 --off
+
+xrandr --output eDP1 --auto
+
+# Revert from kinesis -> internal keyboard layout
+localectl set-x11-keymap ie pc105
