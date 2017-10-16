@@ -1,0 +1,11 @@
+# Set resolution for all displays
+xrandr --output eDP1 --auto
+xrandr --output HDMI1 --auto --above eDP1
+xrandr --output HDMI1 --scale 1.5x1.5
+
+
+# Centre internal display below external displays
+xrandr --output eDP1 --pos 160x1620
+
+#localectl set-x11-keymap uk pc104 qwerty caps:escape
+

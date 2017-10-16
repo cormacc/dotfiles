@@ -22,4 +22,4 @@ xrandr --output eDP1 --pos 2560x2160
 # Centre internal display below right display
 # xrandr --output eDP1 --pos 3648x1728
 
-localectl set-x11-keymap us kinesis
+setxkbmap -model kinesis -layout us
