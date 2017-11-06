@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Thinkpad dock only supports 30Hz for two 4k displays
 # One may have been auto-configured to 60Hz initially, 
 # so disable external displays first to avoid issues...

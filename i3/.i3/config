@@ -28,7 +28,7 @@ floating_modifier $mod
 
 # start a terminal
 #bindsym $mod+Return exec terminal
-bindsym $mod+Return exec termite
+bindsym $mod+Return exec termite -e fish
 
 # kill focused window
 #bindsym $mod+Shift+q kill
@@ -226,7 +226,7 @@ bindsym $mod+Shift+9 move container to workspace $ws9; workspace $ws9
 bindsym $mod+Shift+0 move container to workspace $ws10; workspace $ws10
 
 # Assign workspaces to specific outputs (CC)
-# TODO: Move this into the dock script, though prefixing these lines as with i3-msg doesn't work 
+# TODO: Move this into the dock script, though prefixing these lines as with i3-msg doesn't work
 workspace 1 output eDP1
 workspace 2 output eDP1
 workspace 3 output eDP1
@@ -360,19 +360,19 @@ bindsym $mod+Ctrl+u exec undock
 
 # Start i3bar to display a workspace bar (plus the system information i3status if available)
 bar {
-	status_command i3status
-	position bottom
+  status_command i3status
+  position bottom
 
 ## please set your primary output first. Example: 'xrandr --output eDP1 --primary'
 #	tray_output primary
-	tray_output eDP1
+  tray_output eDP1
 
-	bindsym button4 nop
-	bindsym button5 nop
-	font xft:Noto Sans 8
-	strip_workspace_numbers yes
+  bindsym button4 nop
+  bindsym button5 nop
+  font xft:Noto Sans 8
+  strip_workspace_numbers yes
 
-	colors {
+  colors {
 #       background $transparent
         background #2B2C2B
         statusline #F9FAF9
@@ -415,7 +415,7 @@ gaps outer -4
 # Smart gaps (gaps used if only more than one container on the workspace)
 smart_gaps on
 
-# Smart borders (draw borders around container only if it is not the only container on this workspace) 
+# Smart borders (draw borders around container only if it is not the only container on this workspace)
 # on|no_gaps (on=always activate and no_gaps=only activate if the gap size to the edge of the screen is 0)
 smart_borders on
 
