@@ -1,0 +1,1 @@
+/home/cormacc/.config/fisherman/docker-completion/completions/docker.fish

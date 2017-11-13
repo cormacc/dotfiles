@@ -1,0 +1,1 @@
+/home/cormacc/.config/fisherman/gitstatus/fish_prompt.fish

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #Clone spacemacs
-if [[ -a ~/.emacs.d ]]; then
+if [[ -e ~/.emacs.d ]]; then
     echo "WARNING: ~/.emacs.d found -- skipping spacemacs checkout"
 else
     git clone https://github.com/syl20bnr/spacemacs ~/.emacs.d
