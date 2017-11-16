@@ -40,7 +40,7 @@ if [ $? -eq 0 ]; then
 else
   echo "No dock detected"
   status="Undocked"
-  xrandr --output eDP1 --auto
+  xrandr --auto
 
   # Revert from kinesis -> internal keyboard layout
   setxkbmap -model pc104 -layout gb

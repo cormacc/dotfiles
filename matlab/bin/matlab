@@ -1,5 +1,11 @@
-export J2D_D3D=false
-export MATLAB_JAVA=/usr/lib/jvm/default-runtime
-export LD_PRELOAD=/usr/lib/libstdc++.so
-export LD_LIBRARY_PATH=/usr/lib/xorg/modules/dri/
+#Built-in JDK results in missing text / GUI problems
+#N.B. Directory layout is different for openjdk 9
+#export MATLAB_JAVA=/usr/lib/jvm/default-runtime
+export MATLAB_JAVA=/usr/lib/jvm/java-8-openjdk
+
+#Reinstate these if necessary
+#export J2D_D3D=false
+#export LD_PRELOAD=/usr/lib/libstdc++.so
+#export LD_LIBRARY_PATH=/usr/lib/xorg/modules/dri/
+
 /opt/matlab/r2016b/bin/matlab "$@"
