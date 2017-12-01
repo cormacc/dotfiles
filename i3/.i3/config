@@ -28,7 +28,8 @@ floating_modifier $mod
 
 # start a terminal
 #bindsym $mod+Return exec terminal
-bindsym $mod+Return exec termite -e fish
+#bindsym $mod+Return exec termite -e fish
+bindsym $mod+Return exec termite
 
 # kill focused window
 #bindsym $mod+Shift+q kill
@@ -354,6 +355,7 @@ exec_always --no-startup-id fix_xcursor
 #CC additions
 exec --no-startup-id dropbox
 exec --no-startup-id insync start
+exec --no-strupt-id nextcloud
 exec --no-startup-id dock
 bindsym $mod+Ctrl+d exec dock
 

@@ -1,3 +1,2 @@
-#!/usr/bin/env sh
-
-export GOPATH=~/dev/go
+export GOPATH=~/go
+export PATH=$PATH:$GOPATH/bin

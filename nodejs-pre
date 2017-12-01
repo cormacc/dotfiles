@@ -10,3 +10,9 @@ npm config set prefix '~/.npm-global'
 
 #Then ensure ~/.npm-global/bin is added to the path
 #(we'll do this via .profile.d)
+
+# Install emacs javascript mode dependencies...
+npm install -g tern
+npm install -g js-beautify
+npm install -g eslint
+npm install -g jshint
