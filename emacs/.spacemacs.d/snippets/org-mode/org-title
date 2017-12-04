@@ -1,0 +1,23 @@
+# -*- mode: snippet -*-
+# name: Org-mode title block
+# key: org-title
+# --
+
+#+TITLE: $1
+#+AUTHOR: Cormac Cannon
+#+EMAIL: cormac.cannon@neuromoddevices.com
+#+LANGUAGE: en
+
+# HTML EXPORT SETUP
+
+# 1. Auto-export to html on save (N.B. This doesn't work?)
+# Local variables:
+# eval: (add-hook 'after-save-hook 'org-html-export-to-html t t)
+# End:
+
+# 2. Apply a theme
+# #+SETUPFILE: org-themes/theme-bigblow.setup
+#+SETUPFILE: https://raw.githubusercontent.com/fniessen/org-html-themes/master/setup/theme-bigblow.setup
+# or alternatively #+SETUPFILE: https://raw.githubusercontent.com/fniessen/org-html-themes/master/setup/theme-readtheorg.setup
+
+#+STARTUP:: noindent
