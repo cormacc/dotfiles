@@ -232,20 +232,20 @@ workspace 1 output eDP1
 workspace 2 output eDP1
 workspace 3 output eDP1
 
-workspace 4 output DP2-1
-workspace 5 output DP2-1
-workspace 6 output DP2-1
-workspace 7 output DP2-1
+workspace 4 output DP3-1
+workspace 5 output DP3-1
+workspace 6 output DP3-1
+workspace 7 output DP3-1
 
-workspace 8 output DP2-2
-workspace 9 output DP2-2
-workspace 10 output DP2-2
+workspace 8 output DP3-2
+workspace 9 output DP3-2
+workspace 10 output DP3-2
 
 # Open applications on specific workspaces
 # assign [class="Thunderbird"] $ws1
 # assign [class="Pale moon"] $ws2
 # assign [class="Pcmanfm"] $ws3
-# assign [class="Skype"] $ws5
+assign [class="Firefox"] $ws10
 
 # Open specific applications in floating mode
 for_window [title="alsamixer"] floating enable border pixel 1
@@ -355,7 +355,7 @@ exec_always --no-startup-id fix_xcursor
 #CC additions
 exec --no-startup-id dropbox
 exec --no-startup-id insync start
-exec --no-strupt-id nextcloud
+exec --no-startup-id nextcloud
 exec --no-startup-id dock
 bindsym $mod+Ctrl+d exec dock
 

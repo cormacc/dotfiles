@@ -1,0 +1,11 @@
+[Unit]
+Description=Mailbox synchronization timer
+
+[Timer]
+OnStartupSec=60 
+OnUnitInactiveSec=5min
+Persistent=true
+Unit=notmuch@%i.service
+
+[Install]
+WantedBy=timers.target

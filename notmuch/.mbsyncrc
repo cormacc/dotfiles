@@ -1,0 +1,49 @@
+# First account: Office 365
+
+IMAPAccount nmd
+Host outlook.office365.com
+user cormac.cannon@neuromoddevices.com
+pass k1Dmugug0021
+# This squashes some fetch errors with MS servers
+PipelineDepth 1
+
+IMAPStore nmd-remote
+Account nmd
+
+MaildirStore nmd-local
+Path ~/mail/nmd
+Inbox ~/mail/nmd/Inbox
+
+Channel nmd
+Master :nmd-remote:
+Slave :nmd-local:
+
+Create Both
+SyncState *
+
+
+# Second account: Gmail
+
+IMAPAccount gmail
+Host imap.gmail.com
+user cormacc@gmail.com
+pass k1Dmugug
+SSLType IMAPS
+CertificateFile ~/.cert/imap.gmail.com.pem
+AuthMechs LOGIN
+
+IMAPStore gmail-remote
+Account gmail
+
+MaildirStore gmail-local
+Path ~/mail/gmail
+Inbox ~/mail/gmail/Inbox
+SubFolders Verbatim
+
+Channel gmail
+Master :gmail-remote:
+Slave :gmail-local:
+Patterns *
+Create Both
+Expunge Both
+SyncState *

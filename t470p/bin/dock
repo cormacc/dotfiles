@@ -8,7 +8,7 @@ if [[ $# -eq 1 ]]; then
 fi
 
 # Necessary for this to work right
-export DISPLAY=:0
+#export DISPLAY=:0
 export XAUTHORITY=/home/cormacc/.Xauthority
 
 echo "Starting Dock Detection"

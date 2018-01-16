@@ -34,24 +34,31 @@ This function should only modify configuration layer settings."
     '(
        ;;extra-langs
        windows-scripts
-       ;;javascript
+       javascript
        ;;vimscript
        ;; ----------------------------------------------------------------
        ;; Example of useful layers you may want to use right away.
        ;; Uncomment some layer names and press `SPC f e R' (Vim style) or
        ;; `M-m f e R' (Emacs style) to install them.
        ;; ----------------------------------------------------------------
-       ;;asm
+                                        ;asm
        (auto-completion :variables
          auto-completion-enable-snippets-in-popup t
-         auto-completion-private-snippets-directory "~/.spacemacs.d/snippets")
-       ;;better-defaults not relevant when using evil-mode key bindings
-       ;;better-defaults
-       (c-c++ :variables c-c++-enable-clang-support t)
-       ;;clojure
+         auto-completion-enable-help-tooltip t
+         )
+                                        ;better-defaults not relevant when using evil-mode key bindings
+                                        ;better-defaults
+       (c-c++ :variables
+         c-c++-enable-clang-support t
+         ;c-c++-enable-rtags-support t
+         c-c++-enable-cmake-ide-support t
+         )
+                                        ;clojure
        (colors :variables
          colors-enable-nyan-cat-progress-bar t
          nyan-bar-length 8)
+                                        ;Use OR cscope?
+                                        ;cscope
        csv
        chrome
        dash
@@ -59,12 +66,17 @@ This function should only modify configuration layer settings."
        emacs-lisp
        git
        (go :variables gofmt-command "goimports")
-       ;;gtags
        html
        (ibuffer :variables ibuffer-group-buffers-by 'projects)
+                                        ;Try helm instead, as counsel search replace appears broken
        ivy
        (markdown :variables markdown-live-preview-engine 'vmd)
-       neotree
+       (mu4e :variables
+         mu4e-enable-notifications t
+         mu4e-enable-mode-line t
+         )
+       ;neotree
+       notmuch
        octave
        ;;http://spacemacs.org/layers/+emacs/org/README.html
        (org :variables
@@ -88,7 +100,7 @@ This function should only modify configuration layer settings."
        rust
        search-engine
        ;;'semantic' used by cmode for refactoring support
-       ;;semantic
+       semantic
        (shell :variables
          shell-default-shell 'multi-term
          shell-default-term-shell "/bin/zsh"
@@ -105,6 +117,8 @@ This function should only modify configuration layer settings."
        ;;                  version-control-diff-tool 'git-gutter
        ;;                  version-control-global-margin t)
        yaml
+       ;; YCMD is an auto-completion backend
+                                        ;ycmd
        )
     ;; List of additional packages that will be installed without being
     ;; wrapped in a layer. If you need some configuration for these
@@ -177,7 +191,7 @@ It should only modify the values of Spacemacs settings."
     ;; List sizes may be nil, in which case
     ;; `spacemacs-buffer-startup-lists-length' takes effect.
     dotspacemacs-startup-lists '((recents . 5)
-                                  (projects . 7))
+                        (projects . 7))
     ;; True if the home buffer should respond to resize events. (default t)
     dotspacemacs-startup-buffer-responsive t
     ;; Default major mode of the scratch buffer (default `text-mode')
@@ -186,21 +200,21 @@ It should only modify the values of Spacemacs settings."
     ;; Press `SPC T n' to cycle to the next theme in the list (works great
     ;; with 2 themes variants, one dark and one light)
     dotspacemacs-themes '(doom-one
-                           spacemacs-dark
-                           solarized-dark
-                           misterioso
-                           leuven
-                           monokai
-                           zenburn)
+                 spacemacs-dark
+                 solarized-dark
+                 misterioso
+                 leuven
+                 monokai
+                 zenburn)
     ;; If non nil the cursor color matches the state color in GUI Emacs.
     dotspacemacs-colorize-cursor-according-to-state t
     ;; Default font, or prioritized list of fonts. `powerline-scale' allows to
     ;; quickly tweak the mode-line size to make separators look not too crappy.
     dotspacemacs-default-font '("Source Code Pro"
-                                 :size 20
-                                 :weight normal
-                                 :width normal
-                                 :powerline-scale 1.0)
+                       :size 22
+                       :weight normal
+                       :width normal
+                       :powerline-scale 1.0)
     ;; The leader key
     dotspacemacs-leader-key "SPC"
     ;; The key used for Emacs commands `M-x' (after pressing on the leader key).
@@ -333,7 +347,7 @@ It should only modify the values of Spacemacs settings."
     ;;                       text-mode
     ;;   :size-limit-kb 1000)
     ;; (default nil)
-    dotspacemacs-line-numbers t
+    dotspacemacs-line-numbers nil
     ;; Code folding method. Possible values are `evil' and `origami'.
     ;; (default 'evil)
     dotspacemacs-folding-method 'evil
@@ -421,19 +435,13 @@ This function is called at the very end of Spacemacs startup, after layer
 configuration.
 Put your configuration code here, except for variables that should be set
 before packages are loaded."
-  (define-key global-map (kbd "C-+") 'text-scale-increase)
-  (define-key global-map (kbd "C--") 'text-scale-decrease)
+  ;; (define-key global-map (kbd "C-+") 'text-scale-increase)
+  ;; (define-key global-map (kbd "C--") 'text-scale-decrease)
 
   ;; C-mode stuff
   ;; This next line may be redundant with recent integration of cmake support into c/c++ layer
   ;; (add-to-list 'auto-mode-alist '("CMake.+\\.txt\\'" . cmake-mode))
   ;; (setq confirm-nonexistent-file-or-buffer nil)
-  ;; Bind clang-format-region to C-M-tab in all modes:
-  (global-set-key [C-M-tab] 'clang-format-region)
-  ;; Bind clang-format-buffer to tab on the c++-mode only:
-  (add-hook 'c++-mode-hook 'clang-format-bindings
-    (defun clang-format-bindings ()
-      (define-key c++-mode-map [tab] 'clang-format-buffer)))
   (c-add-style "cormacc"
     '((indent-tabs-mode . nil)
        (c-basic-offset . 2)
@@ -465,6 +473,70 @@ Does not create missing test files -- intended for use in test runner command."
             (error "No matching test file found for project type `%s'"
               (projectile-project-type))))))
     )
+
+                                        ;MAIL / mu4e
+  (with-eval-after-load 'mu4e
+  ;;; Set up some common mu4e variables
+    (setq mu4e-maildir "~/mail"
+      mu4e-trash-folder "/Trash"
+      mu4e-refile-folder "/Archive"
+      mu4e-get-mail-command "mbsync -a"
+      mu4e-update-interval nil
+      mu4e-compose-signature-auto-include nil
+      mu4e-view-show-images t
+      mu4e-view-show-addresses t)
+
+  ;;; Mail directory shortcuts
+    (setq mu4e-maildir-shortcuts
+      '(("/gmail/INBOX" . ?g)
+         ("/nmd/INBOX" . ?c)))
+
+  ;;; Bookmarks
+    (setq mu4e-bookmarks
+      `(("flag:unread AND NOT flag:trashed" "Unread messages" ?u)
+         ("date:today..now" "Today's messages" ?t)
+         ("date:7d..now" "Last 7 days" ?w)
+         ("mime:image/*" "Messages with images" ?p)
+         (,(mapconcat 'identity
+             (mapcar
+               (lambda (maildir)
+                 (concat "maildir:" (car maildir)))
+               mu4e-maildir-shortcuts) " OR ")
+           "All inboxes" ?i)))
+
+    (setq mu4e-contexts
+      `( ,(make-mu4e-context
+            :name "gmail"
+            :enter-func (lambda () (mu4e-message "Switch to the gmail context"))
+            ;; leave-func not defined
+            :match-func (lambda (msg)
+                          (when msg
+                            (string-prefix-p "/gmail" (mu4e-message-field msg :maildir))))
+            :vars '(
+                     ( user-mail-address      . "cormacc@gmail.com"  )
+                     ( user-full-name     . "Cormac Cannon" )
+                     ( mu4e-compose-signature .
+                       (concat
+                         "Cormac Cannon\n"
+                         "\n"))))
+         ,(make-mu4e-context
+            :name "nmd"
+            :enter-func (lambda () (mu4e-message "Switch to the nmd context"))
+            ;; leave-fun not defined
+            :match-func (lambda (msg)
+                          (when msg
+                            (string-prefix-p "/nmd" (mu4e-message-field msg :maildir))))
+            :vars '( ( user-mail-address      . "cormac.cannon@neuromoddevices.com" )
+                     ( user-full-name     . "Cormac Cannon" )
+                     ( mu4e-compose-signature .
+                       (concat
+                         "Cormac Cannon Phd BEng - Software Architect\n"
+                         "Neuromod\n"))))))
+    )
+  (with-eval-after-load 'mu4e-alert
+    ;; Enable Desktop notifications
+    (mu4e-alert-set-default-style 'notifications)) ; For linux
+  ;; (mu4e-alert-set-default-style 'libnotify))  ; Alternative for linux
 
   ;; This series is taken from this SO answer regarding automatic reload of dir-locals on save
   ;;https://emacs.stackexchange.com/questions/13080/reloading-directory-local-variables
@@ -537,7 +609,7 @@ Does not create missing test files -- intended for use in test runner command."
   ;;               (dolist (x (default-value 'completion-at-point-functions))
   ;;                 (when (string-prefix-p "semantic-" (symbol-name x))
   ;;                   (remove-hook 'completion-at-point-functions x))))))
-  ;; Work around octabe mod
+  ;; Work around octave mod issue
   (eval-after-load 'octave
     (setq octave-mode-hook
       (lambda () (progn (setq octave-comment-char ?%)
@@ -656,10 +728,10 @@ This function is called at the very end of Spacemacs initialization."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(ansi-color-faces-vector
-   [default default default italic underline success warning error])
- '(ansi-color-names-vector
-   ["#d2ceda" "#f2241f" "#67b11d" "#b1951d" "#3a81c3" "#a31db1" "#21b8c7" "#655370"])
+  '(ansi-color-faces-vector
+     [default default default italic underline success warning error])
+  '(ansi-color-names-vector
+     ["#d2ceda" "#f2241f" "#67b11d" "#b1951d" "#3a81c3" "#a31db1" "#21b8c7" "#655370"])
  '(compilation-message-face (quote default))
  '(cua-global-mark-cursor-color "#2aa198")
  '(cua-normal-cursor-color "#839496")
@@ -667,69 +739,73 @@ This function is called at the very end of Spacemacs initialization."
  '(cua-read-only-cursor-color "#859900")
  '(evil-want-Y-yank-to-eol nil)
  '(highlight-changes-colors (quote ("#FD5FF0" "#AE81FF")))
- '(highlight-symbol-colors
-   (--map
-    (solarized-color-blend it "#002b36" 0.25)
-    (quote
-     ("#b58900" "#2aa198" "#dc322f" "#6c71c4" "#859900" "#cb4b16" "#268bd2"))))
+  '(highlight-symbol-colors
+     (--map
+       (solarized-color-blend it "#002b36" 0.25)
+       (quote
+         ("#b58900" "#2aa198" "#dc322f" "#6c71c4" "#859900" "#cb4b16" "#268bd2"))))
  '(highlight-symbol-foreground-color "#93a1a1")
- '(highlight-tail-colors
-   (quote
-    (("#3C3D37" . 0)
-     ("#679A01" . 20)
-     ("#4BBEAE" . 30)
-     ("#1DB4D0" . 50)
-     ("#9A8F21" . 60)
-     ("#A75B00" . 70)
-     ("#F309DF" . 85)
-     ("#3C3D37" . 100))))
- '(hl-bg-colors
-   (quote
-    ("#7B6000" "#8B2C02" "#990A1B" "#93115C" "#3F4D91" "#00629D" "#00736F" "#546E00")))
- '(hl-fg-colors
-   (quote
-    ("#002b36" "#002b36" "#002b36" "#002b36" "#002b36" "#002b36" "#002b36" "#002b36")))
+  '(highlight-tail-colors
+     (quote
+       (("#3C3D37" . 0)
+         ("#679A01" . 20)
+         ("#4BBEAE" . 30)
+         ("#1DB4D0" . 50)
+         ("#9A8F21" . 60)
+         ("#A75B00" . 70)
+         ("#F309DF" . 85)
+         ("#3C3D37" . 100))))
+  '(hl-bg-colors
+     (quote
+       ("#7B6000" "#8B2C02" "#990A1B" "#93115C" "#3F4D91" "#00629D" "#00736F" "#546E00")))
+  '(hl-fg-colors
+     (quote
+       ("#002b36" "#002b36" "#002b36" "#002b36" "#002b36" "#002b36" "#002b36" "#002b36")))
  '(magit-diff-use-overlays nil)
- '(nrepl-message-colors
-   (quote
-    ("#dc322f" "#cb4b16" "#b58900" "#546E00" "#B4C342" "#00629D" "#2aa198" "#d33682" "#6c71c4")))
- '(package-selected-packages
-   (quote
-    (realgud ox-hugo ibuffer-projectile evil-org treemacs parent-mode gitignore-mode fringe-helper git-gutter+ pos-tip flx goto-chg diminish pkg-info epl popup org-category-capture racket-mode faceup toml-mode racer flycheck-rust cargo rust-mode csv-mode enh-ruby-mode gntp deft wolfram-mode thrift stan-mode scad-mode qml-mode matlab-mode julia-mode arduino-mode yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode cython-mode company-anaconda anaconda-mode pythonic company-irony irony winum unfill fuzzy avy log4e powershell evil plantuml-mode clojure-snippets clj-refactor inflections edn paredit peg cider-eval-sexp-fu cider seq queue clojure-mode packed epresent web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor multiple-cursors js2-mode js-doc company-tern dash-functional tern coffee-mode alert ox-reveal pandoc-mode ox-pandoc ht helm-gtags helm-css-scss helm-cscope zenburn-theme monokai-theme solarized-theme powerline request spinner bind-key bind-map pcre2el vimrc-mode dactyl-mode ox-gfm xcscope x86-lookup stickyfunc-enhance srefactor rainbow-mode rainbow-identifiers quack nasm-mode key-chord ggtags geiser fiplr grizzl find-file-in-project engine-mode dired-subtree dired-narrow dired-hacks-utils color-identifiers-mode vmd-mode web-mode tagedit slim-mode scss-mode sass-mode pug-mode less-css-mode haml-mode emmet-mode company-web web-completion-data pcache git-gutter iedit go-mode yasnippet auto-complete inf-ruby company highlight anzu smartparens undo-tree flycheck projectile helm helm-core hydra markdown-mode magit magit-popup async dash s ranger go-guru git-commit with-editor org minitest insert-shebang hide-comnt fish-mode company-shell rtags cmake-ide levenshtein yaml-mode wgrep smex ivy-hydra flyspell-correct-ivy counsel-projectile counsel swiper ivy uuidgen rake org-projectile org-download mwim link-hint git-link flyspell-correct-helm flyspell-correct eyebrowse evil-visual-mark-mode evil-unimpaired evil-ediff eshell-z dumb-jump f column-enforce-mode xterm-color ws-butler window-numbering which-key volatile-highlights vi-tilde-fringe use-package toc-org spacemacs-theme spaceline smooth-scrolling smeargle shell-pop rvm ruby-tools ruby-test-mode rubocop rspec-mode robe restart-emacs rbenv rainbow-delimiters quelpa popwin persp-mode paradox page-break-lines orgit org-repo-todo org-present org-pomodoro org-plus-contrib org-bullets open-junk-file neotree multi-term move-text mmm-mode markdown-toc magit-gitflow macrostep lorem-ipsum linum-relative leuven-theme info+ indent-guide ido-vertical-mode hungry-delete htmlize hl-todo highlight-parentheses highlight-numbers highlight-indentation help-fns+ helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-gitignore helm-flyspell helm-flx helm-descbinds helm-company helm-c-yasnippet helm-ag google-translate golden-ratio go-eldoc gnuplot gitconfig-mode gitattributes-mode git-timemachine git-messenger git-gutter-fringe git-gutter-fringe+ gh-md flycheck-pos-tip flx-ido fill-column-indicator fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-magit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu eshell-prompt-extras esh-help elisp-slime-nav disaster diff-hl define-word company-statistics company-quickhelp company-go company-c-headers cmake-mode clean-aindent-mode clang-format chruby bundler buffer-move bracketed-paste auto-yasnippet auto-highlight-symbol auto-dictionary auto-compile aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line ac-ispell)))
+  '(nrepl-message-colors
+     (quote
+       ("#dc322f" "#cb4b16" "#b58900" "#546E00" "#B4C342" "#00629D" "#2aa198" "#d33682" "#6c71c4")))
+  '(package-selected-packages
+     (quote
+       (realgud ox-hugo edit-server treemacs parent-mode gitignore-mode fringe-helper git-gutter+ pos-tip flx goto-chg diminish pkg-info epl popup org-category-capture racket-mode faceup toml-mode racer flycheck-rust cargo rust-mode csv-mode enh-ruby-mode gntp deft wolfram-mode thrift stan-mode scad-mode qml-mode matlab-mode julia-mode arduino-mode yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode cython-mode company-anaconda anaconda-mode pythonic company-irony irony winum unfill fuzzy avy log4e powershell evil plantuml-mode clojure-snippets clj-refactor inflections edn paredit peg cider-eval-sexp-fu cider seq queue clojure-mode packed epresent web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor multiple-cursors js2-mode js-doc company-tern dash-functional tern coffee-mode alert ox-reveal pandoc-mode ox-pandoc ht helm-gtags helm-css-scss helm-cscope zenburn-theme monokai-theme solarized-theme powerline request spinner bind-key bind-map pcre2el vimrc-mode dactyl-mode ox-gfm xcscope x86-lookup stickyfunc-enhance srefactor rainbow-mode rainbow-identifiers quack nasm-mode key-chord ggtags geiser fiplr grizzl find-file-in-project engine-mode dired-subtree dired-narrow dired-hacks-utils color-identifiers-mode vmd-mode web-mode tagedit slim-mode scss-mode sass-mode pug-mode less-css-mode haml-mode emmet-mode company-web web-completion-data pcache git-gutter iedit go-mode yasnippet auto-complete inf-ruby company highlight anzu smartparens undo-tree flycheck projectile helm helm-core hydra markdown-mode magit magit-popup async dash s ranger go-guru git-commit with-editor org minitest insert-shebang hide-comnt fish-mode company-shell rtags cmake-ide levenshtein yaml-mode wgrep smex ivy-hydra flyspell-correct-ivy counsel-projectile counsel swiper ivy uuidgen rake org-projectile org-download mwim link-hint git-link flyspell-correct-helm flyspell-correct eyebrowse evil-visual-mark-mode evil-unimpaired evil-ediff eshell-z dumb-jump f column-enforce-mode xterm-color ws-butler window-numbering which-key volatile-highlights vi-tilde-fringe use-package toc-org spacemacs-theme spaceline smooth-scrolling smeargle shell-pop rvm ruby-tools ruby-test-mode rubocop rspec-mode robe restart-emacs rbenv rainbow-delimiters quelpa popwin persp-mode paradox page-break-lines orgit org-repo-todo org-present org-pomodoro org-plus-contrib org-bullets open-junk-file neotree multi-term move-text mmm-mode markdown-toc magit-gitflow macrostep lorem-ipsum linum-relative leuven-theme info+ indent-guide ido-vertical-mode hungry-delete htmlize hl-todo highlight-parentheses highlight-numbers highlight-indentation help-fns+ helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-gitignore helm-flyspell helm-flx helm-descbinds helm-company helm-c-yasnippet helm-ag google-translate golden-ratio go-eldoc gnuplot gitconfig-mode gitattributes-mode git-timemachine git-messenger git-gutter-fringe git-gutter-fringe+ gh-md flycheck-pos-tip flx-ido fill-column-indicator fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-magit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu eshell-prompt-extras esh-help elisp-slime-nav disaster diff-hl define-word company-statistics company-quickhelp company-go company-c-headers cmake-mode clean-aindent-mode clang-format chruby bundler buffer-move bracketed-paste auto-yasnippet auto-highlight-symbol auto-dictionary auto-compile aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line ac-ispell)))
  '(pos-tip-background-color "#A6E22E")
  '(pos-tip-foreground-color "#272822")
+  '(safe-local-variable-values
+     (quote
+       ((helm-make-arguments . "-j7")
+         (helm-make-build-dir . "build"))))
  '(smartrep-mode-line-active-bg (solarized-color-blend "#859900" "#073642" 0.2))
  '(term-default-bg-color "#002b36")
  '(term-default-fg-color "#839496")
  '(vc-annotate-background nil)
  '(vc-annotate-background-mode nil)
- '(vc-annotate-color-map
-   (quote
-    ((20 . "#F92672")
-     (40 . "#CF4F1F")
-     (60 . "#C26C0F")
-     (80 . "#E6DB74")
-     (100 . "#AB8C00")
-     (120 . "#A18F00")
-     (140 . "#989200")
-     (160 . "#8E9500")
-     (180 . "#A6E22E")
-     (200 . "#729A1E")
-     (220 . "#609C3C")
-     (240 . "#4E9D5B")
-     (260 . "#3C9F79")
-     (280 . "#A1EFE4")
-     (300 . "#299BA6")
-     (320 . "#2896B5")
-     (340 . "#2790C3")
-     (360 . "#66D9EF"))))
+  '(vc-annotate-color-map
+     (quote
+       ((20 . "#F92672")
+         (40 . "#CF4F1F")
+         (60 . "#C26C0F")
+         (80 . "#E6DB74")
+         (100 . "#AB8C00")
+         (120 . "#A18F00")
+         (140 . "#989200")
+         (160 . "#8E9500")
+         (180 . "#A6E22E")
+         (200 . "#729A1E")
+         (220 . "#609C3C")
+         (240 . "#4E9D5B")
+         (260 . "#3C9F79")
+         (280 . "#A1EFE4")
+         (300 . "#299BA6")
+         (320 . "#2896B5")
+         (340 . "#2790C3")
+         (360 . "#66D9EF"))))
  '(vc-annotate-very-old-color nil)
- '(weechat-color-list
-   (unspecified "#272822" "#3C3D37" "#F70057" "#F92672" "#86C30D" "#A6E22E" "#BEB244" "#E6DB74" "#40CAE4" "#66D9EF" "#FB35EA" "#FD5FF0" "#74DBCD" "#A1EFE4" "#F8F8F2" "#F8F8F0"))
- '(xterm-color-names
-   ["#073642" "#dc322f" "#859900" "#b58900" "#268bd2" "#d33682" "#2aa198" "#eee8d5"])
- '(xterm-color-names-bright
-   ["#002b36" "#cb4b16" "#586e75" "#657b83" "#839496" "#6c71c4" "#93a1a1" "#fdf6e3"]))
+  '(weechat-color-list
+     (unspecified "#272822" "#3C3D37" "#F70057" "#F92672" "#86C30D" "#A6E22E" "#BEB244" "#E6DB74" "#40CAE4" "#66D9EF" "#FB35EA" "#FD5FF0" "#74DBCD" "#A1EFE4" "#F8F8F2" "#F8F8F0"))
+  '(xterm-color-names
+     ["#073642" "#dc322f" "#859900" "#b58900" "#268bd2" "#d33682" "#2aa198" "#eee8d5"])
+  '(xterm-color-names-bright
+     ["#002b36" "#cb4b16" "#586e75" "#657b83" "#839496" "#6c71c4" "#93a1a1" "#fdf6e3"]))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
