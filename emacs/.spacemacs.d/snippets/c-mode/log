@@ -1,7 +1,6 @@
-# -*- mode: snippet -*-
 #name : log
 #key : log
-#contributor : 
-# --
+#contributor :
+
 #define LOG_MODULE "$1"
 #include "LogService.h"

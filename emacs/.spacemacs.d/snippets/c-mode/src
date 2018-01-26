@@ -1,12 +1,11 @@
-# -*- mode: snippet -*-
-#name : src
-#key : CSource
-#contributor : Cormac Cannon <cormac.cannon@neuromoddevices.com> 
+#key : src
+#name : CSource
+#contributor : Cormac Cannon <cormac.cannon@neuromoddevices.com>
 # --
 /**
  * @file
  *
- * $1 
+ * $1
  *
  * @author Cormac Cannon (cormac.cannon@neuromoddevices.com)
  * @copyright (c) Neuromod Devices Ltd. 2017

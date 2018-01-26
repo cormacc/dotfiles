@@ -1,7 +1,6 @@
-# -*- mode: snippet -*-
 #name : statemachine-event-handler
-#key : on 
-#contributor : 
+#key : on
+#contributor :
 # --
       ON($1, {
           $2;

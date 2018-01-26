@@ -3,7 +3,7 @@
 #
 
 #This may be overridden with impunity, but base setting squashes an error
-# on some platforms if not specified elsewhere.  
+# on some platforms if not specified elsewhere.
 export TERM=xterm-256color
 
 #Set this to non-zero when debugging to list autoloads etc.
@@ -20,9 +20,9 @@ export PATH="$HOME/bin:$PATH"
 #This method doesn't give an error when directory contains no files
 #N.B. the '-xtype' argument to find resolves symbolic links to their target type
 if [ -d ~/.profile.d ]; then
-  (($VERBOSE)) && echo Found .profile.d 
+  (($VERBOSE)) && echo Found .profile.d
   find ~/.profile.d/. ! -name . -prune ! -name '.*' -name '*.sh' -xtype f -print0 | while IFS= read -r -d $'\0' autoload; do
-    (($VERBOSE)) && echo Sourcing $autoload 
+    (($VERBOSE)) && echo Sourcing $autoload
     #source "$autoload"
     . $autoload
   done
@@ -30,7 +30,7 @@ fi
 # dotmodule framework end
 #------------------------------
 
-(($VERBOSE)) && echo Path "$PATH" 
+(($VERBOSE)) && echo Path "$PATH"
 
 
 #... your additions below this line ...
@@ -43,5 +43,9 @@ fi
 export EDITOR="/usr/bin/vim"
 export VISUAL="/usr/bin/vim"
 
-export PATH="$(ruby -e 'print Gem.user_dir')/bin:$PATH"
-export GEM_HOME=$(ruby -e 'print Gem.user_dir')
+#export PATH="$(ruby -e 'print Gem.user_dir')/bin:$PATH"
+#export GEM_HOME=$(ruby -e 'print Gem.user_dir')
+
+#if test -d ~/.npm-global/bin; then
+#   export PATH="~/.npm-global/bin:$PATH"
+#fi

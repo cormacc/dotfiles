@@ -58,22 +58,62 @@ bindsym $mod+Ctrl+m exec terminal -e 'alsamixer'
 # bindsym XF86MonBrightnessDown exec "xbacklight -dec 10; notify-send 'brightness down'"
 
 # Start Applications
-bindsym $mod+Ctrl+b exec terminal -e 'bmenu'
-bindsym $mod+F2 exec palemoon
-bindsym $mod+F3 exec pcmanfm
-# bindsym $mod+F3 exec ranger
-bindsym $mod+Shift+F3 exec gksu pcmanfm
-bindsym $mod+F5 exec terminal -e 'mocp'
-bindsym $mod+t exec --no-startup-id pkill compton
-bindsym $mod+Ctrl+t exec --no-startup-id compton -b
-bindsym $mod+Shift+d --release exec "killall dunst; exec notify-send 'restart dunst'"
-bindsym Print exec --no-startup-id i3-scrot
-bindsym $mod+Print --release exec --no-startup-id i3-scrot -w
-bindsym $mod+Shift+Print --release exec --no-startup-id i3-scrot -s
-#bindsym $mod+Ctrl+h exec xdg-open /usr/share/doc/manjaro/i3_help.pdf
-bindsym $mod+F1 exec xdg-open /usr/share/doc/manjaro/i3_help.pdf
-bindsym $mod+Ctrl+x --release exec --no-startup-id xkill
 
+bindsym Print exec --no-startup-id i3-scrot -w
+
+set $menu_screenshot Grab (d)esktop, (w)indow, (s)election
+mode "$menu_screenshot" {
+     bindsym d exec --no-startup-id i3-scrot -d
+     bindsym w exec --no-startup-id i3-scrot -w
+     bindsym s exec --no-startup-id i3-scrot -s
+
+    # back to normal: Enter or Escape
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+bindsym $mod+Print mode "$menu_screenshot"
+
+set $menu_manjaro Launch (b)menu, (m)ocp, (c/C) kill/start compton, restart (d)unst, (h)elp, x(k)ill
+mode "$menu_manjaro" {
+    bindsym b exec terminal -e 'bmenu'
+    bindsym m exec terminal -e 'mocp'
+    bindsym c exec --no-startup-id pkill compton
+    bindsym Shift+c exec --no-startup-id compton -b
+    bindsym d exec "killall dunst; exec notify-send 'restart dunst'"
+    bindsym h exec xdg-open /usr/share/doc/manjaro/i3_help.pdf
+    bindsym k exec --no-startup-id xkill
+
+    # back to normal: Enter or Escape
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+bindsym $mod+m mode "$menu_manjaro"
+
+set $menu_launch Execute (w)ww, (j)etbrains, (e)ditor, (v)m, (f/F)ileman/sudo, (m)plab
+mode "$menu_launch" {
+    bindsym w exec firefox, mode "default"
+    bindsym j exec .local/share/JetBrains/Toolbox/bin/jetbrains-toolbox, mode "default"
+    bindsym e exec emacs, mode "default"
+    bindsym v exec virtualbox, mode "default"
+    bindsym f exec ranger, mode "default"
+    bindsym Shift+f exec gksu ranger, mode "default"
+    bindsym m exec mplab_ide, mode "default"
+
+    # back to normal: Enter or Escape
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+bindsym $mod+x mode "$menu_launch"
+
+set $menu_toggle Toggle i3-(b)ar
+mode "$menu_toggle" {
+    bindsym b bar mode toggle
+
+    # back to normal: Enter or Escape
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+bindsym $mod+t mode "$menu_toggle"
 # focus_follows_mouse no
 
 # change focus
@@ -388,7 +428,8 @@ bar {
 }
 
 # hide/unhide i3status bar
-bindsym $mod+m bar mode toggle
+# Using binding for manjaro menu now..
+#bindsym $mod+m bar mode toggle
 
 # Theme colors
 # class                 border  backgr. text    indic.  child_border

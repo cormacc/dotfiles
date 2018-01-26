@@ -1,7 +1,6 @@
-# -*- mode: snippet -*-
 #name : statemachine-hsm
 #key : hsm
-#contributor : 
+#contributor :
 # --
 
 // ============================================================================
@@ -35,12 +34,12 @@ void $1_init(void)
 
   //Scheduler_schedule(&periodic_event_);
   //Scheduler_schedule(&aperiodic_event_);
-  
+
 }
 
 
 // ----------------------------------------------------------------------------
-// State definitions 
+// State definitions
 // ----------------------------------------------------------------------------
 
 STATE(on, TOP_LEVEL_STATE {
