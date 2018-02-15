@@ -51,7 +51,7 @@ This function should only modify configuration layer settings."
          ;c-c++-enable-rtags-support t
          )
        (cmake :variables
-         ;cmake-enable-cmake-ide-support t
+         cmake-enable-cmake-ide-support t
          )
        ; Quicknir cpp2 layer -- use instead of spacemacs c-c++ and cmake layers
        ;; cpp2
@@ -124,7 +124,7 @@ This function should only modify configuration layer settings."
        ;;                  version-control-global-margin t)
        yaml
        ;; YCMD is an auto-completion backend
-       ycmd
+       ;;ycmd
        )
     ;; List of additional packages that will be installed without being
     ;; wrapped in a layer. If you need some configuration for these
