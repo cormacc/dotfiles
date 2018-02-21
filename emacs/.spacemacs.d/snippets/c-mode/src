@@ -8,7 +8,7 @@
  * $1
  *
  * @author Cormac Cannon (cormac.cannon@neuromoddevices.com)
- * @copyright (c) Neuromod Devices Ltd. 2017
+ * @copyright (c) Neuromod Devices Ltd. `(format-time-string "%Y")`$0
  */
 
 // ----------------------------------------------------------------------------

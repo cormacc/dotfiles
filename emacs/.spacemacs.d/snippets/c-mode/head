@@ -5,10 +5,10 @@
 /**
  * @file
  *
- * $1 
+ * $1
  *
  * @author Cormac Cannon (cormac.cannon@neuromoddevices.com)
- * @copyright (c) Neuromod Devices Ltd. 2017
+ * @copyright (c) Neuromod Devices Ltd. `(format-time-string "%Y")`$0
  */
 
 #ifndef $1_H
@@ -35,4 +35,3 @@ extern "C" {
 #  endif
 
 #endif  /* $1_H */
-

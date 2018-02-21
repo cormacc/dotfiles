@@ -1,2 +1,2 @@
-export GOPATH=~/go
-export PATH=$PATH:$GOPATH/bin
+export GOPATH=~/go:~/nmd/products/mbt/configurator
+export PATH=$PATH:~/go/bin
