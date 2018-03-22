@@ -10,6 +10,6 @@
 # Environment variables
 #
 
-[[ -f ~/bin/undock ]] && . ~/bin/undock
+#[[ -f ~/bin/dock ]] && . ~/bin/dock
 
 [[ -f ~/.extend.xprofile ]] && . ~/.extend.xprofile

@@ -32,8 +32,6 @@ This function should only modify configuration layer settings."
     ;; List of configuration layers to load.
     dotspacemacs-configuration-layers
     '(
-       ;;extra-langs
-       ;;vimscript
        ;; ----------------------------------------------------------------
        ;; Example of useful layers you may want to use right away.
        ;; Uncomment some layer names and press `SPC f e R' (Vim style) or
@@ -43,11 +41,16 @@ This function should only modify configuration layer settings."
        (auto-completion :variables
          auto-completion-enable-snippets-in-popup t
          auto-completion-enable-help-tooltip t
-         spacemacs-default-company-backends '(company-files company-capf)
+         ;; spacemacs-default-company-backends '(company-files company-capf)
          )
                                         ;better-defaults not relevant when using evil-mode key bindings
                                         ;better-defaults
-       c-c++
+       ;; lsp  and c-c++ layers implicitly loaded by cquery layer...
+       (lsp :variables
+         ;; lsp-remap-xref-keybindings t
+         lsp-ui-peek-expand-by-default t)
+       cquery
+       ceedling
        (cmake :variables
          ;cmake-enable-cmake-ide-support t
          )
@@ -62,16 +65,20 @@ This function should only modify configuration layer settings."
        dash
        deft
        emacs-lisp
-       evil-snipe
+       ;; evil-snipe
        git
-       (go :variables gofmt-command "goimports")
+       (go :variables
+         gofmt-command "goimports"
+         go-use-gometalinter t
+         godoc-at-point-function 'godoc-gogetdoc
+         )
+       haskell
+       ;; helm
        html
        (ibuffer :variables ibuffer-group-buffers-by 'projects)
                                         ;Try helm instead, as counsel search replace appears broken
-       ;; ivy
+       ivy
        (javascript :variables node-add-modules-path t)
-       lsp
-       cquery
        (markdown :variables markdown-live-preview-engine 'vmd)
        ;; (mu4e :variables
        ;;   mu4e-enable-notifications t
@@ -106,9 +113,7 @@ This function should only modify configuration layer settings."
        ;; semantic
        (shell :variables
          shell-default-shell 'multi-term
-         shell-default-term-shell "/bin/zsh"
-         shell-default-height 30
-         shell-default-position 'bottom)
+         shell-default-term-shell "/bin/zsh")
 
        shell-scripts
        spell-checking
@@ -204,20 +209,15 @@ It should only modify the values of Spacemacs settings."
     ;; List of themes, the first of the list is loaded when spacemacs starts.
     ;; Press `SPC T n' to cycle to the next theme in the list (works great
     ;; with 2 themes variants, one dark and one light)
-    dotspacemacs-themes '(doom-one
-                 spacemacs-dark
-                 solarized-dark
-                 misterioso
-                 leuven
-                 monokai
-                 zenburn)
+    dotspacemacs-themes '(solarized-dark
+                          solarized-light)
     ;; If non nil the cursor color matches the state color in GUI Emacs.
     dotspacemacs-colorize-cursor-according-to-state t
     ;; Default font, or prioritized list of fonts. `powerline-scale' allows to
     ;; quickly tweak the mode-line size to make separators look not too crappy.
     dotspacemacs-default-font (if (eq system-type 'darwin)
                                 '("Source Code Pro"
-                                   :size 12
+                                   :size 11
                                    :weight normal
                                    :width normal
                                    :powerline-scale 1.0)
@@ -438,7 +438,11 @@ If you are unsure, try setting them in `dotspacemacs/user-config' first."
   (setq tramp-ssh-controlmaster-options
     (concat
       "-o ControlPath=~/.ssh/%%r@%%h:%%p"))
-  (push "/usr/share/emacs/site-lisp/rtags" load-path)
+
+  (setq exec-path-from-shell-arguments (list "-i"))
+
+  ;; Not using rtags at the moment?
+  ;; (push "/usr/share/emacs/site-lisp/rtags" load-path)
   )
 
 (defun dotspacemacs/user-config ()
@@ -447,11 +451,16 @@ This function is called at the very end of Spacemacs startup, after layer
 configuration.
 Put your configuration code here, except for variables that should be set
 before packages are loaded."
-  ;; (define-key global-map (kbd "C-+") 'text-scale-increase)
+  (define-key global-map (kbd "C-+") 'text-scale-increase)
+  ;; This is bound to something else?
   ;; (define-key global-map (kbd "C--") 'text-scale-decrease)
   ;; Override default OSX bindings for home and end
   (global-set-key [home] 'move-beginning-of-line)
   (global-set-key [end] 'move-end-of-line)
+
+  ;; Place all '.#*' emacs backup files in a single directory
+  (setq backup-directory-alist
+    `(("." . ,(concat user-emacs-directory "backups"))))
   ;; C-mode stuff
   ;; (setq confirm-nonexistent-file-or-buffer nil)
   (c-add-style "cormacc"
@@ -464,17 +473,26 @@ before packages are loaded."
          (inextern-lang . 0)
          (innamespace . 0))))
   (push '(other . "cormacc") c-default-style)
-  ;Assuming cquery in the path for easy cross-platform use
-  (setq cquery-executable "cquery")
 
   ;; We want to open CMakeSources.txt in cmake mode (i.e. not just CMakeLists.txt)
   (add-to-list 'auto-mode-alist '("CMake.+\\.txt\\'" . cmake-mode))
   (setq cmake-ide-build-pool-dir (file-truename "~/.cmake_builds"))
   (setq cmake-ide-build-pool-use-persistent-naming t)
+
 ;(setq ycmd-server-command (list "python" (file-truename "~/dev/tools/ycmd/ycmd")))
 ;  (setq ycmd-extra-conf-whitelist '("~/dev/*"
 ;                                     "~/nmd/*"
 ;                                     "~/nextcloud/*"))
+
+  ;; ;; Get 'q' to work to exit lsp-ui-peek windows
+  ;; (defun spacemacs/lsp-evil-record-macro ()
+  ;;   (interactive)
+  ;;   (if buffer-read-only
+  ;;     (quit-window)
+  ;;     (call-interactively 'evil-record-macro)))
+
+  ;; (with-eval-after-load 'evil-maps
+  ;;   (define-key evil-normal-state-map (kbd "q") 'spacemacs/lsp-evil-record-macro))
 
   ;; Add a custom project type for embedded C projects using our state framework....
   (with-eval-after-load 'projectile
@@ -497,69 +515,69 @@ Does not create missing test files -- intended for use in test runner command."
               (projectile-project-type))))))
     )
 
-                                        ;MAIL / mu4e
-  (with-eval-after-load 'mu4e
-  ;;; Set up some common mu4e variables
-    (setq mu4e-maildir "~/mail"
-      mu4e-trash-folder "/Trash"
-      mu4e-refile-folder "/Archive"
-      mu4e-get-mail-command "mbsync -a"
-      mu4e-update-interval nil
-      mu4e-compose-signature-auto-include nil
-      mu4e-view-show-images t
-      mu4e-view-show-addresses t)
+  ;;                                       ;MAIL / mu4e
+  ;; (with-eval-after-load 'mu4e
+  ;; ;;; Set up some common mu4e variables
+  ;;   (setq mu4e-maildir "~/mail"
+  ;;     mu4e-trash-folder "/Trash"
+  ;;     mu4e-refile-folder "/Archive"
+  ;;     mu4e-get-mail-command "mbsync -a"
+  ;;     mu4e-update-interval nil
+  ;;     mu4e-compose-signature-auto-include nil
+  ;;     mu4e-view-show-images t
+  ;;     mu4e-view-show-addresses t)
 
-  ;;; Mail directory shortcuts
-    (setq mu4e-maildir-shortcuts
-      '(("/gmail/INBOX" . ?g)
-         ("/nmd/INBOX" . ?c)))
+  ;; ;;; Mail directory shortcuts
+  ;;   (setq mu4e-maildir-shortcuts
+  ;;     '(("/gmail/INBOX" . ?g)
+  ;;        ("/nmd/INBOX" . ?c)))
 
-  ;;; Bookmarks
-    (setq mu4e-bookmarks
-      `(("flag:unread AND NOT flag:trashed" "Unread messages" ?u)
-         ("date:today..now" "Today's messages" ?t)
-         ("date:7d..now" "Last 7 days" ?w)
-         ("mime:image/*" "Messages with images" ?p)
-         (,(mapconcat 'identity
-             (mapcar
-               (lambda (maildir)
-                 (concat "maildir:" (car maildir)))
-               mu4e-maildir-shortcuts) " OR ")
-           "All inboxes" ?i)))
+  ;; ;;; Bookmarks
+  ;;   (setq mu4e-bookmarks
+  ;;     `(("flag:unread AND NOT flag:trashed" "Unread messages" ?u)
+  ;;        ("date:today..now" "Today's messages" ?t)
+  ;;        ("date:7d..now" "Last 7 days" ?w)
+  ;;        ("mime:image/*" "Messages with images" ?p)
+  ;;        (,(mapconcat 'identity
+  ;;            (mapcar
+  ;;              (lambda (maildir)
+  ;;                (concat "maildir:" (car maildir)))
+  ;;              mu4e-maildir-shortcuts) " OR ")
+  ;;          "All inboxes" ?i)))
 
-    (setq mu4e-contexts
-      `( ,(make-mu4e-context
-            :name "gmail"
-            :enter-func (lambda () (mu4e-message "Switch to the gmail context"))
-            ;; leave-func not defined
-            :match-func (lambda (msg)
-                          (when msg
-                            (string-prefix-p "/gmail" (mu4e-message-field msg :maildir))))
-            :vars '(
-                     ( user-mail-address      . "cormacc@gmail.com"  )
-                     ( user-full-name     . "Cormac Cannon" )
-                     ( mu4e-compose-signature .
-                       (concat
-                         "Cormac Cannon\n"
-                         "\n"))))
-         ,(make-mu4e-context
-            :name "nmd"
-            :enter-func (lambda () (mu4e-message "Switch to the nmd context"))
-            ;; leave-fun not defined
-            :match-func (lambda (msg)
-                          (when msg
-                            (string-prefix-p "/nmd" (mu4e-message-field msg :maildir))))
-            :vars '( ( user-mail-address      . "cormac.cannon@neuromoddevices.com" )
-                     ( user-full-name     . "Cormac Cannon" )
-                     ( mu4e-compose-signature .
-                       (concat
-                         "Cormac Cannon Phd BEng - Software Architect\n"
-                         "Neuromod\n"))))))
-    )
-  (with-eval-after-load 'mu4e-alert
-    ;; Enable Desktop notifications
-    (mu4e-alert-set-default-style 'notifications)) ; For linux
-  ;; (mu4e-alert-set-default-style 'libnotify))  ; Alternative for linux
+  ;;   (setq mu4e-contexts
+  ;;     `( ,(make-mu4e-context
+  ;;           :name "gmail"
+  ;;           :enter-func (lambda () (mu4e-message "Switch to the gmail context"))
+  ;;           ;; leave-func not defined
+  ;;           :match-func (lambda (msg)
+  ;;                         (when msg
+  ;;                           (string-prefix-p "/gmail" (mu4e-message-field msg :maildir))))
+  ;;           :vars '(
+  ;;                    ( user-mail-address      . "cormacc@gmail.com"  )
+  ;;                    ( user-full-name     . "Cormac Cannon" )
+  ;;                    ( mu4e-compose-signature .
+  ;;                      (concat
+  ;;                        "Cormac Cannon\n"
+  ;;                        "\n"))))
+  ;;        ,(make-mu4e-context
+  ;;           :name "nmd"
+  ;;           :enter-func (lambda () (mu4e-message "Switch to the nmd context"))
+  ;;           ;; leave-fun not defined
+  ;;           :match-func (lambda (msg)
+  ;;                         (when msg
+  ;;                           (string-prefix-p "/nmd" (mu4e-message-field msg :maildir))))
+  ;;           :vars '( ( user-mail-address      . "cormac.cannon@neuromoddevices.com" )
+  ;;                    ( user-full-name     . "Cormac Cannon" )
+  ;;                    ( mu4e-compose-signature .
+  ;;                      (concat
+  ;;                        "Cormac Cannon Phd BEng - Software Architect\n"
+  ;;                        "Neuromod\n"))))))
+  ;;   )
+  ;; (with-eval-after-load 'mu4e-alert
+  ;;   ;; Enable Desktop notifications
+  ;;   (mu4e-alert-set-default-style 'notifications)) ; For linux
+  ;; ;; (mu4e-alert-set-default-style 'libnotify))  ; Alternative for linux
 
   ;; This series is taken from this SO answer regarding automatic reload of dir-locals on save
   ;;https://emacs.stackexchange.com/questions/13080/reloading-directory-local-variables
@@ -633,24 +651,24 @@ Does not create missing test files -- intended for use in test runner command."
   ;;                 (when (string-prefix-p "semantic-" (symbol-name x))
   ;;                   (remove-hook 'completion-at-point-functions x))))))
   ;; Work around octave mod issue
-  (eval-after-load 'octave
-    (setq octave-mode-hook
-      (lambda () (progn (setq octave-comment-char ?%)
-                   (setq comment-start "%")
-                   (setq indent-tabs-mode nil)
-                   (setq comment-add 0)
-                   (setq tab-width 2)
-                   (setq tab-stop-list (number-sequence 2 200 2))
-                   (setq octave-block-offset 2)
+  ;; (eval-after-load 'octave
+  ;;   (setq octave-mode-hook
+  ;;     (lambda () (progn (setq octave-comment-char ?%)
+  ;;                  (setq comment-start "%")
+  ;;                  (setq indent-tabs-mode nil)
+  ;;                  (setq comment-add 0)
+  ;;                  (setq tab-width 2)
+  ;;                  (setq tab-stop-list (number-sequence 2 200 2))
+  ;;                  (setq octave-block-offset 2)
 
-                   (defun octave-indent-comment ()
-                     "A function for `smie-indent-functions' (which see)."
-                     (save-excursion
-                       (back-to-indentation)
-                       (cond
-                         ((octave-in-string-or-comment-p) nil)
-                         ((looking-at-p "\\(\\s<\\)\\1\\{2,\\}") 0)))))))
-    )
+  ;;                  (defun octave-indent-comment ()
+  ;;                    "A function for `smie-indent-functions' (which see)."
+  ;;                    (save-excursion
+  ;;                      (back-to-indentation)
+  ;;                      (cond
+  ;;                        ((octave-in-string-or-comment-p) nil)
+  ;;                        ((looking-at-p "\\(\\s<\\)\\1\\{2,\\}") 0)))))))
+  ;;   )
   )
 
 
@@ -790,7 +808,7 @@ This function is called at the very end of Spacemacs initialization."
     ("#dc322f" "#cb4b16" "#b58900" "#546E00" "#B4C342" "#00629D" "#2aa198" "#d33682" "#6c71c4")))
  '(package-selected-packages
    (quote
-    (treemacs zeal-at-point systemd org-mime ibuffer-projectile gmail-message-mode ham-mode html-to-markdown flymd flycheck-ycmd ghub edit-server counsel-dash helm-dash company-ycmd ycmd request-deferred let-alist deferred doom-themes parent-mode gitignore-mode fringe-helper git-gutter+ pos-tip flx goto-chg diminish pkg-info epl popup org-category-capture racket-mode faceup toml-mode racer flycheck-rust cargo rust-mode csv-mode enh-ruby-mode gntp deft wolfram-mode thrift stan-mode scad-mode qml-mode matlab-mode julia-mode arduino-mode yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode cython-mode company-anaconda anaconda-mode pythonic company-irony irony winum unfill fuzzy avy log4e powershell evil plantuml-mode clojure-snippets clj-refactor inflections edn paredit peg cider-eval-sexp-fu cider seq queue clojure-mode packed epresent web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor multiple-cursors js2-mode js-doc company-tern dash-functional tern coffee-mode alert ox-reveal pandoc-mode ox-pandoc ht helm-gtags helm-css-scss helm-cscope zenburn-theme monokai-theme solarized-theme powerline request spinner bind-key bind-map pcre2el vimrc-mode dactyl-mode ox-gfm xcscope x86-lookup stickyfunc-enhance srefactor rainbow-mode rainbow-identifiers quack nasm-mode key-chord ggtags geiser fiplr grizzl find-file-in-project engine-mode dired-subtree dired-narrow dired-hacks-utils color-identifiers-mode vmd-mode web-mode tagedit slim-mode scss-mode sass-mode pug-mode less-css-mode haml-mode emmet-mode company-web web-completion-data pcache git-gutter iedit go-mode yasnippet auto-complete inf-ruby company highlight anzu smartparens undo-tree flycheck projectile helm helm-core hydra markdown-mode magit magit-popup async dash s ranger go-guru git-commit with-editor org minitest insert-shebang hide-comnt fish-mode company-shell rtags cmake-ide levenshtein yaml-mode wgrep smex ivy-hydra flyspell-correct-ivy counsel-projectile counsel swiper ivy uuidgen rake org-projectile org-download mwim link-hint git-link flyspell-correct-helm flyspell-correct eyebrowse evil-visual-mark-mode evil-unimpaired evil-ediff eshell-z dumb-jump f column-enforce-mode xterm-color ws-butler window-numbering which-key volatile-highlights vi-tilde-fringe use-package toc-org spacemacs-theme spaceline smooth-scrolling smeargle shell-pop rvm ruby-tools ruby-test-mode rubocop rspec-mode robe restart-emacs rbenv rainbow-delimiters quelpa popwin persp-mode paradox page-break-lines orgit org-repo-todo org-present org-pomodoro org-plus-contrib org-bullets open-junk-file neotree multi-term move-text mmm-mode markdown-toc magit-gitflow macrostep lorem-ipsum linum-relative leuven-theme info+ indent-guide ido-vertical-mode hungry-delete htmlize hl-todo highlight-parentheses highlight-numbers highlight-indentation help-fns+ helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-gitignore helm-flyspell helm-flx helm-descbinds helm-company helm-c-yasnippet helm-ag google-translate golden-ratio go-eldoc gnuplot gitconfig-mode gitattributes-mode git-timemachine git-messenger git-gutter-fringe git-gutter-fringe+ gh-md flycheck-pos-tip flx-ido fill-column-indicator fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-magit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu eshell-prompt-extras esh-help elisp-slime-nav disaster diff-hl define-word company-statistics company-quickhelp company-go company-c-headers cmake-mode clean-aindent-mode clang-format chruby bundler buffer-move bracketed-paste auto-yasnippet auto-highlight-symbol auto-dictionary auto-compile aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line ac-ispell)))
+    (lsp-ui zeal-at-point systemd org-mime ibuffer-projectile gmail-message-mode ham-mode html-to-markdown flymd flycheck-ycmd ghub edit-server counsel-dash helm-dash company-ycmd ycmd request-deferred let-alist deferred doom-themes parent-mode gitignore-mode fringe-helper git-gutter+ pos-tip flx goto-chg diminish pkg-info epl popup org-category-capture racket-mode faceup toml-mode racer flycheck-rust cargo rust-mode csv-mode enh-ruby-mode gntp deft wolfram-mode thrift stan-mode scad-mode qml-mode matlab-mode julia-mode arduino-mode yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode cython-mode company-anaconda anaconda-mode pythonic company-irony irony winum unfill fuzzy avy log4e powershell evil plantuml-mode clojure-snippets clj-refactor inflections edn paredit peg cider-eval-sexp-fu cider seq queue clojure-mode packed epresent web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor multiple-cursors js2-mode js-doc company-tern dash-functional tern coffee-mode alert ox-reveal pandoc-mode ox-pandoc ht helm-gtags helm-css-scss helm-cscope zenburn-theme monokai-theme solarized-theme powerline request spinner bind-key bind-map pcre2el vimrc-mode dactyl-mode ox-gfm xcscope x86-lookup stickyfunc-enhance srefactor rainbow-mode rainbow-identifiers quack nasm-mode key-chord ggtags geiser fiplr grizzl find-file-in-project engine-mode dired-subtree dired-narrow dired-hacks-utils color-identifiers-mode vmd-mode web-mode tagedit slim-mode scss-mode sass-mode pug-mode less-css-mode haml-mode emmet-mode company-web web-completion-data pcache git-gutter iedit go-mode yasnippet auto-complete inf-ruby company highlight anzu smartparens undo-tree flycheck projectile helm helm-core hydra markdown-mode magit magit-popup async dash s ranger go-guru git-commit with-editor org minitest insert-shebang hide-comnt fish-mode company-shell rtags cmake-ide levenshtein yaml-mode wgrep smex ivy-hydra flyspell-correct-ivy counsel-projectile counsel swiper ivy uuidgen rake org-projectile org-download mwim link-hint git-link flyspell-correct-helm flyspell-correct eyebrowse evil-visual-mark-mode evil-unimpaired evil-ediff eshell-z dumb-jump f column-enforce-mode xterm-color ws-butler window-numbering which-key volatile-highlights vi-tilde-fringe use-package toc-org spacemacs-theme spaceline smooth-scrolling smeargle shell-pop rvm ruby-tools ruby-test-mode rubocop rspec-mode robe restart-emacs rbenv rainbow-delimiters quelpa popwin persp-mode paradox page-break-lines orgit org-repo-todo org-present org-pomodoro org-plus-contrib org-bullets open-junk-file neotree multi-term move-text mmm-mode markdown-toc magit-gitflow macrostep lorem-ipsum linum-relative leuven-theme info+ indent-guide ido-vertical-mode hungry-delete htmlize hl-todo highlight-parentheses highlight-numbers highlight-indentation help-fns+ helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-gitignore helm-flyspell helm-flx helm-descbinds helm-company helm-c-yasnippet helm-ag google-translate golden-ratio go-eldoc gnuplot gitconfig-mode gitattributes-mode git-timemachine git-messenger git-gutter-fringe git-gutter-fringe+ gh-md flycheck-pos-tip flx-ido fill-column-indicator fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-magit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu eshell-prompt-extras esh-help elisp-slime-nav disaster diff-hl define-word company-statistics company-quickhelp company-go company-c-headers cmake-mode clean-aindent-mode clang-format chruby bundler buffer-move bracketed-paste auto-yasnippet auto-highlight-symbol auto-dictionary auto-compile aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line ac-ispell)))
  '(pos-tip-background-color "#A6E22E")
  '(pos-tip-foreground-color "#272822")
  '(smartrep-mode-line-active-bg (solarized-color-blend "#859900" "#073642" 0.2))
