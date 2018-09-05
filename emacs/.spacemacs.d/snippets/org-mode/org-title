@@ -7,17 +7,18 @@
 #+AUTHOR: Cormac Cannon
 #+EMAIL: cormac.cannon@neuromoddevices.com
 #+LANGUAGE: en
+#+COPYRIGHT: Neuromod Devices Ltd. 2018
+#+DATE: `(format-time-string "%Y-%m-%d")`$0
 
 # HTML EXPORT SETUP
-
-# 1. Auto-export to html on save (N.B. This doesn't work?)
-# Local variables:
-# eval: (add-hook 'after-save-hook 'org-html-export-to-html t t)
-# End:
-
-# 2. Apply a theme
-# #+SETUPFILE: org-themes/theme-bigblow.setup
-#+SETUPFILE: https://raw.githubusercontent.com/fniessen/org-html-themes/master/setup/theme-bigblow.setup
-# or alternatively #+SETUPFILE: https://raw.githubusercontent.com/fniessen/org-html-themes/master/setup/theme-readtheorg.setup
+# 1. Apply a theme
+#+SETUPFILE: https://raw.githubusercontent.com/fniessen/org-html-themes/master/setup/theme-readtheorg.setup
 
 #+STARTUP:: noindent
+
+
+${2:Some introductory text}
+
+* Table of Contents                                         :TOC_4_gh:noexport:
+
+$0

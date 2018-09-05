@@ -27,42 +27,35 @@
 ;;; Code:
 
 ;; code goes here
-(defun ceedling--run (opts module)
+(defun ceedling--test (opts module)
   (compile (format "rake %s test:%s" opts module)))
 
-(defun ceedling--run-default-opts (testgroup) (ceedling--run "options:project options:test-framework" testgroup))
+(defun ceedling--test-default-opts (testgroup) (ceedling--test "" testgroup))
 
-(defun ceedling--run-tests-this-file-with-opts (opts)
+(defun ceedling--test-this-file-with-opts (opts)
   (let ((module-name (replace-regexp-in-string ".*/" "" (replace-regexp-in-string "\\.[ch]" "" buffer-file-name))))
     (compile (format "rake %s test:%s" opts module-name))))
 
-(defun ceedling-run-tests-this-file ()
+(defun ceedling-test-this-file ()
   (interactive)
-  (ceedling--run-tests-this-file-with-opts "options:project options:test-framework"))
+  (ceedling--test-this-file-with-opts ""))
 
-(defun ceedling-clobber-tests-this-file ()
+(defun ceedling-clobber-and-test-this-file ()
   (interactive)
-  (ceedling--run-tests-this-file-with-opts "options:project options:test-framework clobber"))
+  (ceedling--test-this-file-with-opts "clobber"))
 
-;; (defun ceedling-clobber ()
-;;   (interactive)
-;;   (ceedling--run-default-opts "all"))
+(defun ceedling-clobber ()
+  (interactive)
+  (compile "rake clobber"))
 
 (defun ceedling-test-all ()
   (interactive)
-  (ceedling--run-default-opts "all"))
+  (ceedling--test-default-opts "all"))
 
 (defun ceedling-test-delta ()
   (interactive)
-  (ceedling--run-default-opts "delta"))
+  (ceedling--test-default-opts "delta"))
 
-(defun ceedling-test-project ()
-  (interactive)
-  (ceedling--run "options:project" "all"))
-
-(defun ceedling-test-framework ()
-  (interactive)
-  (ceedling--run "options:test-framework" "all"))
 ;; for future reference...
 
 ;; Get test name in current file...
