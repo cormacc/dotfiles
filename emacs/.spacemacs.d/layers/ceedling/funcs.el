@@ -9,4 +9,22 @@
       "tC" #'ceedling-clobber
       )
     )
+  (with-eval-after-load 'projectile
+    (projectile-register-project-type 'ceedling '("project.yml")
+      :compile "make"
+      :test "rake"
+      :run "rake"
+      :test-prefix "test_")
+    (defun projectile-find-test (file-name)
+      "Given a test OR implementation FILE-NAME return the matching test filename.
+  Does not create missing test files -- intended for use in test runner command."
+      (unless file-name (error "The current buffer is not visiting a file"))
+      (if (projectile-test-file-p file-name)
+        (projectile-expand-root file-name)
+        ;; find the matching test file
+        (let ((test-file (projectile-find-matching-test file-name)))
+          (if test-file
+            (projectile-expand-root test-file)
+            (error "No matching test file found for project type `%s'"
+              (projectile-project-type)))))))
   )

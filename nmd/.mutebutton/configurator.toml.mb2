@@ -5,12 +5,15 @@
 
 #Path to search for CD firmware image
 #Default :: string :: "<CWD>/cd"
-ImagePath = "~/Downloads/mb2/cd"
+# ImagePath = "~/Downloads/mb2/cd"
+#ImagePath = "~/Downloads/mb2/iodtester"
+# ImagePath = "~/nmd/products/mb2/cd/dist/default/production"
+ImagePath = "~/nmd/products/mb2/cd/dist/iod_tester/production"
 
 #Path to search for IOD firmware image (string)
 #Default :: string :: "<CWD>/iod"
-#IodImagePath = "~/nmd/products/mbt/iod/firmware/dist/bootloadable/production"
-IodImagePath = "~/Downloads/mb2/iod"
+IodImagePath = "~/nmd/products/mb2/iod/dist/default/production"
+#IodImagePath = "~/Downloads/mb2/iod"
 
 #GUI scale factor as float32
 #Default :: float :: 1.0

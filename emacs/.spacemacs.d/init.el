@@ -31,7 +31,8 @@ This function should only modify configuration layer settings."
     dotspacemacs-configuration-layer-path '()
     ;; List of configuration layers to load.
     dotspacemacs-configuration-layers
-    '(octave
+    '(rust
+       octave
        ;; ----------------------------------------------------------------
        ;; Example of useful layers you may want to use right away.
        ;; Uncomment some layer names and press `SPC f e R' (Vim style) or
@@ -45,10 +46,10 @@ This function should only modify configuration layer settings."
        (c-c++ :variables
          ;; c-c++-backend 'lsp-cquery
          c-c++-backend 'lsp-ccls
-         c-c++-adopt-subprojects t
+         ;; c-c++-adopt-subprojects t
          c-c++-lsp-sem-highlight-rainbow t
          )
-                                        ;ceedling
+       ceedling
        (cmake :variables
                                         ;cmake-enable-cmake-ide-support t
          )
@@ -57,7 +58,9 @@ This function should only modify configuration layer settings."
          nyan-bar-length 8)
        csv
        chrome
-       dash
+       (dash :variables
+         helm-dash-browse-in-emacs t
+         helm-dash-docset-newpath "~/.local/share/Zeal/Zeal/docsets")
        deft
        emacs-lisp
        ;; evil-snipe
@@ -74,8 +77,9 @@ This function should only modify configuration layer settings."
        ivy
        ;; (javascript :variables node-add-modules-path t)
        javascript
-       kivy
+       ;; kivy
        (markdown :variables markdown-live-preview-engine 'vmd)
+       multiple-cursors
        ;; (mu4e :variables
        ;;   mu4e-enable-notifications t
        ;;   mu4e-enable-mode-line t
@@ -92,8 +96,10 @@ This function should only modify configuration layer settings."
        pandoc
        parinfer
        plantuml
-       ;; (python :variables python-backend 'anaconda)
-       (python :variables python-backend 'lsp)
+       (python :variables
+         python-backend 'lsp
+         python-pipenv-activate t
+         python-test-runner 'pytest)
        ;; racket
        (ranger :variables
          ranger-show-preview t
@@ -104,7 +110,7 @@ This function should only modify configuration layer settings."
          ;; ruby-version-manager 'rbenv
          ;; ruby-enable-enh-ruby-mode t
          )
-                                        ;scheme
+       scheme
        ;; rust
        search-engine
        ;;'semantic' used by cmode for refactoring support
@@ -127,13 +133,12 @@ This function should only modify configuration layer settings."
        ;;                  version-control-diff-tool 'git-gutter
        ;;                  version-control-global-margin t)
        yaml
-
        )
     ;; List of additional packages that will be installed without being
     ;; wrapped in a layer. If you need some configuration for these
     ;; packages, then consider creating a layer. You can also put the
     ;; configuration in `dotspacemacs/user-config'.
-    dotspacemacs-additional-packages '()
+    dotspacemacs-additional-packages '(python-info org-onenote)
     ;; A list of packages that cannot be updated.
     dotspacemacs-frozen-packages '()
     ;; A list of packages that will not be installed and loaded.
@@ -253,8 +258,8 @@ It should only modify the values of Spacemacs settings."
     ;; List of themes, the first of the list is loaded when spacemacs starts.
     ;; Press `SPC T n' to cycle to the next theme in the list (works great
     ;; with 2 themes variants, one dark and one light)
-    dotspacemacs-themes '(doom-one-light
-                           doom-one)
+    dotspacemacs-themes '(doom-nord
+                           doom-nord-light)
 
     ;; Set the theme for the Spaceline. Supported themes are `spacemacs',
     ;; `all-the-icons', `custom', `vim-powerline' and `vanilla'. The first three
@@ -271,17 +276,12 @@ It should only modify the values of Spacemacs settings."
 
     ;; Default font, or prioritized list of fonts. `powerline-scale' allows to
     ;; quickly tweak the mode-line size to make separators look not too crappy.
-    dotspacemacs-default-font (if (eq system-type 'darwin)
-                                '("Source Code Pro"
-                                   :size 11
-                                   :weight normal
-                                   :width normal
-                                   :powerline-scale 1.0)
-                                '("Source Code Pro"
-                                   :size 22
-                                   :weight normal
-                                   :width normal
-                                   :powerline-scale 1.0))
+    dotspacemacs-default-font `("Source Code Pro"
+                                 :size ,(if (eq system-type 'darwin) 12.0 8.0)
+                                 :weight normal
+                                 :width normal
+                                 :powerline-scale 1.0)
+
     ;; The leader key (default "SPC")
     dotspacemacs-leader-key "SPC"
 
@@ -576,27 +576,6 @@ before packages are loaded."
   (setq cmake-ide-build-pool-dir (file-truename "~/.cmake_builds"))
   (setq cmake-ide-build-pool-use-persistent-naming t)
 
-  ;; Add a custom project type for embedded C projects using our state framework....
-  ;; @todo: Move this into a layer?
-  (with-eval-after-load 'projectile
-    (projectile-register-project-type 'nmd '("framework.project")
-      :compile "make"
-      :test "rake"
-      :run "rake"
-      :test-prefix "test_")
-    (defun projectile-find-test (file-name)
-      "Given a test OR implementation FILE-NAME return the matching test filename.
-  Does not create missing test files -- intended for use in test runner command."
-      (unless file-name (error "The current buffer is not visiting a file"))
-      (if (projectile-test-file-p file-name)
-        (projectile-expand-root file-name)
-        ;; find the matching test file
-        (let ((test-file (projectile-find-matching-test file-name)))
-          (if test-file
-            (projectile-expand-root test-file)
-            (error "No matching test file found for project type `%s'"
-              (projectile-project-type)))))))
-
 
   ;; This series is taken from this SO answer regarding automatic reload of dir-locals on save
   ;;https://emacs.stackexchange.com/questions/13080/reloading-directory-local-variables
@@ -637,6 +616,7 @@ before packages are loaded."
     (org-babel-do-load-languages
       'org-babel-load-languages
       '((ruby . t)
+         (python . t)
          (shell . t)
          (plantuml . t)))
     ;; todo keywords
@@ -655,20 +635,14 @@ before packages are loaded."
         (add-hook 'after-save-hook 'org-html-export-to-html nil t)
         (message "Enabled org html export on save for current buffer..."))))
 
-  ;; PlantUML -- extension supports only .pum by default
+  ;; PlantUML
   (setq plantuml-jar-path "/opt/plantuml/plantuml.jar")
   (setq org-plantuml-jar-path "/opt/plantuml/plantuml.jar")
-  (add-to-list 'auto-mode-alist '(".+\\.puml\\'" . plantuml-mode))
 
   ;; == WORKAROUNDS -- REVISIT REGULARLY ==
   ;; Work around empty importmagic windows popping up
   (remove-hook 'python-mode-hook 'importmagic-mode)
 
-  ;; Workaround for https://github.com/syl20bnr/spacemacs/issues/9873
-  (setq spacemacs-default-jump-handlers
-    (remove 'evil-goto-definition spacemacs-default-jump-handlers))
-  ;; Workaround for https://github.com/syl20bnr/spacemacs/issues/11152
-  (setq projectile-keymap-prefix (kbd "C-c C-p")))
   ;; Work around octave mod issue
   ;; (eval-after-load 'octave
   ;;   (setq octave-mode-hook
@@ -687,7 +661,7 @@ before packages are loaded."
   ;;                      (cond
   ;;                        ((octave-in-string-or-comment-p) nil)
   ;;                        ((looking-at-p "\\(\\s<\\)\\1\\{2,\\}") 0)))))))
-  ;;   )
+  )
 
 
 
@@ -827,7 +801,7 @@ This function is called at the very end of Spacemacs initialization."
     ("#dc322f" "#cb4b16" "#b58900" "#546E00" "#B4C342" "#00629D" "#2aa198" "#d33682" "#6c71c4")))
  '(package-selected-packages
    (quote
-    (lsp-ui lsp-python lsp-javascript-typescript typescript-mode lsp-go cquery company-lsp ccls lsp-mode zeal-at-point systemd org-mime ibuffer-projectile gmail-message-mode ham-mode html-to-markdown flymd flycheck-ycmd ghub edit-server counsel-dash helm-dash company-ycmd ycmd request-deferred let-alist deferred doom-themes parent-mode gitignore-mode fringe-helper git-gutter+ pos-tip flx goto-chg diminish pkg-info epl popup org-category-capture racket-mode faceup toml-mode racer flycheck-rust cargo rust-mode csv-mode enh-ruby-mode gntp deft wolfram-mode thrift stan-mode scad-mode qml-mode matlab-mode julia-mode arduino-mode yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode cython-mode company-anaconda anaconda-mode pythonic company-irony irony winum unfill fuzzy avy log4e powershell evil plantuml-mode clojure-snippets clj-refactor inflections edn paredit peg cider-eval-sexp-fu cider seq queue clojure-mode packed epresent web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor multiple-cursors js2-mode js-doc company-tern dash-functional tern coffee-mode alert ox-reveal pandoc-mode ox-pandoc ht helm-gtags helm-css-scss helm-cscope zenburn-theme monokai-theme solarized-theme powerline request spinner bind-key bind-map pcre2el vimrc-mode dactyl-mode ox-gfm xcscope x86-lookup stickyfunc-enhance srefactor rainbow-mode rainbow-identifiers quack nasm-mode key-chord ggtags geiser fiplr grizzl find-file-in-project engine-mode dired-subtree dired-narrow dired-hacks-utils color-identifiers-mode vmd-mode web-mode tagedit slim-mode scss-mode sass-mode pug-mode less-css-mode haml-mode emmet-mode company-web web-completion-data pcache git-gutter iedit go-mode yasnippet auto-complete inf-ruby company highlight anzu smartparens undo-tree flycheck projectile helm helm-core hydra markdown-mode magit magit-popup async dash s ranger go-guru git-commit with-editor org minitest insert-shebang hide-comnt fish-mode company-shell rtags cmake-ide levenshtein yaml-mode wgrep smex ivy-hydra flyspell-correct-ivy counsel-projectile counsel swiper ivy uuidgen rake org-projectile org-download mwim link-hint git-link flyspell-correct-helm flyspell-correct eyebrowse evil-visual-mark-mode evil-unimpaired evil-ediff eshell-z dumb-jump f column-enforce-mode xterm-color ws-butler window-numbering which-key volatile-highlights vi-tilde-fringe use-package toc-org spacemacs-theme spaceline smooth-scrolling smeargle shell-pop rvm ruby-tools ruby-test-mode rubocop rspec-mode robe restart-emacs rbenv rainbow-delimiters quelpa popwin persp-mode paradox page-break-lines orgit org-repo-todo org-present org-pomodoro org-plus-contrib org-bullets open-junk-file neotree multi-term move-text mmm-mode markdown-toc magit-gitflow macrostep lorem-ipsum linum-relative leuven-theme info+ indent-guide ido-vertical-mode hungry-delete htmlize hl-todo highlight-parentheses highlight-numbers highlight-indentation help-fns+ helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-gitignore helm-flyspell helm-flx helm-descbinds helm-company helm-c-yasnippet helm-ag google-translate golden-ratio go-eldoc gnuplot gitconfig-mode gitattributes-mode git-timemachine git-messenger git-gutter-fringe git-gutter-fringe+ gh-md flycheck-pos-tip flx-ido fill-column-indicator fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-magit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu eshell-prompt-extras esh-help elisp-slime-nav disaster diff-hl define-word company-statistics company-quickhelp company-go company-c-headers cmake-mode clean-aindent-mode clang-format chruby bundler buffer-move bracketed-paste auto-yasnippet auto-highlight-symbol auto-dictionary auto-compile aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line ac-ispell)))
+    (writeroom-mode visual-fill-column org-onenote oauth2 lsp-rust ivy-yasnippet ivy-xref ivy-rtags ivy-purpose counsel-css zeal-at-point systemd org-mime ibuffer-projectile gmail-message-mode ham-mode html-to-markdown flymd flycheck-ycmd ghub edit-server counsel-dash helm-dash company-ycmd ycmd request-deferred let-alist deferred doom-themes parent-mode gitignore-mode fringe-helper git-gutter+ pos-tip flx goto-chg diminish pkg-info epl popup org-category-capture racket-mode faceup toml-mode racer flycheck-rust cargo rust-mode csv-mode enh-ruby-mode gntp deft wolfram-mode thrift stan-mode scad-mode qml-mode matlab-mode julia-mode arduino-mode yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode cython-mode company-anaconda anaconda-mode pythonic company-irony irony winum unfill fuzzy avy log4e powershell evil plantuml-mode clojure-snippets clj-refactor inflections edn paredit peg cider-eval-sexp-fu cider seq queue clojure-mode packed epresent web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor multiple-cursors js2-mode js-doc company-tern dash-functional tern coffee-mode alert ox-reveal pandoc-mode ox-pandoc ht helm-gtags helm-css-scss helm-cscope zenburn-theme monokai-theme solarized-theme powerline request spinner bind-key bind-map pcre2el vimrc-mode dactyl-mode ox-gfm xcscope x86-lookup stickyfunc-enhance srefactor rainbow-mode rainbow-identifiers quack nasm-mode key-chord ggtags geiser fiplr grizzl find-file-in-project engine-mode dired-subtree dired-narrow dired-hacks-utils color-identifiers-mode vmd-mode web-mode tagedit slim-mode scss-mode sass-mode pug-mode less-css-mode haml-mode emmet-mode company-web web-completion-data pcache git-gutter iedit go-mode yasnippet auto-complete inf-ruby company highlight anzu smartparens undo-tree flycheck projectile helm helm-core hydra markdown-mode magit magit-popup async dash s ranger go-guru git-commit with-editor org minitest insert-shebang hide-comnt fish-mode company-shell rtags cmake-ide levenshtein yaml-mode wgrep smex ivy-hydra flyspell-correct-ivy counsel-projectile counsel swiper ivy uuidgen rake org-projectile org-download mwim link-hint git-link flyspell-correct-helm flyspell-correct eyebrowse evil-visual-mark-mode evil-unimpaired evil-ediff eshell-z dumb-jump f column-enforce-mode xterm-color ws-butler window-numbering which-key volatile-highlights vi-tilde-fringe use-package toc-org spacemacs-theme spaceline smooth-scrolling smeargle shell-pop rvm ruby-tools ruby-test-mode rubocop rspec-mode robe restart-emacs rbenv rainbow-delimiters quelpa popwin persp-mode paradox page-break-lines orgit org-repo-todo org-present org-pomodoro org-plus-contrib org-bullets open-junk-file neotree multi-term move-text mmm-mode markdown-toc magit-gitflow macrostep lorem-ipsum linum-relative leuven-theme info+ indent-guide ido-vertical-mode hungry-delete htmlize hl-todo highlight-parentheses highlight-numbers highlight-indentation help-fns+ helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-gitignore helm-flyspell helm-flx helm-descbinds helm-company helm-c-yasnippet helm-ag google-translate golden-ratio go-eldoc gnuplot gitconfig-mode gitattributes-mode git-timemachine git-messenger git-gutter-fringe git-gutter-fringe+ gh-md flycheck-pos-tip flx-ido fill-column-indicator fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-magit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu eshell-prompt-extras esh-help elisp-slime-nav disaster diff-hl define-word company-statistics company-quickhelp company-go company-c-headers cmake-mode clean-aindent-mode clang-format chruby bundler buffer-move bracketed-paste auto-yasnippet auto-highlight-symbol auto-dictionary auto-compile aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line ac-ispell)))
  '(pos-tip-background-color "#A6E22E")
  '(pos-tip-foreground-color "#272822")
  '(smartrep-mode-line-active-bg (solarized-color-blend "#859900" "#073642" 0.2))

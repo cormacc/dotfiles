@@ -1,0 +1,1 @@
+export PIPENV_MAX_DEPTH=5
