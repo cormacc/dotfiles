@@ -6,6 +6,7 @@
 #Path to search for CD firmware image
 #Default :: string :: "<CWD>/cd"
 ImagePath = "~/nmd/products/mbt/cd/firmware/dist/bootloadable/production"
+# ImagePath = "~/nmd/products/mbt_tiny/cd/firmware/dist/bootloadable/production"
 
 #Path to search for IOD firmware image (string)
 #Default :: string :: "<CWD>/iod"
