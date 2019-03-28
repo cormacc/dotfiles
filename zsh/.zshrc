@@ -50,7 +50,7 @@ DEFAULT_USER="$USER"
 #----------------------------
 #-- PLUGIN FRAMEWORK SETUP --
 #zim, zplug or zgen
-export ZSH_FRAMEWORK=zim
+export ZSH_FRAMEWORK=zplug
 source ~/."$ZSH_FRAMEWORK"-setup
 #-- PLUGIN FRAMEWORK SETUP --
 #----------------------------

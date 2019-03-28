@@ -46,8 +46,8 @@ This function should only modify configuration layer settings."
          auto-completion-enable-help-tooltip t
          )
        (c-c++ :variables
-         c-c++-backend 'lsp-cquery
-         ;; c-c++-backend 'lsp-ccls
+         ;; c-c++-backend 'lsp-cquery
+         c-c++-backend 'lsp-ccls
          ;; c-c++-adopt-subprojects t
          c-c++-lsp-sem-highlight-rainbow t
          )
@@ -100,7 +100,9 @@ This function should only modify configuration layer settings."
        plantuml
        (python :variables
          python-pipenv-activate t
-         python-backend 'lsp
+         python-backend 'lsp-ms
+         python-lsp-git-root "~/dev/python/python-language-server"
+         ;; python-backend 'lsp
          ;; python-backend 'anaconda
          python-test-runner 'pytest)
        ;; racket
@@ -127,6 +129,7 @@ This function should only modify configuration layer settings."
        (syntax-checking :variables
          syntax-checking-enable-by-default nil
          )
+       sql
        systemd
        ;; themes-megapack
        treemacs
@@ -550,8 +553,7 @@ configuration.
 Put your configuration code here, except for variables that should be set
 before packages are loaded."
   (define-key global-map (kbd "C-+") 'text-scale-increase)
-  ;; This is bound to something else?
-  ;; (define-key global-map (kbd "C--") 'text-scale-decrease)
+  (define-key global-map (kbd "C-=") 'text-scale-decrease)
   ;; Override default OSX bindings for home and end
   (global-set-key [home] 'move-beginning-of-line)
   (global-set-key [end] 'move-end-of-line)
@@ -576,6 +578,7 @@ before packages are loaded."
          (inextern-lang . 0)
          (innamespace . 0))))
   (push '(other . "cormacc") c-default-style)
+  (add-hook 'c-mode-hook (lambda () (setq fill-column 120)))
 
   ;; We want to open CMakeSources.txt in cmake mode (i.e. not just CMakeLists.txt)
   (add-to-list 'auto-mode-alist '("CMake.+\\.txt\\'" . cmake-mode))
@@ -642,18 +645,17 @@ before packages are loaded."
         (message "Enabled org html export on save for current buffer..."))))
 
   ;; PlantUML
-  (setq plantuml-jar-path "/opt/plantuml/plantuml.jar")
-  (setq org-plantuml-jar-path "/opt/plantuml/plantuml.jar")
+  (setq plantuml-jar-path "/usr/share/java/plantuml/plantuml.jar")
+  (setq org-plantuml-jar-path "/usr/share/java/plantuml/plantuml.jar")
 
   ;; == WORKAROUNDS -- REVISIT REGULARLY ==
   ;; Work around empty importmagic windows popping up
   (remove-hook 'python-mode-hook 'importmagic-mode)
 
-  ;; Broken org scr-block easy-templates...
+  ;; Broken org src-block easy-templates...
   ;; See https://github.com/syl20bnr/spacemacs/issues/11798
-  ;; (setq org-reveal-note-key-char nil)
-  (spacemacs/set-leader-keys-for-major-mode 'org-mode "iT" 'org-insert-structure-template)
-  )
+  (require 'org-tempo))
+
 
 
   ;; Work around octave mod issue

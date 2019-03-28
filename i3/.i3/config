@@ -93,10 +93,10 @@ bindsym $mod+m mode "$menu_manjaro"
 
 set $menu_launch Execute (w)ww, (j)etbrains, (e)ditor, (v)m, (f/F)ileman/sudo, (m)plab
 mode "$menu_launch" {
-    bindsym w exec chromium, mode "default"
+    bindsym w exec google-chrome-stable, mode "default"
     bindsym j exec .local/share/JetBrains/Toolbox/bin/jetbrains-toolbox, mode "default"
     bindsym e exec emacs, mode "default"
-    bindsym v exec virtualbox, mode "default"
+    bindsym v exec virt-manager, mode "default"
     bindsym f exec ranger, mode "default"
     bindsym Shift+f exec gksu ranger, mode "default"
     bindsym m exec mplab_ide, mode "default"
