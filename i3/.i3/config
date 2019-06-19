@@ -91,9 +91,10 @@ mode "$menu_manjaro" {
 }
 bindsym $mod+m mode "$menu_manjaro"
 
-set $menu_launch Execute (w)ww, (j)etbrains, (e)ditor, (v)m, (f/F)ileman/sudo, (m)plab
+set $menu_launch Execute (w/W)ww, (j)etbrains, (e)ditor, (v)m, (f/F)ileman/sudo, (m)plab
 mode "$menu_launch" {
-    bindsym w exec google-chrome-stable, mode "default"
+    bindsym w exec chromium, mode "default"
+    bindsym Shift+w exec firefox, mode "default"
     bindsym j exec .local/share/JetBrains/Toolbox/bin/jetbrains-toolbox, mode "default"
     bindsym e exec emacs, mode "default"
     bindsym v exec virt-manager, mode "default"
@@ -383,6 +384,7 @@ mode "resize" {
 
 # Autostart applications
 exec --no-startup-id /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
+# exec --no-startup-id nitrogen --restore; sleep 1; compton -b --paint-on-overlay --unredir-if-possible --backend xr_glx_hybrid --vsync drm --glx-swap-method -1 --glx-no-stencil
 exec --no-startup-id nitrogen --restore; sleep 1; compton -b
 #exec --no-startup-id manjaro-hello
 exec --no-startup-id nm-applet
@@ -397,6 +399,7 @@ exec_always --no-startup-id fix_xcursor
 
 #CC additions
 exec --no-startup-id dropbox
+#exec --no-startup-id synergy
 #exec --no-startup-id insync start
 #exec --no-startup-id nextcloud
 #exec --no-startup-id dock

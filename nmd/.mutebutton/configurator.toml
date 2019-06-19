@@ -10,8 +10,8 @@ ImagePath = "~/nmd/products/mbt/cd/firmware/dist/bootloadable/production"
 
 #Path to search for IOD firmware image (string)
 #Default :: string :: "<CWD>/iod"
-#IodImagePath = "~/nmd/products/mbt/iod/firmware/dist/bootloadable/production"
-IodImagePath = "~/Downloads/iod_firmware"
+IodImagePath = "~/nmd/products/mbt/iod/firmware/dist/bootloadable/production"
+# IodImagePath = "~/Downloads/iod_firmware"
 
 #GUI scale factor as float32
 #Default :: float :: 1.0

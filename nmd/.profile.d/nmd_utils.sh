@@ -26,3 +26,19 @@ function mb2() {
 function mbt() {
   p mbt/$1
 }
+
+function d() {
+  pushd ~/Dropbox\ \(Neuromod\ Devices\)/$1
+}
+
+function t() {
+  d NMDProductTesting/$1
+}
+
+function it() {
+  d IT/$1
+}
+
+function pd() {
+  d Product_Development/$1
+}

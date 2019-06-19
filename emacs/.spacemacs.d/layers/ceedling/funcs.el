@@ -12,8 +12,8 @@
   (with-eval-after-load 'projectile
     (projectile-register-project-type 'ceedling '("project.yml")
       :compile "make"
-      :test "rake"
-      :run "rake"
+      :test "ceedling"
+      :run "ceedling"
       :test-prefix "test_")
     (defun projectile-find-test (file-name)
       "Given a test OR implementation FILE-NAME return the matching test filename.

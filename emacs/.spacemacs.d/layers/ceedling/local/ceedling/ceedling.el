@@ -28,13 +28,13 @@
 
 ;; code goes here
 (defun ceedling--test (opts module)
-  (compile (format "rake %s test:%s" opts module)))
+  (let ((default-directory (projectile-project-root))) (compile (format "ceedling %s test:%s" opts module))))
 
 (defun ceedling--test-default-opts (testgroup) (ceedling--test "" testgroup))
 
 (defun ceedling--test-this-file-with-opts (opts)
-  (let ((module-name (replace-regexp-in-string ".*/" "" (replace-regexp-in-string "\\.[ch]" "" buffer-file-name))))
-    (compile (format "rake %s test:%s" opts module-name))))
+  (let ( (default-directory (projectile-project-root)) (module-name (replace-regexp-in-string ".*/" "" (replace-regexp-in-string "\\.[ch]" "" buffer-file-name))))
+    (compile (format "ceedling %s test:%s" opts module-name))))
 
 (defun ceedling-test-this-file ()
   (interactive)
@@ -46,7 +46,7 @@
 
 (defun ceedling-clobber ()
   (interactive)
-  (compile "rake clobber"))
+  (compile "ceedling clobber"))
 
 (defun ceedling-test-all ()
   (interactive)

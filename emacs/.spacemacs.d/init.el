@@ -43,14 +43,14 @@ This function should only modify configuration layer settings."
                                         ;asm
        (auto-completion :variables
          auto-completion-enable-snippets-in-popup t
-         auto-completion-enable-help-tooltip t
-         )
+         auto-completion-enable-help-tooltip t)
+
        (c-c++ :variables
          ;; c-c++-backend 'lsp-cquery
          c-c++-backend 'lsp-ccls
          ;; c-c++-adopt-subprojects t
-         c-c++-lsp-sem-highlight-rainbow t
-         )
+         c-c++-lsp-sem-highlight-rainbow t)
+
        ceedling
        (cmake :variables
                                         ;cmake-enable-cmake-ide-support t
@@ -60,6 +60,7 @@ This function should only modify configuration layer settings."
          nyan-bar-length 8)
        csv
        chrome
+       dap
        (dash :variables
          helm-dash-browse-in-emacs t
          helm-dash-docset-newpath "~/.local/share/Zeal/Zeal/docsets")
@@ -70,11 +71,12 @@ This function should only modify configuration layer settings."
        (go :variables
          gofmt-command "goimports"
          go-use-gometalinter t
-         godoc-at-point-function 'godoc-gogetdoc
-         )
+         godoc-at-point-function 'godoc-gogetdoc)
+
        haskell
        html
        (ibuffer :variables ibuffer-group-buffers-by 'projects)
+       imenu-list
        ;; Helm layer is loaded automatically if ivy isn't
        ivy
        ;; (javascript :variables node-add-modules-path t)
@@ -93,17 +95,20 @@ This function should only modify configuration layer settings."
        (org :variables
          org-enable-hugo-support t
          org-enable-github-support t
-         org-enable-reveal-js-support t
-         )
+         org-enable-reveal-js-support t)
+       my-org
+
        pandoc
-       parinfer
-       plantuml
+       ;; parinfer ;;This may be screwing up my parens...
+       (plantuml :variables
+         plantuml-jar-path "/usr/share/java/plantuml/plantuml.jar"
+         org-plantuml-jar-path "/usr/share/java/plantuml/plantuml.jar"
+         )
        (python :variables
-         python-pipenv-activate t
-         python-backend 'lsp-ms
-         python-lsp-git-root "~/dev/python/python-language-server"
-         ;; python-backend 'lsp
          ;; python-backend 'anaconda
+         python-backend 'lsp
+         python-lsp-server 'mspyls
+         python-lsp-git-root "~/dev/python/python-language-server"
          python-test-runner 'pytest)
        ;; racket
        (ranger :variables
@@ -138,8 +143,8 @@ This function should only modify configuration layer settings."
        ;; (version-control :variables
        ;;                  version-control-diff-tool 'git-gutter
        ;;                  version-control-global-margin t)
-       yaml
-       )
+       yaml)
+
 
     ;; List of additional packages that will be installed without being
     ;; wrapped in a layer. If you need some configuration for these
@@ -615,38 +620,6 @@ before packages are loaded."
   (with-eval-after-load 'markdown-mode
     (add-hook 'markdown-mode-hook #'visual-line-mode))
 
-  (with-eval-after-load 'org
-    (add-hook 'org-mode-hook #'visual-line-mode)
-    (setq org-confirm-babel-evaluate nil
-      org-src-fontify-natively t
-      org-src-tab-acts-natively t
-      org-startup-folded nil)
-    (require 'ob-ruby)
-    (org-babel-do-load-languages
-      'org-babel-load-languages
-      '((ruby . t)
-         (python . t)
-         (shell . t)
-         (plantuml . t)))
-    ;; todo keywords
-    ;; (setq org-todo-keywords
-    ;;   (quote ((sequence "TODO(t)" "|" "DONE(d)"
-    ;;             (sequence "TASK(t)" "MAYBE(m)" "NEXT(n)" "WAITING(w)" "|" "CANCELLED(c)" "FINISHED")))))
-    (setq org-use-sub-superscripts "{}")
-    (setq org-export-with-sub-superscripts "{}")
-    (setq org-src-tab-acts-natively t)
-    (defun toggle-org-html-export-on-save ()
-      (interactive)
-      (if (memq 'org-html-export-to-html after-save-hook)
-        (progn
-          (remove-hook 'after-save-hook 'org-html-export-to-html t)
-          (message "Disabled org html export on save for current buffer..."))
-        (add-hook 'after-save-hook 'org-html-export-to-html nil t)
-        (message "Enabled org html export on save for current buffer..."))))
-
-  ;; PlantUML
-  (setq plantuml-jar-path "/usr/share/java/plantuml/plantuml.jar")
-  (setq org-plantuml-jar-path "/usr/share/java/plantuml/plantuml.jar")
 
   ;; == WORKAROUNDS -- REVISIT REGULARLY ==
   ;; Work around empty importmagic windows popping up
