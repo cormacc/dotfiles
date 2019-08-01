@@ -108,7 +108,7 @@ This function should only modify configuration layer settings."
          ;; python-backend 'anaconda
          python-backend 'lsp
          python-lsp-server 'mspyls
-         python-lsp-git-root "~/dev/python/python-language-server"
+         ;; python-lsp-git-root "~/dev/python/python-language-server"
          python-test-runner 'pytest)
        ;; racket
        (ranger :variables
