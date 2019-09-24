@@ -165,3 +165,18 @@
         (message "Disabled org html export on save for current buffer..."))
       (add-hook 'after-save-hook 'org-html-export-to-html nil t)
       (message "Enabled org html export on save for current buffer..."))))
+
+;; See https://github.com/alphapapa/org-sidebar/blob/master/examples.org
+;; This is nice in theory, but more work required -- some conflicts with spacemacs keybindings?
+(defun my-org/gtd-sidebar ()
+  "Display my GTD sidebar."
+  (interactive)
+  (org-sidebar
+   :sidebars (make-org-sidebar
+              :name "GTD"
+              :description "Get things done"
+              :items (org-ql (org-agenda-files)
+                             (and (not (done))
+                                  (or (deadline auto)
+                                      (scheduled :to today)))
+                             :action element-with-markers))))

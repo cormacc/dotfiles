@@ -1,3 +1,0 @@
-rm ~/.emacs.d
-ln -s ~/dev/env/dotemacs.doom ~/.emacs.d
-emacs

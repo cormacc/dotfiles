@@ -35,6 +35,9 @@
      ;; (org-archive-hierarchical :location (recipe :fetcher local))
      ;; (org-archive-hierarchical :location local)
      org
+     org-web-tools
+     org-sidebar
+     magit-todos
      )
   "The list of Lisp packages required by the my-org layer.
 
@@ -73,4 +76,23 @@ Each entry is either:
   (with-eval-after-load 'org (my-org/config))
   )
 
+(defun my-org/init-org-web-tools ()
+  :defer t
+  :init (progn
+          (spacemacs/declare-prefix-for-mode 'org-mode "mw" "web")
+          (spacemacs/set-leader-keys-for-major-mode 'org-mode
+            "iw" 'org-web-tools-insert-link-for-url
+            "iW" 'org-web-tools-insert-web-page-as-entry
+            "wc" 'org-web-tools-convert-links-to-page-entries
+            "wa" 'org-web-tools-archive-attach
+            "wv" 'org-web-tools-archive-view)
+          )
+  )
+
+(defun my-org/init-org-sidebar ()
+  :defer t)
+
+(defun my-org/init-magit-todos ()
+  :defer t
+  :init (add-hook 'magit-mode-hook 'magit-todos-mode))
 ;;; packages.el ends here

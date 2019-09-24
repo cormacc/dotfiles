@@ -13,6 +13,7 @@
 # HTML EXPORT SETUP
 # 1. Apply a theme
 #+SETUPFILE: https://raw.githubusercontent.com/fniessen/org-html-themes/master/setup/theme-readtheorg.setup
+#+SETUPFILE: https://raw.githubusercontent.com/alphapapa/org-html-theme-darksun/master/export/setup/theme-darksun.setup
 
 #+STARTUP:: noindent
 

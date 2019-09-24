@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+if [[ "$1" =~ (.*)\.org ]]; then
+  ROOT=${BASH_REMATCH[1]}
+  INPUT=$1
+else
+  ROOT=$1
+  INPUT="$1.org"
+fi
+OUTPUT="$ROOT.md"
+
+pandoc -f org -t markdown -o $OUTPUT $INPUT
+echo Converted $INPUT to $OUTPUT
