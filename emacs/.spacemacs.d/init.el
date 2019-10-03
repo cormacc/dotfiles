@@ -302,7 +302,7 @@ It should only modify the values of Spacemacs settings."
 
    ;; Good options: Fantasque Sans Mono, Source Code Pro, Office Code Pro, Anonymous Pro
    dotspacemacs-default-font `("Source Code Pro"
-                               :size ,(if (eq system-type 'gnu/linux) 8.0 12.0)
+                               :size ,(if (eq system-type 'gnu/linux) 12.0 12.0)
                                :weight normal
                                :width normal)
 

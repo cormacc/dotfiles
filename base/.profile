@@ -7,7 +7,7 @@
 export TERM=xterm-256color
 
 #Set this to non-zero when debugging to list autoloads etc.
-export VERBOSE=0
+export VERBOSE=1
 
 #TODO: Move this somewhere in .profile.d (?xorg module?)
 # export TERMINAL=termite
@@ -44,3 +44,9 @@ fi
 
 export EDITOR="/usr/bin/vim"
 export VISUAL="/usr/bin/vim"
+
+# Additions from manjaro .profile
+export QT_QPA_PLATFORMTHEME="qt5ct"
+export GTK2_RC_FILES="$HOME/.gtkrc-2.0"
+# fix "xdg-open fork-bomb" export your preferred browser from here export BROWSER=/usr/bin/brave
+export BROWSER=/usr/bin/brave

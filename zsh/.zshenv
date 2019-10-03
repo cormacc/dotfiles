@@ -1,4 +1,4 @@
-
-source ~/.profile
+#Redundant
+#source ~/.profile
 
 
