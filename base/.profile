@@ -7,7 +7,8 @@
 export TERM=xterm-256color
 
 #Set this to non-zero when debugging to list autoloads etc.
-export VERBOSE=1
+export VERBOSE=0
+# export VERBOSE=1
 
 #TODO: Move this somewhere in .profile.d (?xorg module?)
 # export TERMINAL=termite

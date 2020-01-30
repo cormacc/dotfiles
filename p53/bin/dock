@@ -1,0 +1,56 @@
+#!/bin/bash
+# NO LONGER USING DOCK DETECTION
+# Due to issues with tb3 dock
+# dock detection was based on https://wiki.archlinux.org/index.php/Lenovo_ThinkPad_T420s
+# dock_usb_id="17ef:307f Lenovo"
+
+# 4k monitor DPI
+# 15" :: 294
+# 15.6" :: 282
+# 27" :: 163
+# 32" :: 138
+
+# Necessary for this to work right
+#export DISPLAY=:0
+export XAUTHORITY=/home/cormacc/.Xauthority
+
+#Dock ports (broken)
+# export DP_int=eDP-1-1
+# export DP_ext1=DP-0.1
+# export DP_ext2=DP-0.2
+# export DP_ext3=DP-0.3
+
+#Laptop ports
+export DP_int=eDP-1-1
+export DP_ext1=DP-3
+export DP_ext2=HDMI-0
+export DP_ext3=DP-0
+
+#Scaling
+# 1.0x :: 3840x2160
+# 1.2x :: 4608x2592
+# 1.5x :: 5760x3240
+
+# echo "Starting Dock Detection"
+# lsusb | grep "$dock_usb_id" > /dev/null
+if [ $# -gt 0 ] && [ $1 == 'off' ]; then
+    echo "Disabling external displays..."
+    xrandr \
+            --output $DP_ext2 --off \
+            --output $DP_ext1 --off \
+            --output $DP_ext3 --off \
+            --output $DP_int --primary
+
+    # Revert from kinesis -> internal keyboard layout
+    setxkbmap -model pc104 -layout gb
+
+else
+  echo "Enabling external displays..."
+
+  xrandr \
+          --output $DP_ext2 --auto --above $DP_int --primary\
+          --output $DP_ext1 --auto --rotate right --left-of $DP_ext2\
+          --output $DP_ext3 --auto --rotate right --right-of $DP_ext2
+
+  setxkbmap -model kinesis -layout us
+fi

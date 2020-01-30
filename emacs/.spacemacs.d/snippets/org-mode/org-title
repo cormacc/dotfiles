@@ -7,15 +7,19 @@
 #+AUTHOR: Cormac Cannon
 #+EMAIL: cormac.cannon@neuromoddevices.com
 #+LANGUAGE: en
-#+COPYRIGHT: Neuromod Devices Ltd. 2018
+#+COPYRIGHT: Neuromod Devices Ltd. `(format-time-string "%Y")`$0
 #+DATE: `(format-time-string "%Y-%m-%d")`$0
 
 # HTML EXPORT SETUP
 # 1. Apply a theme
 #+SETUPFILE: https://raw.githubusercontent.com/fniessen/org-html-themes/master/setup/theme-readtheorg.setup
-#+SETUPFILE: https://raw.githubusercontent.com/alphapapa/org-html-theme-darksun/master/export/setup/theme-darksun.setup
 
-#+STARTUP:: noindent
+# 2. Ensure exports include both source block contents and any results
+#+PROPERTY: header-args :exports both
+
+
+# Startup options : Want to view rendered versions of latex fragments (equations etc.) by default
+#+STARTUP:: latexpreview
 
 
 ${2:Some introductory text}

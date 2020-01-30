@@ -36,7 +36,7 @@ function t() {
 }
 
 function it() {
-  d IT/$1
+  d NMDIT/$1
 }
 
 function pd() {

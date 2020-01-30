@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+# echo "Initial branch $CURRENT_BRANCH"
+
+if [ $# -gt 0 ]; then
+    BRANCH=$1
+    echo "Merging specified branch ($BRANCH)"
+else
+    BRANCH=$CURRENT_BRANCH
+    echo "Merging current branch ($BRANCH)"
+fi
+# git stash
+git checkout $BRANCH && git fetch upstream && git merge upstream/$BRANCH && git push
+
+if [ $BRANCH != $CURRENT_BRANCH ]; then
+    echo "Reverting to $CURRENT_BRANCH after merging upstream/$BRANCH"
+    git checkout $CURRENT_BRANCH
+fi
+
+#git stash pop

@@ -1,4 +1,1 @@
-#Redundant
-#source ~/.profile
-
-
+source ~/.profile

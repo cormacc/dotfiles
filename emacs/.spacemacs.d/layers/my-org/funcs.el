@@ -94,6 +94,8 @@
 ;;   )
 
 (defun my-org/config ()
+  ;; For interop, prefer visual to actual indentation
+  (setq org-startup-indented t)
   (add-hook 'org-mode-hook #'visual-line-mode)
   (setq org-confirm-babel-evaluate nil
     org-src-fontify-natively t
@@ -103,9 +105,10 @@
   (org-babel-do-load-languages
     'org-babel-load-languages
     '((ruby . t)
-       (python . t)
-       (shell . t)
-       (plantuml . t)))
+      (python . t)
+      (shell . t)
+      (C . t)
+      (plantuml . t)))
   ;; todo keywords
   ;; (setq org-todo-keywords
   ;;   (quote ((sequence "TODO(t)" "|" "DONE(d)"
