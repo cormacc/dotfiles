@@ -31,13 +31,12 @@
 
 (defconst my-org-packages
   '(
-     ;; A local package to be built with Quelpa
-     ;; (org-archive-hierarchical :location (recipe :fetcher local))
-     ;; (org-archive-hierarchical :location local)
+     (org-archive-subtree-hierarchical :location local)
      org
      org-web-tools
      org-sidebar
-     magit-todos
+     ;; magit-todos
+     ob-typescript
      )
   "The list of Lisp packages required by the my-org layer.
 
@@ -92,7 +91,16 @@ Each entry is either:
 (defun my-org/init-org-sidebar ()
   :defer t)
 
-(defun my-org/init-magit-todos ()
-  :defer t
-  :init (add-hook 'magit-mode-hook 'magit-todos-mode))
-;;; packages.el ends here
+;; magit-todos added to spacemacs git layer April 2021
+;; (defun my-org/init-magit-todos ()
+;;   :defer t
+;;   :init (add-hook 'magit-mode-hook 'magit-todos-mode))
+
+(defun my-org/init-org-archive-subtree-hierarchical ()
+  (use-package org-archive-subtree-hierarchical))
+
+(defun my-org/post-init-org-archive-subtree-hierarchical ()
+  (setq org-archive-default-command 'org-archive-subtree-hierarchical))
+
+(defun my-org/init-ob-typescript ()
+  :defer t)

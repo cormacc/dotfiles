@@ -1,6 +1,9 @@
-;; org-archive-hierarchical.el
-;; modified from https://stackoverflow.com/questions/10143959/keeping-the-context-when-archiving-in-emacs-org-mode/10144949#10144949
-;; which in turn was modified from https://lists.gnu.org/archive/html/emacs-orgmode/2014-08/msg00109.html
+;; org-archive-subtree-hierarchical.el
+;; From https://gist.github.com/kepi/2f4acc3cc93403c75fbba5684c5d852d
+;;
+;; version 0.2
+;; modified from https://lists.gnu.org/archive/html/emacs-orgmode/2014-08/msg00109.html
+;; modified from https://stackoverflow.com/a/35475878/259187
 
 ;; In orgmode
 ;; * A
@@ -18,18 +21,22 @@
 ;; * A
 ;; ** AA
 ;; *** AAA
-
-
+;;
+;; Install file to your include path and include in your init file with:
+;;
+;;  (require 'org-archive-subtree-hierarchical)
+;;  (setq org-archive-default-command 'org-archive-subtree-hierarchical)
+;;
 (require 'org-archive)
 
-(defun org-archive-hierarchical--line-content-as-string ()
+(defun org-archive-subtree-hierarchical--line-content-as-string ()
   "Returns the content of the current line as a string"
   (save-excursion
     (beginning-of-line)
     (buffer-substring-no-properties
      (line-beginning-position) (line-end-position))))
 
-(defun org-archive-hierarchical--org-child-list ()
+(defun org-archive-subtree-hierarchical--org-child-list ()
   "This function returns all children of a heading as a list. "
   (interactive)
   (save-excursion
@@ -39,12 +46,12 @@
     (if (= (org-outline-level) 0)
         (outline-next-visible-heading 1)
       (org-goto-first-child))
-    (let ((child-list (list (org-archive-hierarchical--line-content-as-string))))
+    (let ((child-list (list (org-archive-subtree-hierarchical--line-content-as-string))))
       (while (org-goto-sibling)
-        (setq child-list (cons (org-archive-hierarchical--line-content-as-string) child-list)))
+        (setq child-list (cons (org-archive-subtree-hierarchical--line-content-as-string) child-list)))
       child-list)))
 
-(defun org-archive-hierarchical--org-struct-subtree ()
+(defun org-archive-subtree-hierarchical--org-struct-subtree ()
   "This function returns the tree structure in which a subtree
 belongs as a list."
   (interactive)
@@ -59,18 +66,19 @@ belongs as a list."
             (setq archive-tree (cons heading archive-tree))))))
     archive-tree))
 
-(defun org-archive-hierarchical ()
+(defun org-archive-subtree-hierarchical ()
   "This function archives a subtree hierarchical"
   (interactive)
-  (let ((org-tree (org-archive-hierarchical--org-struct-subtree))
+  (let ((org-tree (org-archive-subtree-hierarchical--org-struct-subtree))
         (this-buffer (current-buffer))
         (file (abbreviate-file-name
                (or (buffer-file-name (buffer-base-buffer))
                    (error "No file associated to buffer")))))
     (save-excursion
-      (setq location (org-get-local-archive-location)
-            afile (org-extract-archive-file location)
-            heading (org-extract-archive-heading location)
+      (setq location org-archive-location
+            afile (car (org-archive--compute-location
+                       (or (org-entry-get nil "ARCHIVE" 'inherit) location)))
+            ;; heading (org-extract-archive-heading location)
             infile-p (equal file (abbreviate-file-name (or afile ""))))
       (unless afile
         (error "Invalid `org-archive-location'"))
@@ -86,7 +94,7 @@ belongs as a list."
       (org-mode)
       (goto-char (point-min))
       (while (not (equal org-tree nil))
-        (let ((child-list (org-archive-hierarchical--org-child-list)))
+        (let ((child-list (org-archive-subtree-hierarchical--org-child-list)))
           (if (member (car org-tree) child-list)
               (progn
                 (search-forward (car org-tree) nil t)
@@ -103,4 +111,16 @@ belongs as a list."
       (message "Subtree archived %s"
                (concat "in file: " (abbreviate-file-name afile))))))
 
-(provide 'org-archive-hierarchical)
+(defun org-insert-struct (struct)
+  "TODO"
+  (interactive)
+  (when struct
+    (insert (car struct))
+    (newline)
+    (org-insert-struct (cdr struct))))
+
+;; (defun org-archive-subtree ()
+;;   (org-archive-subtree-hierarchical)
+;;   )
+
+(provide 'org-archive-subtree-hierarchical)

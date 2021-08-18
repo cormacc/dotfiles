@@ -8,90 +8,6 @@
 ;; This file is not part of GNU Emacs.
 ;;
 ;;; License: GPLv3
-;;Compatibility layer for old org mode here: https://code.orgmode.org/bzg/org-mode/src/release_8.3.6/lisp/org-archive.el
-;; (defun org-extract-archive-file (&optional location)
-;;   "Extract and expand the file name from archive LOCATION.
-;; if LOCATION is not given, the value of `org-archive-location' is used."
-;;   (setq location (or location org-archive-location))
-;;   (if (string-match "\\(.*\\)::\\(.*\\)" location)
-;;     (if (= (match-beginning 1) (match-end 1))
-;;       (buffer-file-name (buffer-base-buffer))
-;;       (expand-file-name
-;;         (format (match-string 1 location)
-;;           (file-name-nondirectory
-;;             (buffer-file-name (buffer-base-buffer))))))))
-
-;; (defun org-extract-archive-heading (&optional location)
-;;   "Extract the heading from archive LOCATION.
-;; if LOCATION is not given, the value of `org-archive-location' is used."
-;;   (setq location (or location org-archive-location))
-;;   (if (string-match "\\(.*\\)::\\(.*\\)" location)
-;;     (format (match-string 2 location)
-;;       (file-name-nondirectory
-;;         (buffer-file-name (buffer-base-buffer))))))
-
-;; (defun org-local-archive-location ()
-;;   (org-archive--compute-location
-;;     (or (org-entry-get nil "ARCHIVE" 'inherit)
-;;       org-archive-location))
-;;   )
-
-
-;; (defadvice org-archive-subtree (around fix-hierarchy activate)
-;;   (let* ((fix-archive-p (and (not current-prefix-arg)
-;;                              (not (use-region-p))))
-;;          (afile (org-extract-archive-file (org-local-archive-location)))
-;;           ;; (afile (org-archive--compute-location org-archive-location))
-;;           ;; (afile (org-archive--compute-location "%s_archive::"))
-;;          (buffer (or (find-buffer-visiting afile) (find-file-noselect afile))))
-;;     ad-do-it
-;;     (when fix-archive-p
-;;       (with-current-buffer buffer
-;;         (goto-char (point-max))
-;;         (while (org-up-heading-safe))
-;;         (let* ((olpath (org-entry-get (point) "ARCHIVE_OLPATH"))
-;;                (path (and olpath (split-string olpath "/")))
-;;                (level 1)
-;;                tree-text)
-;;           (when olpath
-;;             (org-mark-subtree)
-;;             (setq tree-text (buffer-substring (region-beginning) (region-end)))
-;;             (let (this-command) (org-cut-subtree))
-;;             (goto-char (point-min))
-;;             (save-restriction
-;;               (widen)
-;;               (-each path
-;;                 (lambda (heading)
-;;                   (if (re-search-forward
-;;                        (rx-to-string
-;;                         `(: bol (repeat ,level "*") (1+ " ") ,heading)) nil t)
-;;                       (org-narrow-to-subtree)
-;;                     (goto-char (point-max))
-;;                     (unless (looking-at "^")
-;;                       (insert "\n"))
-;;                     (insert (make-string level ?*)
-;;                             " "
-;;                             heading
-;;                             "\n"))
-;;                   (cl-incf level)))
-;;               (widen)
-;;               (org-end-of-subtree t t)
-;;               (org-paste-subtree level tree-text))))))))
-
-
-;; This is an alternative implementation using a local package, but doesn't work
-;; (defun org-insert-struct (struct)
-;;   "TODO"
-;;   (interactive)
-;;   (when struct
-;;     (insert (car struct))
-;;     (newline)
-;;     (org-insert-struct (cdr struct))))
-
-;; (defun org-archive-subtree ()
-;;   (interactive)
-;;   (org-archive-hierarchical)
-;;   )
 
 (defun my-org/config ()
   ;; For interop, prefer visual to actual indentation
@@ -101,14 +17,21 @@
     org-src-fontify-natively t
     org-src-tab-acts-natively t
     org-startup-folded nil)
+  ;; Output to docx rather than odf
+  (setq org-odt-preferred-output-format "docx")
+  ;; Allow a., A. etc. for lists
+  (setq org-list-allow-alphabetical t)
   (require 'ob-ruby)
   (org-babel-do-load-languages
     'org-babel-load-languages
-    '((ruby . t)
+    '((C . t)
+      (js . t)
+      (plantuml . t)
       (python . t)
+      (ruby . t)
       (shell . t)
-      (C . t)
-      (plantuml . t)))
+      (typescript . t)
+      ))
   ;; todo keywords
   ;; (setq org-todo-keywords
   ;;   (quote ((sequence "TODO(t)" "|" "DONE(d)"

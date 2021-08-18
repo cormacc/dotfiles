@@ -328,7 +328,7 @@ exec --no-startup-id clipit
 # exec_always --no-startup-id sbxkb
 exec --no-startup-id ~/bin/start_conky
 # exec --no-startup-id start_conky_green
-exec --no-startup-id xautolock -time 10 -locker blurlock
+#exec --no-startup-id xautolock -time 10 -locker blurlock
 exec_always --no-startup-id ff-theme-util
 exec_always --no-startup-id fix_xcursor
 
@@ -472,7 +472,8 @@ mode "$mode_gaps_outer" {
 
 
 #### AUTOSTART ####
-exec --no-startup-id dropbox
+#Running dropbox using 'systemctl --user enable dropbox' instead
+#exec --no-startup-id dropbox
 #exec --no-startup-id synergy
 exec --no-startup-id insync start
 #exec --no-startup-id nextcloud
@@ -516,7 +517,7 @@ mode "$menu_manjaro" {
     bindsym Return mode "default"
     bindsym Escape mode "default"
 }
-bindsym $mod+m mode "$menu_manjaro"
+# bindsym $mod+m mode "$menu_manjaro"
 
 set $menu_launch Execute (w/W)ww, (j)etbrains, (e)ditor, (v)m, (f/F)ileman/sudo, (m)plab
 mode "$menu_launch" {
@@ -565,9 +566,9 @@ bindsym $mod+t mode "$menu_toggle"
 
 # ... nvidia hybrid no dock (interim - 2 monitors
 set $DP_ext1 DP-3
-set $DP_ext2 HDMI-0
+set $DP_ext2 DP-0
 set $DP_int eDP-1-1
-set $DP_ext3 DP-0
+set $DP_ext3 HDMI-0
 
 workspace 1 output $DP_ext1
 workspace 2 output $DP_ext1
