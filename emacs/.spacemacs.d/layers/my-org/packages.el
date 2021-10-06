@@ -32,11 +32,12 @@
 (defconst my-org-packages
   '(
      (org-archive-subtree-hierarchical :location local)
-     org
+     (org :location built-in)
      org-web-tools
      org-sidebar
      ;; magit-todos
      ob-typescript
+     leuven-theme
      )
   "The list of Lisp packages required by the my-org layer.
 
@@ -103,4 +104,7 @@ Each entry is either:
   (setq org-archive-default-command 'org-archive-subtree-hierarchical))
 
 (defun my-org/init-ob-typescript ()
+  :defer t)
+
+(defun my-org/init-leuven-theme ()
   :defer t)

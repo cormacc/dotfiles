@@ -12,7 +12,6 @@
 
 # HTML EXPORT SETUP
 # 1. Apply a theme
-##+SETUPFILE: https://raw.githubusercontent.com/fniessen/org-html-themes/master/org/theme-readtheorg.setup
 #+SETUPFILE: ~/Documents/templates/org-html-themes/org/theme-readtheorg.setup
 
 # 2. Ensure exports include both source block contents and any results
