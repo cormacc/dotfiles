@@ -35,12 +35,13 @@
   ;; todo keywords
   ;; (setq org-todo-keywords
   ;;   (quote ((sequence "TODO(t)" "|" "DONE(d)"
-  ;;             (sequence "TASK(t)" "MAYBE(m)" "NEXT(n)" "WAITING(w)" "|" "CANCELLED(c)" "FINISHED")))))
+  ;;             (sequence "TODO(t)" "MAYBE(m)" "NEXT(n)" "WAITING(w)" "|" "CANCELLED(c)" "FINISHED"i)))))
   (setq org-use-sub-superscripts "{}")
   (setq org-export-with-sub-superscripts "{}")
   (setq org-src-tab-acts-natively t)
   ;;BEGIN GTD
   ;; Pilfered from https://emacs.cafe/emacs/orgmode/gtd/2017/06/30/orgmode-gtd.html
+  ;; See also: http://www.cachestocaches.com/2016/9/my-workflow-org-agenda/
   (setq org-agenda-files '("~/org/gtd/inbox.org"
                             "~/org/gtd/gtd.org"
                             "~/org/gtd/reminders.org"))
@@ -53,7 +54,8 @@
   (setq org-refile-targets '(("~/org/gtd/gtd.org" :maxlevel . 3)
                               ("~/org/gtd/someday.org" :level . 1)
                               ("~/org/gtd/reminders.org" :maxlevel . 2)))
-  (setq org-todo-keywords '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
+  ;; (setq org-todo-keywords '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
+  (setq org-todo-keywords '((sequence "TODO(t)" "NEXT(n)" "WAITING(w)" "SOMEDAY(s)" "|" "DONE(d)" "CANCELLED(c)")))
   ;;TODO: add @home context -- also see skip section of website linked above to show only first item from each project...
   (setq org-agenda-custom-commands
     '(

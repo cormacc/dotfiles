@@ -50,10 +50,19 @@ xrandr \
 #--output $DP_int --primary
 
 
-if [ $# -gt 0 ] && [ $1 == 'off' ]; then
-    # Revert from kinesis -> internal keyboard layout
-    setxkbmap -model pc104 -layout gb
+if [ $# -gt 0 ]; then
+  # Revert from kinesis -> internal keyboard layout
+  setxkbmap -model pc104 -layout gb
+  if [ $1 == 'off' ]; then
     xrandr --output $DP_int --primary
+  else
+    echo "Enabling external display $1..."
+
+    xrandr \
+      --output $DP_int --auto \
+      --output $1 --auto --above $DP_int --primary\
+	
+  fi	    
 else
   echo "Enabling external displays..."
 

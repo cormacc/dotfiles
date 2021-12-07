@@ -38,6 +38,7 @@
      ;; magit-todos
      ob-typescript
      leuven-theme
+     org-roam
      )
   "The list of Lisp packages required by the my-org layer.
 
@@ -108,3 +109,37 @@ Each entry is either:
 
 (defun my-org/init-leuven-theme ()
   :defer t)
+
+;; See https://systemcrafters.net/build-a-second-brain-in-emacs/capturing-notes-efficiently/
+(defun my-org/post-init-org-roam ()
+  (setq org-roam-capture-templates
+        '(("d" "default" plain
+           "%?"
+           :if-new (file+head "${slug}.org" "#+title: ${title}\n#+date: %<%Y%m%d>\n#+filetags: topic")
+           :unnarrowed t)
+          ("m" "meeting" plain
+           "* Agenda\n\n%?\n\n* Attendees\n- Cormac Cannon\n- \n\n* Notes\n\n"
+           :if-new (file+head "meeting-${slug}-%<%Y%m%d%H%M%S>.org" "#+title: ${title}\n#+date: %<%Y%m%d>\n")
+           :unnarrowed t)
+          ("t" "timestamped" plain
+           "%?"
+           :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+date: %<%Y%m%d>\n")
+           :unnarrowed t)
+          ("l" "programming language" plain
+           "%?"
+           :if-new (file+head "${slug}.org" "#+title: ${title}\n#+date: %<%Y%m%d>\n#+filetags: tech lang\n")
+           :unnarrowed t)
+          ("p" "project" plain
+           "* Goals\n\n%?\n\n* Tasks\n\n** TODO Add initial tasks\n\n* Dates\n\n"
+           :if-new (file+head "${slug}.org" "#+title: ${title}\n#+date: %<%Y%m%d>\n#+filetags: project\n")
+           :unnarrowed t))
+        )
+  (setq org-roam-v2-ack t)
+  (setq org-roam-dailies-directory "dailies/")
+  (setq org-roam-dailies-capture-templates
+        '(("d" "default" entry
+           "* %?"
+           :target (file+head "%<%Y-%m-%d>.org"
+                              "#+title: %<%Y-%m-%d>\n"))))
+
+  )
