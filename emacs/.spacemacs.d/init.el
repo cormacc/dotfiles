@@ -118,7 +118,7 @@ This function should only modify configuration layer settings."
             ;; org-enable-github-support t
             ;; org-enable-bootstrap-support t
             org-enable-reveal-js-support t)
-       my-org
+       org-user
 
        ;; outshine
 

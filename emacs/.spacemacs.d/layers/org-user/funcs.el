@@ -1,4 +1,4 @@
-;;; packages.el --- my-org layer packages file for Spacemacs.
+;;; packages.el --- org-user layer packages file for Spacemacs.
 ;;
 ;; Copyright (c) 2012-2018 Sylvain Benner & Contributors
 ;;
@@ -9,7 +9,7 @@
 ;;
 ;;; License: GPLv3
 
-(defun my-org/config ()
+(defun org-user/config ()
   ;; For interop, prefer visual to actual indentation
   (setq org-startup-indented t)
   (add-hook 'org-mode-hook #'visual-line-mode)
@@ -61,13 +61,13 @@
     '(
        ("o" "At the office" tags-todo "@office"
          ((org-agenda-overriding-header "Office")
-           (org-agenda-skip-function #'my-org-agenda-skip-all-siblings-but-first)))
+           (org-agenda-skip-function #'org-user-agenda-skip-all-siblings-but-first)))
        ("h" "At home" tags-todo "@home"
          ((org-agenda-overriding-header "Home")
-           (org-agenda-skip-function #'my-org-agenda-skip-all-siblings-but-first)))
+           (org-agenda-skip-function #'org-user-agenda-skip-all-siblings-but-first)))
        ))
 
-  (defun my-org-agenda-skip-all-siblings-but-first ()
+  (defun org-user-agenda-skip-all-siblings-but-first ()
     "Skip all but the first non-done entry."
     (let (should-skip-entry)
       (unless (org-current-is-todo)
@@ -96,7 +96,7 @@
 
 ;; See https://github.com/alphapapa/org-sidebar/blob/master/examples.org
 ;; This is nice in theory, but more work required -- some conflicts with spacemacs keybindings?
-(defun my-org/gtd-sidebar ()
+(defun org-user/gtd-sidebar ()
   "Display my GTD sidebar."
   (interactive)
   (org-sidebar
@@ -112,7 +112,7 @@
 ;;Vulpea used to tag/untag org-roam files with TODOs as projects
 ;;This allows efficient org-agenda generation (only files with project tags parsed)
 ;;See https://d12frosted.io/posts/2021-01-16-task-management-with-roam-vol5.html
-(defun my-org//vulpea-project-p ()
+(defun org-user//vulpea-project-p ()
   "Return non-nil if current buffer has any todo entry.
 
 TODO entries marked as done are ignored, meaning the this
@@ -127,22 +127,22 @@ tasks."
      (lambda (h)
        (org-element-property :todo-type h)))))
 
-(defun my-org//vulpea-buffer-p ()
+(defun org-user//vulpea-buffer-p ()
   "Return non-nil if the currently visited buffer is a note."
   (and buffer-file-name
        (string-prefix-p
         (expand-file-name (file-name-as-directory org-roam-directory))
         (file-name-directory buffer-file-name))))
 
-(defun my-org/vulpea-project-update-tag ()
+(defun org-user/vulpea-project-update-tag ()
     "Update PROJECT tag in the current buffer."
     (when (and (not (active-minibuffer-window))
-               (my-org//vulpea-buffer-p))
+               (org-user//vulpea-buffer-p))
       (save-excursion
         (goto-char (point-min))
         (let* ((tags (vulpea-buffer-tags-get))
                (original-tags tags))
-          (if (my-org//vulpea-project-p)
+          (if (org-user//vulpea-project-p)
               (setq tags (cons "project" tags))
             (setq tags (remove "project" tags)))
 
@@ -154,7 +154,7 @@ tasks."
                     (seq-difference original-tags tags))
             (apply #'vulpea-buffer-tags-set tags))))))
 
-(defun my-org/vulpea-project-files ()
+(defun org-user/vulpea-project-files ()
     "Return a list of note files containing 'project' tag." ;
     (seq-uniq
      (seq-map
@@ -166,12 +166,12 @@ tasks."
         :on (= tags:node-id nodes:id)
         :where (like tag (quote "%\"project\"%"))]))))
 
-;; Replaced by my-org/inject... function below to avoid clobbering other agenda files outside roam dirs
-;; (defun my-org/vulpea-agenda-files-update (&rest _)
+;; Replaced by org-user/inject... function below to avoid clobbering other agenda files outside roam dirs
+;; (defun org-user/vulpea-agenda-files-update (&rest _)
 ;;   "Update the value of `org-agenda-files'."
-;;   (setq org-agenda-files (my-org/vulpea-project-files)))
+;;   (setq org-agenda-files (org-user/vulpea-project-files)))
 
 ;; See https://github.com/d12frosted/d12frosted.io/issues/15#issuecomment-910213001
-(defun my-org/inject-vulpea-project-files (org-agenda-files--output)
+(defun org-user/inject-vulpea-project-files (org-agenda-files--output)
   "Wrapper for org-agenda-files, to add org-roam projects identified by vulpea to the list."
   (append org-agenda-files--output (vulpea-project-files)))

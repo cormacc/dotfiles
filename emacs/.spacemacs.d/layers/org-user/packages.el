@@ -1,4 +1,4 @@
-;;; packages.el --- my-org layer packages file for Spacemacs.
+;;; packages.el --- org-user layer packages file for Spacemacs.
 ;;
 ;; Copyright (c) 2012-2018 Sylvain Benner & Contributors
 ;;
@@ -18,18 +18,18 @@
 ;;
 ;;
 ;; Briefly, each package to be installed or configured by this layer should be
-;; added to `my-org-packages'. Then, for each package PACKAGE:
+;; added to `org-user-packages'. Then, for each package PACKAGE:
 ;;
 ;; - If PACKAGE is not referenced by any other Spacemacs layer, define a
-;;   function `my-org/init-PACKAGE' to load and initialize the package.
+;;   function `org-user/init-PACKAGE' to load and initialize the package.
 
 ;; - Otherwise, PACKAGE is already referenced by another Spacemacs layer, so
-;;   define the functions `my-org/pre-init-PACKAGE' and/or
-;;   `my-org/post-init-PACKAGE' to customize the package as it is loaded.
+;;   define the functions `org-user/pre-init-PACKAGE' and/or
+;;   `org-user/post-init-PACKAGE' to customize the package as it is loaded.
 
 ;;; Code:
 
-(defconst my-org-packages
+(defconst org-user-packages
   '(
      (org-archive-subtree-hierarchical :location local)
      (org :location built-in)
@@ -44,7 +44,7 @@
                         :repo "d12frosted/vulpea"
                         :branch "master"))
      )
-  "The list of Lisp packages required by the my-org layer.
+  "The list of Lisp packages required by the org-user layer.
 
 Each entry is either:
 
@@ -72,16 +72,16 @@ Each entry is either:
         recipe.  See: https://github.com/milkypostman/melpa#recipe-format")
 
 
-;; (defun my-org/init-org-archive-hierarchical ()
+;; (defun org-user/init-org-archive-hierarchical ()
 ;;   (use-package org-archive-hierarchical)
 ;;   )
 
-(defun my-org/post-init-org ()
+(defun org-user/post-init-org ()
   ;;Quick-and-dirty import of existing config from .spacemacs
-  (with-eval-after-load 'org (my-org/config))
+  (with-eval-after-load 'org (org-user/config))
   )
 
-(defun my-org/init-org-web-tools ()
+(defun org-user/init-org-web-tools ()
   :defer t
   :init (progn
           (spacemacs/declare-prefix-for-mode 'org-mode "mw" "web")
@@ -94,28 +94,28 @@ Each entry is either:
           )
   )
 
-(defun my-org/init-org-sidebar ()
+(defun org-user/init-org-sidebar ()
   :defer t)
 
 ;; magit-todos added to spacemacs git layer April 2021
-;; (defun my-org/init-magit-todos ()
+;; (defun org-user/init-magit-todos ()
 ;;   :defer t
 ;;   :init (add-hook 'magit-mode-hook 'magit-todos-mode))
 
-(defun my-org/init-org-archive-subtree-hierarchical ()
+(defun org-user/init-org-archive-subtree-hierarchical ()
   (use-package org-archive-subtree-hierarchical))
 
-(defun my-org/post-init-org-archive-subtree-hierarchical ()
+(defun org-user/post-init-org-archive-subtree-hierarchical ()
   (setq org-archive-default-command 'org-archive-subtree-hierarchical))
 
-(defun my-org/init-ob-typescript ()
+(defun org-user/init-ob-typescript ()
   :defer t)
 
-(defun my-org/init-leuven-theme ()
+(defun org-user/init-leuven-theme ()
   :defer t)
 
 ;; See https://d12frosted.io/posts/2021-01-16-task-management-with-roam-vol5.html
-(defun my-org/init-vulpea ()
+(defun org-user/init-vulpea ()
   (use-package vulpea
     ;; Not deferring, as 'vulpea-buffer-tags-get' not tagged with ;;;###autoload upstream...
     ;; :defer t
@@ -129,17 +129,17 @@ Each entry is either:
     :init (vulpea-db-autosync-enable)
   ))
 
-(defun my-org/post-init-vulpea ()
-  (add-hook 'find-file-hook #'my-org/vulpea-project-update-tag)
-  (add-hook 'before-save-hook #'my-org/vulpea-project-update-tag)
-  ;; (advice-add 'org-agenda :before #'my-org/vulpea-agenda-files-update)
+(defun org-user/post-init-vulpea ()
+  (add-hook 'find-file-hook #'org-user/vulpea-project-update-tag)
+  (add-hook 'before-save-hook #'org-user/vulpea-project-update-tag)
+  ;; (advice-add 'org-agenda :before #'org-user/vulpea-agenda-files-update)
   (advice-add 'org-agenda-files :filter-return #'inject-vulpea-project-files)
   ;; As the hook approach isn't working for me in spacemacs...
   ;; (vulpea-db-autosync-enable)
   )
 
 ;; See https://systemcrafters.net/build-a-second-brain-in-emacs/capturing-notes-efficiently/
-(defun my-org/post-init-org-roam ()
+(defun org-user/post-init-org-roam ()
   (setq org-roam-capture-templates
         '(("d" "default" plain
            "%?"

@@ -1,7 +1,7 @@
-#+TITLE: my-org layer
+#+TITLE: org-user layer
 
 # The maximum height of the logo should be 200 pixels.
-[[img/my-org.png]]
+# [[img/org-user.png]]
 
 # TOC links should be GitHub style anchors.
 * Table of Contents                                        :TOC_4_gh:noexport:
@@ -21,7 +21,7 @@ This layer adds support for something.
 
 * Install
 To use this configuration layer, add it to your =~/.spacemacs=. You will need to
-add =my-org= to the existing =dotspacemacs-configuration-layers= list in this
+add =org-user= to the existing =dotspacemacs-configuration-layers= list in this
 file.
 
 * Key bindings
