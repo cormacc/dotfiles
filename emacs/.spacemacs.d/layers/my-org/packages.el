@@ -39,6 +39,10 @@
      ob-typescript
      leuven-theme
      org-roam
+     (vulpea :location (recipe
+                        :fetcher github
+                        :repo "d12frosted/vulpea"
+                        :branch "master"))
      )
   "The list of Lisp packages required by the my-org layer.
 
@@ -110,6 +114,30 @@ Each entry is either:
 (defun my-org/init-leuven-theme ()
   :defer t)
 
+;; See https://d12frosted.io/posts/2021-01-16-task-management-with-roam-vol5.html
+(defun my-org/init-vulpea ()
+  (use-package vulpea
+    ;; Not deferring, as 'vulpea-buffer-tags-get' not tagged with ;;;###autoload upstream...
+    ;; :defer t
+    ;; :after org-roam
+    :ensure t
+    ;; hook into org-roam-db-autosync-mode you wish to enable
+    ;; persistence of meta values (see respective section in README to
+    ;; find out what meta means)
+    ;; :hook ((org-roam-db-autosync-mode . vulpea-db-autosync-enable)))
+    ;; As the hook approach isn't working for me in spacemacs...
+    :init (vulpea-db-autosync-enable)
+  ))
+
+(defun my-org/post-init-vulpea ()
+  (add-hook 'find-file-hook #'my-org/vulpea-project-update-tag)
+  (add-hook 'before-save-hook #'my-org/vulpea-project-update-tag)
+  ;; (advice-add 'org-agenda :before #'my-org/vulpea-agenda-files-update)
+  (advice-add 'org-agenda-files :filter-return #'inject-vulpea-project-files)
+  ;; As the hook approach isn't working for me in spacemacs...
+  ;; (vulpea-db-autosync-enable)
+  )
+
 ;; See https://systemcrafters.net/build-a-second-brain-in-emacs/capturing-notes-efficiently/
 (defun my-org/post-init-org-roam ()
   (setq org-roam-capture-templates
@@ -123,7 +151,7 @@ Each entry is either:
            :unnarrowed t)
           ("t" "timestamped" plain
            "%?"
-           :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+date: %<%Y%m%d>\n")
+           :if-new (file+head "${slug}-%<%Y%m%d%H%M%S>.org" "#+title: ${title}\n#+date: %<%Y%m%d>\n")
            :unnarrowed t)
           ("l" "programming language" plain
            "%?"

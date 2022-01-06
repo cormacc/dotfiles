@@ -108,3 +108,70 @@
                                   (or (deadline auto)
                                       (scheduled :to today)))
                              :action element-with-markers))))
+
+;;Vulpea used to tag/untag org-roam files with TODOs as projects
+;;This allows efficient org-agenda generation (only files with project tags parsed)
+;;See https://d12frosted.io/posts/2021-01-16-task-management-with-roam-vol5.html
+(defun my-org//vulpea-project-p ()
+  "Return non-nil if current buffer has any todo entry.
+
+TODO entries marked as done are ignored, meaning the this
+function returns nil if current buffer contains only completed
+tasks."
+  (seq-find                                 ; (3)
+   (lambda (type)
+     (eq type 'todo))
+   (org-element-map                         ; (2)
+       (org-element-parse-buffer 'headline) ; (1)
+       'headline
+     (lambda (h)
+       (org-element-property :todo-type h)))))
+
+(defun my-org//vulpea-buffer-p ()
+  "Return non-nil if the currently visited buffer is a note."
+  (and buffer-file-name
+       (string-prefix-p
+        (expand-file-name (file-name-as-directory org-roam-directory))
+        (file-name-directory buffer-file-name))))
+
+(defun my-org/vulpea-project-update-tag ()
+    "Update PROJECT tag in the current buffer."
+    (when (and (not (active-minibuffer-window))
+               (my-org//vulpea-buffer-p))
+      (save-excursion
+        (goto-char (point-min))
+        (let* ((tags (vulpea-buffer-tags-get))
+               (original-tags tags))
+          (if (my-org//vulpea-project-p)
+              (setq tags (cons "project" tags))
+            (setq tags (remove "project" tags)))
+
+          ;; cleanup duplicates
+          (setq tags (seq-uniq tags))
+
+          ;; update tags if changed
+          (when (or (seq-difference tags original-tags)
+                    (seq-difference original-tags tags))
+            (apply #'vulpea-buffer-tags-set tags))))))
+
+(defun my-org/vulpea-project-files ()
+    "Return a list of note files containing 'project' tag." ;
+    (seq-uniq
+     (seq-map
+      #'car
+      (org-roam-db-query
+       [:select [nodes:file]
+        :from tags
+        :left-join nodes
+        :on (= tags:node-id nodes:id)
+        :where (like tag (quote "%\"project\"%"))]))))
+
+;; Replaced by my-org/inject... function below to avoid clobbering other agenda files outside roam dirs
+;; (defun my-org/vulpea-agenda-files-update (&rest _)
+;;   "Update the value of `org-agenda-files'."
+;;   (setq org-agenda-files (my-org/vulpea-project-files)))
+
+;; See https://github.com/d12frosted/d12frosted.io/issues/15#issuecomment-910213001
+(defun my-org/inject-vulpea-project-files (org-agenda-files--output)
+  "Wrapper for org-agenda-files, to add org-roam projects identified by vulpea to the list."
+  (append org-agenda-files--output (vulpea-project-files)))
