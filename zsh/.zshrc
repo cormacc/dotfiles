@@ -47,6 +47,8 @@ export HISTIGNORE="ls:cd:cd -:pwd:exit:date:* --help"
 #We want to suppress "user@host" in prompt themes when logged in to local machine
 DEFAULT_USER="$USER"
 
+autoload zmv
+
 #----------------------------
 #-- PLUGIN FRAMEWORK SETUP --
 #zim, zplug or zgen
@@ -59,9 +61,9 @@ source ~/."$ZSH_FRAMEWORK"-setup
 #This method doesn't give an error when directory contains no files
 #N.B. the '-xtype' argument to find resolves symbolic links to their target type
 if [[ -d ~/.zshrc.d ]]; then
-    (($VERBOSE)) && echo Found .zshrc.d 
+    (($VERBOSE)) && echo Found .zshrc.d
     find ~/.zshrc.d/. ! -name . -prune ! -name '.*' -name '*.zsh' -xtype f -print0 | while IFS= read -r -d $'\0' autoload; do
-        (($VERBOSE)) && echo Sourcing $autoload 
+        (($VERBOSE)) && echo Sourcing $autoload
         source "$autoload"
     done
 fi
