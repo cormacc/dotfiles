@@ -60,16 +60,18 @@ This function should only modify configuration layer settings."
          colors-enable-nyan-cat-progress-bar t
          nyan-bar-length 8)
        ;; confluence ;;This seems to use the old confluence xml-rpc api, rather than REST API provided by confluence cloud...
+       copy-as-format
        csv
        chrome
        (dash :variables
          dash-docset-newpath "~/.local/share/Zeal/Zeal/docsets")
        deft
        docker
+       dtrt-indent ;;Automatic indent detection...
        ;; eaf is a nice idea, but doesn't play nice with i3wm
        ;; eaf
        emacs-lisp
-       ;; evil-snipe
+       evil-snipe
        git
        (go :variables
          gofmt-command "goimports"
@@ -118,10 +120,9 @@ This function should only modify configuration layer settings."
             ;; org-enable-github-support t
             ;; org-enable-bootstrap-support t
             org-enable-reveal-js-support t)
-       org-user
-
+       ;;Use your primary O365 e-mail address here
+       (org-user :variables org-o365-user "my.name@mydomain.com")
        ;; outshine
-
        pandoc
        ;; parinfer ;;This may be screwing up my parens...
        (plantuml :variables
@@ -171,6 +172,7 @@ This function should only modify configuration layer settings."
          )
        sql
        systemd
+       templates
        ;; see https://themegallery.robdor.com/
        ;; themes-megapack
        treemacs

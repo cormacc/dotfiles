@@ -35,6 +35,7 @@
      (org :location built-in)
      org-web-tools
      org-sidebar
+     org-super-agenda
      ;; magit-todos
      ob-typescript
      leuven-theme
@@ -43,6 +44,7 @@
                         :fetcher github
                         :repo "d12frosted/vulpea"
                         :branch "master"))
+     excorporate
      )
   "The list of Lisp packages required by the org-user layer.
 
@@ -94,13 +96,63 @@ Each entry is either:
           )
   )
 
-(defun org-user/init-org-sidebar ()
+(defun org-user/init-org-super-agenda ()
   :defer t)
 
-;; magit-todos added to spacemacs git layer April 2021
-;; (defun org-user/init-magit-todos ()
-;;   :defer t
-;;   :init (add-hook 'magit-mode-hook 'magit-todos-mode))
+(defun org-user/post-init-org-super-agenda ()
+  (setq org-agenda-custom-commands
+        '(
+          ("w" "At work" tags-todo "@work"
+           ((org-agenda-overriding-header "Work")
+            (org-agenda-skip-function #'org-user-agenda-skip-all-siblings-but-first)))
+          ("h" "At home" tags-todo "@home"
+           ((org-agenda-overriding-header "Home")
+            (org-agenda-skip-function #'org-user-agenda-skip-all-siblings-but-first)))
+          ("o" "Overview"
+           ;;; Adapted from https://hugocisneros.com/org-config/
+           ((agenda "" ((org-agenda-span 'day)
+                        (org-super-agenda-groups
+                         '((:name "Today"
+                                  :time-grid t
+                                  :date today
+                                  :todo "TODAY"
+                                  :scheduled today
+                                  :order 1)))))
+            (alltodo "" ((org-agenda-overriding-header "")
+                         (org-super-agenda-groups
+                          '(;; Each group has an implicit boolean OR operator between its selectors.
+                            (:name "Today"
+                                   :deadline today
+                                   :face (:background "black"))
+                            (:name "Overdue"
+                                   :and (:deadline past :todo ("TODO" "WAITING" "HOLD" "NEXT"))
+                                   :face (:background "#7f1b19"))
+                            ;; (:name "Work Important"
+                            ;;        :and (:priority>= "B" :category "Work" :todo ("TODO" "NEXT")))
+                            ;; (:name "Work other"
+                            ;;        :and (:category "Work" :todo ("TODO" "NEXT")))
+                            (:name "Important"
+                                   :priority "A")
+                            (:priority<= "B"
+                                         ;; Show this section after "Today" and "Important", because
+                                         ;; their order is unspecified, defaulting to 0. Sections
+                                         ;; are displayed lowest-number-first.
+                                         :order 1)
+                            ;; (:name "Papers"
+                            ;;        :file-path "org/roam/notes")
+                            (:name "Waiting"
+                                   :todo "WAITING"
+                                   :order 9)
+                            (:name "Someday"
+                                   :todo "SOMEDAY"
+                                   :order 10)))))))
+
+          ))
+  (add-hook 'org-agenda-mode-hook 'org-super-agenda-mode)
+  )
+
+(defun org-user/init-org-sidebar ()
+  :defer t)
 
 (defun org-user/init-org-archive-subtree-hierarchical ()
   (use-package org-archive-subtree-hierarchical))
@@ -133,7 +185,7 @@ Each entry is either:
   (add-hook 'find-file-hook #'org-user/vulpea-project-update-tag)
   (add-hook 'before-save-hook #'org-user/vulpea-project-update-tag)
   ;; (advice-add 'org-agenda :before #'org-user/vulpea-agenda-files-update)
-  (advice-add 'org-agenda-files :filter-return #'inject-vulpea-project-files)
+  (advice-add 'org-agenda-files :filter-return #'org-user/inject-vulpea-project-files)
   ;; As the hook approach isn't working for me in spacemacs...
   ;; (vulpea-db-autosync-enable)
   )
@@ -170,4 +222,16 @@ Each entry is either:
            :target (file+head "%<%Y-%m-%d>.org"
                               "#+title: %<%Y-%m-%d>\n"))))
 
+  )
+
+(defun org-user/init-excorporate ()
+  :defer t)
+
+(defun org-user/post-init-excorporate ()
+  ;;; Password cached in .authinfo
+  (if org-o365-user (setq excorporate-configuration '(org-o365-user . "https://outlook.office365.com/EWS/Exchange.asmx")))
+  ;; Excorporate imports to emacs diary -- connect this to org-agenda
+  (setq org-agenda-include-diary t)
+  (excorporate)
+  (add-hook 'org-agenda-cleanup-fancy-diary-hook 'org-user/excorporate-diary-update-hook )
   )

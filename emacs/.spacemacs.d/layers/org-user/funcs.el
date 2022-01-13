@@ -32,16 +32,13 @@
       (shell . t)
       (typescript . t)
       ))
-  ;; todo keywords
-  ;; (setq org-todo-keywords
-  ;;   (quote ((sequence "TODO(t)" "|" "DONE(d)"
-  ;;             (sequence "TODO(t)" "MAYBE(m)" "NEXT(n)" "WAITING(w)" "|" "CANCELLED(c)" "FINISHED"i)))))
   (setq org-use-sub-superscripts "{}")
   (setq org-export-with-sub-superscripts "{}")
   (setq org-src-tab-acts-natively t)
   ;;BEGIN GTD
   ;; Pilfered from https://emacs.cafe/emacs/orgmode/gtd/2017/06/30/orgmode-gtd.html
   ;; See also: http://www.cachestocaches.com/2016/9/my-workflow-org-agenda/
+  ;;TODO: add @home context -- also see skip section of website linked above to show only first item from each project...
   (setq org-agenda-files '("~/org/gtd/inbox.org"
                             "~/org/gtd/gtd.org"
                             "~/org/gtd/reminders.org"))
@@ -54,31 +51,9 @@
   (setq org-refile-targets '(("~/org/gtd/gtd.org" :maxlevel . 3)
                               ("~/org/gtd/someday.org" :level . 1)
                               ("~/org/gtd/reminders.org" :maxlevel . 2)))
-  ;; (setq org-todo-keywords '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
   (setq org-todo-keywords '((sequence "TODO(t)" "NEXT(n)" "WAITING(w)" "SOMEDAY(s)" "|" "DONE(d)" "CANCELLED(c)")))
-  ;;TODO: add @home context -- also see skip section of website linked above to show only first item from each project...
-  (setq org-agenda-custom-commands
-    '(
-       ("o" "At the office" tags-todo "@office"
-         ((org-agenda-overriding-header "Office")
-           (org-agenda-skip-function #'org-user-agenda-skip-all-siblings-but-first)))
-       ("h" "At home" tags-todo "@home"
-         ((org-agenda-overriding-header "Home")
-           (org-agenda-skip-function #'org-user-agenda-skip-all-siblings-but-first)))
-       ))
 
-  (defun org-user-agenda-skip-all-siblings-but-first ()
-    "Skip all but the first non-done entry."
-    (let (should-skip-entry)
-      (unless (org-current-is-todo)
-        (setq should-skip-entry t))
-      (save-excursion
-        (while (and (not should-skip-entry) (org-goto-sibling t))
-          (when (org-current-is-todo)
-            (setq should-skip-entry t))))
-      (when should-skip-entry
-        (or (outline-next-heading)
-          (goto-char (point-max))))))
+
 
   (defun org-current-is-todo ()
     (string= "TODO" (org-get-todo-state)))
@@ -96,18 +71,17 @@
 
 ;; See https://github.com/alphapapa/org-sidebar/blob/master/examples.org
 ;; This is nice in theory, but more work required -- some conflicts with spacemacs keybindings?
-(defun org-user/gtd-sidebar ()
-  "Display my GTD sidebar."
+(defun org-user/agenda-sidebar ()
+  "Display my gtd + org-roam agenda sidebar."
   (interactive)
-  (org-sidebar
-   :sidebars (make-org-sidebar
-              :name "GTD"
-              :description "Get things done"
-              :items (org-ql (org-agenda-files)
-                             (and (not (done))
-                                  (or (deadline auto)
-                                      (scheduled :to today)))
-                             :action element-with-markers))))
+  (org-sidebar-ql
+    (org-agenda-files)
+    '(and (not (done))
+         (or (deadline auto)
+             (scheduled :to today)))
+    :title "Agenda"
+    )
+  )
 
 ;;Vulpea used to tag/untag org-roam files with TODOs as projects
 ;;This allows efficient org-agenda generation (only files with project tags parsed)
@@ -174,4 +148,10 @@ tasks."
 ;; See https://github.com/d12frosted/d12frosted.io/issues/15#issuecomment-910213001
 (defun org-user/inject-vulpea-project-files (org-agenda-files--output)
   "Wrapper for org-agenda-files, to add org-roam projects identified by vulpea to the list."
-  (append org-agenda-files--output (vulpea-project-files)))
+  (append org-agenda-files--output (org-user/vulpea-project-files)))
+
+(defun org-user/excorporate-diary-update-hook ()
+  "Call excorporate to update the diary for today."
+  ;;To add the hook, add the line below to excorporate post-init
+  ;;(add-hook 'org-agenda-cleanup-fancy-diary-hook 'ab/agenda-update-diary )
+  (exco-diary-diary-advice (calendar-current-date) (calendar-current-date) #'message "diary updated"))
