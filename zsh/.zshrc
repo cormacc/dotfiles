@@ -67,3 +67,11 @@ if [[ -d ~/.zshrc.d ]]; then
         source "$autoload"
     done
 fi
+
+if [ -d "$HOME/.emacs.d/bin" ]; then
+    export PATH="$HOME/.emacs.d/bin:$PATH"
+fi
+
+if [ -d "/Applications/MacPorts/Emacs.app" ]; then
+    export PATH="/Applications/MacPorts/Emacs.app/Contents/MacOS:$PATH"
+fi
