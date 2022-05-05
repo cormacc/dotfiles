@@ -214,6 +214,8 @@ Each entry is either:
            :if-new (file+head "${slug}.org" "#+title: ${title}\n#+date: %<%Y%m%d>\n#+filetags: project\n")
            :unnarrowed t))
         )
+  ;; Required for org-export to work -- see https://github.com/org-roam/org-roam/issues/2046
+  (setq org-id-track-globally t)
   (setq org-roam-v2-ack t)
   (setq org-roam-dailies-directory "dailies/")
   (setq org-roam-dailies-capture-templates

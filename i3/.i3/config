@@ -45,13 +45,16 @@ bindsym $mod+z exec --no-startup-id morc_menu
 ## sound-section - DO NOT EDIT if you wish to automatically upgrade Alsa -> Pulseaudio later! ##
 ################################################################################################
 
-exec --no-startup-id volumeicon
-bindsym $mod+Ctrl+m exec terminal -e 'alsamixer'
+# exec --no-startup-id volumeicon
+# bindsym $mod+Ctrl+m exec terminal -e 'alsamixer'
 #exec --no-startup-id pulseaudio
 #exec --no-startup-id pa-applet
-#bindsym $mod+Ctrl+m exec pavucontrol
+bindsym $mod+Ctrl+m exec pavucontrol
 
 ################################################################################################
+
+exec --no-startup-id pasystray
+exec --no-startup-id blueman-applet
 
 # Screen brightness controls
 # bindsym XF86MonBrightnessUp exec "xbacklight -inc 10; notify-send 'brightness up'"
@@ -519,12 +522,13 @@ mode "$menu_manjaro" {
 }
 # bindsym $mod+m mode "$menu_manjaro"
 
-set $menu_launch Execute (w/W)ww, (j)etbrains, (e)ditor, (v)m, (f/F)ileman/sudo, (m)plab
+set $menu_launch Execute (w/W)ww, (j)etbrains, (e/E)ditor, (v)m, (f/F)ileman/sudo, (m)plab
 mode "$menu_launch" {
-    bindsym w exec brave, mode "default"
+    bindsym w exec chromium, mode "default"
     bindsym Shift+w exec firefox, mode "default"
     bindsym j exec .local/share/JetBrains/Toolbox/bin/jetbrains-toolbox, mode "default"
     bindsym e exec emacs, mode "default"
+    bindsym Shift+e exec code, mode "default"
     bindsym v exec virt-manager, mode "default"
     bindsym f exec ranger, mode "default"
     bindsym Shift+f exec gksu ranger, mode "default"
@@ -569,6 +573,18 @@ set $DP_ext1 DP-3
 set $DP_ext2 DP-0
 set $DP_int eDP-1-1
 set $DP_ext3 HDMI-0
+
+# ... two-monitor neuromod alias
+# .... nvidia-hybrid
+# set $DP_ext1 HDMI-1-0
+# set $DP_ext2 HDMI-1-0
+# set $DP_int eDP-1
+# set $DP_ext3 eDP-1
+# .... nvidia
+# set $DP_ext1 HDMI-0
+# set $DP_ext2 HDMI-0
+# set $DP_int eDP-1-1
+# set $DP_ext3 eDP-1-1
 
 workspace 1 output $DP_ext1
 workspace 2 output $DP_ext1

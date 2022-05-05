@@ -64,8 +64,8 @@ This function should only modify configuration layer settings."
        csv
        chrome
        (dash :variables
-         dash-docset-newpath "~/.local/share/Zeal/Zeal/docsets")
-       deft
+         dash-docs-docset-newpath "~/.local/share/Zeal/Zeal/docsets")
+       ;; deft
        docker
        dtrt-indent ;;Automatic indent detection...
        ;; eaf is a nice idea, but doesn't play nice with i3wm
@@ -110,18 +110,24 @@ This function should only modify configuration layer settings."
        octave
        ;;http://spacemacs.org/layers/+emacs/org/README.html
        (org :variables
+            jiralib-url "https://neuromod.atlassian.net:443"
+            org-enable-appear-support t
             org-enable-sticky-header t
             org-enable-jira-support t
+            org-enable-notifications t
+            org-start-notification-daemon-on-startup t
             org-enable-roam-support t
             org-enable-roam-protocol t
-            jiralib-url "https://git.nmd.ie"
-
-            ;; org-enable-hugo-support t
-            ;; org-enable-github-support t
-            ;; org-enable-bootstrap-support t
+            org-enable-transclusion-support t
+            org-enable-valign t
+            ;; Export-related...
+            org-enable-hugo-support t
+            org-enable-github-support t
+            org-enable-bootstrap-support t
             org-enable-reveal-js-support t)
        ;;Use your primary O365 e-mail address here
-       (org-user :variables org-o365-user "my.name@mydomain.com")
+       ;; (org-user :variables org-o365-user "my.name@mydomain.com")
+       (org-user :variables org-o365-user "cormac.cannon@neuromoddevices.com")
        ;; outshine
        pandoc
        ;; parinfer ;;This may be screwing up my parens...
