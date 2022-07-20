@@ -20,4 +20,5 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(defvar org-o365-user nil "When non-nil, connect to an Office 365 mailbox")
+(defvar org-user-o365 nil "When non-nil, connect to an Office 365 mailbox. May be a username (me@my.domain), or t to extract the username from an (optionally encrypted) .authinfo file")
+(defvar org-user-roam-directory nil "When non-nil, override the default value of org-roam-directory")

@@ -155,3 +155,17 @@ tasks."
   ;;To add the hook, add the line below to excorporate post-init
   ;;(add-hook 'org-agenda-cleanup-fancy-diary-hook 'ab/agenda-update-diary )
   (exco-diary-diary-advice (calendar-current-date) (calendar-current-date) #'message "diary updated"))
+
+(defun org-user/auth-source-extract-username (host)
+  "Extract username from an encrypted auth-source entry"
+  (require 'auth-source)
+  (let* ((auth (car (auth-source-search
+	                   :host host
+	                   :requires '(:user :secret)))))
+    (plist-get auth :user)))
+
+(defun org-user/excorporate-extract-o365-username (org-user-o365)
+  "Use the provided username, or attempt extraction using auth-source if t"
+  (if (eq org-user-o365 t)
+      (org-user/auth-source-extract-username "outlook.office365.com:443")
+    org-user-o365))

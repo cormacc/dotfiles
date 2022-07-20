@@ -36,6 +36,7 @@
      org-web-tools
      org-sidebar
      org-super-agenda
+     org-roam-bibtex
      ;; magit-todos
      ob-typescript
      leuven-theme
@@ -171,7 +172,7 @@ Each entry is either:
   (use-package vulpea
     ;; Not deferring, as 'vulpea-buffer-tags-get' not tagged with ;;;###autoload upstream...
     ;; :defer t
-    ;; :after org-roam
+    :after org-roam
     :ensure t
     ;; hook into org-roam-db-autosync-mode you wish to enable
     ;; persistence of meta values (see respective section in README to
@@ -189,6 +190,9 @@ Each entry is either:
   ;; As the hook approach isn't working for me in spacemacs...
   ;; (vulpea-db-autosync-enable)
   )
+
+(defun org-user/pre-init-org-roam ()
+  (if org-user-roam-directory (setq org-roam-directory org-user-roam-directory)))
 
 ;; See https://systemcrafters.net/build-a-second-brain-in-emacs/capturing-notes-efficiently/
 (defun org-user/post-init-org-roam ()
@@ -231,9 +235,19 @@ Each entry is either:
 
 (defun org-user/post-init-excorporate ()
   ;;; Password cached in .authinfo
-  (if org-o365-user (setq excorporate-configuration '(org-o365-user . "https://outlook.office365.com/EWS/Exchange.asmx")))
+  ;; (if org-user-o365 (setq excorporate-configuration '(org-user-o365 . "https://outlook.office365.com/EWS/Exchange.asmx")))
+  (if org-user-o365 (setq excorporate-configuration '((org-user/excorporate-extract-o365-username org-user-o365) . "https://outlook.office365.com/EWS/Exchange.asmx")))
   ;; Excorporate imports to emacs diary -- connect this to org-agenda
   (setq org-agenda-include-diary t)
   (excorporate)
   (add-hook 'org-agenda-cleanup-fancy-diary-hook 'org-user/excorporate-diary-update-hook )
   )
+
+;;; See https://github.com/org-roam/org-roam-bibtex
+(defun org-user/init-org-roam-bibtex ()
+  (use-package org-roam-bibtex
+    :after org-roam
+                                        ; optional: if using Org-ref v2 or v3 citation links -- probably better to use new org-cite instead?
+    ;;:config
+    ;;(require 'org-ref)
+    ))
