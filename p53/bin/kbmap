@@ -1,0 +1,14 @@
+#!/bin/bash
+if [ $# -gt 0 ] && [ "$1" == "int" ]; then
+  echo "Configuring internal keyboard"
+  # Revert from kinesis -> internal keyboard layout
+  # setxkbmap -model pc104 -layout gb
+  setxkbmap -option caps:swapescape -option terminate:ctrl_alt_bksp -layout gb
+else
+  echo "Configuring external keyboard"
+  # setxkbmap -model kinesis -layout us
+  #Clear any existing options (including caps/esc swap)
+  setxkbmap -option
+  #... then reconfigure
+  setxkbmap -option terminate:ctrl_alt_bksp -layout us
+fi

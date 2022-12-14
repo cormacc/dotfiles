@@ -21,11 +21,12 @@ export XAUTHORITY=/home/cormacc/.Xauthority
 # export DP_ext3=DP-0.3
 
 #Laptop ports
+#... hybrid
+#export DP_int=eDP-1
+#export DP_ext1=HDMI-1-0
+#... nvidia
 export DP_int=eDP-1-1
-
-export DP_ext1=DP-3
-export DP_ext2=DP-0
-export DP_ext3=HDMI-0
+export DP_ext1=HDMI-0
 
 # export DP_ext1=DP-0.1
 # export DP_ext2=DP-0.2
@@ -42,9 +43,7 @@ export DP_ext3=HDMI-0
 # Always disable external displays first, as otherwise Xrandr can throw a shitfit
 echo "Disabling external displays..."
 xrandr \
-    --output $DP_ext2 --off \
     --output $DP_ext1 --off \
-    --output $DP_ext3 --off \
     --output $DP_int --off
 
 #--output $DP_int --primary
@@ -52,7 +51,7 @@ xrandr \
 
 if [ $# -gt 0 ]; then
   # Revert from kinesis -> internal keyboard layout
-  setxkbmap -layout gb
+  setxkbmap -model pc104 -layout gb
   if [ $1 == 'off' ]; then
     xrandr --output $DP_int --primary
   else
@@ -61,16 +60,14 @@ if [ $# -gt 0 ]; then
     xrandr \
       --output $DP_int --auto \
       --output $1 --auto --above $DP_int --primary\
-	
-  fi	    
+
+  fi
 else
   echo "Enabling external displays..."
 
   xrandr \
       --output $DP_int --auto \
-      --output $DP_ext2 --auto --above $DP_int --primary\
-      --output $DP_ext1 --auto --rotate right --left-of $DP_ext2\
-      --output $DP_ext3 --auto --rotate right --right-of $DP_ext2
+      --output $DP_ext1 --auto --above $DP_int --primary\
 
-  setxkbmap -layout us
+  setxkbmap -model kinesis -layout us
 fi
