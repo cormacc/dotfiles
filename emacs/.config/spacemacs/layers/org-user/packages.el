@@ -45,7 +45,10 @@
                         :fetcher github
                         :repo "d12frosted/vulpea"
                         :branch "master"))
-     excorporate
+     ;;Suppress excorporate on MacOS for now
+     ;;Purely because I haven't synced auth to the macbook...
+     (if (not (eq system-type 'darwin))
+         excorporate)
      )
   "The list of Lisp packages required by the org-user layer.
 

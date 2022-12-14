@@ -198,9 +198,9 @@ This function should only modify configuration layer settings."
        (clojure :variables
                 clojure-enable-linters '(clj-kondo joker)
                 )
-       (cmake :variables
-                                        ;cmake-enable-cmake-ide-support t
-              )
+       ;; (cmake :variables
+       ;;                                  ;cmake-enable-cmake-ide-support t
+       ;;   )
        docker
        emacs-lisp
        ;; (go :variables

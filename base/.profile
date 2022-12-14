@@ -7,15 +7,19 @@
 export TERM=xterm-256color
 
 #Set this to non-zero when debugging to list autoloads etc.
-export VERBOSE=0
-# export VERBOSE=1
+#export VERBOSE=0
+export VERBOSE=1
 
 #TODO: Move this somewhere in .profile.d (?xorg module?)
 # export TERMINAL=termite
 
 #Local bin directory, for dotmodule additions to the path
-#export PATH="$HOME/bin:$(ruby -e 'print Gem.user_dir')/bin:$PATH"
 export PATH="$HOME/bin:$PATH"
+
+export XDG_CONFIG_HOME="${HOME}/.config"
+export XDG_CACHE_HOME="${HOME}/.cache"
+export XDG_DATA_HOME="${HOME}/.local/share"
+export XDG_STATE_HOME="${HOME}/.local/state"
 
 #Modules can dump environment config in a .profile.d folder
 #This method doesn't give an error when directory contains no files
@@ -49,6 +53,7 @@ export VISUAL="/usr/bin/vim"
 # Additions from manjaro .profile
 export QT_QPA_PLATFORMTHEME="qt5ct"
 export GTK2_RC_FILES="$HOME/.gtkrc-2.0"
-# fix "xdg-open fork-bomb" export your preferred browser from here export BROWSER=/usr/bin/brave
+# fix "xdg-open fork-bomb" export your preferred browser from here export
+#export BROWSER=/usr/bin/brave
 export BROWSER=/usr/bin/chromium
 #. "$HOME/.cargo/env"
