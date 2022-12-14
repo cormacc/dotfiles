@@ -28,103 +28,113 @@ This function should only modify configuration layer settings."
 
     ;; List of additional paths where to look for configuration layers.
     ;; Paths must have a trailing slash (i.e. `~/.mycontribs/')
-    dotspacemacs-configuration-layer-path '()
+    ;; N.B. It only became necessary to set this explicitly 25/07/2022 -- may be a transient upstream issue
+    dotspacemacs-configuration-layer-path '("~/.spacemacs.d/layers/")
 
     ;; List of configuration layers to load.
     dotspacemacs-configuration-layers
     '(
       ;; ----------------------------------------------------------------
-       ;; Example of useful layers you may want to use right away.
-       ;; Uncomment some layer names and press `SPC f e R' (Vim style) or
-       ;; `M-m f e R' (Emacs style) to install them.
-       ;; ----------------------------------------------------------------
-                                        ;asm
-       (auto-completion :variables
-         auto-completion-enable-snippets-in-popup t
-         auto-completion-enable-help-tooltip t)
+      ;; Example of useful layers you may want to use right away.
+      ;; Uncomment some layer names and press `SPC f e R' (Vim style) or
+      ;; `M-m f e R' (Emacs style) to install them.
+      ;; ----------------------------------------------------------------
 
-       (c-c++ :variables
-         ;; c-c++-backend 'lsp-ccls
-         c-c++-backend 'lsp-clangd
-         ;; c-c++-adopt-subprojects t
-         ;; c-c++-enable-semantic-highlight t
-         gendoxy-header-copyright "(c) Neuromod Devices Ltd. 2021"
-         c-c++-enable-semantic-highlight 'rainbow
-         )
+      ;; ================================================================
+      ;; Completion layers
+      ;; ----------------------------------------------------------------
+      ;; Helm layer is loaded automatically if ivy or compleseus layers not specified
+      ;; compleseus
+      ivy
+      ;; ----------------------------------------------------------------
+      ;; Completion layers
+      ;; ================================================================
 
-       ceedling
-       (cmake :variables
-                                        ;cmake-enable-cmake-ide-support t
-         )
-       (colors :variables
-         colors-enable-nyan-cat-progress-bar t
-         nyan-bar-length 8)
-       ;; confluence ;;This seems to use the old confluence xml-rpc api, rather than REST API provided by confluence cloud...
-       copy-as-format
-       csv
-       chrome
-       (dash :variables
-         dash-docs-docset-newpath "~/.local/share/Zeal/Zeal/docsets")
-       ;; deft
-       docker
-       dtrt-indent ;;Automatic indent detection...
-       ;; eaf is a nice idea, but doesn't play nice with i3wm
-       ;; eaf
-       emacs-lisp
-       evil-snipe
-       git
-       (go :variables
-         gofmt-command "goimports"
-         go-use-gometalinter t
-         godoc-at-point-function 'godoc-gogetdoc)
-       graphql
-       ;; haskell
-       helpful
-       html
-       (ibuffer :variables ibuffer-group-buffers-by 'projects)
-       imenu-list
-       ;; This results in a json error rendering latex fragments in org buffers for some reason?
-       ;; ipython-notebook
-       ;; Helm layer is loaded automatically if ivy isn't
-       ivy
-       ;; (javascript :variables node-add-modules-path t)
-       (javascript :variables javascript-backend 'tide)
-       ;; kivy
-       (languagetool :variables
-                     langtool-java-classpath "/usr/share/languagetool:/usr/share/java/languagetool/*"
-                     langtool-default-language "en-GB")
-       (lsp :variables
-            lsp-file-watch-threshold 50000
-            lsp-rust-server 'rust-analyzer
-            lsp-lens-enable t
-            lsp-headerline-breadcrumb-enable t
-            )
-       (markdown :variables markdown-live-preview-engine 'vmd)
-       multiple-cursors
-       ;; (mu4e :variables
-       ;;   mu4e-enable-notifications t
-       ;;   mu4e-enable-mode-line t
-       ;;   )
+      ;; ================================================================
+      ;; Editing layers
+      ;; ----------------------------------------------------------------
+      ;; (colors :variables
+      ;;   colors-enable-nyan-cat-progress-bar t
+      ;;   nyan-bar-length 8)
+      copy-as-format
+      dtrt-indent ;;Automatic indent detection...
+      evil-snipe
+      helpful
+      (ibuffer :variables ibuffer-group-buffers-by 'projects)
+      imenu-list
+      (languagetool :variables
+                    langtool-java-classpath "/usr/share/languagetool:/usr/share/java/languagetool/*"
+                    langtool-default-language "en-GB")
+      multiple-cursors
+      prettier
+      templates
+      ;; see https://themegallery.robdor.com/
+      ;; themes-megapack
+      ;; ----------------------------------------------------------------
+      ;; Editing layers
+      ;; ================================================================
+
+      ;; ================================================================
+      ;; Utility layers
+      ;; ----------------------------------------------------------------
+      ;; chrome
+      ;; confluence ;;This seems to use the old confluence xml-rpc api, rather than REST API provided by confluence cloud...
+      (dash :variables
+            dash-docs-docset-newpath "~/.local/share/Zeal/Zeal/docsets")
+      ;; eaf is a nice idea, but doesn't play nice with i3wm
+      ;; eaf
+      git
+      ;; (mu4e :variables
+      ;;   mu4e-enable-notifications t
+      ;;   mu4e-enable-mode-line t
+      ;;   )
                                         ;neotree
-       ;; notmuch
-       octave
+      ;; nav-flash
+      ;; notmuch
+      (ranger :variables
+              ranger-show-preview t
+              ranger-cleanup-on-disable t
+              ranger-show-dotfiles t)
+      ;; search-engine
+      ;;'semantic' used by cmode for refactoring support
+      ;; semantic
+      (shell :variables
+             ;; shell-default-shell 'multi-term
+             ;; vterm causing issues on emacs-git
+             shell-default-shell 'vterm
+             shell-default-term-shell "/bin/zsh")
+      treemacs
+      version-control
+      ;; (version-control :variables
+      ;;                  version-control-diff-tool 'git-gutter
+      ;;                  version-control-global-margin t)
+      ;; ----------------------------------------------------------------
+      ;; Utility layers
+      ;; ================================================================
+
+
+      ;; ================================================================
+      ;; Notes / GTD layers
+      ;; ----------------------------------------------------------------
+      ;; deft
        ;;http://spacemacs.org/layers/+emacs/org/README.html
        (org :variables
             jiralib-url "https://neuromod.atlassian.net:443"
             org-enable-appear-support t
-            org-enable-sticky-header t
             org-enable-jira-support t
             org-enable-notifications t
             org-start-notification-daemon-on-startup t
+            org-enable-roam-protocol t
             org-enable-roam-support t
             org-enable-roam-ui t
-            org-enable-roam-protocol t
+            org-enable-sticky-header t
             org-enable-transclusion-support t
             org-enable-valign t
+            org-want-todo-bindings t
             ;; Export-related...
-            org-enable-hugo-support t
-            org-enable-github-support t
             org-enable-bootstrap-support t
+            org-enable-github-support t
+            org-enable-hugo-support t
             org-enable-reveal-js-support t)
        (org-user :variables
                  ;;Use your primary O365 e-mail address here, or set to t to load it from ~/.authinfo(.gpg)
@@ -132,11 +142,81 @@ This function should only modify configuration layer settings."
                  org-user-roam-directory "~/org/roam/")
        ;; outshine
        pandoc
-       ;; parinfer ;;This may be screwing up my parens...
-       (plantuml :variables
-         plantuml-jar-path "/usr/share/java/plantuml/plantuml.jar"
-         org-plantuml-jar-path "/usr/share/java/plantuml/plantuml.jar"
+      ;; ----------------------------------------------------------------
+      ;; Notes / GTD layers
+      ;; ================================================================
+
+      ;; ================================================================
+      ;; Markup / file format layers
+      ;; ----------------------------------------------------------------
+      csv
+      (markdown :variables markdown-live-preview-engine 'vmd)
+      (plantuml :variables
+                plantuml-jar-path "/usr/share/java/plantuml/plantuml.jar"
+                org-plantuml-jar-path "/usr/share/java/plantuml/plantuml.jar"
+                )
+      yaml
+      ;; ----------------------------------------------------------------
+      ;; Markup / file format layers
+      ;; ================================================================
+
+      ;; ================================================================
+      ;; Language support layers
+      ;; ----------------------------------------------------------------
+      (auto-completion :variables
+                       auto-completion-enable-snippets-in-popup t
+                       ;; Skip tooltip - use M-h instead
+                       ;; auto-completion-enable-help-tooltip t
+                       )
+      (lsp :variables
+           ;; Deprecated vars?
+           ;; lsp-file-watch-threshold 50000
+           ;; lsp-rust-server 'rust-analyzer
+           lsp-lens-enable t
+           lsp-headerline-breadcrumb-enable t
+           lsp-use-lsp-ui t
+           ;; lsp-use-upstream-bindings t
+           )
+      tree-sitter
+      ;; ----------------------------------------------------------------
+      ;; Language support layers
+      ;; ================================================================
+
+      ;; ================================================================
+      ;; Language layers
+      ;; ----------------------------------------------------------------
+      ;;asm
+      (c-c++ :variables
+         ;; c-c++-backend 'lsp-ccls
+         c-c++-backend 'lsp-clangd
+         ;; c-c++-adopt-subprojects t
+         ;; c-c++-enable-semantic-highlight t
+         gendoxy-header-copyright "(c) Neuromod Devices Ltd. 2021"
+         ;; c-c++-enable-semantic-highlight 'rainbow
          )
+       ceedling
+       (clojure :variables
+                clojure-enable-linters '(clj-kondo joker)
+                )
+       (cmake :variables
+                                        ;cmake-enable-cmake-ide-support t
+              )
+       docker
+       emacs-lisp
+       ;; (go :variables
+       ;;   gofmt-command "goimports"
+       ;;   go-use-gometalinter t
+       ;;   godoc-at-point-function 'godoc-gogetdoc)
+       graphql
+       ;; haskell
+       html
+       ;; This results in a json error rendering latex fragments in org buffers for some reason?
+       ;; ipython-notebook
+       ;; (javascript :variables node-add-modules-path t)
+       (javascript :variables javascript-backend 'tide)
+       ;; kivy
+       ;; octave
+       ;; parinfer ;;This may be screwing up my parens...
        (python :variables
          ;; python-backend 'anaconda
          python-backend 'lsp
@@ -146,53 +226,29 @@ This function should only modify configuration layer settings."
          python-formatter 'black
          python-format-on-save t
          python-sort-imports-on-save t
-         python-fill-column 110
+         python-fill-column 120
          python-test-runner 'pytest)
-       prettier
        ;; racket
-       (ranger :variables
-         ranger-show-preview t
-         ranger-cleanup-on-disable t
-         ranger-show-dotfiles t)
-       react
+       ;; react
        (ruby :variables
-             ruby-backend 'robe ;defaults to lsp...
+             ;; ruby-backend 'robe ;defaults to lsp...
              ruby-test-runner 'rspec
          ;; ruby-version-manager 'rbenv
          ;; ruby-enable-enh-ruby-mode t
          )
-       (rust :variables
-             rust-format-on-save t)
-       scheme
-       ;; rust
-       search-engine
-       ;;'semantic' used by cmode for refactoring support
-       ;; semantic
-       (shell :variables
-         ;; shell-default-shell 'multi-term
-         shell-default-shell 'vterm
-         shell-default-term-shell "/bin/zsh")
-
+       ;; (rust :variables
+       ;;       rust-format-on-save t)
+       ;; scheme
        shell-scripts
        spell-checking
        (syntax-checking :variables
          syntax-checking-enable-by-default nil
          )
-       sql
+       ;; sql
        systemd
-       templates
-       ;; see https://themegallery.robdor.com/
-       ;; themes-megapack
-       treemacs
-       tree-sitter
        (typescript :variables typescript-backend 'tide)
-       version-control
 
        windows-scripts
-       ;; (version-control :variables
-       ;;                  version-control-diff-tool 'git-gutter
-       ;;                  version-control-global-margin t)
-       yaml
        )
 
 
@@ -200,7 +256,7 @@ This function should only modify configuration layer settings."
     ;; wrapped in a layer. If you need some configuration for these
     ;; packages, then consider creating a layer. You can also put the
     ;; configuration in `dotspacemacs/user-config'.
-    dotspacemacs-additional-packages '(python-info org-onenote)
+    dotspacemacs-additional-packages '()
 
     ;; A list of packages that cannot be updated.
     dotspacemacs-frozen-packages '()
@@ -228,6 +284,10 @@ It should only modify the values of Spacemacs settings."
    ;; If non-nil then enable support for the portable dumper. You'll need
    ;; to compile Emacs 27 from source following the instructions in file
    ;; EXPERIMENTAL.org at to root of the git repository.
+   ;;
+   ;; WARNING: pdumper does not work with Native Compilation, so it's disabled
+   ;; regardless of the following setting when native compilation is in effect.
+   ;;
    ;; (default nil)
    dotspacemacs-enable-emacs-pdumper nil
 
@@ -312,6 +372,13 @@ It should only modify the values of Spacemacs settings."
    ;; If the value is nil then no banner is displayed. (default 'official)
    dotspacemacs-startup-banner 'official
 
+   ;; Scale factor controls the scaling (size) of the startup banner. Default
+   ;; value is `auto' for scaling the logo automatically to fit all buffer
+   ;; contents, to a maximum of the full image height and a minimum of 3 line
+   ;; heights. If set to a number (int or float) it is used as a constant
+   ;; scaling factor for the default logo size.
+   dotspacemacs-startup-banner-scale 'auto
+
    ;; List of items to show in startup buffer or an association list of
    ;; the form `(list-type . list-size)`. If nil then it is disabled.
    ;; Possible values for list-type are:
@@ -333,6 +400,11 @@ It should only modify the values of Spacemacs settings."
 
    ;; The minimum delay in seconds between number key presses. (default 0.4)
    dotspacemacs-startup-buffer-multi-digit-delay 0.4
+
+   ;; If non-nil, show file icons for entries and headings on Spacemacs home buffer.
+   ;; This has no effect in terminal or if "all-the-icons" package or the font
+   ;; is not installed. (default nil)
+   dotspacemacs-startup-buffer-show-icons nil
 
    ;; Default major mode for a new empty buffer. Possible values are mode
    ;; names such as `text-mode'; and `nil' to use Fundamental mode.
@@ -506,7 +578,8 @@ It should only modify the values of Spacemacs settings."
    ;; If non-nil unicode symbols are displayed in the mode line.
    ;; If you use Emacs as a daemon and wants unicode characters only in GUI set
    ;; the value to quoted `display-graphic-p'. (default t)
-   dotspacemacs-mode-line-unicode-symbols t
+   dotspacemacs-mode-line-unicode-symbols nil
+   ;; [CC] Setting to nil to attempt to resolve short freezes
 
    ;; If non-nil smooth scrolling (native-scrolling) is enabled. Smooth
    ;; scrolling overrides the default behavior of Emacs which recenters point
@@ -535,7 +608,7 @@ It should only modify the values of Spacemacs settings."
    ;;   :size-limit-kb 1000)
    ;; When used in a plist, `visual' takes precedence over `relative'.
    ;; (default nil)
-   dotspacemacs-line-numbers t
+   dotspacemacs-line-numbers nil
 
    ;; Code folding method. Possible values are `evil', `origami' and `vimish'.
    ;; (default 'evil)
@@ -562,7 +635,7 @@ It should only modify the values of Spacemacs settings."
 
    ;; If non-nil, start an Emacs server if one is not already running.
    ;; (default nil)
-   dotspacemacs-enable-server t
+   dotspacemacs-enable-server nil
 
    ;; Set the emacs server socket location.
    ;; If nil, uses whatever the Emacs default is, otherwise a directory path
@@ -607,6 +680,9 @@ It should only modify the values of Spacemacs settings."
    dotspacemacs-icon-title-format nil
 
    ;; Show trailing whitespace (default t)
+   ;; Color highlight trailing whitespace in all prog-mode and text-mode derived
+   ;; modes such as c++-mode, python-mode, emacs-lisp, html-mode, rst-mode etc.
+   ;; (default t)
    dotspacemacs-show-trailing-whitespace t
 
    ;; Delete whitespace while saving buffer. Possible values are `all'
@@ -697,8 +773,9 @@ before packages are loaded."
     `(("." . ,(concat user-emacs-directory "backups"))))
 
   ;; ... similarly with the '.~undo-tree~' files cached by emacs 28+
-  (setq undo-tree-history-directory-alist
-        `(("." . ,(concat user-emacs-directory "undo"))))
+  ;; DISABLING Experiencing undo-tree related freezing on save Oct 2022
+  ;; (setq undo-tree-history-directory-alist
+  ;;       `(("." . ,(concat user-emacs-directory "undo"))))
 
 
   (with-eval-after-load 'doom-themes
@@ -764,25 +841,57 @@ before packages are loaded."
   (setq deft-directory "~/notes")
   (setq deft-recursive t)
 
-  (with-eval-after-load 'markdown-mode
-    (add-hook 'markdown-mode-hook #'visual-line-mode))
+  ;; (with-eval-after-load 'markdown-mode
+  ;;   (add-hook 'markdown-mode-hook #'visual-line-mode))
 
+  ;; == Add timestamps to message buffer
+  ;; https://emacs.stackexchange.com/questions/32150/how-to-add-a-timestamp-to-each-entry-in-emacs-messages-buffer
+  (defun my/add-timestamp-message (FORMAT-STRING &rest args)
+    "Advice to run before `message' that prepends a timestamp to each message.
+        Activate this advice with:
+          (advice-add 'message :before 'my/ad-timestamp-message)
+        Deactivate this advice with:
+          (advice-remove 'message 'my/ad-timestamp-message)"
+    (if message-log-max
+        (let ((deactivate-mark nil)
+              (inhibit-read-only t))
+          (with-current-buffer "*Messages*"
+            (goto-char (point-max))
+            (if (not (bolp))
+                (newline))
+            (insert (format-time-string "[%F %T.%3N] "))))))
+  (advice-add 'message :before 'my/add-timestamp-message)
 
   ;; == WORKAROUNDS -- REVISIT REGULARLY ==
+
+  ;; Work around helm breaking change Oct 2022
+  ;; See https://github.com/syl20bnr/spacemacs/issues/15778 -- should be resolved soon...
+  (with-eval-after-load 'helm-flx
+    (defun helm-flx-fuzzy-highlight-match (candidate &optional pattern diacritics file-comp-p)
+      (require 'flx)
+      (let ((pattern (or pattern helm-pattern)))
+        (if (string-match-p " " pattern)
+            (helm-fuzzy-default-highlight-match candidate pattern diacritics file-comp-p)
+          (let* ((candidate (helm-flx-candidate-string candidate))
+                 (pair (and (consp candidate) candidate))
+                 (display (if pair (car pair) candidate))
+                 (real (cdr pair)))
+            (setq display (helm-flx-fuzzy-highligher display pattern))
+            (if real (cons display real) display))))))
+
+
   ;; Work around empty importmagic windows popping up
-  (remove-hook 'python-mode-hook 'importmagic-mode)
+  ;; (remove-hook 'python-mode-hook 'importmagic-mode)
 
   ;; Emacs lockfiles break projects using webpack watcher (chokidar)
   ;; https://github.com/angular/angular-cli/issues/18342
-  (setq create-lockfiles nil)
+  ;; (setq create-lockfiles nil)
 
-  ;; iedit/evil-iedit-state api change / mismatch
-  ;; see https://github.com/syl20bnr/spacemacs/issues/13849
-  (defalias 'iedit-cleanup 'iedit-lib-cleanup)
-
-  ;; Broken org src-block easy-templates...
+  ;; Enable old-style src-block easy-templates...
   ;; See https://github.com/syl20bnr/spacemacs/issues/11798
-  (require 'org-tempo))
+  ;;... or just use the new C-c, C-, sequence instead
+  ;; (require 'org-tempo)
+  )
 
 
 
@@ -955,6 +1064,7 @@ This function is called at the very end of Spacemacs initialization."
  '(magit-diff-use-overlays nil)
  '(nrepl-message-colors
    '("#dc322f" "#cb4b16" "#b58900" "#546E00" "#B4C342" "#00629D" "#2aa198" "#d33682" "#6c71c4"))
+ '(org-appear-trigger 'manual)
  '(package-selected-packages
    '(counsel-gtags bmx-mode zeal-at-point systemd org-mime ibuffer-projectile gmail-message-mode ham-mode html-to-markdown flymd flycheck-ycmd ghub edit-server counsel-dash helm-dash company-ycmd ycmd request-deferred let-alist deferred doom-themes parent-mode gitignore-mode fringe-helper git-gutter+ pos-tip flx goto-chg diminish pkg-info epl popup org-category-capture racket-mode faceup toml-mode racer flycheck-rust cargo rust-mode csv-mode enh-ruby-mode gntp deft wolfram-mode thrift stan-mode scad-mode qml-mode matlab-mode julia-mode arduino-mode yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode cython-mode company-anaconda anaconda-mode pythonic company-irony irony winum unfill fuzzy avy log4e powershell evil plantuml-mode clojure-snippets clj-refactor inflections edn paredit peg cider-eval-sexp-fu cider seq queue clojure-mode packed epresent web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor multiple-cursors js2-mode js-doc company-tern dash-functional tern coffee-mode alert ox-reveal pandoc-mode ox-pandoc ht helm-gtags helm-css-scss helm-cscope zenburn-theme monokai-theme solarized-theme powerline request spinner bind-key bind-map pcre2el vimrc-mode dactyl-mode ox-gfm xcscope x86-lookup stickyfunc-enhance srefactor rainbow-mode rainbow-identifiers quack nasm-mode key-chord ggtags geiser fiplr grizzl find-file-in-project engine-mode dired-subtree dired-narrow dired-hacks-utils color-identifiers-mode vmd-mode web-mode tagedit slim-mode scss-mode sass-mode pug-mode less-css-mode haml-mode emmet-mode company-web web-completion-data pcache git-gutter iedit go-mode yasnippet auto-complete inf-ruby company highlight anzu smartparens undo-tree flycheck projectile helm helm-core hydra markdown-mode magit magit-popup async dash s ranger go-guru git-commit with-editor org minitest insert-shebang hide-comnt fish-mode company-shell rtags cmake-ide levenshtein yaml-mode wgrep smex ivy-hydra flyspell-correct-ivy counsel-projectile counsel swiper ivy uuidgen rake org-projectile org-download mwim link-hint git-link flyspell-correct-helm flyspell-correct eyebrowse evil-visual-mark-mode evil-unimpaired evil-ediff eshell-z dumb-jump f column-enforce-mode xterm-color ws-butler window-numbering which-key volatile-highlights vi-tilde-fringe use-package toc-org spacemacs-theme spaceline smooth-scrolling smeargle shell-pop rvm ruby-tools ruby-test-mode rubocop rspec-mode robe restart-emacs rbenv rainbow-delimiters quelpa popwin persp-mode paradox page-break-lines orgit org-repo-todo org-present org-pomodoro org-plus-contrib org-bullets open-junk-file neotree multi-term move-text mmm-mode markdown-toc magit-gitflow macrostep lorem-ipsum linum-relative leuven-theme info+ indent-guide ido-vertical-mode hungry-delete htmlize hl-todo highlight-parentheses highlight-numbers highlight-indentation help-fns+ helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-gitignore helm-flyspell helm-flx helm-descbinds helm-company helm-c-yasnippet helm-ag google-translate golden-ratio go-eldoc gnuplot gitconfig-mode gitattributes-mode git-timemachine git-messenger git-gutter-fringe git-gutter-fringe+ gh-md flycheck-pos-tip flx-ido fill-column-indicator fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-magit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu eshell-prompt-extras esh-help elisp-slime-nav disaster diff-hl define-word company-statistics company-quickhelp company-go company-c-headers cmake-mode clean-aindent-mode clang-format chruby bundler buffer-move bracketed-paste auto-yasnippet auto-highlight-symbol auto-dictionary auto-compile aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line ac-ispell))
  '(pos-tip-background-color "#A6E22E")
@@ -967,7 +1077,6 @@ This function is called at the very end of Spacemacs initialization."
      (go-backend . lsp)))
  '(smartrep-mode-line-active-bg (solarized-color-blend "#859900" "#073642" 0.2))
  '(term-default-bg-color "#002b36")
-
  '(term-default-fg-color "#839496")
  '(vc-annotate-background nil)
  '(vc-annotate-background-mode nil)
@@ -1002,5 +1111,5 @@ This function is called at the very end of Spacemacs initialization."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- )
+ '(highlight-parentheses-highlight ((nil (:weight ultra-bold))) t))
 )
