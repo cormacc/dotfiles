@@ -1,13 +1,14 @@
 #Valid options should be increments of .25*96, i.e. 96/120/144/168/192
-xrandr --dpi 168
+xrandr --dpi 168 
 
 # Sets the GUI toolkits for the correct dpi
 
 # QT
-#export QT_AUTO_SCREEN_SCALE_FACTOR=1
+export QT_AUTO_SCREEN_SCALE_FACTOR=1
+#this one is deprecated...
 #export QT_DEVICE_PIXEL_RATIO=2
 # GTK
-#export GDK_SCALE=2 # scales icons
-#export GDK_DPI_SCALE=0.5 #undo scaling of text
+export GDK_SCALE=2 # scales icons
+export GDK_DPI_SCALE=0.5 #undo scaling of text
 
 

@@ -1,0 +1,154 @@
+#+TITLE: NixNotes
+#+AUTHOR: Cormac Cannon
+#+EMAIL: cormac.cannon@neuromoddevices.com
+#+LANGUAGE: en
+#+COPYRIGHT: Neuromod Devices Ltd. 2023
+#+DATE: 2023-03-08
+
+# HTML EXPORT SETUP
+# 1. Apply a theme
+#+SETUPFILE: ~/Documents/templates/org-html-themes/org/theme-readtheorg.setup
+
+# 2. Ensure exports include both source block contents and any results
+#+PROPERTY: header-args :exports both
+
+# 3. Specify styles for ODT (and DOCX) export
+
+#+ODT_STYLES_FILE: ("~/Documents/templates/nmd-template.odt" ("styles.xml" "content.xml" "Pictures/1000000000000A4F000004650AA167B89A2F5561.jpg"))
+
+# Startup options : Want to view rendered versions of latex fragments (equations etc.) by default
+#+STARTUP:: latexpreview
+
+
+This doc contains rough notes / links etc. for my attempt to adopt nix.
+
+* Table of Contents                                         :TOC_4_gh:noexport:
+- [[#plan-of-action][Plan of action]]
+  - [[#replace-dotfiles-with-home-manager-flake][Replace dotfiles with home-manager flake]]
+  - [[#integrate-home-manager-flake-with-nixos-setup][Integrate home-manager flake with nixos setup]]
+  - [[#investigate-the-following][Investigate the following]]
+- [[#links][Links]]
+  - [[#nix--nixos][Nix / NixOS]]
+    - [[#learning-resources][Learning resources]]
+    - [[#docs][Docs]]
+    - [[#examples][Examples]]
+  - [[#home-manager][home-manager]]
+    - [[#docs-1][Docs]]
+    - [[#examples-1][Examples]]
+- [[#notes][Notes]]
+  - [[#flakes][Flakes]]
+  - [[#home-manager-1][Home-manager]]
+    - [[#references][References]]
+    - [[#configuration][Configuration]]
+      - [[#default--legacy-location][Default / legacy location]]
+      - [[#flake-location][Flake location]]
+  - [[#nixos][NixOS]]
+    - [[#configuration-1][Configuration]]
+    - [[#configuration-updates][Configuration updates]]
+      - [[#test-the-configuration][Test the configuration]]
+      - [[#activate-new-configuration][Activate new configuration]]
+
+* Plan of action
+
+** TODO Replace dotfiles with home-manager flake
+Want to setup a nix flake allowing me to use home manager to setup my environment on any posix system.
+Keep it compatible with systems running NixOS -- can call home-manager config from nixos, without duplicating content....
+
+** TODO Integrate home-manager flake with nixos setup
+
+** TODO Investigate the following
+Some interesting community projects to take a look at, but only after I get to grips with basic nix....
+- flake-utils :: https://github.com/numtide/flake-utils
+- flake-utils-plus :: https://github.com/gytis-ivaskevicius/flake-utils-plus
+- digga :: https://github.com/divnix/digga
+- Nix User Repository (NUR) :: https://github.com/nix-community/NUR
+- niv (json alternative to flakes) :: https://github.com/nmattia/niv
+- org-tangled flake example :: https://www.lucacambiaghi.com/nixpkgs/readme.html#org42fe3e8
+
+* Links
+
+
+** Nix / NixOS
+*** Learning resources
+- https://zero-to-nix.com/ :: Nice set of learning resources for the relatively nix-naive (like myself)
+- https://github.com/hlissner/dotfiles :: Dotfiles and a collection of learning links from hlissner (Doom emacs maintainer)
+
+*** Docs
+
+*** Examples
+
+** home-manager
+
+*** Docs
+- [[https://dee.underscore.world/blog/home-manager-flakes/][Switching non-NixOS Home Manager to flakes]] :: Useful blog post -- relevant for nixos and standalone home-manager use...
+
+*** Examples
+- https://chrishayward.xyz/dotfiles/ :: Nicely documented example using nixos and home-manager -- separate modules for apps etc. Also some notes on 'nix develop' -- a post-flake replacement for nix-shell
+
+
+* Notes
+
+** Flakes
+
+- Home page :: https://nixos.wiki/wiki/Flakes
+- Nice series of intro articles :: https://xeiaso.net/blog/nix-flakes-1-2022-02-21
+
+** Home-manager
+
+*** References
+https://nix-community.github.io/home-manager/index.html#ch-usage
+
+*** Configuration
+
+**** Default / legacy location
+Default / legacy configuration in [[~/.config/nixpkgs/home.nix]]
+
+To test
+#+begin_src shell
+  home-manager build
+#+end_src
+
+To use
+#+begin_src shell
+  home-manager switch
+#+end_src
+
+**** Flake location
+As of vTBD, home-manager supports flake-based configuration.
+Flake configuration in [[~/.config/nixpkgs/flake.nix]]
+Flake is NOT symlinkable, as flake tooling assumes a git repo.
+There's a dodge though -- [[~/.config/nixpkgs/flake.nix]] can be a stub, including a flake from another location, that IS a git repo.
+
+Alternatively, we just pass the flake option to home-manager switch...
+
+#+begin_src shell
+  home-manager switch --flake 'path:sync/dotfiles/nix/home#cormacc'
+#+end_src
+
+This variant only works if flake.nix is in a git repo
+#+begin_src shell
+  home-manager switch --flake 'sync/dotfiles/nix/home#cormacc'
+#+end_src
+
+#+begin_src shell
+nixos-rebuild build --flake 'path:sync/dotfiles/nix/os'
+#+end_src
+** NixOS
+
+*** Configuration
+Configuration in [[/etc/nixos/configuration.nix]]
+This is currently a symlink to [[~/sync/dotfiles/nixos/hosts/t470p.nix]]
+
+*** Configuration updates
+After updating the configuration file:
+
+**** Test the configuration
+To make sure the configuration is buildable...
+#+begin_src shell
+nixos rebuild test
+#+end_src
+
+**** Activate new configuration
+#+begin_src shell
+nixos rebuild switch
+#+end_src

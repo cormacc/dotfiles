@@ -29,7 +29,7 @@ This function should only modify configuration layer settings."
     ;; List of additional paths where to look for configuration layers.
     ;; Paths must have a trailing slash (i.e. `~/.mycontribs/')
     ;; N.B. It only became necessary to set this explicitly 25/07/2022 -- may be a transient upstream issue
-    dotspacemacs-configuration-layer-path '("~/.spacemacs.d/layers/")
+    ;; dotspacemacs-configuration-layer-path '("~/.spacemacs.d/layers/")
 
     ;; List of configuration layers to load.
     dotspacemacs-configuration-layers
@@ -138,10 +138,10 @@ This function should only modify configuration layer settings."
             org-enable-github-support t
             org-enable-hugo-support t
             org-enable-reveal-js-support t)
-       (org-user :variables
-                 ;;Use your primary O365 e-mail address here, or set to t to load it from ~/.authinfo(.gpg)
-                 org-user-o365 t
-                 org-user-roam-directory "~/org/roam/")
+       ;; (org-user :variables
+       ;;           ;;Use your primary O365 e-mail address here, or set to t to load it from ~/.authinfo(.gpg)
+       ;;           org-user-o365 t
+       ;;           org-user-roam-directory "~/org/roam/")
        ;; outshine
        pandoc
       ;; ----------------------------------------------------------------
@@ -219,6 +219,7 @@ This function should only modify configuration layer settings."
        ;; (javascript :variables node-add-modules-path t)
        (javascript :variables javascript-backend 'tide)
        ;; kivy
+       nixos
        ;; octave
        ;; parinfer ;;This may be screwing up my parens...
        (python :variables
@@ -455,7 +456,7 @@ It should only modify the values of Spacemacs settings."
    ;; Point size is recommended, because it's device independent. (default 10.0)
    ;; N.B. use 'fc-list' to list installed font names on linux
    dotspacemacs-default-font '("Source Code Pro"
-                               :size 11.0
+                               :size 10.0
                                :weight normal
                                :width normal)
 
@@ -745,6 +746,9 @@ This function is called immediately after `dotspacemacs/init', before layer
 configuration.
 It is mostly for variables that should be set before packages are loaded.
 If you are unsure, try setting them in `dotspacemacs/user-config' first."
+
+  ;; setup package-user-dir to allow seamless switch between emacs versions
+  ;; (setq package-user-dir (concat user-home-directory ".cache/emacs/elpa/" emacs-version))
 
   (setq tramp-default-method "ssh")
   (setq tramp-password-prompt-regexp

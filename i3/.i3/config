@@ -36,10 +36,10 @@ bindsym $mod+Return exec alacritty
 bindsym $mod+q kill
 
 # start program launcher
-bindsym $mod+d exec --no-startup-id dmenu_recency
+bindsym $mod+d exec --no-startup-id j4-dmenu-desktop
 
 # launch categorized menu
-bindsym $mod+z exec --no-startup-id morc_menu
+#bindsym $mod+z exec --no-startup-id morc_menu
 
 ################################################################################################
 ## sound-section - DO NOT EDIT if you wish to automatically upgrade Alsa -> Pulseaudio later! ##
@@ -413,10 +413,12 @@ bar {
 ### settings for i3-gaps: ###
 #############################
 
+# N.B. i3-gaps is currently being merged into i3 proper (Jan 2023 / i3 v 4.22). Commenting out these settings pending completion of merge....
+
 # Set inner/outer gaps
 # gaps inner 14
-gaps inner 7
-gaps outer -2
+# gaps inner 7
+# gaps outer -2
 
 # Additionally, you can issue commands with the following syntax. This is useful to bind keys to changing the gap size.
 # gaps inner|outer current|all set|plus|minus <px>
@@ -424,11 +426,11 @@ gaps outer -2
 # gaps outer all plus 5
 
 # Smart gaps (gaps used if only more than one container on the workspace)
-smart_gaps on
+#smart_gaps on
 
 # Smart borders (draw borders around container only if it is not the only container on this workspace)
 # on|no_gaps (on=always activate and no_gaps=only activate if the gap size to the edge of the screen is 0)
-smart_borders on
+#smart_borders on
 
 # Press $mod+Shift+g to enter the gap mode. Choose o or i for modifying outer/inner gaps. Press one of + / - (in-/decrement for current workspace) or 0 (remove gaps for current workspace). If you also press Shift with these keys, the change will be global for all workspaces.
 set $mode_gaps Gaps: (o) outer, (i) inner
@@ -478,7 +480,7 @@ mode "$mode_gaps_outer" {
 #Running dropbox using 'systemctl --user enable dropbox' instead
 #exec --no-startup-id dropbox
 #exec --no-startup-id synergy
-exec --no-startup-id insync start
+#exec --no-startup-id insync start
 #exec --no-startup-id nextcloud
 #exec --no-startup-id dock
 

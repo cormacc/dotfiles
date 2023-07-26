@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+setxkbmap -option caps:swapescape -option terminate:ctrl_alt_bksp

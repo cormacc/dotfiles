@@ -32,7 +32,7 @@
 (defconst org-user-packages
   '(
      (org-archive-subtree-hierarchical :location local)
-     (org :location built-in)
+     org
      org-web-tools
      org-sidebar
      org-super-agenda
@@ -41,6 +41,7 @@
      ob-typescript
      leuven-theme
      org-roam
+     excorporate
      (vulpea :location (recipe
                         :fetcher github
                         :repo "d12frosted/vulpea"

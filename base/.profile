@@ -56,4 +56,10 @@ export GTK2_RC_FILES="$HOME/.gtkrc-2.0"
 # fix "xdg-open fork-bomb" export your preferred browser from here export
 #export BROWSER=/usr/bin/brave
 export BROWSER=/usr/bin/chromium
+
 #. "$HOME/.cargo/env"
+swapcapsesc
+
+# systemd and dbus don't execute .profile -- this copies environment settings across from the login session to dbus/systemd
+# See https://wiki.archlinux.org/title/Systemd/User#Environment_variables 
+dbus-update-activation-environment --systemd --all
