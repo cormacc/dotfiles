@@ -30,7 +30,7 @@ in
   # You can update Home Manager without changing this value. See
   # the Home Manager release notes for a list of state version
   # changes in each release.
-  home.stateVersion = "22.11";
+  home.stateVersion = "23.05";
 
   xdg.enable = true;
   fonts.fontconfig.enable = true;
@@ -53,7 +53,10 @@ in
   home.file.".editorconfig".source="${dotfiles}/base/.editorconfig";
 
   # Emacs and dependencies
-  programs.emacs.enable = true;
+  #... installing at system level instead...
+  #... as haven't figured out overlays in home-manager...
+  #... yet ...
+  # programs.emacs.enable = true;
   home.file.".config/emacs" = {
    recursive = true;
    #Use this variant to pin a specific commit

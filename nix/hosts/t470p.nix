@@ -12,6 +12,12 @@
       /etc/nixos/cachix.nix
     ];
 
+  nixpkgs.overlays = [
+    (import (builtins.fetchTarball {
+      url = https://github.com/nix-community/emacs-overlay/archive/master.tar.gz;
+    }))
+  ];
+
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -167,7 +173,8 @@
     # editing
     vim
     # .. emacs
-    emacs
+    # emacs
+    emacs-unstable
     aspell
     aspellDicts.en
     pandoc

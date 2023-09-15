@@ -13,7 +13,6 @@
 #+PROPERTY: header-args :exports both
 
 # 3. Specify styles for ODT (and DOCX) export
-
 #+ODT_STYLES_FILE: ("~/Documents/templates/nmd-template.odt" ("styles.xml" "content.xml" "Pictures/1000000000000A4F000004650AA167B89A2F5561.jpg"))
 
 # Startup options : Want to view rendered versions of latex fragments (equations etc.) by default
@@ -37,16 +36,20 @@ This doc contains rough notes / links etc. for my attempt to adopt nix.
     - [[#examples-1][Examples]]
 - [[#notes][Notes]]
   - [[#flakes][Flakes]]
-  - [[#home-manager-1][Home-manager]]
-    - [[#references][References]]
-    - [[#configuration][Configuration]]
-      - [[#default--legacy-location][Default / legacy location]]
-      - [[#flake-location][Flake location]]
   - [[#nixos][NixOS]]
-    - [[#configuration-1][Configuration]]
+    - [[#configuration][Configuration]]
     - [[#configuration-updates][Configuration updates]]
       - [[#test-the-configuration][Test the configuration]]
       - [[#activate-new-configuration][Activate new configuration]]
+      - [[#delete-old-generations][Delete old generations]]
+    - [[#system-updates-channel-management][System updates (channel management)]]
+      - [[#update-packages-channel-updates][Update packages (channel updates)]]
+      - [[#switching-channels][Switching channels]]
+  - [[#home-manager-1][Home-manager]]
+    - [[#references][References]]
+    - [[#configuration-1][Configuration]]
+      - [[#default--legacy-location][Default / legacy location]]
+      - [[#flake-location][Flake location]]
 
 * Plan of action
 
@@ -93,6 +96,73 @@ Some interesting community projects to take a look at, but only after I get to g
 - Home page :: https://nixos.wiki/wiki/Flakes
 - Nice series of intro articles :: https://xeiaso.net/blog/nix-flakes-1-2022-02-21
 
+** NixOS
+All operations as root...
+
+*** Configuration
+Configuration in [[/etc/nixos/configuration.nix]]
+This is currently a symlink to [[~/sync/dotfiles/nixos/hosts/t470p.nix]]
+
+
+*** Configuration updates
+After updating the configuration file:
+
+**** Test the configuration
+To make sure the configuration is buildable...
+#+begin_src shell
+nixos rebuild test
+#+end_src
+
+**** Activate new configuration
+#+begin_src shell
+nixos rebuild switch
+#+end_src
+
+**** Delete old generations
+NixOS keeps all previously built iterations of the system (generations) until purged explicitly.
+Garbage collection needs to be run manually (or scheduled using cron), but flushes generations more than a week old.
+
+#+begin_src shell
+nix-env --list-generations
+
+nix-collect-garbage  --delete-old
+
+nix-collect-garbage  --delete-generations 1 2 3
+
+# recommeneded to sometimes run as sudo to collect additional garbage
+sudo nix-collect-garbage -d
+
+# As a separation of concerns - you will need to run this command to clean out boot
+sudo /run/current-system/bin/switch-to-configuration boot
+#+end_src
+
+*** System updates (channel management)
+
+N.B. these commands apply at root level for NixOS, and at user level for home-manager.
+
+**** Update packages (channel updates)
+nix/nixos pin your package sets at a channel revision. To upgrade packages, you need to update the channel before building/rebuilding using the commands provided in the next section.
+
+#+begin_src shell
+nix-channel --update
+#+end_src
+
+**** Switching channels
+To track the bleeding edge ...
+#+begin_src shell
+nix-channel --add https://channels.nixos.org/nixos-unstable nixos
+#+end_src
+
+... or the current stable release ...
+#+begin_src shell
+nix-channel --add https://channels.nixos.org/nixos-23.05 nixos
+#+end_src
+
+#+begin_notes
+These can be set separately at nixos(root) level and home-manager (user) level -- e.g. currently tracking 23.05 for nixos and unstable for home-manager...
+#+end_notes
+
+
 ** Home-manager
 
 *** References
@@ -121,8 +191,10 @@ There's a dodge though -- [[~/.config/nixpkgs/flake.nix]] can be a stub, includi
 
 Alternatively, we just pass the flake option to home-manager switch...
 
+N.B =--impure= option required for my emacs config... for now
+
 #+begin_src shell
-  home-manager switch --flake 'path:sync/dotfiles/nix/home#cormacc'
+  home-manager switch --flake 'path:sync/dotfiles/nix/home#cormacc' --impure
 #+end_src
 
 This variant only works if flake.nix is in a git repo
@@ -132,23 +204,4 @@ This variant only works if flake.nix is in a git repo
 
 #+begin_src shell
 nixos-rebuild build --flake 'path:sync/dotfiles/nix/os'
-#+end_src
-** NixOS
-
-*** Configuration
-Configuration in [[/etc/nixos/configuration.nix]]
-This is currently a symlink to [[~/sync/dotfiles/nixos/hosts/t470p.nix]]
-
-*** Configuration updates
-After updating the configuration file:
-
-**** Test the configuration
-To make sure the configuration is buildable...
-#+begin_src shell
-nixos rebuild test
-#+end_src
-
-**** Activate new configuration
-#+begin_src shell
-nixos rebuild switch
 #+end_src
