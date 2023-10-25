@@ -27,9 +27,9 @@ font xft:URWGothic-Book 8
 floating_modifier $mod
 
 # start a terminal
-#bindsym $mod+Return exec terminal
+bindsym $mod+Return exec terminal
 #bindsym $mod+Return exec termite -e fish
-bindsym $mod+Return exec alacritty
+#bindsym $mod+Return exec alacritty
 
 # kill focused window
 # bindsym $mod+Shift+q kill
@@ -45,16 +45,16 @@ bindsym $mod+d exec --no-startup-id j4-dmenu-desktop
 ## sound-section - DO NOT EDIT if you wish to automatically upgrade Alsa -> Pulseaudio later! ##
 ################################################################################################
 
-# exec --no-startup-id volumeicon
-# bindsym $mod+Ctrl+m exec terminal -e 'alsamixer'
+exec --no-startup-id volumeicon
+bindsym $mod+Ctrl+m exec terminal -e 'alsamixer'
 #exec --no-startup-id pulseaudio
 #exec --no-startup-id pa-applet
-bindsym $mod+Ctrl+m exec pavucontrol
+#bindsym $mod+Ctrl+m exec pavucontrol
 
 ################################################################################################
 
-exec --no-startup-id pasystray
-exec --no-startup-id blueman-applet
+#exec --no-startup-id pasystray
+#exec --no-startup-id blueman-applet
 
 # Screen brightness controls
 # bindsym XF86MonBrightnessUp exec "xbacklight -inc 10; notify-send 'brightness up'"
@@ -62,13 +62,13 @@ exec --no-startup-id blueman-applet
 
 # Start Applications
 bindsym $mod+Ctrl+b exec terminal -e 'bmenu'
-bindsym $mod+F2 exec palemoon
-bindsym $mod+F3 exec pcmanfm
-# bindsym $mod+F3 exec ranger
-bindsym $mod+Shift+F3 exec pcmanfm_pkexec
+# bindsym $mod+F2 exec palemoon
+# bindsym $mod+F3 exec pcmanfm
+bindsym $mod+F3 exec ranger
+# bindsym $mod+Shift+F3 exec pcmanfm_pkexec
 bindsym $mod+F5 exec terminal -e 'mocp'
-# bindsym $mod+t exec --no-startup-id pkill compton # REBOUND TO TOGGLE MENU BELOW
-bindsym $mod+Ctrl+t exec --no-startup-id compton -b
+# bindsym $mod+t exec --no-startup-id pkill picom # REBOUND TO TOGGLE MENU BELOW
+bindsym $mod+Ctrl+t exec --no-startup-id picom -b
 bindsym $mod+Shift+d --release exec "killall dunst; exec notify-send 'restart dunst'"
 bindsym Print exec --no-startup-id i3-scrot
 # bindsym $mod+Print --release exec --no-startup-id i3-scrot -w # REBOUND TO PRINT MENU BELOW
@@ -321,7 +321,7 @@ mode "resize" {
 
 # Autostart applications
 exec --no-startup-id /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
-exec --no-startup-id nitrogen --restore; sleep 1; compton -b
+exec --no-startup-id nitrogen --restore; sleep 1; picom -b
 #exec --no-startup-id manjaro-hello
 exec --no-startup-id nm-applet
 exec --no-startup-id xfce4-power-manager
@@ -329,9 +329,9 @@ exec --no-startup-id pamac-tray
 exec --no-startup-id clipit
 # exec --no-startup-id blueman-applet
 # exec_always --no-startup-id sbxkb
-exec --no-startup-id ~/bin/start_conky
+exec --no-startup-id ~/bin/start_conky_maia
 # exec --no-startup-id start_conky_green
-#exec --no-startup-id xautolock -time 10 -locker blurlock
+exec --no-startup-id xautolock -time 10 -locker blurlock
 exec_always --no-startup-id ff-theme-util
 exec_always --no-startup-id fix_xcursor
 
@@ -347,34 +347,34 @@ exec_always --no-startup-id fix_xcursor
 # to:
 # background $term_background
 # Same logic applied to everything else.
-# EDITED: set_from_resource incompatible with sway
-# set_from_resource $term_background background
-# set_from_resource $term_foreground foreground
-# set_from_resource $term_color0     color0
-# set_from_resource $term_color1     color1
-# set_from_resource $term_color2     color2
-# set_from_resource $term_color3     color3
-# set_from_resource $term_color4     color4
-# set_from_resource $term_color5     color5
-# set_from_resource $term_color6     color6
-# set_from_resource $term_color7     color7
-# set_from_resource $term_color8     color8
-# set_from_resource $term_color9     color9
-# set_from_resource $term_color10    color10
-# set_from_resource $term_color11    color11
-# set_from_resource $term_color12    color12
-# set_from_resource $term_color13    color13
-# set_from_resource $term_color14    color14
-# set_from_resource $term_color15    color15
+# N.B. set_from_resource incompatible with Sway WM
+set_from_resource $term_background background
+set_from_resource $term_foreground foreground
+set_from_resource $term_color0     color0
+set_from_resource $term_color1     color1
+set_from_resource $term_color2     color2
+set_from_resource $term_color3     color3
+set_from_resource $term_color4     color4
+set_from_resource $term_color5     color5
+set_from_resource $term_color6     color6
+set_from_resource $term_color7     color7
+set_from_resource $term_color8     color8
+set_from_resource $term_color9     color9
+set_from_resource $term_color10    color10
+set_from_resource $term_color11    color11
+set_from_resource $term_color12    color12
+set_from_resource $term_color13    color13
+set_from_resource $term_color14    color14
+set_from_resource $term_color15    color15
 
 # Start i3bar to display a workspace bar (plus the system information i3status if available)
 bar {
-  # i3bar_command i3bar # EDITED: Incompatible with sway
+  i3bar_command i3bar # N.B. incompatible with sway
   status_command i3status
   position bottom
 
 ## please set your primary output first. Example: 'xrandr --output eDP1 --primary'
-  tray_output primary
+#  tray_output primary
 #	tray_output eDP1
 
   bindsym button4 nop
@@ -413,12 +413,10 @@ bar {
 ### settings for i3-gaps: ###
 #############################
 
-# N.B. i3-gaps is currently being merged into i3 proper (Jan 2023 / i3 v 4.22). Commenting out these settings pending completion of merge....
-
 # Set inner/outer gaps
 # gaps inner 14
-# gaps inner 7
-# gaps outer -2
+gaps inner 7
+gaps outer -2
 
 # Additionally, you can issue commands with the following syntax. This is useful to bind keys to changing the gap size.
 # gaps inner|outer current|all set|plus|minus <px>
@@ -426,11 +424,11 @@ bar {
 # gaps outer all plus 5
 
 # Smart gaps (gaps used if only more than one container on the workspace)
-#smart_gaps on
+smart_gaps on
 
 # Smart borders (draw borders around container only if it is not the only container on this workspace)
 # on|no_gaps (on=always activate and no_gaps=only activate if the gap size to the edge of the screen is 0)
-#smart_borders on
+smart_borders on
 
 # Press $mod+Shift+g to enter the gap mode. Choose o or i for modifying outer/inner gaps. Press one of + / - (in-/decrement for current workspace) or 0 (remove gaps for current workspace). If you also press Shift with these keys, the change will be global for all workspaces.
 set $mode_gaps Gaps: (o) outer, (i) inner
@@ -508,12 +506,12 @@ mode "$menu_screenshot" {
 }
 bindsym $mod+Print mode "$menu_screenshot"
 
-set $menu_manjaro Launch (b)menu, (m)ocp, (c/C) kill/start compton, restart (d)unst, (h)elp, x(k)ill
+set $menu_manjaro Launch (b)menu, (m)ocp, (c/C) kill/start picom, restart (d)unst, (h)elp, x(k)ill
 mode "$menu_manjaro" {
     bindsym b exec terminal -e 'bmenu'
     bindsym m exec terminal -e 'mocp'
-    bindsym c exec --no-startup-id pkill compton
-    bindsym Shift+c exec --no-startup-id compton -b
+    bindsym c exec --no-startup-id pkill picom
+    bindsym Shift+c exec --no-startup-id picom -b
     bindsym d exec "killall dunst; exec notify-send 'restart dunst'"
     bindsym h exec xdg-open /usr/share/doc/manjaro/i3_help.pdf
     bindsym k exec --no-startup-id xkill
@@ -528,7 +526,6 @@ set $menu_launch Execute (w/W)ww, (j)etbrains, (e/E)ditor, (v)m, (f/F)ileman/sud
 mode "$menu_launch" {
     bindsym w exec chromium, mode "default"
     bindsym Shift+w exec firefox, mode "default"
-    bindsym j exec .local/share/JetBrains/Toolbox/bin/jetbrains-toolbox, mode "default"
     bindsym e exec emacs, mode "default"
     bindsym Shift+e exec code, mode "default"
     bindsym v exec virt-manager, mode "default"
@@ -570,23 +567,18 @@ bindsym $mod+t mode "$menu_toggle"
 # set $DP_ext2 DP-0.2
 # set $DP_ext3 DP-0.3
 
-# ... nvidia hybrid no dock (interim - 2 monitors
+# ... p53 nvidia hybrid no dock (interim - 3 monitors)
 set $DP_ext1 DP-3
 set $DP_ext2 DP-0
 set $DP_int eDP-1-1
 set $DP_ext3 HDMI-0
 
-# ... two-monitor neuromod alias
-# .... nvidia-hybrid
-# set $DP_ext1 HDMI-1-0
-# set $DP_ext2 HDMI-1-0
-# set $DP_int eDP-1
-# set $DP_ext3 eDP-1
-# .... nvidia
-# set $DP_ext1 HDMI-0
-# set $DP_ext2 HDMI-0
-# set $DP_int eDP-1-1
-# set $DP_ext3 eDP-1-1
+# ... XPS nvidia hybrid no dock (3 monitors)
+set $DP_ext1 DP-3
+set $DP_ext2 DP-0
+set $DP_int eDP-1
+set $DP_ext3 HDMI-0
+
 
 workspace 1 output $DP_ext1
 workspace 2 output $DP_ext1
