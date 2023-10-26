@@ -53,14 +53,41 @@ in
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
 
-  #TODO Does multiple shells confuse home manager
   programs.bash.enable = true;
   programs.zsh.enable = true;
   programs.fish.enable = true;
 
+  programs.ssh = {
+    enable = true;
+    #TODO: Vaguely remember these relating to emacs/tramp.. reinstate as needed
+    # controlMaster = "auto";
+    # controlPath = "~/.ssh/master-%r@%h:%p";
+    # serverAliveInterval = 15;
+    matchBlocks = {
+      nmd-git = {
+        hostname = "git.nmd.ie";
+        user = "ec2-user";
+        port = 1022;
+      };
+    };
+  };
+
+  programs.git = {
+    enable = true;
+    delta.enable = true;
+    lfs.enable = true;
+    userName = "Cormac Cannon";
+    userEmail = "cormacc@gmail.com";
+  };
+
+  home.sessionVariables = {
+    EDITOR = "vim";
+    SPACEMACSDIR = "${config.xdg.configHome}/spacemacs";
+  };
+
   home.file.".editorconfig".source="${dotfiles}/base/.editorconfig";
 
-  #TODO: These trigger an opengl issue -- revisit
+  #TODO: These trigger an opengl issue -- install via OS package manager for now and revisit
   #programs.wezterm.enable = true;
   #programs.alacritty.enable = true;
 
@@ -72,7 +99,6 @@ in
     package = pkgs.emacs29-gtk3;
   };
 
-  #TODO: Rework to use xdg.whatever var
   home.file."${config.xdg.configHome}/emacs" = {
    recursive = true;
    #Use this variant to pin a specific commit
@@ -89,13 +115,14 @@ in
     ref = "develop";
    };
   };
-  #TODO: Move this to ~/.config/spacemacs once I figure out env
-  home.file.".spacemacs.d".source = ~/dotfiles/emacs/.config/spacemacs;
+  home.file."${config.xdg.configHome}/spacemacs".source = ~/dotfiles/emacs/.config/spacemacs;
+
   programs.pandoc.enable = true;
 
   #programs.vscode = {
     #enable = true;
     # I can't get the useUnfree options passed through to home manager yet
+    # ... when using NixOS anyway
     # ... so use vscodium for now...
     #package = pkgs.vscodium;
     #extensions = with pkgs.vscode-extensions; [
