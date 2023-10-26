@@ -27,10 +27,9 @@ font xft:URWGothic-Book 8
 floating_modifier $mod
 
 # start a terminal
-# bindsym $mod+Return exec terminal
-#bindsym $mod+Return exec termite -e fish
+#bindsym $mod+Return exec terminal
 #bindsym $mod+Return exec alacritty
-bindsym $mod+Return exec kitty
+bindsym $mod+Return exec kitty -e fish
 
 # kill focused window
 # bindsym $mod+Shift+q kill
