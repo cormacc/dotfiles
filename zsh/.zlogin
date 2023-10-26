@@ -1,6 +1,0 @@
-FRAMEWORK_LOGIN=."$ZSH_FRAMEWORK"-login
-if [[ -a $FRAMEWORK_LOGIN ]]; then
-    (($VERBOSE)) && echo Sourcing $FRAMEWORK_LOGIN
-    source $FRAMEWORK_LOGIN
-fi
-unset FRAMEWORK_LOGIN

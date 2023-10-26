@@ -53,8 +53,46 @@ in
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
 
-  programs.bash.enable = true;
-  programs.zsh.enable = true;
+  programs.bash = {
+    enable = true;
+    initExtra = ''
+      . ./dotfiles/nmd/.profile.d/nmd-dir-nav.sh
+    '';
+  };
+  programs.zsh = {
+    enable = true;
+    initExtra = ''
+      . ./dotfiles/nmd/.profile.d/nmd-dir-nav.sh
+    '';
+    antidote = {
+      enable = true;
+      useFriendlyNames = true;
+      # See https://github.com/getantidote/zdotdir/blob/main/.zsh_plugins.txt
+      plugins = [
+        "peterhurford/up.zsh"
+        "rummik/zsh-tailf"
+        "mattmc3/zman"
+        "agkozak/zsh-z"
+        "romkatv/powerlevel10k kind:fpath"
+        "sindresorhus/pure"
+        "ohmyzsh/ohmyzsh path:lib/clipboard.zsh"
+        "ohmyzsh/ohmyzsh path:plugins/copybuffer"
+        "ohmyzsh/ohmyzsh path:plugins/copyfile"
+        "ohmyzsh/ohmyzsh path:plugins/copypath"
+        "ohmyzsh/ohmyzsh path:plugins/extract"
+        "ohmyzsh/ohmyzsh path:plugins/magic-enter"
+        "ohmyzsh/ohmyzsh path:plugins/fancy-ctrl-z"
+        "belak/zsh-utils path:history"
+        "belak/zsh-utils path:utility"
+        "belak/zsh-utils path:editor"
+        "zdharma-continuum/fast-syntax-highlighting kind:defer"
+        "zsh-users/zsh-completions path:src kind:fpath"
+        "belak/zsh-utils path:completion"
+        "zsh-users/zsh-autosuggestions kind:defer"
+        "zsh-users/zsh-history-substring-search"
+      ];
+    };
+  };
   programs.fish.enable = true;
 
   programs.ssh = {
@@ -82,16 +120,34 @@ in
 
   home.sessionVariables = {
     EDITOR = "vim";
+    #Use xdg-config layout for spacemacs
     SPACEMACSDIR = "${config.xdg.configHome}/spacemacs";
+    #Use fish as default shell, but NOT login shell as not posix compliant
+    TERMINAL = "kitty -e /usr/bin/fish";
   };
 
+  home.shellAliases = {
+
+  };
+
+
+  # Shell scripts
+  home.file.".local/bin/kbmap".source="${dotfiles}/xorg/bin/kbmap";
+  home.file.".local/bin/caps-lock-off".source="${dotfiles}/xorg/bin/caps-lock-off";
+  home.file.".local/bin/md2org".source="${dotfiles}/emacs/bin/md2org";
+  home.file.".local/bin/org2md".source="${dotfiles}/emacs/bin/org2md";
+  home.file.".local/bin/syncup".source="${dotfiles}/git/bin/syncup";
+
+  # Configuration data
   home.file.".editorconfig".source="${dotfiles}/base/.editorconfig";
+  # ... MBT IOD bootloader configuration
+  home.file.".mutebutton".source="${dotfiles}/nmd/.mutebutton";
 
   #TODO: These trigger an opengl issue -- install via OS package manager for now and revisit
-  #programs.wezterm.enable = true;
   #programs.alacritty.enable = true;
+  #programs.kitty.enable = true;
 
-  home.file.".i3/config".source="${dotfiles}/i3/.i3/config";
+  home.file.".config/i3/config".source="${dotfiles}/i3/.config/i3/config";
 
   # Emacs and dependencies
   programs.emacs = {
