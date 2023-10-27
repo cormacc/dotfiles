@@ -15,6 +15,18 @@ let
   #lockCmd = "${pkgs.i3lock-fancy}/bin/i3lock-fancy -p -t ''";
 in
 {
+  imports = [
+    ./modules/i3.nix
+    ./modules/shells.nix
+    ./modules/emacs.nix
+    ./modules/nmd.nix
+  ];
+
+  #FIXME: Should be able to define this once
+  my.i3.dotRoot = dotfiles;
+  my.emacs.dotRoot = dotfiles;
+  my.nmd.dotRoot = dotfiles;
+
   # Home Manager needs a bit of information about you and the
   # paths it should manage.
   home.username = "${username}";
@@ -30,70 +42,16 @@ in
   # changes in each release.
   home.stateVersion = "23.05";
 
-  xdg.enable = true;
-  fonts.fontconfig.enable = true;
-
-  home.packages = with pkgs; [
-    #TODO: rework to group dependencies with their programs in modules...
-    #= fonts =
-    source-code-pro
-    jetbrains-mono
-    #= i3 =
-    j4-dmenu-desktop
-    picom
-    #ranger #managed by arch as dependency of bmenu...
-    dunst
-    #i3-scrot #not in nixpgs
-    #= emacs =
-    aspell
-    aspellDicts.en
-    plantuml-c4
-  ];
-
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
 
-  programs.bash = {
-    enable = true;
-    initExtra = ''
-      . ./dotfiles/nmd/.profile.d/nmd-dir-nav.sh
-    '';
-  };
-  programs.zsh = {
-    enable = true;
-    initExtra = ''
-      . ./dotfiles/nmd/.profile.d/nmd-dir-nav.sh
-    '';
-    antidote = {
-      enable = true;
-      useFriendlyNames = true;
-      # See https://github.com/getantidote/zdotdir/blob/main/.zsh_plugins.txt
-      plugins = [
-        "peterhurford/up.zsh"
-        "rummik/zsh-tailf"
-        "mattmc3/zman"
-        "agkozak/zsh-z"
-        "romkatv/powerlevel10k kind:fpath"
-        "sindresorhus/pure"
-        "ohmyzsh/ohmyzsh path:lib/clipboard.zsh"
-        "ohmyzsh/ohmyzsh path:plugins/copybuffer"
-        "ohmyzsh/ohmyzsh path:plugins/copyfile"
-        "ohmyzsh/ohmyzsh path:plugins/copypath"
-        "ohmyzsh/ohmyzsh path:plugins/extract"
-        "ohmyzsh/ohmyzsh path:plugins/magic-enter"
-        "ohmyzsh/ohmyzsh path:plugins/fancy-ctrl-z"
-        "belak/zsh-utils path:history"
-        "belak/zsh-utils path:utility"
-        "belak/zsh-utils path:editor"
-        "zdharma-continuum/fast-syntax-highlighting kind:defer"
-        "zsh-users/zsh-completions path:src kind:fpath"
-        "belak/zsh-utils path:completion"
-        "zsh-users/zsh-autosuggestions kind:defer"
-        "zsh-users/zsh-history-substring-search"
-      ];
-    };
-  };
-  programs.fish.enable = true;
+  xdg.enable = true;
+
+  fonts.fontconfig.enable = true;
+  home.packages = with pkgs; [
+    source-code-pro
+    jetbrains-mono
+  ];
 
   programs.ssh = {
     enable = true;
@@ -101,13 +59,6 @@ in
     # controlMaster = "auto";
     # controlPath = "~/.ssh/master-%r@%h:%p";
     # serverAliveInterval = 15;
-    matchBlocks = {
-      nmd-git = {
-        hostname = "git.nmd.ie";
-        user = "ec2-user";
-        port = 1022;
-      };
-    };
   };
 
   programs.git = {
@@ -117,63 +68,14 @@ in
     userName = "Cormac Cannon";
     userEmail = "cormacc@gmail.com";
   };
-
-  home.sessionVariables = {
-    EDITOR = "vim";
-    #Use xdg-config layout for spacemacs
-    SPACEMACSDIR = "${config.xdg.configHome}/spacemacs";
-    #Use fish as default shell, but NOT login shell as not posix compliant
-    TERMINAL = "kitty -e /usr/bin/fish";
-  };
-
-  home.shellAliases = {
-
-  };
-
+  home.file.".local/bin/syncup".source="${dotfiles}/git/bin/syncup";
 
   # Shell scripts
   home.file.".local/bin/kbmap".source="${dotfiles}/xorg/bin/kbmap";
   home.file.".local/bin/caps-lock-off".source="${dotfiles}/xorg/bin/caps-lock-off";
-  home.file.".local/bin/md2org".source="${dotfiles}/emacs/bin/md2org";
-  home.file.".local/bin/org2md".source="${dotfiles}/emacs/bin/org2md";
-  home.file.".local/bin/syncup".source="${dotfiles}/git/bin/syncup";
 
-  # Configuration data
   home.file.".editorconfig".source="${dotfiles}/base/.editorconfig";
-  # ... MBT IOD bootloader configuration
-  home.file.".mutebutton".source="${dotfiles}/nmd/.mutebutton";
 
-  #TODO: These trigger an opengl issue -- install via OS package manager for now and revisit
-  #programs.alacritty.enable = true;
-  #programs.kitty.enable = true;
-
-  home.file.".config/i3/config".source="${dotfiles}/i3/.config/i3/config";
-
-  # Emacs and dependencies
-  programs.emacs = {
-    enable = true;
-    package = pkgs.emacs29-gtk3;
-  };
-
-  home.file."${config.xdg.configHome}/emacs" = {
-   recursive = true;
-   #Use this variant to pin a specific commit
-   # source = pkgs.fetchFromGitHub {
-   #   owner = "syl20bnr";
-   #   repo = "spacemacs";
-   #   rev = "e4b20f797d9e7a03d9a5603942c4a51ea19047b2";
-   #   #N.B. If updating rev above, new sha256 will be reported when trying to swap this flake in, and can be pasted here
-   #   sha256 = "OdZuOmxDYvvsCnu9TcogCeB0agCq8o20/YPCmUSwYPw=";
-   # };
-   #... or this variant to track a branch
-   source = builtins.fetchGit {
-    url = "https://github.com/syl20bnr/spacemacs";
-    ref = "develop";
-   };
-  };
-  home.file."${config.xdg.configHome}/spacemacs".source = ~/dotfiles/emacs/.config/spacemacs;
-
-  programs.pandoc.enable = true;
 
   #programs.vscode = {
     #enable = true;
