@@ -26,6 +26,11 @@ This doc contains rough notes / links etc. for my attempt to adopt nix.
   - [[#replace-dotfiles-with-home-manager-flake][Replace dotfiles with home-manager flake]]
   - [[#integrate-home-manager-flake-with-nixos-setup][Integrate home-manager flake with nixos setup]]
   - [[#investigate-the-following][Investigate the following]]
+- [[#dependencies-not-managed-using-nix----yet][Dependencies NOT managed using Nix -- yet]]
+  - [[#nixos-required][NixOS required]]
+    - [[#opengl-terminals][OpenGL terminals]]
+    - [[#moosefs-client][MooseFS client]]
+  - [[#packaging-complicated][Packaging complicated]]
 - [[#links][Links]]
   - [[#nix--nixos][Nix / NixOS]]
     - [[#learning-resources][Learning resources]]
@@ -35,6 +40,7 @@ This doc contains rough notes / links etc. for my attempt to adopt nix.
     - [[#docs-1][Docs]]
     - [[#examples-1][Examples]]
 - [[#notes][Notes]]
+  - [[#direnv][Direnv]]
   - [[#flakes][Flakes]]
   - [[#nixos][NixOS]]
     - [[#configuration][Configuration]]
@@ -53,11 +59,14 @@ This doc contains rough notes / links etc. for my attempt to adopt nix.
 
 * Plan of action
 
-** TODO Replace dotfiles with home-manager flake
+** DONE Replace dotfiles with home-manager flake
+CLOSED: [2023-11-02 Thu 00:48]
 Want to setup a nix flake allowing me to use home manager to setup my environment on any posix system.
 Keep it compatible with systems running NixOS -- can call home-manager config from nixos, without duplicating content....
 
 ** TODO Integrate home-manager flake with nixos setup
+May not do this -- have a couple of dependencies (thank you Microchip) that may be hard to get running on NixOS.
+
 
 ** TODO Investigate the following
 Some interesting community projects to take a look at, but only after I get to grips with basic nix....
@@ -68,8 +77,21 @@ Some interesting community projects to take a look at, but only after I get to g
 - niv (json alternative to flakes) :: https://github.com/nmattia/niv
 - org-tangled flake example :: https://www.lucacambiaghi.com/nixpkgs/readme.html#org42fe3e8
 
-* Links
+* Dependencies NOT managed using Nix -- yet
 
+** NixOS required
+
+*** OpenGL terminals
+kitty, alacritty etc.
+
+*** MooseFS client
+See https://discourse.nixos.org/t/mount-moosefs-share-on-nixos-using-configuration-nix/33271
+
+** Packaging complicated
+- Microchip MPLAB-X
+- Microchip XC16
+
+* Links
 
 ** Nix / NixOS
 *** Learning resources
@@ -80,7 +102,7 @@ Some interesting community projects to take a look at, but only after I get to g
 
 *** Examples
 
-** home-manager
+** TODO home-manager
 
 *** Docs
 - [[https://dee.underscore.world/blog/home-manager-flakes/][Switching non-NixOS Home Manager to flakes]] :: Useful blog post -- relevant for nixos and standalone home-manager use...
@@ -90,6 +112,10 @@ Some interesting community projects to take a look at, but only after I get to g
 
 
 * Notes
+
+** Direnv
+- Templates for multiple languages :: See https://github.com/the-nix-way/dev-templates
+- Blog post on nix direnv, including layering flakes :: https://determinate.systems/posts/nix-direnv
 
 ** Flakes
 
@@ -194,14 +220,14 @@ Alternatively, we just pass the flake option to home-manager switch...
 N.B =--impure= option required for my emacs config... for now
 
 #+begin_src shell
-  home-manager switch --flake 'path:sync/dotfiles/nix/home#cormacc' --impure
+  home-manager switch --flake 'path:dotfiles/nix/home#cormacc' --impure
 #+end_src
 
 This variant only works if flake.nix is in a git repo
 #+begin_src shell
-  home-manager switch --flake 'sync/dotfiles/nix/home#cormacc'
+  home-manager switch --flake 'dotfiles/nix/home#cormacc'
 #+end_src
 
 #+begin_src shell
-nixos-rebuild build --flake 'path:sync/dotfiles/nix/os'
+nixos-rebuild build --flake 'path:dotfiles/nix/os'
 #+end_src

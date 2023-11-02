@@ -7,6 +7,7 @@ let
   username = "cormacc";
   # Paths
   dotfiles = "/home/cormacc/dotfiles";
+  flakePath = "path:${dotfiles}/nix/home#${username}";
   # Preferences
   #font = "Hack";
   #backgroundColor = "#243442"; # Blue steel
@@ -44,6 +45,25 @@ in
 
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
+
+  home.shellAliases = {
+    hmb = "home-manager build --flake '${flakePath}' --impure";
+    hms = "home-manager switch --flake '${flakePath}' --impure";
+  };
+
+  # To setup direnv in a given folder...
+  # 1. create a flake.nix in the folder
+  # 2. create a .envrc with the content "use flake"
+  # 3. run 'direnv allow' in the folder
+  programs.direnv = {
+    enable = true;
+    enableBashIntegration = true;
+    # direnv implicitly enabled for fish -- trying to do so here results in error
+    # enableFishIntegration = true;
+    enableZshIntegration = true;
+    #cache the shell environment
+    nix-direnv.enable = true;
+  };
 
   xdg.enable = true;
 
