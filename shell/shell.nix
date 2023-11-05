@@ -1,8 +1,9 @@
 { config, pkgs, ... }:
 
 let
+  dir-nav-functions = ".profile.d/dir-nav.sh";
   sharedInit = ''
-     . ./dotfiles/nmd/.profile.d/nmd-dir-nav.sh
+     . ~/${dir-nav-functions}
   '';
 in {
   home.sessionVariables = {
@@ -11,9 +12,14 @@ in {
     TERMINAL = "kitty -e /usr/bin/fish";
   };
 
+  #Folder nav shell shortcuts
+  home.file."${dir-nav-functions}".source = ./.profile.d/dir-nav.sh;
+
   #TODO: These trigger an opengl issue -- install via OS package manager for now and revisit
   #programs.alacritty.enable = true;
   #programs.kitty.enable = true;
+
+  programs.starship.enable = true;
 
   programs.bash = {
     enable = true;

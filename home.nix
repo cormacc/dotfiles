@@ -6,27 +6,17 @@ let
   email = "cormacc@gmail.com";
   username = "cormacc";
   # Paths
-  dotfiles = "/home/cormacc/dotfiles";
-  flakePath = "path:${dotfiles}/nix/home#${username}";
-  # Preferences
-  #font = "Hack";
-  #backgroundColor = "#243442"; # Blue steel
-  #foregroundColor = "#deedf9"; # Light blue
-  #warningColor = "#e23131"; # Reddish
-  #lockCmd = "${pkgs.i3lock-fancy}/bin/i3lock-fancy -p -t ''";
+  dotRoot = "/home/${username}/dotfiles";
+  flakePath = "${dotRoot}#${username}";
 in
 {
-  imports = [
-    ./modules/i3.nix
-    ./modules/shells.nix
-    ./modules/emacs.nix
-    ./modules/nmd.nix
-  ];
 
-  #FIXME: Should be able to define this once
-  my.i3.dotRoot = dotfiles;
-  my.emacs.dotRoot = dotfiles;
-  my.nmd.dotRoot = dotfiles;
+  imports = [
+    ./i3/i3.nix
+    ./shell/shell.nix
+    ./emacs/emacs.nix
+    ./nmd/nmd.nix
+  ];
 
   # Home Manager needs a bit of information about you and the
   # paths it should manage.
@@ -47,8 +37,8 @@ in
   programs.home-manager.enable = true;
 
   home.shellAliases = {
-    hmb = "home-manager build --flake '${flakePath}' --impure";
-    hms = "home-manager switch --flake '${flakePath}' --impure";
+    hmb = "home-manager build --flake ${flakePath} --impure";
+    hms = "home-manager switch --flake ${flakePath} --impure";
   };
 
   # To setup direnv in a given folder...
@@ -61,16 +51,22 @@ in
     # direnv implicitly enabled for fish -- trying to do so here results in error
     # enableFishIntegration = true;
     enableZshIntegration = true;
-    #cache the shell environment
+    #cache the direnv environment -- faster rebuild
     nix-direnv.enable = true;
   };
 
   xdg.enable = true;
 
+  home.language.base = "en_IE";
+  home.keyboard.options = [
+    "caps:swapescape"
+  ];
+
   fonts.fontconfig.enable = true;
   home.packages = with pkgs; [
     source-code-pro
     jetbrains-mono
+    moosefs
   ];
 
   programs.ssh = {
@@ -88,13 +84,13 @@ in
     userName = "Cormac Cannon";
     userEmail = "cormacc@gmail.com";
   };
-  home.file.".local/bin/syncup".source="${dotfiles}/git/bin/syncup";
+  home.file.".local/bin/syncup".source="${dotRoot}/git/bin/syncup";
 
   # Shell scripts
-  home.file.".local/bin/kbmap".source="${dotfiles}/xorg/bin/kbmap";
-  home.file.".local/bin/caps-lock-off".source="${dotfiles}/xorg/bin/caps-lock-off";
+  home.file.".local/bin/kbmap".source="${dotRoot}/xorg/bin/kbmap";
+  home.file.".local/bin/caps-lock-off".source="${dotRoot}/xorg/bin/caps-lock-off";
 
-  home.file.".editorconfig".source="${dotfiles}/base/.editorconfig";
+  home.file.".editorconfig".source="${dotRoot}/emacs/.editorconfig";
 
 
   #programs.vscode = {

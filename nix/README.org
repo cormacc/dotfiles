@@ -109,6 +109,7 @@ See https://discourse.nixos.org/t/mount-moosefs-share-on-nixos-using-configurati
 
 *** Examples
 - https://chrishayward.xyz/dotfiles/ :: Nicely documented example using nixos and home-manager -- separate modules for apps etc. Also some notes on 'nix develop' -- a post-flake replacement for nix-shell
+- https://www.lucacambiaghi.com/nix.html :: Nice example of an literate org-mode tangled config. For darwin, so content less relevant than method. N.B. some nice emacs stuff here also, including chatgpt generated docstrings.
 
 
 * Notes
@@ -220,12 +221,12 @@ Alternatively, we just pass the flake option to home-manager switch...
 N.B =--impure= option required for my emacs config... for now
 
 #+begin_src shell
-  home-manager switch --flake 'path:dotfiles/nix/home#cormacc' --impure
+  home-manager switch --flake 'path:./dotfiles/nix/home#cormacc' --impure
 #+end_src
 
 This variant only works if flake.nix is in a git repo
 #+begin_src shell
-  home-manager switch --flake 'dotfiles/nix/home#cormacc'
+  home-manager switch --flake './dotfiles#cormacc'
 #+end_src
 
 #+begin_src shell

@@ -8,14 +8,7 @@ UserKnownHostsFile ~/sync/dotssh-private/known_hosts
 #Commonly used hosts
 #N.B. 'ssh-copy-id -i <identity-file-path> < user@host | alias >' to copy public key to server and eliminate password prompt
 #      e.g. 'ssh-copy-id -i ~/id_rsa.personal burgervault'
-Host hassio
-     HostName 192.168.1.200
-     User root
-
-Host nmd-git
-     HostName git.nmd.ie
-     User ec2-user
-     Port 1022
+#      TODO: Populate this once I figure out how to manage secrets in nix
 
 Host *
     #use my local keys on remote machines
