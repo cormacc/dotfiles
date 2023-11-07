@@ -45,10 +45,7 @@
                         :fetcher github
                         :repo "d12frosted/vulpea"
                         :branch "master"))
-     ;;Suppress excorporate on MacOS for now
-     ;;Purely because I haven't synced auth to the macbook...
-     (if (not (eq system-type 'darwin))
-         excorporate)
+     ;; excorporate
      )
   "The list of Lisp packages required by the org-user layer.
 
@@ -233,18 +230,19 @@ Each entry is either:
 
   )
 
-(defun org-user/init-excorporate ()
-  :defer t)
+;; BYPASSING EXCORPORATE INIT FOR NOW - simple auth permanently disabled for EWS.....
+;; (defun org-user/init-excorporate ()
+;;   :defer t)
 
-(defun org-user/post-init-excorporate ()
-  ;;; Password cached in .authinfo
-  ;; (if org-user-o365 (setq excorporate-configuration '(org-user-o365 . "https://outlook.office365.com/EWS/Exchange.asmx")))
-  (if org-user-o365 (setq excorporate-configuration '((org-user/excorporate-extract-o365-username org-user-o365) . "https://outlook.office365.com/EWS/Exchange.asmx")))
-  ;; Excorporate imports to emacs diary -- connect this to org-agenda
-  (setq org-agenda-include-diary t)
-  (excorporate)
-  (add-hook 'org-agenda-cleanup-fancy-diary-hook 'org-user/excorporate-diary-update-hook )
-  )
+;; (defun org-user/post-init-excorporate ()
+;;   ;;; Password cached in .authinfo
+;;   ;; (if org-user-o365 (setq excorporate-configuration '(org-user-o365 . "https://outlook.office365.com/EWS/Exchange.asmx")))
+;;   (if org-user-o365 (setq excorporate-configuration '((org-user/excorporate-extract-o365-username org-user-o365) . "https://outlook.office365.com/EWS/Exchange.asmx")))
+;;   ;; Excorporate imports to emacs diary -- connect this to org-agenda
+;;   (setq org-agenda-include-diary t)
+;;   (excorporate)
+;;   (add-hook 'org-agenda-cleanup-fancy-diary-hook 'org-user/excorporate-diary-update-hook )
+;;   )
 
 ;;; See https://github.com/org-roam/org-roam-bibtex
 (defun org-user/init-org-roam-bibtex ()
