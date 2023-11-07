@@ -1,9 +1,9 @@
 { config, pkgs, ... }:
 
 let
-  dir-nav-functions = ".profile.d/dir-nav.sh";
-  sharedInit = ''
-     . ~/${dir-nav-functions}
+  dir-nav-posix = ".profile.d/dir-nav.sh";
+  sharedPosixInit = ''
+     . ~/${dir-nav-posix}
   '';
 in {
   home.sessionVariables = {
@@ -13,7 +13,7 @@ in {
   };
 
   #Folder nav shell shortcuts
-  home.file."${dir-nav-functions}".source = ./.profile.d/dir-nav.sh;
+  home.file."${dir-nav-posix}".source = ./dir-nav.sh;
 
   #TODO: These trigger an opengl issue -- install via OS package manager for now and revisit
   #programs.alacritty.enable = true;
@@ -23,12 +23,12 @@ in {
 
   programs.bash = {
     enable = true;
-    initExtra = sharedInit;
+    initExtra = sharedPosixInit;
   };
 
   programs.zsh = {
     enable = true;
-    initExtra = sharedInit;
+    initExtra = sharedPosixInit;
     antidote = {
       enable = true;
       useFriendlyNames = true;
@@ -58,6 +58,17 @@ in {
       ];
     };
   };
-  programs.fish.enable = true;
+  programs.fish = {
+    enable = true;
+    functions = {
+      # Folder navigation
+      n = "pushd ~/nmd/$argv[1]";
+      p = "n products/$argv[1]";
+      d = "pushd ~/Dropbox\ \(Neuromod\ Devices\)/$argv[1]";
+      t = "d NMDProductTesting/$argv[1]";
+      it = "d NMDIT/$argv[1]";
+      pd = "d Product_Development/$argv[1]";
+    };
+  };
 
 }

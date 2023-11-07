@@ -26,7 +26,6 @@ Some introductory text
 - [[#overview][Overview]]
 - [[#known-issues][Known issues]]
 - [[#future-plans][Future plans]]
-  - [[#implement-automatic-direnv][Implement automatic direnv?]]
   - [[#move-to-a-nixos-based-setup][Move to a NixOS based setup]]
 - [[#provisioning-a-new-accountinstallation][Provisioning a new account/installation]]
   - [[#install-nix][Install Nix]]
@@ -47,6 +46,8 @@ Some introductory text
 My homefolder configuration, now managed as a Nix flake using Home Manager.
 Formerly managed using the [[https://github.com/cormacc/dotmodule][dotmodule]] gem.
 
+
+
 * Known issues
 Applications requiring OpenGL don't work when installed using Home Manager.
 This is an upstream issue with a number of viable workarounds, but for now I'm
@@ -54,8 +55,6 @@ just installing OpenGL apps (just Kitty and Alacritty so far) from the Arch repo
 This issue should disappear if/when I move to NixOS.
 
 * Future plans
-
-** TODO Implement automatic direnv?
 
 ** TODO Move to a NixOS based setup
 I'm currently using Nix and Home Manager, sitting on top of Arch (or rather Manjaro) linux as a crutch.

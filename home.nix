@@ -57,7 +57,8 @@ in
 
   xdg.enable = true;
 
-  home.language.base = "en_IE";
+  home.language.base = "en_IE.UTF-8";
+  #FIXME: This isn't applied for some reason...
   home.keyboard.options = [
     "caps:swapescape"
   ];

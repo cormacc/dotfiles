@@ -22,9 +22,9 @@
 This doc contains rough notes / links etc. for my attempt to adopt nix.
 
 * Table of Contents                                         :TOC_4_gh:noexport:
-- [[#plan-of-action][Plan of action]]
-  - [[#replace-dotfiles-with-home-manager-flake][Replace dotfiles with home-manager flake]]
+- [[#todos][TODOs]]
   - [[#integrate-home-manager-flake-with-nixos-setup][Integrate home-manager flake with nixos setup]]
+  - [[#investigate-dev-shell][Investigate dev-shell]]
   - [[#investigate-the-following][Investigate the following]]
 - [[#dependencies-not-managed-using-nix----yet][Dependencies NOT managed using Nix -- yet]]
   - [[#nixos-required][NixOS required]]
@@ -57,16 +57,14 @@ This doc contains rough notes / links etc. for my attempt to adopt nix.
       - [[#default--legacy-location][Default / legacy location]]
       - [[#flake-location][Flake location]]
 
-* Plan of action
-
-** DONE Replace dotfiles with home-manager flake
-CLOSED: [2023-11-02 Thu 00:48]
-Want to setup a nix flake allowing me to use home manager to setup my environment on any posix system.
-Keep it compatible with systems running NixOS -- can call home-manager config from nixos, without duplicating content....
+* TODOs
 
 ** TODO Integrate home-manager flake with nixos setup
 May not do this -- have a couple of dependencies (thank you Microchip) that may be hard to get running on NixOS.
 
+** TODO Investigate dev-shell
+Figure out what (if any) benefit this might provide over nix-direnv / flake...
+https://devenv.sh/languages/
 
 ** TODO Investigate the following
 Some interesting community projects to take a look at, but only after I get to grips with basic nix....
