@@ -39,7 +39,12 @@
       ref = "develop";
     };
   };
-  home.file."${config.xdg.configHome}/spacemacs".source = .config/spacemacs;
+  # Do this to have a symlinked read-only version
+  # home.file."${config.xdg.configHome}/spacemacs".source = .config/spacemacs;
+  # ... or this to keep it editable in-place, rather than have to 'home-manager switch ...' after each edit
+  # ... N.B. doing this requires this repo to be checked out locally to $HOME/dotfiles -- i.e. prevents this flake being used remotely from a git repo
+  # ... TODO: Make this optional based on some flag passed in the call to home-manager switch?
+  home.file."${config.xdg.configHome}/spacemacs".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/emacs/.config/spacemacs";
 
   programs.pandoc.enable = true;
 }
