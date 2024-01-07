@@ -46,8 +46,6 @@ Some introductory text
 My homefolder configuration, now managed as a Nix flake using Home Manager.
 Formerly managed using the [[https://github.com/cormacc/dotmodule][dotmodule]] gem.
 
-
-
 * Known issues
 Applications requiring OpenGL don't work when installed using Home Manager.
 This is an upstream issue with a number of viable workarounds, but for now I'm
@@ -84,7 +82,7 @@ Paraphrased from the [[https://nix-community.github.io/home-manager/index.html#c
 ** Apply the Home Manager flake
 To finish provisioning your account, run the command provided below to rebuild the configuration:
 #+begin_src shell
-  home-manager switch --flake 'path:dotfiles/nix/home#cormacc' --impure -b backup
+  home-manager switch --flake './dotfiles#cormacc' --impure -b backup
 #+end_src
 
 ** Post-installation activities

@@ -7,7 +7,7 @@ let
   '';
 in {
   home.sessionVariables = {
-    EDITOR = "vim";
+    # EDITOR = "vim";
     #Use fish as default shell, but NOT login shell as not posix compliant
     TERMINAL = "kitty -e /usr/bin/fish";
   };

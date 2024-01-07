@@ -93,6 +93,10 @@ in
 
   home.file.".editorconfig".source="${dotRoot}/emacs/.editorconfig";
 
+  programs.vim = {
+    enable = true;
+    defaultEditor = true;
+  };
 
   #programs.vscode = {
     #enable = true;

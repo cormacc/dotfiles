@@ -1,0 +1,52 @@
+#!/bin/sh
+
+#Original provided by V0id here: https://faq.i3wm.org/question/239/how-do-i-suspendlockscreen-and-logout.1.html
+#Added i3 lock options from i3lock-color example
+
+# i3lock colours
+BLANK='#00000000'
+CLEAR='#ffffff22'
+DEFAULT='#ff00ffcc'
+TEXT='#ee00eeee'
+WRONG='#880000bb'
+VERIFYING='#bb00bbbb'
+
+lock() {
+    i3lock \
+        --insidever-color=$CLEAR --ringver-color=$VERIFYING         \
+        --insidewrong-color=$CLEAR --ringwrong-color=$WRONG         \
+        --inside-color=$BLANK --ring-color=$DEFAULT                 \
+        --line-color=$BLANK --separator-color=$DEFAULT              \
+        --verif-color=$TEXT --wrong-color=$TEXT --time-color=$TEXT  \
+        --date-color=$TEXT --layout-color=$TEXT                     \
+        --keyhl-color=$WRONG --bshl-color=$WRONG                    \
+        --screen 1 --blur 5 --clock --indicator                     \
+        --time-str="%H:%M:%S" --date-str="%A, %Y-%m-%d"             \
+        --keylayout 1
+}
+
+case "$1" in
+    lock)
+        lock
+        ;;
+    logout)
+        i3-msg exit
+        ;;
+    suspend)
+        lock && systemctl suspend
+        ;;
+    hibernate)
+        lock && systemctl hibernate
+        ;;
+    reboot)
+        systemctl reboot
+        ;;
+    shutdown)
+        systemctl poweroff
+        ;;
+    *)
+        echo "Usage: $0 {lock|logout|suspend|hibernate|reboot|shutdown}"
+        exit 2
+esac
+
+exit 0

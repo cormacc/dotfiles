@@ -21,6 +21,11 @@
 
 This doc contains rough notes / links etc. for my attempt to adopt nix.
 
+UPDATE: See root level README for this repo for current home-manager setup.
+This was a partial/abortive attempt at full nixos, suspended for now.
+
+TODO: Review this content and migrate to root level repo / delete sections as appropriate....
+
 * Table of Contents                                         :TOC_4_gh:noexport:
 - [[#todos][TODOs]]
   - [[#integrate-home-manager-flake-with-nixos-setup][Integrate home-manager flake with nixos setup]]
