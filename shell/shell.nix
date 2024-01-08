@@ -64,7 +64,7 @@ in {
       # Folder navigation
       n = "pushd ~/nmd/$argv[1]";
       p = "n products/$argv[1]";
-      d = "pushd ~/Dropbox\ \(Neuromod\ Devices\)/$argv[1]";
+      d = "pushd \"${config.home.homeDirectory}/Dropbox\ \(Neuromod\ Devices\)/$argv[1]\"";
       t = "d NMDProductTesting/$argv[1]";
       it = "d NMDIT/$argv[1]";
       pd = "d Product_Development/$argv[1]";
