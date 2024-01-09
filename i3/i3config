@@ -41,20 +41,12 @@ bindsym $mod+d exec --no-startup-id j4-dmenu-desktop
 # launch categorized menu
 #bindsym $mod+z exec --no-startup-id morc_menu
 
-################################################################################################
-## sound-section - DO NOT EDIT if you wish to automatically upgrade Alsa -> Pulseaudio later! ##
-################################################################################################
+# Audio controls (Pipewire-pulse)
+exec --no-startup-id pasystray
+bindsym XF86AudioMute exec pactl set-sink-mute 0 toggle
+bindsym XF86AudioLowerVolume exec pactl set-sink-volume 0 -5%
+bindsym XF86AudioRaiseVolume exec pactl set-sink-volume 0 +5%
 
-exec --no-startup-id volumeicon
-bindsym $mod+Ctrl+m exec terminal -e 'alsamixer'
-#exec --no-startup-id pulseaudio
-#exec --no-startup-id pa-applet
-#bindsym $mod+Ctrl+m exec pavucontrol
-
-################################################################################################
-
-#exec --no-startup-id pasystray
-#exec --no-startup-id blueman-applet
 
 # Screen brightness controls
 # ... for non-oled screens
@@ -267,11 +259,11 @@ bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'You pressed the exit shortcu
 # Set shut down, restart and locking features
 #bindsym $mod+0 mode "$mode_system"
 bindsym $mod+Shift+q mode "$mode_system"
-set $mode_system (l)ock, (e)xit, l(o)gout, (s)uspend, (h)ibernate, (r)eboot, (Shift+s)hutdown
+set $mode_system (l)ock, l(o)gout, (s)uspend, (h)ibernate, (r)eboot, (Shift+s)hutdown
 mode "$mode_system" {
     bindsym l exec --no-startup-id i3exit lock, mode "default"
+    bindsym o exec --no-startup-id i3exit logout, mode "default"
     bindsym s exec --no-startup-id i3exit suspend, mode "default"
-    bindsym e exec --no-startup-id i3exit logout, mode "default"
     bindsym h exec --no-startup-id i3exit hibernate, mode "default"
     bindsym r exec --no-startup-id i3exit reboot, mode "default"
     bindsym Shift+s exec --no-startup-id i3exit shutdown, mode "default"
@@ -325,18 +317,12 @@ mode "resize" {
 # Autostart applications
 exec --no-startup-id /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
 exec --no-startup-id nitrogen --restore; sleep 1; picom -b
-#exec --no-startup-id manjaro-hello
 exec --no-startup-id nm-applet
-exec --no-startup-id xfce4-power-manager
 exec --no-startup-id pamac-tray
-exec --no-startup-id clipit
-# exec --no-startup-id blueman-applet
-# exec_always --no-startup-id sbxkb
-exec --no-startup-id ~/bin/start_conky_maia
+exec --no-startup-id blueman-applet
+# exec --no-startup-id ~/bin/start_conky_maia
 # exec --no-startup-id start_conky_green
-exec --no-startup-id xautolock -time 10 -locker blurlock
-exec_always --no-startup-id ff-theme-util
-exec_always --no-startup-id fix_xcursor
+exec --no-startup-id xautolock -time 10 -locker "i3exit lock"
 
 # Color palette used for the terminal ( ~/.Xresources file )
 # Colors are gathered based on the documentation:
@@ -602,6 +588,6 @@ assign [class="Firefox"] $ws1
 assign [class="Brave"] $ws1
 assign [class="Chromium"] $ws1
 
-# Set floating maximum size to prevent dialogs (e.g. browser save-as) getting larger than window...
+# Set floating maximum size to prevent dialogs (e.g. browser save-as) getting larger than screen...
 floating_minimum_size 300x300
 floating_maximum_size 5500x3000
