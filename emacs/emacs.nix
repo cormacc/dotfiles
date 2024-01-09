@@ -1,16 +1,22 @@
 { config, pkgs, ... }:
 
 {
+  programs.pandoc.enable = true;
+
   home.packages = with pkgs; [
-    #= emacs =
     aspell
     aspellDicts.en
-    plantuml-c4
+    # Plantuml + deps
+    jdk21
+    graphviz
+    plantuml
   ];
 
   home.sessionVariables = {
     #Use xdg-config layout for spacemacs
     SPACEMACSDIR = "${config.xdg.configHome}/spacemacs";
+    #emacs/org need to find plantuml jar rather than binary
+    PLANTUML_JAR = "${pkgs.plantuml}/lib/plantuml.jar";
   };
 
   home.file.".local/bin/md2org".source=./bin/md2org;
@@ -42,9 +48,5 @@
   # Do this to have a symlinked read-only version
   # home.file."${config.xdg.configHome}/spacemacs".source = .config/spacemacs;
   # ... or this to keep it editable in-place, rather than have to 'home-manager switch ...' after each edit
-  # ... N.B. doing this requires this repo to be checked out locally to $HOME/dotfiles -- i.e. prevents this flake being used remotely from a git repo
-  # ... TODO: Make this optional based on some flag passed in the call to home-manager switch?
-  home.file."${config.xdg.configHome}/spacemacs".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/emacs/.config/spacemacs";
-
-  programs.pandoc.enable = true;
+  home.file."${config.xdg.configHome}/spacemacs".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/emacs/spacemacs";
 }

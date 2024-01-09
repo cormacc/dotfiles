@@ -154,9 +154,10 @@ This function should only modify configuration layer settings."
       csv
       (markdown :variables markdown-live-preview-engine 'vmd)
       pdf
+      ;; Now setting PLANTUML_JAR_PATH in emacs.nix
       (plantuml :variables
-                plantuml-jar-path "/usr/share/java/plantuml/plantuml.jar"
-                org-plantuml-jar-path "/usr/share/java/plantuml/plantuml.jar"
+                plantuml-jar-path (getenv "PLANTUML_JAR")
+                org-plantuml-jar-path (getenv "PLANTUML_JAR")
                 )
       ;;N.B. toml support provided by rust language layer
       yaml
