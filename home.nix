@@ -68,6 +68,12 @@ in
     source-code-pro
     jetbrains-mono
     moosefs
+    # programming
+    # zeal # requires opengl
+    # audio
+    audacity
+    # desktop
+    libreoffice
   ];
 
   programs.ssh = {
