@@ -6,7 +6,8 @@ let
   email = "cormacc@gmail.com";
   username = "cormacc";
   # Paths
-  dotRoot = "/home/${username}/dotfiles";
+  homedir = "/home/${username}";
+  dotRoot = "${homedir}/dotfiles";
   flakePath = "${dotRoot}#${username}";
 in
 {
@@ -36,10 +37,25 @@ in
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
 
+  # Allow unfree packages
+  # FIXME: I've tried setting the relevant options in flake.nix but not
+  # working for me - hence the session variable workaround
+  home.sessionVariables = {
+    NIXPKGS_ALLOW_UNFREE = 1;
+  };
+
   home.shellAliases = {
     hmb = "home-manager build --flake ${flakePath} --impure";
     hms = "home-manager switch --flake ${flakePath} --impure";
   };
+
+  services.syncthing = {
+    enable = true;
+    tray = {
+      enable = true;
+    };
+  };
+  # TODO: Add some configuration here?
 
   # To setup direnv in a given folder...
   # 1. create a flake.nix in the folder
@@ -72,6 +88,7 @@ in
     # zeal # requires opengl
     # audio
     audacity
+    reaper
     # desktop
     libreoffice
   ];

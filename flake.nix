@@ -22,6 +22,7 @@
           # For NixOS - configure this at system level
           # .. then set useGlobalPkgs = true
           allowUnfree = true;
+          allowUnfreePredicate = (_: true);
         };
       };
     in {
