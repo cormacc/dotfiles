@@ -778,6 +778,7 @@ Put your configuration code here, except for variables that should be set
 before packages are loaded."
   (define-key global-map (kbd "C-+") 'text-scale-increase)
   (define-key global-map (kbd "C-=") 'text-scale-decrease)
+  (direnv-mode)
 
   (setq-default evil-escape-key-sequence "xz")
 
