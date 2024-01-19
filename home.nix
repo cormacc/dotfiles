@@ -1,14 +1,19 @@
-{ config, pkgs, ... }:
+{ config, pkgs, specialArgs, ... }:
 
 let
+  # Input parameters
+  inherit (specialArgs) host;
+
   # Personal Info
   name = "Cormac Cannon";
   email = "cormacc@gmail.com";
   username = "cormacc";
+
   # Paths
   homedir = "/home/${username}";
   dotRoot = "${homedir}/dotfiles";
-  flakePath = "${dotRoot}#${username}";
+  flakePath = "${dotRoot}#${host}";
+  hostRoot = "${dotRoot}/hosts/${host}";
 in
 {
 
@@ -113,6 +118,8 @@ in
   # Shell scripts
   home.file.".local/bin/kbmap".source="${dotRoot}/xorg/bin/kbmap";
   home.file.".local/bin/caps-lock-off".source="${dotRoot}/xorg/bin/caps-lock-off";
+  # ... per-host shell-scripts
+  # home.file.".local/bin/dock".source="${hostRoot}/bin/dock";
 
   home.file.".editorconfig".source="${dotRoot}/emacs/.editorconfig";
 
@@ -133,4 +140,5 @@ in
       # yzhang.markdown-all-in-one
     #];
   #};
+
 }

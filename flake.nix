@@ -26,17 +26,48 @@
         };
       };
     in {
-      homeConfigurations.cormacc = home-manager.lib.homeManagerConfiguration {
+      homeConfigurations.p53 = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
 
         # Specify your home configuration modules here, for example,
         # the path to your home.nix.
         modules = [
           ./home.nix
+          #could either do host-specifics here, e.g.
+          ./hosts/p53/home-p53.nix
         ];
 
-        # Optionally use extraSpecialArgs
+        # ... or use extraSpecialArgs
         # to pass through arguments to home.nix
+        extraSpecialArgs = {
+          host = "p53";
+          # withGUI = true;
+          # isDesktop = true;
+          # networkInterface = "enp5s0";
+          # inherit localOverlay;
+        };
       };
+      homeConfigurations.xps15 = home-manager.lib.homeManagerConfiguration {
+        inherit pkgs;
+
+        # Specify your home configuration modules here, for example,
+        # the path to your home.nix.
+        modules = [
+          ./home.nix
+          #could either do host-specifics here, e.g.
+          # ./hosts/xps15/home-xps15.nix
+        ];
+
+        # ... or use extraSpecialArgs
+        # to pass through arguments to home.nix
+        extraSpecialArgs = {
+          host = "xps15";
+          # withGUI = true;
+          # isDesktop = true;
+          # networkInterface = "enp5s0";
+          # inherit localOverlay;
+        };
+      };
+
     };
 }

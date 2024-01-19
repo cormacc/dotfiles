@@ -100,9 +100,10 @@ This function should only modify configuration layer settings."
       ;;'semantic' used by cmode for refactoring support
       ;; semantic
       (shell :variables
-             ;; shell-default-shell 'multi-term
+             shell-default-shell 'multi-term
              ;; vterm causing issues on emacs-git
-             shell-default-shell 'vterm
+             ;; 2024-01-12 vterm not working under nix -- can't find libvterm.so.0
+             ;;shell-default-shell 'vterm
              shell-default-term-shell "/bin/zsh")
       treemacs
       version-control
@@ -438,8 +439,8 @@ It should only modify the values of Spacemacs settings."
    ;; List of themes, the first of the list is loaded when spacemacs starts.
    ;; Press `SPC T n' to cycle to the next theme in the list (works great
    ;; with 2 themes variants, one dark and one light)
-   dotspacemacs-themes '(adwaita
-                         doom-acario-dark)
+   dotspacemacs-themes '(doom-solarized-dark
+			                   adwaita)
 
    ;; Set the theme for the Spaceline. Supported themes are `spacemacs',
    ;; `all-the-icons', `custom', `doom', `vim-powerline' and `vanilla'. The
@@ -1086,7 +1087,11 @@ This function is called at the very end of Spacemacs initialization."
  '(pos-tip-background-color "#A6E22E")
  '(pos-tip-foreground-color "#272822")
  '(safe-local-variable-values
-   '((cider-default-cljs-repl . custom)
+   '((cider-clojure-cli-aliases . ":dev:cljs")
+     (cider-shadow-watched-builds ":app" ":portfolio" ":test")
+     (cider-shadow-default-options . ":app")
+     (cider-clojure-cli-aliases . ":dev")
+     (cider-default-cljs-repl . custom)
      (cider-clojure-cli-aliases . "-M:dev")
      (eval progn
            (make-variable-buffer-local 'cider-jack-in-nrepl-middlewares)

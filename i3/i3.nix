@@ -49,10 +49,5 @@ in {
   # i3blocks
   # home.file."${i3blocks-config-dir}/config".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/i3/i3blocksconfig";
 
-  # TODO: This should be set per host instead...
-  xresources.properties = {
-    "Xft.dpi" = 240;
-  };
-
   home.file.".local/bin/i3exit".source=./i3exit;
 }
