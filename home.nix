@@ -18,7 +18,6 @@ in
 {
 
   imports = [
-    ./i3/i3.nix
     ./shell/shell.nix
     ./emacs/emacs.nix
     ./nmd/nmd.nix
@@ -80,8 +79,9 @@ in
 
   home.language.base = "en_IE.UTF-8";
   #FIXME: This isn't applied for some reason...
+  #....   When using sway, applied via sway config instead...
   home.keyboard.options = [
-    "caps:swapescape"
+    "caps:escape_shifted_capslock"
   ];
 
   fonts.fontconfig.enable = true;

@@ -35,6 +35,7 @@
           ./home.nix
           #could either do host-specifics here, e.g.
           ./hosts/p53/home-p53.nix
+          ./i3/i3.nix
         ];
 
         # ... or use extraSpecialArgs
