@@ -82,8 +82,13 @@ Paraphrased from the [[https://nix-community.github.io/home-manager/index.html#c
 ** Apply the Home Manager flake
 To finish provisioning your account, run the command provided below to rebuild the configuration:
 #+begin_src shell
-  home-manager switch --flake './dotfiles#cormacc' --impure -b backup
+  home-manager switch --flake './dotfiles#<host>' --impure -b backup
 #+end_src
+e.g.
+#+begin_src shell
+  home-manager switch --flake './dotfiles#xps15' --impure -b backup
+#+end_src
+
 
 ** Post-installation activities
 

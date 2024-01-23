@@ -49,8 +49,8 @@ in
   };
 
   home.shellAliases = {
-    hmb = "home-manager build --flake ${flakePath} --impure";
-    hms = "home-manager switch --flake ${flakePath} --impure";
+    hmb = "home-manager build --flake '${flakePath}' --impure";
+    hms = "home-manager switch --flake '${flakePath}' --impure";
   };
 
   services.syncthing = {
@@ -73,6 +73,9 @@ in
     enableZshIntegration = true;
     #cache the direnv environment -- faster rebuild
     nix-direnv.enable = true;
+    #Additional content for .config/direnv/direnvrc
+    #N.B. home-manager appends "source ${pkgs.nix-direnv}/share/nix-direnv/direnvrc" to the provided content
+    stdlib = (builtins.readFile ./shell/direnvrc);
   };
 
   xdg.enable = true;
@@ -100,6 +103,10 @@ in
 
   programs.ssh = {
     enable = true;
+    extraConfig = "Host github.com
+  Hostname github.com
+  AddKeysToAgent yes
+  IdentityFile ~/.ssh/id_ed25519_personal";
     #TODO: Vaguely remember these relating to emacs/tramp.. reinstate as needed
     # controlMaster = "auto";
     # controlPath = "~/.ssh/master-%r@%h:%p";
@@ -128,17 +135,13 @@ in
     defaultEditor = true;
   };
 
-  #programs.vscode = {
-    #enable = true;
-    # I can't get the useUnfree options passed through to home manager yet
-    # ... when using NixOS anyway
-    # ... so use vscodium for now...
-    #package = pkgs.vscodium;
-    #extensions = with pkgs.vscode-extensions; [
-      #dracula-theme.theme-dracula
-      # vscodevim.vim
-      # yzhang.markdown-all-in-one
-    #];
-  #};
+  programs.vscode = {
+    enable = true;
+    extensions = with pkgs.vscode-extensions; [
+      dracula-theme.theme-dracula
+      vscodevim.vim
+      yzhang.markdown-all-in-one
+    ];
+  };
 
 }
