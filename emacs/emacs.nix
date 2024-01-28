@@ -10,6 +10,7 @@
     jdk21
     graphviz
     plantuml
+    ripgrep
   ];
 
   home.sessionVariables = {

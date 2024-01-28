@@ -20,4 +20,9 @@
   home.file."${config.xdg.configHome}/onedrive/config".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/nmd/onedrive-config";
   #Manually link to systemd service, as home-manager not doing it for us here
   home.file."${config.xdg.configHome}/systemd/user/onedrive.service".source = "${pkgs.onedrive}/lib/systemd/user/onedrive.service";
+
+  # Zephyr development config
+  home.sessionVariables = {
+    ZEPHYR_BASE="${config.home.homeDirectory}/dev/ncs/zephyr";
+  };
 }

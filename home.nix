@@ -130,6 +130,7 @@ in
 
   home.file.".editorconfig".source="${dotRoot}/emacs/.editorconfig";
 
+  #EDITORS -- TODO Move to separate file...
   programs.vim = {
     enable = true;
     defaultEditor = true;
@@ -143,5 +144,12 @@ in
       yzhang.markdown-all-in-one
     ];
   };
+
+  #WM-related -- TODO Move to separate file
+  home.sessionVariables = {
+    #Prevents java UIs showing up as a gray window on i3 and sway...
+    _JAVA_AWT_WM_NONREPARENTING = 1;
+  };
+
 
 }
