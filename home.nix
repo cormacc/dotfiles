@@ -89,6 +89,7 @@ in
 
   fonts.fontconfig.enable = true;
   home.packages = with pkgs; [
+    babashka # shell scripting in clojure
     source-code-pro
     jetbrains-mono
     moosefs

@@ -1093,6 +1093,7 @@ This function is called at the very end of Spacemacs initialization."
      (cider-clojure-cli-aliases . ":dev")
      (cider-default-cljs-repl . custom)
      (cider-clojure-cli-aliases . "-M:dev")
+     (cider-custom-cljs-repl-init-form . "(do (user/cljs-repl))")
      (eval progn
            (make-variable-buffer-local 'cider-jack-in-nrepl-middlewares)
            (add-to-list 'cider-jack-in-nrepl-middlewares "shadow.cljs.devtools.server.nrepl/middleware"))

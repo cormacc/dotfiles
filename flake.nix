@@ -57,6 +57,7 @@
           ./home.nix
           #could either do host-specifics here, e.g.
           # ./hosts/xps15/home-xps15.nix
+          ./sway/sway.nix
         ];
 
         # ... or use extraSpecialArgs
