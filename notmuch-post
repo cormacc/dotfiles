@@ -1,3 +1,0 @@
-#!/bin/env sh
-
-systemctl --user enable notmuch-user.timer && systemctl --user start notmuch-user.timer

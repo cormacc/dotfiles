@@ -1,3 +1,0 @@
-SUBSYSTEM=="leds", ACTION=="add", KERNEL=="*::kbd_backlight", \
-  RUN+="/bin/chgrp video %S%p/brightness", \
-  RUN+="/bin/chmod g+w %S%p/brightness"

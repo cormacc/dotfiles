@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-#Clone spacemacs
-if [[ -e ~/.config/fish/functions/fisher.fish ]]; then
-    echo "WARNING: ~/.config/fish/functions/fisher.fish found -- skipping fisher install"
-else
-    curl -Lo ~/.config/fish/functions/fisher.fish --create-dirs https://git.io/fisher
-fi

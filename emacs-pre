@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-#Clone spacemacs
-if [[ -e ~/.config/emacs ]]; then
-    echo "WARNING: ~/.config/emacs found -- skipping spacemacs checkout"
-else
-    git clone https://github.com/syl20bnr/spacemacs ~/.config/emacs
-fi
