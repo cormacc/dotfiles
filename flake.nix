@@ -3,8 +3,8 @@
   # See here for a well commented nixos + home-manager modular config: # https://github.com/TLATER/dotfiles
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
-    # nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    # nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
   };
@@ -26,6 +26,7 @@
         system = "x86_64-linux";
         specialArgs = { hostName = "cc-t470p"; };
         modules = [
+          ./nixos-nvidia.nix
           ./hosts/t470p/hardware-configuration.nix
           ./nixos.nix
           ./nixos-extra.nix
