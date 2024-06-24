@@ -92,6 +92,12 @@
   programs.sway = {
     enable = true;
     wrapperFeatures.gtk = true;
+    extraOptions = [
+      "--unsupported-gpu"
+    ];
+    extraSessionCommands = ''
+    export _JAVA_AWT_WM_NONREPARENTING=1
+    '';
   };
 
 
