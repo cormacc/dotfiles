@@ -56,12 +56,21 @@
         ];
       };
     };
-    homeConfigurations.xps15 = home-manager.lib.homeManagerConfiguration {
-      inherit pkgs;
-      modules = [
-        ./home.nix
-      ];
-      extraSpecialArgs = { cfgName = "xps15"; };
+    homeConfigurations = {
+      xps15 = home-manager.lib.homeManagerConfiguration {
+        inherit pkgs;
+        modules = [
+          ./home.nix
+        ];
+        extraSpecialArgs = { cfgName = "xps15"; };
+      };
+      p53 = home-manager.lib.homeManagerConfiguration {
+        inherit pkgs;
+        modules = [
+          ./home.nix
+        ];
+        extraSpecialArgs = { cfgName = "p53"; };
+      };
     };
   };
 }

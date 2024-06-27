@@ -12,6 +12,8 @@ in {
   home.packages = with pkgs; [
     inotify-tools
     foot #terminal
+    swaylock
+    # wob # services.wob.enable below doesn't seem to install wob fo rsome reason...
     waybar
     rofi #launcher / dmenu replacement
     xdg-desktop-portal-wlr
@@ -45,7 +47,20 @@ in {
   #      This will work if set package = null, although then I'll need to import all the contents of config here...
 
   # wob - wayland overlay bars - for volume ctrl, brightness display
-  services.wob.enable = true;
+  # TODO: This socket is non-functional for some reason -- creating a pipe manually from sway applications config
+  services.wob = {
+    enable = true;
+    systemd = true;
+    settings = {
+      "" = {
+        anchor = "top center";
+        margin = 20;
+        border_color = "3498db";
+        bar_color = "3498db";
+        background_color = "14161b";
+      };
+    };
+  };
 
   # wlsunset - dims screen at sunset
   services.wlsunset = {
