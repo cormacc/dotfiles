@@ -16,6 +16,7 @@ in {
     # wob # services.wob.enable below doesn't seem to install wob fo rsome reason...
     waybar
     rofi #launcher / dmenu replacement
+    fuzzel #alternative dmenu replacement
     xdg-desktop-portal-wlr
     xdg-desktop-portal-gtk
     gnome.adwaita-icon-theme
@@ -33,6 +34,7 @@ in {
     wf-recorder
     networkmanagerapplet
     helvum # Patch bay for pipewire audio
+    showmethekey # useful for identifying keycodes etc. for config
   ];
 
   # Eliminates some annoying errors with waybar
@@ -78,6 +80,15 @@ in {
 [mode=do-not-disturb]
 invisible=1
 '';
+  };
+
+  # programs.swayr = {
+  #   enable=true;
+  #   systemd.enable = true;
+  # };
+
+  programs.fuzzel = {
+    enable=true;
   };
 
   home.file."${config.xdg.configHome}/sway".source = config.lib.file.mkOutOfStoreSymlink "${sway-dotfiles-root}/config";
