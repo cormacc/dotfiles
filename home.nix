@@ -27,7 +27,7 @@ in
     ./desktop/audio.nix
     ./programming.nix
     ./desktop/office.nix
-    ./desktop/entertainment.nix
+    # ./desktop/entertainment.nix
   ];
 
   # Home Manager needs a bit of information about you and the

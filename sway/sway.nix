@@ -29,6 +29,7 @@ in {
     cliphist
     wluma
     brightnessctl
+    bc # gnu calculator -- used in some scripts
     wf-recorder
     networkmanagerapplet
     helvum # Patch bay for pipewire audio
