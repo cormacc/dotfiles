@@ -56,8 +56,6 @@
     LC_TIME = "en_IE.UTF-8";
   };
 
-
-
   # Display manager etc.
   services.fwupd.enable = true;
   services.xserver.enable = true;
@@ -114,7 +112,7 @@
   users.users.cormacc = {
     isNormalUser = true;
     description = "Cormac Cannon";
-    extraGroups = [ "networkmanager" "wheel" "docker"];
+    extraGroups = [ "networkmanager" "wheel" "docker" ];
     packages = with pkgs; [];
   };
 
