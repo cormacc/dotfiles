@@ -10,5 +10,10 @@
 
     # Tools to help with nixpkg development...
     bubblewrap
+
+    # Should install these per project... but bridging the gap while flakifying all the things...
+    python3
+    pipenv
+    poetry
   ];
 }
