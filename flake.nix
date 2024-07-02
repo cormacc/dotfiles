@@ -21,19 +21,9 @@
           allowUnfreePredicate = _: true;
         };
       };
-
-      # nixpkgsConfig = with inputs; {
-      #   config = {
-      #     # For NixOS - configure this at system level
-      #     # .. then set useGlobalPkgs = true
-      #     allowUnfree = true;
-      #   };
-      # };
     in {
-      # ... packages bit adapted from here: https://github.com/Misterio77/nix-starter-configs/blob/main/standard/flake.nix
-      packages.${system} = import ./pkgs { inherit pkgs; };
-
       nixosConfigurations = {
+        # This configuration consolidates system and home directory setup...
         t470p = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           specialArgs = { hostName = "cc-t470p"; };
@@ -54,8 +44,8 @@
             }
           ];
         };
-        #For this, separate nixos and home-manager initially...
-        #... though I may have to merge again later for opengl stuff
+        #... this separate nixos and home-manager, arguably a better approach
+        #    as os-level tweaking should happen less often than local environment
         xps15 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           specialArgs = { hostName = "cc-xps15"; };
