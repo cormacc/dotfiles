@@ -1,6 +1,18 @@
 { config, pkgs, ... }:
 
-{
+let
+  commonSessionVariables = {
+    #Use xdg-config layout for spacemacs
+    SPACEMACSDIR = "${config.xdg.configHome}/spacemacs";
+    #emacs/org need to find plantuml jar rather than binary
+    PLANTUML_JAR = "${pkgs.plantuml}/lib/plantuml.jar";
+  };
+in {
+  #User environment
+  home.sessionVariables = commonSessionVariables;
+  #... and environment.d for gdm, kdm etc. that don't source user profile
+  systemd.user.sessionVariables = commonSessionVariables;
+
   programs.pandoc.enable = true;
   programs.texlive.enable = true;
 
@@ -17,13 +29,6 @@
     # TODO: install these in project flakes instead maybe?
     cmake-language-server
   ];
-
-  home.sessionVariables = {
-    #Use xdg-config layout for spacemacs
-    SPACEMACSDIR = "${config.xdg.configHome}/spacemacs";
-    #emacs/org need to find plantuml jar rather than binary
-    PLANTUML_JAR = "${pkgs.plantuml}/lib/plantuml.jar";
-  };
 
   home.file.".local/bin/md2org".source=./bin/md2org;
   home.file.".local/bin/org2md".source=./bin/org2md;

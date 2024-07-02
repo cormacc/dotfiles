@@ -2,8 +2,23 @@
 
 let
   sway-dotfiles-root = "${config.home.homeDirectory}/dotfiles/sway";
-in {
+  commonSessionVariables = {
+    #Use fish as default shell, but NOT login shell as not posix compliant
+    TERMINAL = "foot -e /usr/bin/env fish";
+    #N.B. Check that this overrides the foot-extra specified in some OS defaults (e.g. manjaro)
+    #     foot is included in ncurses / makes interop easier, and foot-extra additions included in ncurses version since 2021-11-13
+    TERM = "foot";
 
+    #Prevents java UIs showing up as a gray window on i3 and sway...
+    _JAVA_AWT_WM_NONREPARENTING = 1;
+    #Ensure sway-exec can source executables installed by home-manager
+    PATH = "${config.home.homeDirectory}/.nix-profile/bin:$PATH";
+  };
+in {
+  #User environment
+  home.sessionVariables = commonSessionVariables;
+  #... and environment.d for gdm, kdm etc. that don't source user profile
+  systemd.user.sessionVariables = commonSessionVariables;
 
   # The following packages have home-manager modules, but convenient to
   # install directly and link their config files using mkOutOfStoreSymlink
@@ -110,16 +125,6 @@ invisible=1
 
   home.file."${config.xdg.configHome}/fontconfig/conf.d/51-monospace.conf".source = ./fontconfig.conf;
 
-  home.sessionVariables = {
-    #Use fish as default shell, but NOT login shell as not posix compliant
-    TERMINAL = "foot -e /usr/bin/env fish";
-    #N.B. Check that this overrides the foot-extra specified in some OS defaults (e.g. manjaro)
-    #     foot is included in ncurses / makes interop easier, and foot-extra additions included in ncurses version since 2021-11-13
-    TERM = "foot";
-
-    #Prevents java UIs showing up as a gray window on i3 and sway...
-    _JAVA_AWT_WM_NONREPARENTING = 1;
-  };
   # Terminfo not usually installed for foot, which sets TERM=foot or TERM=foot-extra
   home.shellAliases = {
     ssh = "TERM=linux ssh";
