@@ -10,31 +10,35 @@ in {
   # - waybar
   # - foot
   home.packages = with pkgs; [
+    # Generic desktop enablement...
+    xdg-desktop-portal-wlr
+    xdg-desktop-portal-gtk
+    gnome.adwaita-icon-theme
+    font-awesome
+    python3
+    networkmanagerapplet
+    helvum # Patch bay for pipewire audio
+    # Wayland...
+    grim # screenshot functionality
+    slurp # screenshot functionality
+    wl-clipboard # wl-copy and wl-paste for copy/paste from stdin / stdout
+    cliphist
+    wluma
     inotify-tools
+    brightnessctl
+    wf-recorder
+    showmethekey # useful for identifying keycodes etc. for config
+    # More sway-targeted....
     foot #terminal
     swaylock
     # wob # services.wob.enable below doesn't seem to install wob fo rsome reason...
     waybar
     rofi #launcher / dmenu replacement
     fuzzel #alternative dmenu replacement
-    xdg-desktop-portal-wlr
-    xdg-desktop-portal-gtk
-    gnome.adwaita-icon-theme
-    font-awesome
-    python3
     jq # json parsing -- used by various sway/waybar scripts
     swaybg #backgrounds
-    grim # screenshot functionality
-    slurp # screenshot functionality
-    wl-clipboard # wl-copy and wl-paste for copy/paste from stdin / stdout
-    cliphist
-    wluma
-    brightnessctl
     bc # gnu calculator -- used in some scripts
-    wf-recorder
-    networkmanagerapplet
-    helvum # Patch bay for pipewire audio
-    showmethekey # useful for identifying keycodes etc. for config
+
   ];
 
   # Eliminates some annoying errors with waybar
@@ -46,11 +50,12 @@ in {
     size = 16;
   };
 
-  #TODO: Investigate enabling via wayland.windowManager.sway.enable, rather than at NixOS level?
-  #      This will work if set package = null, although then I'll need to import all the contents of config here...
+  # N.B. this requires blueman to be installed system-wide and service enabled by OS
+  #      For NixOS, set 'services.blueman.enable = true;'
+  #      For Arch, install blueman, then enable blueman-mechanism service
+  services.blueman-applet.enable = true;
 
   # wob - wayland overlay bars - for volume ctrl, brightness display
-  # TODO: This socket is non-functional for some reason -- creating a pipe manually from sway applications config
   services.wob = {
     enable = true;
     systemd = true;
