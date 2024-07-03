@@ -1,0 +1,41 @@
+# Default config for sway
+#
+# Copy this to ~/.config/sway/config and edit it to your liking.
+#
+# Read `man 5 sway` for a complete reference.
+
+# location of this file
+
+set $config-dir $HOME/.config/sway
+
+include $config-dir/input.conf
+
+# styles - set the folder for your theme definition file
+set $theme $config-dir/themes/matcha-blue
+include $theme/theme.conf
+
+# global variables
+include $config-dir/definitions.conf
+
+# config drop-ins nicked from manjaro-sway
+include $config-dir/config.d/*.conf
+
+# keybindings
+include $config-dir/navigation.conf
+include $config-dir/layout.conf
+include $config-dir/keybindings.d/*
+
+# only enable this if every app you use is compatible with wayland
+# xwayland disable
+
+# N.B. waybar appears to ignore this
+bar {
+    position bottom
+    swaybar_command $config-dir/scripts/waybar.sh
+    # swaybar_command yambar
+}
+
+### Autostart applications definition. Can be removed soon-ish as it is being imported in userspace.
+### N.B. do this last, as may use definitions from prior includes
+#include $config-dir/autostart
+include $config-dir/autostarts.conf

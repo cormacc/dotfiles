@@ -1,0 +1,316 @@
+#+TITLE: TRFKACD (The Repo Formerly Known As CormacC's Dotfiles)
+#+AUTHOR: Cormac Cannon
+#+EMAIL: cormac.cannon@neuromoddevices.com
+#+LANGUAGE: en
+#+COPYRIGHT: Neuromod Devices Ltd. 2023
+#+DATE: 2023-10-27
+
+# HTML EXPORT SETUP
+# 1. Apply a theme
+#+SETUPFILE: ~/Documents/templates/org-html-themes/org/theme-readtheorg.setup
+
+# 2. Ensure exports include both source block contents and any results
+#+PROPERTY: header-args :exports both
+
+# 3. Specify styles for ODT (and DOCX) export
+
+#+ODT_STYLES_FILE: ("~/Documents/templates/nmd-template.odt" ("styles.xml" "content.xml" "Pictures/1000000000000A4F000004650AA167B89A2F5561.jpg"))
+
+# Startup options : Want to view rendered versions of latex fragments (equations etc.) by default
+#+STARTUP:: latexpreview
+
+
+Some introductory text
+
+* Table of Contents                                         :TOC_4_gh:noexport:
+- [[#overview][Overview]]
+- [[#known-issues--limitations][Known issues / limitations]]
+  - [[#opengl-applications-on-non-nixos][OpenGL applications on non-NixOS]]
+  - [[#mkoutofstoresymlink-broken-with-current-stable-version-of-nix][mkOutOfStoreSymlink broken with current stable version of nix]]
+- [[#provisioning-a-new-accountinstallation][Provisioning a new account/installation]]
+  - [[#non-nixos][Non-NixOS]]
+    - [[#install-nix][Install Nix]]
+    - [[#activate-the-nix-shell-extensions][Activate the nix shell extensions]]
+    - [[#install-home-manager][Install Home Manager]]
+      - [[#add-the-home-manager-channel][Add the home manager channel]]
+      - [[#install-home-manager-1][Install Home Manager]]
+  - [[#nixos][NixOS]]
+    - [[#install-nixos][Install NixOS]]
+    - [[#amend-nixos-config-to-allow-flakes-install-git-etc][Amend NixOS config to allow flakes, install git etc.]]
+    - [[#clone-dotfiles-repo][Clone dotfiles repo]]
+    - [[#integrate-host-hardware-configuration-and-apply-nixos-config-from-flake][Integrate host hardware configuration and apply NixOS config from flake]]
+  - [[#setup-your-home-environment][Setup your home environment]]
+    - [[#clone-this-repository][Clone this repository]]
+    - [[#set-git-name-and-e-mail][Set Git name and e-mail]]
+    - [[#apply-the-home-manager-flake][Apply the Home Manager flake]]
+  - [[#post-installation-activities][Post-installation activities]]
+    - [[#generate-a-unique-ssh-key-for-this-installation][Generate a unique SSH key for this installation]]
+- [[#maintenance][Maintenance]]
+  - [[#updating-packages][Updating packages]]
+  - [[#managing-generations][Managing generations]]
+    - [[#list-generations][List generations]]
+    - [[#delete-obsolete-generations][Delete obsolete generations]]
+    - [[#rollback-to-a-previous-generation][Rollback to a previous generation]]
+  - [[#updating-nixos][Updating NixOS]]
+- [[#links][Links]]
+  - [[#nix--nixos][Nix / NixOS]]
+    - [[#learning-resources][Learning resources]]
+- [[#notes][Notes]]
+  - [[#direnv][Direnv]]
+  - [[#flakes][Flakes]]
+  - [[#nixos-1][NixOS]]
+    - [[#configuration][Configuration]]
+    - [[#configuration-updates][Configuration updates]]
+      - [[#test-the-configuration][Test the configuration]]
+      - [[#activate-new-configuration][Activate new configuration]]
+      - [[#delete-old-generations][Delete old generations]]
+    - [[#system-updates-channel-management][System updates (channel management)]]
+      - [[#update-packages-channel-updates][Update packages (channel updates)]]
+      - [[#switching-channels][Switching channels]]
+
+* Overview
+My homefolder configuration, now managed as a Nix flake using Home Manager.
+Formerly managed using the [[https://github.com/cormacc/dotmodule][dotmodule]] gem.
+
+This repository also includes NixOS configuration for a couple of hosts, however the golden path for development machines is currently Arch linux + nix + home-manager rather than NixOS + nix due to difficulties packaging some toolchains required for embedded development, specifically....
+- ZephyrOS toolchain (incorporates some dynamically linked binaries)
+- Microchip compilers (dynamically linked binaries + license to be applied post-installation)
+
+* Known issues / limitations
+
+** OpenGL applications on non-NixOS
+Applications requiring OpenGL don't work when installed using Home Manager without NixOS.
+This is an upstream issue with a number of viable workarounds, but for now I'm just installing OpenGL apps from the Arch repositories.
+
+** mkOutOfStoreSymlink broken with current stable version of nix
+As of July 2024, the stable version of nix (?2.18.x?) for new installs breaks the mkOutOfStoreSymlink function of home-manager, used extensively in this configuration. This is nice for environment config with a higher churn rate (e.g. emacs, sway etc.), as it symlinks to the git-controlled files, allowing configuration changes to be applied immediately without having to 'home-manager --switch ...' each time and creating large numbers of generations.
+
+It's impure, but I'm OK with it.
+
+To work around this, update the installed version of nix using something like the following after initial installation...
+#+begin_src sh
+  nix-env --install --file '<nixpkgs>' --attr nixVersions.latest cacert -I nixpkgs=channel:nixpkgs-unstable
+#+end_src
+
+Alternatively, strip the uses of '.mkOutOfStoreSymlink' from the .nix files in this repo.
+
+* Provisioning a new account/installation
+
+** Non-NixOS
+
+*** Install Nix
+Installed using the [[https://zero-to-nix.com/start/install][zero-to-nix]] script rather than the official installer -- this enables flakes by default, saving a manual step.
+#+begin_src shell
+  curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+#+end_src
+
+N.B. You'll probably want to update the nix version after install to work around the mkOutOfStoreSymlink issue outline above
+
+
+*** Activate the nix shell extensions
+To activate immediately after installation you'll need to start a new shell session or run the following command in an existing one:
+#+begin_src shell
+. /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+#+end_src
+
+
+*** Install Home Manager
+Paraphrased from the [[https://nix-community.github.io/home-manager/index.html#ch-installation][official docs]].
+
+**** Add the home manager channel
+#+begin_src shell
+  nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
+  nix-channel --update
+#+end_src
+
+**** Install Home Manager
+#+begin_src shell
+  nix-shell '<home-manager>' -A install
+#+end_src
+
+
+
+** NixOS
+NixOS allows home-manager to be included as a module and for the OS- and user-level configurations to be applied together.
+However it feels more appropriate to separate the OS (low churn) and user (higher churn) aspects
+
+*** TODO Install NixOS
+
+*** TODO Amend NixOS config to allow flakes, install git etc.
+
+*** TODO Clone dotfiles repo
+
+*** TODO Integrate host hardware configuration and apply NixOS config from flake
+
+** Setup your home environment
+
+*** Clone this repository
+N.B. This repository is public -- i.e. can be cloned prior to configuring your ssh key.
+#+begin_src shell
+  git clone https://github.com/cormacc/dotfiles
+#+end_src
+
+*** Set Git name and e-mail
+The flake expects your e-mail address and full name to be specified as environment variables on initial application.
+These are automatically propagated to the shell config for future updates/re-application -- i.e. you only need to set once per installation.
+
+Adapt and enter the following in your shell session to set them:
+#+begin_src shell
+  export NAME="<Your Name>"
+  export EMAIL="<your.email>@<domain.com>"
+#+end_src
+N.B. the flake also relies on the USER environment variable for username, but that should be automatically set at login.
+
+*** Apply the Home Manager flake
+
+To provision your home environment, run the command provided below to rebuild the configuration:
+#+begin_src shell
+  export NIXPKGS_ALLOW_UNFREE=1
+  home-manager switch --flake './dotfiles#<host>' --impure -b backup
+#+end_src
+e.g.
+#+begin_src shell
+  export NIXPKGS_ALLOW_UNFREE=1
+  home-manager switch --flake './dotfiles#xps15' --impure -b backup
+#+end_src
+
+N.B. applying this flake defines a 'hms' (as in home-manager switch) alias to the above command for convenience when applying subsequent updates.
+
+** Post-installation activities
+
+*** Generate a unique SSH key for this installation
+Use the newer ED25519 algorithm (per [[https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent][Github instructions]]).
+#+begin_src shell
+  ssh-keygen -t ed25519 -C "your_email@example.com"
+#+end_src
+
+Then add the new key via Gitlab settings.
+
+* Maintenance
+
+** Updating packages
+Nix freezes the revision of nixpkgs used initially (in [[./flake.lock]]) to ensure the build is reproducible.
+To update, run the following commands.
+#+begin_src shell
+  nix flake update
+#+end_src
+
+Then re-apply the flake to update, using the shell alias.
+#+begin_src sh
+  hms
+#+end_src
+
+** Managing generations
+A new generation (configuration revision) is built each time we run `home-manager switch`.
+
+*** List generations
+#+begin_src shell
+  home-manager generations
+#+end_src
+
+#+RESULTS:
+: 2023-10-27 00:50 : id 19 -> /nix/store/5h9hisgf0jhygihvkanyvv19dz6s8gv4-home-manager-generation
+
+*** Delete obsolete generations
+E.g. to delete the first 18 generations...
+#+begin_src shell
+  home-manager remove-generations $(seq 1 18)
+#+end_src
+
+*** Rollback to a previous generation
+Home-manager doesn't provide explicit rollback in the sense that nix does, but you can
+easily manually activate a given generation (and potentially delete later problematic
+ generations).
+To activate:
+1. Run `home-manager generations` and locate the generation of interest.
+2. Open a shell to the folder listed for the generation in question.
+3. Run the `activate` script in that folder
+4. (Optionally) remove (delete) any later unwanted generations.
+
+** TODO Updating NixOS
+
+
+* Links
+
+** Nix / NixOS
+*** Learning resources
+- https://zero-to-nix.com/ :: Nice set of learning resources for the relatively nix-naive (like myself)
+- https://github.com/hlissner/dotfiles :: Dotfiles and a collection of learning links from hlissner (Doom emacs maintainer)
+
+
+* Notes
+
+** Direnv
+- Templates for multiple languages :: See https://github.com/the-nix-way/dev-templates
+- Blog post on nix direnv, including layering flakes :: https://determinate.systems/posts/nix-direnv
+
+** Flakes
+- Home page :: https://nixos.wiki/wiki/Flakes
+- Nice series of intro articles :: https://xeiaso.net/blog/nix-flakes-1-2022-02-21
+
+** NixOS
+All operations as root...
+
+*** Configuration
+Configuration in [[/etc/nixos/configuration.nix]]
+This is currently a symlink to [[~/sync/dotfiles/nixos/hosts/t470p.nix]]
+
+
+*** Configuration updates
+After updating the configuration file:
+
+**** Test the configuration
+To make sure the configuration is buildable...
+#+begin_src shell
+nixos rebuild test
+#+end_src
+
+**** Activate new configuration
+#+begin_src shell
+nixos rebuild switch
+#+end_src
+
+**** Delete old generations
+NixOS keeps all previously built iterations of the system (generations) until purged explicitly.
+Garbage collection needs to be run manually (or scheduled using cron), but flushes generations more than a week old.
+
+#+begin_src shell
+nix-env --list-generations
+
+nix-collect-garbage  --delete-old
+
+nix-collect-garbage  --delete-generations 1 2 3
+
+# recommeneded to sometimes run as sudo to collect additional garbage
+sudo nix-collect-garbage -d
+
+# As a separation of concerns - you will need to run this command to clean out boot
+sudo /run/current-system/bin/switch-to-configuration boot
+#+end_src
+
+*** System updates (channel management)
+
+N.B. these commands apply at root level for NixOS, and at user level for home-manager.
+N.B. these are NOT relevant for flake based configurations -- flake.lock replaces the channels (defined as inputs in flake.nix)
+
+**** Update packages (channel updates)
+nix/nixos pin your package sets at a channel revision. To upgrade packages, you need to update the channel before building/rebuilding using the commands provided in the next section.
+
+#+begin_src shell
+nix-channel --update
+#+end_src
+
+**** Switching channels
+To track the bleeding edge ...
+#+begin_src shell
+nix-channel --add https://channels.nixos.org/nixos-unstable nixos
+#+end_src
+
+... or the current stable release ...
+#+begin_src shell
+nix-channel --add https://channels.nixos.org/nixos-23.05 nixos
+#+end_src
+
+#+begin_notes
+These can be set separately at nixos(root) level and home-manager (user) level -- e.g. currently tracking 23.05 for nixos and unstable for home-manager...
+#+end_notes

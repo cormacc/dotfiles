@@ -1,0 +1,15 @@
+# -*- mode: snippet -*-
+#name : target_sources
+#key : target_sources
+#contributor : 
+# --
+target_include_directories(\${CMAKE_CURRENT_TARGET}
+  PRIVATE
+  "\${CMAKE_CURRENT_LIST_DIR}"
+  )
+
+target_sources(\${CMAKE_CURRENT_TARGET}
+  PRIVATE
+  "\${CMAKE_CURRENT_LIST_DIR}/$1.c"
+  "\${CMAKE_CURRENT_LIST_DIR}/$1.h"
+  )

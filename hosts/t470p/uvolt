@@ -1,0 +1,2 @@
+#!/bin/bash
+undervolt --gpu -100 --core -125 --cache -125 --uncore -125 --analogio -125

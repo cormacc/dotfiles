@@ -1,0 +1,18 @@
+#Built-in JDK results in missing text / GUI problems
+#export MATLAB_JAVA=/usr/lib/jvm/default-runtime
+
+export MATLAB_JAVA=/usr/lib/jvm/java-8-openjdk/jre
+
+# N.B. Directory layout is different for openjdk 9 -- need to symlink <JDK_ROOT>/lib/amd64 to <JDK_ROOT>/lib
+# However this still results in an error re. inavlid option for matlab2016b (-Djava.ext.dirs)
+#export MATLAB_JAVA=/usr/lib/jvm/java-9-openjdk
+
+#This reportedly helps with a garbled UI, but doesn't appear to be necessary with openjdk 8
+#export J2D_D3D=false
+
+#This sets us up for hardware-accelerated opengl rendering
+export LD_PRELOAD=/usr/lib/libstdc++.so
+export LD_LIBRARY_PATH=/usr/lib/xorg/modules/dri/
+
+#/opt/matlab/r2016b/bin/matlab -nosoftwareopengl "$@"
+/opt/matlab/r2016b/bin/matlab "$@"

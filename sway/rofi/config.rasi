@@ -1,0 +1,9 @@
+* {
+  lightbg: #14161b;
+  background: #14161b;
+  lightfg: #16a085;
+  foreground: #eeeeee;
+}
+window {
+  width: 25em;
+}

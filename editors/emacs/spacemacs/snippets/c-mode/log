@@ -1,0 +1,6 @@
+#name : log
+#key : log
+#contributor :
+
+#define LOG_MODULE "$1"
+#include "LogService.h"

@@ -1,0 +1,646 @@
+# -----------------$HOME/.abcde.conf----------------- #
+# 
+# A sample configuration file to convert music cds to 
+#       FLAC using abcde version 2.7.2
+# 
+# http://andrews-corner.org/linux/abcde/index.html
+# -------------------------------------------------- #
+
+# Encode tracks immediately after reading. Saves disk space, gives
+# better reading of 'scratchy' disks and better troubleshooting of
+# encoding process but slows the operation of abcde quite a bit:
+LOWDISK=y
+
+# Specify the method to use to retrieve the track information,
+# the alternative is to specify 'musicbrainz':
+CDDBMETHOD=cddb
+
+# Make a local cache of cddb entries and then volunteer to use 
+# these entries when and if they match the cd:
+CDDBCOPYLOCAL="y"
+CDDBLOCALDIR="$HOME/.cddb"
+CDDBLOCALRECURSIVE="y"
+CDDBUSELOCAL="y"
+
+# Specify the encoder to use for FLAC. In this case
+# flac is the only choice.
+FLACENCODERSYNTAX=flac
+
+# Specify the path to the selected encoder. In most cases the encoder
+# should be in your $PATH as I illustrate below, otherwise you will 
+# need to specify the full path. For example: /usr/bin/flac
+FLAC=flac
+
+# Specify your required encoding options here. Multiple options can
+# be selected as '--best --another-option' etc.
+# Overall bitrate is about 880 kbs/s with level 8.
+FLACOPTS='-s -e -V -8' 
+
+# Output type for FLAC.
+OUTPUTTYPE="flac"
+
+# The cd ripping program to use. There are a few choices here: cdda2wav,
+# dagrab, cddafs (Mac OS X only) and flac. New to abcde 2.7 is 'libcdio'.
+CDROMREADERSYNTAX=cdparanoia            
+                                     
+# Give the location of the ripping program and pass any extra options,
+# if using libcdio set 'CD_PARANOIA=cd-paranoia'.
+CDPARANOIA=cdparanoia  
+CDPARANOIAOPTS="--never-skip=40"
+
+# Give the location of the CD identification program:       
+CDDISCID=cd-discid            
+                               
+# Give the base location here for the encoded music files.
+OUTPUTDIR="$HOME/Music"               
+
+# The default actions that abcde will take.
+ACTIONS=cddb,playlist,read,encode,tag,move,clean
+              
+# Decide here how you want the tracks labelled for a standard 'single-artist',
+# multi-track encode and also for a multi-track, 'various-artist' encode:
+OUTPUTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${TRACKNUM}.${TRACKFILE}'
+VAOUTPUTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${TRACKNUM}.${ARTISTFILE}-${TRACKFILE}'
+
+# Decide here how you want the tracks labelled for a standard 'single-artist',
+# single-track encode and also for a single-track 'various-artist' encode.
+# (Create a single-track encode with 'abcde -1' from the commandline.)
+ONETRACKOUTPUTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${ALBUMFILE}'
+VAONETRACKOUTPUTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${ALBUMFILE}'
+
+# Create playlists for single and various-artist encodes. I would suggest
+# commenting these out for single-track encoding.
+PLAYLISTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${ALBUMFILE}.m3u'
+VAPLAYLISTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${ALBUMFILE}.m3u'
+
+# This function takes out dots preceding the album name, and removes a grab
+# bag of illegal characters. It allows spaces, if you do not wish spaces add
+# in -e 's/ /_/g' after the first sed command.
+mungefilename ()
+{
+  echo "$@" | sed -e 's/^\.*//' | tr -d ":><|*/\"'?[:cntrl:]"
+}
+
+# What extra options?
+MAXPROCS=2                              # Run a few encoders simultaneously
+PADTRACKS=y                             # Makes tracks 01 02 not 1 2
+EXTRAVERBOSE=2                          # Useful for debugging
+COMMENT='abcde version 2.7.2'           # Place a comment...
+EJECTCD=y                               # Please eject cd when finished :-)
+
+Compression levels are from 0-8 and the many other options available can be seen by running flac -h. Let me know of your own choices and I will add them here if they are better than my own offerings.
+~/.abcde.conf for WavPack: wavpack
+
+I added WavPack support for 2 reasons: firstly as I wanted to add a little bit of choice with lossless encoders and secondly because there was a feature request for it to be added. After a considerable amount of work on my part I still laugh today that the original requester said that he was neither going to use it or even test it out! Anyway, great sound and active development make WavPack encoding well worth trying...
+
+# -----------------$HOME/.abcde.conf----------------- #
+# 
+# A sample configuration file to convert music cds to 
+#    WavPack using abcde version 2.7.2 and 'wavpack'
+# 
+#  http://andrews-corner.org/linux/abcde/index.html
+# -------------------------------------------------- #
+
+# Encode tracks immediately after reading. Saves disk space, gives
+# better reading of 'scratchy' disks and better troubleshooting of
+# encoding process but slows the operation of abcde quite a bit:
+LOWDISK=y
+
+# Specify the method to use to retrieve the track information,
+# I give the default below but consider setting 'musicbrainz'
+# instead, which is my own preferred option:
+CDDBMETHOD=cddb
+
+# Make a local cache of cddb entries and then volunteer to use 
+# these entries when and if they match the cd:
+CDDBCOPYLOCAL="y"
+CDDBLOCALDIR="$HOME/.cddb"
+CDDBLOCALRECURSIVE="y"
+CDDBUSELOCAL="y"
+
+# Specify the encoder to use for WavPack:
+WVENCODERSYNTAX=wavpack
+
+# Specify the path to the selected encoder. In most cases the encoder
+# should be in your $PATH as I illustrate below, otherwise you will 
+# need to specify the full path. For example: /usr/bin/wavpack
+WVENC=wavpack
+
+# Specify your required encoding options here. Have a look at
+# 'wavpack --help' for more options.
+WVENCOPTS="-hx3"
+
+# Output type for WavPack.
+OUTPUTTYPE="wv"
+
+# The cd ripping program to use. There are a few choices here: cdda2wav,
+# dagrab, cddafs (Mac OS X only) and flac. New to abcde 2.7 is 'libcdio'.
+CDROMREADERSYNTAX=cdparanoia
+
+# Give the location of the ripping program and pass any extra options,
+# if using libcdio set 'CD_PARANOIA=cd-paranoia'.
+CDPARANOIA=cdparanoia  
+CDPARANOIAOPTS="--never-skip=40"
+
+# Give the location of the CD identification program:       
+CDDISCID=cd-discid            
+
+# Give the base location here for the encoded music files.
+OUTPUTDIR="$HOME/Music"               
+
+# The default actions that abcde will take.
+ACTIONS=cddb,playlist,read,encode,tag,move,clean
+
+# Decide here how you want the tracks labelled for a standard 'single-artist',
+# multi-track encode and also for a multi-track, 'various-artist' encode:
+OUTPUTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${TRACKNUM}.${TRACKFILE}'
+VAOUTPUTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${TRACKNUM}.${ARTISTFILE}-${TRACKFILE}'
+
+# Decide here how you want the tracks labelled for a standard 'single-artist',
+# single-track encode and also for a single-track 'various-artist' encode.
+# (Create a single-track encode with 'abcde -1' from the commandline.)
+ONETRACKOUTPUTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${ALBUMFILE}'
+VAONETRACKOUTPUTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${ALBUMFILE}'
+
+# Create playlists for single and various-artist encodes. I would suggest
+# commenting these out for single-track encoding.
+PLAYLISTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${ALBUMFILE}.m3u'
+VAPLAYLISTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${ALBUMFILE}.m3u'
+
+# This function takes out dots preceding the album name, and removes a grab
+# bag of illegal characters. It allows spaces, if you do not wish spaces add
+# in -e 's/ /_/g' after the first sed command.
+mungefilename ()
+{
+  echo "$@" | sed -e 's/^\.*//' | tr -d ":><|*/\"'?[:cntrl:]"
+}
+
+# What extra options?
+MAXPROCS=2                              # Run a few encoders simultaneously
+PADTRACKS=y                             # Makes tracks 01 02 not 1 2
+EXTRAVERBOSE=2                          # Useful for debugging
+COMMENT='abcde version 2.7.2'           # Place a comment...
+EJECTCD=y                               # Please eject cd when finished :-)
+
+Lots of options to experiment with in WavPack encoding let me know of any I should place in the conf file above. Perhaps also experiment a little with ReplayGain which is coded into abcde using the WavPack utility wvgain.
+~/.abcde.conf for WavPack: FFmpeg
+
+FFmpeg has its own WavPack encoder and if you would like to use it rather than install WavPack itself the following conf file will do the job for you. To my untrained ears and on my own reasonably poor audio equipment the quality of the sound is exactly the same as the original WavPack encoder.
+
+# -----------------$HOME/.abcde.conf----------------- #
+# 
+# A sample configuration file to convert music cds to 
+#    WavPack using abcde version 2.7.2 and FFmpeg's
+#    native wavpack encoder...
+# 
+#  http://andrews-corner.org/linux/abcde/index.html
+# -------------------------------------------------- #
+
+# Encode tracks immediately after reading. Saves disk space, gives
+# better reading of 'scratchy' disks and better troubleshooting of
+# encoding process but slows the operation of abcde quite a bit:
+LOWDISK=y
+
+# Specify the method to use to retrieve the track information,
+# I give the default below but consider setting 'musicbrainz'
+# instead, which is my own preferred option:
+CDDBMETHOD=cddb
+
+# Make a local cache of cddb entries and then volunteer to use 
+# these entries when and if they match the cd:
+CDDBCOPYLOCAL="y"
+CDDBLOCALDIR="$HOME/.cddb"
+CDDBLOCALRECURSIVE="y"
+CDDBUSELOCAL="y"
+
+# Specify the encoder to use for WavPack:
+WVENCODERSYNTAX=ffmpeg
+
+# Specify the path to the selected encoder. In most cases the encoder
+# should be in your $PATH as I illustrate below, otherwise you will 
+# need to specify the full path. For example: /usr/bin/ffmpeg
+FFMPEG=ffmpeg
+
+# Specify your required encoding options here. Have a look here for
+# more options: https://www.ffmpeg.org/ffmpeg-codecs.html#libwavpack
+# Note that we are not actually using libwavpack but the options are
+# shared with the native FFmpeg encoder.
+FFMPEGENCOPTS="-c:a wavpack -compression_level 2"
+
+# Output type for WavPack.
+OUTPUTTYPE="wv"
+
+# The cd ripping program to use. There are a few choices here: cdda2wav,
+# dagrab, cddafs (Mac OS X only) and flac. New to abcde 2.7 is 'libcdio'.
+CDROMREADERSYNTAX=cdparanoia            
+                                     
+# Give the location of the ripping program and pass any extra options,
+# if using libcdio set 'CD_PARANOIA=cd-paranoia'.
+CDPARANOIA=cdparanoia  
+CDPARANOIAOPTS="--never-skip=40"
+
+# Give the location of the CD identification program:       
+CDDISCID=cd-discid            
+                               
+# Give the base location here for the encoded music files.
+OUTPUTDIR="$HOME/Music"               
+
+# The default actions that abcde will take.
+ACTIONS=cddb,playlist,read,encode,tag,move,clean
+              
+# Decide here how you want the tracks labelled for a standard 'single-artist',
+# multi-track encode and also for a multi-track, 'various-artist' encode:
+OUTPUTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${TRACKNUM}.${TRACKFILE}'
+VAOUTPUTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${TRACKNUM}.${ARTISTFILE}-${TRACKFILE}'
+
+# Decide here how you want the tracks labelled for a standard 'single-artist',
+# single-track encode and also for a single-track 'various-artist' encode.
+# (Create a single-track encode with 'abcde -1' from the commandline.)
+ONETRACKOUTPUTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${ALBUMFILE}'
+VAONETRACKOUTPUTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${ALBUMFILE}'
+
+# Create playlists for single and various-artist encodes. I would suggest
+# commenting these out for single-track encoding.
+PLAYLISTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${ALBUMFILE}.m3u'
+VAPLAYLISTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${ALBUMFILE}.m3u'
+
+# This function takes out dots preceding the album name, and removes a grab
+# bag of illegal characters. It allows spaces, if you do not wish spaces add
+# in -e 's/ /_/g' after the first sed command.
+mungefilename ()
+{
+  echo "$@" | sed -e 's/^\.*//' | tr -d ":><|*/\"'?[:cntrl:]"
+}
+
+# What extra options?
+MAXPROCS=2                              # Run a few encoders simultaneously
+PADTRACKS=y                             # Makes tracks 01 02 not 1 2
+EXTRAVERBOSE=2                          # Useful for debugging
+COMMENT='abcde version 2.7.2'           # Place a comment...
+EJECTCD=y                               # Please eject cd when finished :-)
+
+Note that you can also use the external library libwavpack but FFmpeg documentation states that there 'is virtually no reason to use that encoder' so I have omitted it in this conf file!
+~/.abcde.conf for Alac: qaac
+
+This particular conf file is one that I use on my own system to produce Alac files for my iPod Classic. As well this is one of the more radical additions that I personally have made to the abcde code base and it works just fine! To get it all working you will really need to follow this page: Using qaac under Linux... and then you will have the tools for the job in your hands.
+
+# -----------------$HOME/.abcde.conf----------------- #
+# 
+# A sample configuration file to convert music cds to 
+#   Apple Lossless Audio Codec (alac) using either qaac
+#      or refalac and abcde version 2.7.2
+# 
+#  http://andrews-corner.org/linux/abcde/index.html
+# -------------------------------------------------- #
+
+# Encode tracks immediately after reading. Saves disk space, gives
+# better reading of 'scratchy' disks and better troubleshooting of
+# encoding process but slows the operation of abcde quite a bit:
+LOWDISK=y
+
+# Specify the method to use to retrieve the track information,
+# the alternative is to specify 'musicbrainz':
+CDDBMETHOD=cddb
+
+# Make a local cache of cddb entries and then volunteer to use 
+# these entries when and if they match the cd:
+CDDBCOPYLOCAL="y"
+CDDBLOCALDIR="$HOME/.cddb"
+CDDBLOCALRECURSIVE="y"
+CDDBUSELOCAL="y"
+
+# Specify the encoder to use for AAC or in our case
+# Apple Lossless Audio Codec (alac):
+AACENCODERSYNTAX=qaac
+
+# The path for qaac can be problematic as abcde cannot cope
+# with the 'standard' Wine location with spaces:
+#   "$HOME/.wine/drive_c/Program\ Files/qaac/qaac.exe"
+# However the following works well:             
+QAAC="$HOME/.wine/drive_c/qaac/qaac.exe"
+
+# Or use the Open Source alac encoder 'refalac' with this small hack:
+# QAAC="$HOME/.wine/drive_c/qaac/refalac.exe"
+
+# Specify your required encoding options here, these options
+# give Apple Lossless Audio Codec (alac) encoding:
+QAACENCOPTS="--alac --threading --verbose"   
+
+# Output type for alac:
+OUTPUTTYPE="m4a"                        
+
+# The cd ripping program to use. There are a few choices here: cdda2wav,
+# dagrab, cddafs (Mac OS X only) and flac. New to abcde 2.7 is 'libcdio'.
+CDROMREADERSYNTAX=cdparanoia            
+                                     
+# Give the location of the ripping program and pass any extra options,
+# if using libcdio set 'CD_PARANOIA=cd-paranoia'.
+CDPARANOIA=cdparanoia  
+CDPARANOIAOPTS="--never-skip=40"
+
+# Give the location of the CD identification program:       
+CDDISCID=cd-discid   
+
+# Give the location for the 'compatibility layer software application'
+# known as Wine:
+WINE=wine          
+                               
+# Give the base location here for the encoded music files.
+OUTPUTDIR="$HOME/Music"               
+
+# The default actions that abcde will take.
+ACTIONS=cddb,playlist,read,encode,tag,move,clean
+
+OUTPUTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${TRACKNUM}.${TRACKFILE}'
+VAOUTPUTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${TRACKNUM}.${ARTISTFILE}-${TRACKFILE}'
+ONETRACKOUTPUTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${ALBUMFILE}'
+VAONETRACKOUTPUTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${ALBUMFILE}'
+
+# Create playlists for single and various-artist encodes. I would suggest
+# commenting these out for single-track encoding.
+PLAYLISTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${ALBUMFILE}.m3u'
+VAPLAYLISTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${ALBUMFILE}.m3u'
+
+# This function takes out dots preceding the album name, and removes a grab
+# bag of illegal characters. It allows spaces, if you do not wish spaces add
+# in -e 's/ /_/g' after the first sed command.
+mungefilename ()
+{
+  echo "$@" | sed -e 's/^\.*//' | tr -d ":><|*/\"'?[:cntrl:]"
+}
+
+# What extra options?
+MAXPROCS=2                                # Run a few encoders simultaneously
+PADTRACKS=y                               # Makes tracks 01 02 not 1 2
+EXTRAVERBOSE=2                            # Useful for debugging
+COMMENT='abcde version 2.7.2'             # Place a comment...
+EJECTCD=y                                 # Please eject cd when finished :-)
+
+You will see above that qaac is performing the encoding but you also have the option of using refalac (commented out in the conf file) which is an implementation of the Apple reference encoder released a few years ago. Refalac is completely Open Source and this may make some people a little happier? My untutored ears can tell little difference between qaac and refalac but perhaps those with better audio equipment might see a difference...
+~/.abcde.conf for Alac: FFmpeg
+
+If you don't want to undertake the considerable command line athleticism to get qaac running under Linux and alongside abcde you will be pleased to know that FFmpeg has its own native alac encoder. And certainly I can detect no great difference in sound quality between the alac files produced by qaac or refalac and those produced by FFmpeg.
+
+# -----------------$HOME/.abcde.conf----------------- #
+# 
+#  A sample configuration file to convert music cds to 
+#   Apple Lossless Audio Codec (alac) using FFmpeg's
+#   native encoder and abcde version 2.7.2
+# 
+#  http://andrews-corner.org/linux/abcde/index.html
+# -------------------------------------------------- #
+
+# Encode tracks immediately after reading. Saves disk space, gives
+# better reading of 'scratchy' disks and better troubleshooting of
+# encoding process but slows the operation of abcde quite a bit:
+LOWDISK=y
+
+# Specify the method to use to retrieve the track information,
+# the alternative is to specify 'musicbrainz':
+CDDBMETHOD=cddb
+
+# Make a local cache of cddb entries and then volunteer to use 
+# these entries when and if they match the cd:
+CDDBCOPYLOCAL="y"
+CDDBLOCALDIR="$HOME/.cddb"
+CDDBLOCALRECURSIVE="y"
+CDDBUSELOCAL="y"
+
+# Specify the encoder to use for Apple Lossless Audio Codec (alac):
+AACENCODERSYNTAX=ffmpeg
+
+# Specify the path to the selected encoder. In most cases the encoder
+# should be in your $PATH as I illustrate below, otherwise you will 
+# need to specify the full path. For example: /usr/bin/ffmpeg
+FFMPEG=ffmpeg
+
+# Specify your required encoding options here, these options
+# give Apple Lossless Audio Codec (alac) encoding, there are
+# no other useful options as far as I know:
+FFMPEGENCOPTS="-c:a alac"    
+
+# Output type for alac:
+OUTPUTTYPE="m4a"                        
+
+# The cd ripping program to use. There are a few choices here: cdda2wav,
+# dagrab, cddafs (Mac OS X only) and flac. New to abcde 2.7 is 'libcdio'.
+CDROMREADERSYNTAX=cdparanoia            
+                                     
+# Give the location of the ripping program and pass any extra options,
+# if using libcdio set 'CD_PARANOIA=cd-paranoia'.
+CDPARANOIA=cdparanoia  
+CDPARANOIAOPTS="--never-skip=40"
+
+# Give the location of the CD identification program:       
+CDDISCID=cd-discid          
+                               
+# Give the base location here for the encoded music files.
+OUTPUTDIR="$HOME/Music"               
+
+# The default actions that abcde will take.
+ACTIONS=cddb,playlist,read,encode,tag,move,clean
+
+OUTPUTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${TRACKNUM}.${TRACKFILE}'
+VAOUTPUTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${TRACKNUM}.${ARTISTFILE}-${TRACKFILE}'
+ONETRACKOUTPUTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${ALBUMFILE}'
+VAONETRACKOUTPUTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${ALBUMFILE}'
+
+# Create playlists for single and various-artist encodes. I would suggest
+# commenting these out for single-track encoding.
+PLAYLISTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${ALBUMFILE}.m3u'
+VAPLAYLISTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${ALBUMFILE}.m3u'
+
+# This function takes out dots preceding the album name, and removes a grab
+# bag of illegal characters. It allows spaces, if you do not wish spaces add
+# in -e 's/ /_/g' after the first sed command.
+mungefilename ()
+{
+  echo "$@" | sed -e 's/^\.*//' | tr -d ":><|*/\"'?[:cntrl:]"
+}
+
+# What extra options?
+MAXPROCS=2                                # Run a few encoders simultaneously
+PADTRACKS=y                               # Makes tracks 01 02 not 1 2
+EXTRAVERBOSE=2                            # Useful for debugging
+COMMENT='abcde version 2.7.2'             # Place a comment...
+EJECTCD=y                                 # Please eject cd when finished :-)
+
+In my time as an abcde developer I introduced FFmpeg to abcde and I would love to hear from anybody who has benefited from its inclusion!
+~/.abcde.conf for True Type Audio (TTA)
+
+I introduced True Type Audio encoding to abcde in part to round out the possibilities for lossless audio in abcde and in part because I love tinkering with abcde! Bear in mind that tagging is supported with Mutagen's mid3v2 but this tagging is only recognised by a few audio players, Audacious and the command line MPlayer recognising the tags flawlessly.
+
+# -----------------$HOME/.abcde.conf----------------- #
+# 
+#   A sample configuration file to convert music cds to 
+#   True Type Audio (TTA) with tagging by Mutagen's
+#   mid3v2 and abcde version 2.7.2
+# 
+#   http://andrews-corner.org/linux/abcde/index.html
+# -------------------------------------------------- #
+
+# Encode tracks immediately after reading. Saves disk space, gives
+# better reading of 'scratchy' disks and better troubleshooting of
+# encoding process but slows the operation of abcde quite a bit:
+LOWDISK=y
+
+# Specify the method to use to retrieve the track information,
+# the alternative is to specify 'musicbrainz':
+CDDBMETHOD=cddb
+
+# Make a local cache of cddb entries and then volunteer to use 
+# these entries when and if they match the cd:
+CDDBCOPYLOCAL="y"
+CDDBLOCALDIR="$HOME/.cddb"
+CDDBLOCALRECURSIVE="y"
+CDDBUSELOCAL="y"
+
+# Specify the encoder to use for True Type Audio (TTA):
+TTAENCODERSYNTAX=tta
+
+# Specify the path to the selected encoder. In most cases the encoder
+# should be in your $PATH as I illustrate below, otherwise you will 
+# need to specify the full path. For example: /usr/bin/tta
+TTA=tta
+
+# Specify your required encoding options here, these options
+# give True Lossless Audio (TTA) encoding, there are
+# no useful options as far as I know:
+TTAENCOPTS=""    
+
+# Output type for TTA:
+OUTPUTTYPE="tta"                        
+
+# The cd ripping program to use. There are a few choices here: cdda2wav,
+# dagrab, cddafs (Mac OS X only) and flac. New to abcde 2.7 is 'libcdio'.
+CDROMREADERSYNTAX=cdparanoia            
+                                     
+# Give the location of the ripping program and pass any extra options,
+# if using libcdio set 'CD_PARANOIA=cd-paranoia'.
+CDPARANOIA=cdparanoia  
+CDPARANOIAOPTS="--never-skip=40"
+
+# Give the location of the CD identification program:       
+CDDISCID=cd-discid          
+                               
+# Give the base location here for the encoded music files.
+OUTPUTDIR="$HOME/Music"               
+
+# The default actions that abcde will take.
+ACTIONS=cddb,playlist,read,encode,tag,move,clean
+
+OUTPUTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${TRACKNUM}.${TRACKFILE}'
+VAOUTPUTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${TRACKNUM}.${ARTISTFILE}-${TRACKFILE}'
+ONETRACKOUTPUTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${ALBUMFILE}'
+VAONETRACKOUTPUTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${ALBUMFILE}'
+
+# Create playlists for single and various-artist encodes. I would suggest
+# commenting these out for single-track encoding.
+PLAYLISTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${ALBUMFILE}.m3u'
+VAPLAYLISTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${ALBUMFILE}.m3u'
+
+# This function takes out dots preceding the album name, and removes a grab
+# bag of illegal characters. It allows spaces, if you do not wish spaces add
+# in -e 's/ /_/g' after the first sed command.
+mungefilename ()
+{
+  echo "$@" | sed -e 's/^\.*//' | tr -d ":><|*/\"'?[:cntrl:]"
+}
+
+# What extra options?
+MAXPROCS=2                                # Run a few encoders simultaneously
+PADTRACKS=y                               # Makes tracks 01 02 not 1 2
+EXTRAVERBOSE=2                            # Useful for debugging
+COMMENT='abcde version 2.7.2'             # Place a comment...
+EJECTCD=y                                 # Please eject cd when finished :-)
+
+Note that there are really no extra encoding options for TTA but I have left a placeholder there in case future versions of tta have some useful options. As far as I know I am the only one who has used abcde with True Type Audio so let me know if there is at least one other person who has!
+~/.abcde.conf for Audio Interchange File Format (AIFF)
+
+I had been in semi-retirement from abcde development and from the computer world in general when Massimo Villa emailed my asking about abcde and AIFF support. AIFF is a common format in the Mac world and he quite reasonably wanted to continue using it after a move to the Linux world. After some work this is now in place for abcde 2.8.2, you will need this version of abcde, a recent copy of FFmpeg and the ~/.abcde.conf file below.
+
+# -----------------$HOME/.abcde.conf----------------- #
+# 
+#   A sample configuration file to convert music cds to 
+#   Audio Interchange File Format (AIFF). This requires
+#   abcde version 2.8.2 and a recent copy of FFmpeg
+# 
+#   http://andrews-corner.org/linux/abcde/index.html
+# -------------------------------------------------- #
+
+# Encode tracks immediately after reading. Saves disk space, gives
+# better reading of 'scratchy' disks and better troubleshooting of
+# encoding process but slows the operation of abcde quite a bit:
+LOWDISK=y
+
+# Specify the method to use to retrieve the track information,
+# the alternative is to specify 'musicbrainz':
+CDDBMETHOD=cddb
+
+# Make a local cache of cddb entries and then volunteer to use 
+# these entries when and if they match the cd:
+CDDBCOPYLOCAL="y"
+CDDBLOCALDIR="$HOME/.cddb"
+CDDBLOCALRECURSIVE="y"
+CDDBUSELOCAL="y"
+
+# Specify the encoder to use for Audio Interchange File Format (AIFF):
+AIFFENCODERSYNTAX=ffmpeg
+
+# Specify the path to the selected encoder. In most cases the encoder
+# should be in your $PATH as I illustrate below, otherwise you will 
+# need to specify the full path. For example: /usr/bin/ffmpeg
+FFMPEG=ffmpeg
+
+# Specify your required AIFF encoding options here. These options are
+# needed by FFmpeg for tagging and selection of id3v2 version:
+#  1. '-write_id3v2 1' allows id3v2 tagging while '-write_id3v2 0' disables tagging
+#  2. '-id3v2_version 4' gives version id3v2.4 while '3' gives id3v2.3 
+AIFFENCOPTS="-write_id3v2 1 -id3v2_version 4"  
+
+# Output type for AIFF:
+OUTPUTTYPE="aiff"                        
+
+# The cd ripping program to use. There are a few choices here: cdda2wav,
+# dagrab, cddafs (Mac OS X only) and flac. New to abcde 2.7 is 'libcdio'.
+CDROMREADERSYNTAX=cdparanoia            
+      
+# Give the location of the ripping program and pass any extra options,
+# if using libcdio set 'CD_PARANOIA=cd-paranoia'.
+CDPARANOIA=cdparanoia  
+CDPARANOIAOPTS="--never-skip=40"
+
+# Give the location of the CD identification program:       
+CDDISCID=cd-discid
+
+# Give the base location here for the encoded music files.
+OUTPUTDIR="$HOME/music"               
+
+# The default actions that abcde will take.
+ACTIONS=cddb,playlist,read,encode,tag,move,clean
+
+OUTPUTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${TRACKNUM}.${TRACKFILE}'
+VAOUTPUTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${TRACKNUM}.${ARTISTFILE}-${TRACKFILE}'
+ONETRACKOUTPUTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${ALBUMFILE}'
+VAONETRACKOUTPUTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${ALBUMFILE}'
+
+# Create playlists for single and various-artist encodes. I would suggest
+# commenting these out for single-track encoding.
+PLAYLISTFORMAT='${OUTPUT}/${ARTISTFILE}-${ALBUMFILE}/${ALBUMFILE}.m3u'
+VAPLAYLISTFORMAT='${OUTPUT}/Various-${ALBUMFILE}/${ALBUMFILE}.m3u'
+
+# This function takes out dots preceding the album name, and removes a grab
+# bag of illegal characters. It allows spaces, if you do not wish spaces add
+# in -e 's/ /_/g' after the first sed command.
+mungefilename ()
+{
+  echo "$@" | sed -e 's/^\.*//' | tr -d ":><|*/\"'?[:cntrl:]"
+}
+
+# What extra options?
+MAXPROCS=2                                # Run a few encoders simultaneously
+PADTRACKS=y                               # Makes tracks 01 02 not 1 2
+EXTRAVERBOSE=2                            # Useful for debugging
+COMMENT='abcde version 2.8.2'             # Place a comment...
+EJECTCD=y                                 # Please eject cd when finished :-)
+

@@ -1,0 +1,39 @@
+# -*- mode: snippet -*-
+# name: Org-mode title block
+# key: org-title
+# --
+
+#+TITLE: $1
+#+AUTHOR: Cormac Cannon
+#+EMAIL: cormac.cannon@neuromoddevices.com
+#+LANGUAGE: en
+#+COPYRIGHT: Neuromod Devices Ltd. `(format-time-string "%Y")`$0
+#+DATE: `(format-time-string "%Y-%m-%d")`$0
+
+
+# EXPORT SETUP
+
+# 1. Ensure exports include both source block contents and any results
+#+PROPERTY: header-args :exports both
+
+# 2. Suppress author in title, and prevent ^ and _ from initiating super and subscript....
+#     N.B. can still use the braced forms -- i.e. 'bla^{super}_{sub}'
+#+OPTIONS: author:nil ^:nil
+
+# 3. HTML export theme
+#+SETUPFILE: ~/Documents/templates/org-html-themes/org/theme-readtheorg.setup
+
+# 4. ODT (and DOCX) export styles/theme
+#    N.B. Editing the ODT can cause the embedded logo jpg name to change... if this occurs, unzip the odt to check the new name and update this line
+#+ODT_STYLES_FILE: ("~/Documents/templates/nmd-template.odt" ("styles.xml" "content.xml" "Pictures/1000000000000A4F000004659ACFB30B1A81D55F.jpg"))
+
+
+# Startup options : Want to view rendered versions of latex fragments (equations etc.) by default
+#+STARTUP:: latexpreview
+
+
+${2:Some introductory text}
+
+* Table of Contents                                         :TOC_2_gh:noexport:
+
+$0

@@ -1,0 +1,7 @@
+#name : statemachine-event-handler
+#key : on
+#contributor :
+# --
+      ON($1, {
+          $2;
+        })

@@ -1,0 +1,32 @@
+#This is a TOML document.
+#Place this file in a subdirectory called ".mutebutton" in your home directory
+#Uncomment and edit any of the lines below to replace the default parameters
+#Where default values are listed below, the token "<CWD>" denotes the current working directory
+
+#Path to search for CD firmware image
+#Default :: string :: "<CWD>/cd"
+# ImagePath = "~/Downloads/mb2/cd"
+#ImagePath = "~/Downloads/mb2/iodtester"
+# ImagePath = "~/nmd/products/mb2/cd/dist/default/production"
+ImagePath = "~/nmd/products/mb2/cd/dist/iod_tester/production"
+
+#Path to search for IOD firmware image (string)
+#Default :: string :: "<CWD>/iod"
+IodImagePath = "~/nmd/products/mb2/iod/dist/default/production"
+#IodImagePath = "~/Downloads/mb2/iod"
+
+#GUI scale factor as float32
+#Default :: float :: 1.0
+Scale = 2.0
+
+#Font Size (points)
+#Default :: int :: 12
+#FontSize = 14
+
+#Number of balance steps
+#Default :: int :: 6
+#BalanceSteps = 12
+
+#Set this to true to enable debug level logging
+#Default :: bool :: false
+#Debug = true

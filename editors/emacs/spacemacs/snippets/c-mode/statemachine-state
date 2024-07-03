@@ -1,0 +1,7 @@
+#name : statemachine-state
+#key : state
+#contributor :
+# --
+STATE($1, $2 {
+          //Add some event handlers....
+  })

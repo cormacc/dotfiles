@@ -1,0 +1,47 @@
+#name : statemachine-hsm
+#key : hsm
+#contributor :
+# --
+
+// ============================================================================
+// STATE MACHINE
+// ============================================================================
+
+#include "Hsm.h"
+#include "ScheduledEvent.h"
+#include "SchedulerConfig.h"
+
+// ----------------------------------------------------------------------------
+// State machine declaration / initialisation
+// ----------------------------------------------------------------------------
+
+//-- Scheduled events --
+//static ScheduledEvent periodic_event_  = PeriodicEvent(SOME_EVENT_ID, PERIOD_SCHED_TICKS);
+//static ScheduledEvent aperiodic_event_ = AperiodicEvent(SOME_EVENT_ID);
+
+//-- State forward declarations (indentation indicates heirarchy) --
+DECLARE_STATE(on);
+
+//-- Initial state transition --
+INITIAL_STATE(on);
+
+//-- Statemachine initialisation --
+void $1_init(void)
+{
+  Hsm_INIT(PID_$1);
+
+  //SUBSCRIBE_MULTIPLE(SOME, EVENT, IDS);
+
+  //Scheduler_schedule(&periodic_event_);
+  //Scheduler_schedule(&aperiodic_event_);
+
+}
+
+
+// ----------------------------------------------------------------------------
+// State definitions
+// ----------------------------------------------------------------------------
+
+STATE(on, TOP_LEVEL_STATE {
+
+  })

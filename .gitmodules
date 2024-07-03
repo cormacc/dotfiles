@@ -1,0 +1,3 @@
+[submodule "git/dotrepos/git-subrepo"]
+	path = git/dotrepos/git-subrepo
+	url = git@github.com:ingydotnet/git-subrepo

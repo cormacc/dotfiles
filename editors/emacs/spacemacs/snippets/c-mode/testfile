@@ -1,0 +1,20 @@
+# contributor: Cormac Cannon
+# name: testfile
+# key: testfile
+# --
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#include "unity.h"
+
+//== Mocked dependencies
+
+//== Unmocked dependencies
+
+//== Module under test ==
+#include "$1.h"
+
+void setUp(void) {}
+
+void tearDown(void) {}

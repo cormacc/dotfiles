@@ -1,0 +1,50 @@
+#key : head
+#name : CHeader
+#contributor : Cormac Cannon <cormac.cannon@neuromoddevices.com>
+# --
+/**
+ * @file
+ *
+ * $1
+ *
+ * @author Cormac Cannon (cormac.cannon@neuromoddevices.com)
+ * @copyright (c) Neuromod Devices Ltd. `(format-time-string "%Y")`$0
+ */
+
+#ifndef $1_H
+#  define $1_H
+
+#  ifdef  __cplusplus
+extern "C" {
+#  endif
+
+// ----------------------------------------------------------------------------
+// Includes
+// ----------------------------------------------------------------------------
+//... gcc
+#include <stdint.h>
+#include <stdbool.h>
+
+//... nRF / ZephyrOS
+
+//... framework
+
+//... application
+
+// ----------------------------------------------------------------------------
+// Type and constant definitions
+// ----------------------------------------------------------------------------
+
+// ----------------------------------------------------------------------------
+// Macro definitions
+// ----------------------------------------------------------------------------
+
+// ----------------------------------------------------------------------------
+// Function declarations
+// ----------------------------------------------------------------------------
+
+#  ifdef  __cplusplus
+}
+#  endif
+
+#endif  /* $1_H */

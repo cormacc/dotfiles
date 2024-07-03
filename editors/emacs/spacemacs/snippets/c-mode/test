@@ -1,0 +1,15 @@
+# contributor: Cormac Cannon
+# name: test
+# key: test
+# --
+
+void test_$1_should_$2_given_$3(void) {
+  //Given
+  $4
+
+  //When
+  $5
+
+  //Then
+  $6
+}

@@ -1,0 +1,26 @@
+# EditorConfig is awesome: http://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# Match examples....
+# [*] -- match all
+# [*.rb] -- match all files with the .rb extension
+# [*.{js,rb}] -- Matches multiple files with brace expansion notation
+# [{package.json,.travis.yml}] -- Matches files by name
+
+# Unix-style newlines with a newline ending every file
+[*]
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+#This was clobbering python settings on emacs
+#indent_size = 2
+charset = utf-8
+
+[*.{c,h}]
+indent_size = 2
+
+# Tab indentation (no size specified)
+[Makefile]
+indent_style = tab
