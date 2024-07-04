@@ -27,6 +27,7 @@ in
     ./desktop/audio.nix
     ./programming.nix
     ./desktop/office.nix
+    ./sysadmin.nix
     # ./desktop/entertainment.nix
   ];
 
