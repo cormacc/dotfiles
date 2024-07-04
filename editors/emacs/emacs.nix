@@ -25,9 +25,19 @@ in {
     graphviz
     plantuml
     ripgrep
-    # Language servers...
+    # Layer dependencies.
     # TODO: install these in project flakes instead maybe?
+    #       ... though the layers are enabled in global config ...
+    # ... c/c++
     cmake-language-server
+    clang-tools
+    # ... python
+    pyright
+    black
+    # ... clojure
+    clj-kondo
+    joker
+    # ...
   ];
 
   home.file.".local/bin/md2org".source=./bin/md2org;
