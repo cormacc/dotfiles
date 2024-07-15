@@ -101,11 +101,8 @@ This function should only modify configuration layer settings."
      ;;'semantic' used by cmode for refactoring support
      ;; semantic
      (shell :variables
-            shell-default-shell 'multi-term
-            ;; vterm causing issues on emacs-git
-            ;; 2024-01-12 vterm not working under nix -- can't find libvterm.so.0
-            ;;shell-default-shell 'vterm
-            shell-default-term-shell "/bin/zsh")
+            shell-default-shell 'vterm
+            shell-default-term-shell "~/.nix-profile/bin/fish")
      treemacs
      version-control
      ;; (version-control :variables

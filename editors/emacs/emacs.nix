@@ -20,6 +20,13 @@ in {
     aspell
     aspellDicts.en
     gsettings-desktop-schemas
+    #vterm deps
+    # .. This is old/broken -- see https://weblog.zamazal.org/sw-problem-nixos-emacs-vterm/
+    # libvterm
+    # ... This allegedly isn't
+    libvterm-neovim
+    libtool
+    cmake
     # Plantuml + deps
     jdk21
     graphviz
