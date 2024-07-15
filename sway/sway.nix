@@ -28,7 +28,7 @@ in {
     # Generic desktop enablement...
     xdg-desktop-portal-wlr
     xdg-desktop-portal-gtk
-    gnome.adwaita-icon-theme
+    adwaita-icon-theme
     font-awesome
     python3
     networkmanagerapplet
