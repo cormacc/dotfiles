@@ -166,12 +166,7 @@ N.B. the flake also relies on the USER environment variable for username, but th
 To provision your home environment, run the command provided below to rebuild the configuration:
 #+begin_src shell
   export NIXPKGS_ALLOW_UNFREE=1
-  home-manager switch --flake './dotfiles#<host>' --impure -b backup
-#+end_src
-e.g.
-#+begin_src shell
-  export NIXPKGS_ALLOW_UNFREE=1
-  home-manager switch --flake './dotfiles#xps15' --impure -b backup
+  home-manager switch --flake './dotfiles#default' --impure -b backup
 #+end_src
 
 N.B. applying this flake defines a 'hms' (as in home-manager switch) alias to the above command for convenience when applying subsequent updates.

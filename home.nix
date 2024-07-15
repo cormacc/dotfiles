@@ -13,7 +13,6 @@ let
   homedir = builtins.getEnv "HOME";
   dotRoot = "${homedir}/dotfiles";
   flakePath = "${dotRoot}#${cfgName}";
-  hostRoot = "${dotRoot}/hosts/${cfgName}";
 in
 {
 

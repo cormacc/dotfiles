@@ -60,19 +60,20 @@
       };
 
       homeConfigurations = {
-        xps15 = home-manager.lib.homeManagerConfiguration {
+        default = home-manager.lib.homeManagerConfiguration {
           inherit pkgs;
           modules = [
             ./home.nix
           ];
-          extraSpecialArgs = { cfgName = "xps15"; };
+          extraSpecialArgs = { cfgName = "default"; };
         };
-        p53 = home-manager.lib.homeManagerConfiguration {
+        minimal = home-manager.lib.homeManagerConfiguration {
           inherit pkgs;
+          #TODO: Generate a minimal config?
           modules = [
             ./home.nix
           ];
-          extraSpecialArgs = { cfgName = "p53"; };
+          extraSpecialArgs = { cfgName = "minimal"; };
         };
       };
     };
