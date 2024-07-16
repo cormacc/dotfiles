@@ -57,6 +57,17 @@
             ./nixos-extra.nix
           ];
         };
+        t580 = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = { hostName = "cc-t580"; };
+          modules = [
+            # TBD which nvidia package I need for an old mx150
+            ./nixos-nvidia.nix
+            ./hosts/t580/hardware-configuration.nix
+            ./nixos.nix
+            #./nixos-extra.nix
+          ];
+        };
       };
 
       homeConfigurations = {
