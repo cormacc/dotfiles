@@ -26,7 +26,7 @@
         # This configuration consolidates system and home directory setup...
         t470p = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { hostName = "cc-t470p"; };
+          specialArgs = { hostName = "t470p"; };
           modules = [
             ./nixos-nvidia.nix
             ./hosts/t470p/hardware-configuration.nix
@@ -37,7 +37,7 @@
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
               home-manager.users.cormacc = import ./home.nix;
-              home-manager.extraSpecialArgs = { cfgName = "t470p"; };
+              home-manager.extraSpecialArgs = { cfgName = "default"; };
 
               # Optionally, use home-manager.extraSpecialArgs to pass
               # arguments to home.nix
@@ -48,7 +48,7 @@
         #    as os-level tweaking should happen less often than local environment
         xps15 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { hostName = "cc-xps15"; };
+          specialArgs = { hostName = "xps15"; };
           modules = [
             # Nvidia packages not building as of 22/06/2024
             # ./nixos-nvidia.nix
@@ -59,7 +59,7 @@
         };
         t580 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { hostName = "cc-t580"; };
+          specialArgs = { hostName = "t580"; };
           modules = [
             # TBD which nvidia package I need for an old mx150
             ./nixos-nvidia.nix
