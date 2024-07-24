@@ -22,7 +22,8 @@ in
     ./nmd/nmd.nix
     ./sway/sway.nix
     ./editors/editors.nix
-    ./desktop/web.nix
+    # Bypass for now -- try OS install to see if it eliminate browser tab crashes?
+    # ./desktop/web.nix
     ./desktop/audio.nix
     ./programming.nix
     ./desktop/office.nix

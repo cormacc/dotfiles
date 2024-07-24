@@ -45,6 +45,8 @@ Some introductory text
     - [[#apply-the-home-manager-flake][Apply the Home Manager flake]]
   - [[#post-installation-activities][Post-installation activities]]
     - [[#generate-a-unique-ssh-key-for-this-installation][Generate a unique SSH key for this installation]]
+    - [[#hybridarch-linux-additional-setup-steps][Hybrid/arch linux additional setup steps]]
+      - [[#printing-cups-avahi-etc][Printing (CUPS, Avahi etc.)]]
 - [[#maintenance][Maintenance]]
   - [[#updating-packages][Updating packages]]
   - [[#managing-generations][Managing generations]]
@@ -180,6 +182,13 @@ Use the newer ED25519 algorithm (per [[https://docs.github.com/en/authentication
 #+end_src
 
 Then add the new key via Gitlab settings.
+
+
+*** Hybrid/arch linux additional setup steps
+
+**** Printing (CUPS, Avahi etc.)
+Install cups, hplip, hplip-plugin
+Follow instructions on avahi setup on [[https://wiki.archlinux.org/title/Avahi][arch wiki]] for network printer discovery to work.
 
 * Maintenance
 
