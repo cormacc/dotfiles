@@ -33,7 +33,7 @@ This function should only modify configuration layer settings."
 
    ;; List of configuration layers to load.
    dotspacemacs-configuration-layers
-   '(sql
+   '(
      ;; ----------------------------------------------------------------
      ;; Example of useful layers you may want to use right away.
      ;; Uncomment some layer names and press `SPC f e R' (Vim style) or
@@ -114,6 +114,22 @@ This function should only modify configuration layer settings."
 
 
      ;; ================================================================
+     ;; AI/llm layers
+     ;; ----------------------------------------------------------------
+     ;; The llm-client layer supports multiple LLM backends
+     ;; ... gptel provides a very simple/flexible/powerful interface
+     ;; ... ellama provides a more granular interface with a range of useful discrete functions
+     (llm-client :variables
+                 llm-client-enable-gptel t
+                 llm-client-enable-ellama t)
+     ;; ... the openai layer provides functionality similar to llm-client/ellama, but for openai only
+     openai
+     ;; ----------------------------------------------------------------
+     ;; AI/llm layers
+     ;; ================================================================
+
+
+     ;; ================================================================
      ;; Notes / GTD layers
      ;; ----------------------------------------------------------------
      ;; deft
@@ -144,7 +160,6 @@ This function should only modify configuration layer settings."
                ;; org-user-o365 t
                org-user-roam-directory "~/org/roam/")
      ;; outshine
-     openai
      pandoc
      ;; ----------------------------------------------------------------
      ;; Notes / GTD layers
@@ -246,6 +261,7 @@ This function should only modify configuration layer settings."
      ;; scheme
      shell-scripts
      spell-checking
+     sql
      ;; svelte
      (syntax-checking :variables
                       syntax-checking-enable-by-default nil
@@ -814,6 +830,63 @@ before packages are loaded."
   (setq cmake-ide-build-pool-use-persistent-naming t)
 
 
+
+  ;; AI and LLM...
+
+
+  ;; .... Authentication helpers
+
+  (defun authinfo/get-login (host)
+    "Extract username and password from an encrypted auth-source entry"
+    (require 'auth-source)
+    (car (auth-source-search
+          :host host
+          :requires '(:user :secret))))
+
+  (defun authinfo/get-username (host)
+    "Extract username from an encrypted auth-source entry"
+    (let* ((auth (authinfo/get-login host)))
+      (plist-get auth :user)))
+
+  (defun authinfo/get-password (host)
+    "Extract username from an encrypted auth-source entry."
+    ;; This assumes a callable secret to decrypt the password...
+    (let* ((auth (authinfo/get-login host)))
+      (funcall (plist-get auth :secret))))
+
+
+  ;; See https://github.com/karthink/gptel
+  (with-eval-after-load 'gptel
+    (gptel-make-anthropic "Claude"
+      :stream t
+      :key (authinfo/get-password "api.anthropic.com"))
+    (setq
+     ;; Backend defaults to ChatGPT/gpt-3.5-turbo. Overridding...
+     gptel-backend (gptel-make-openai "ChatGPT" :stream t :key (authinfo/get-password "api.openai.com"))
+     gptel-model "gpt-4o"
+
+     ;; gptel-backend (gptel-make-anthropic "Claude" :stream t :key (authinfo/get-password "api.anthropic.com"))
+
+     ;; Use org mode syntax by default for buffers
+     gptel-default-mode 'org-mode)
+    (global-set-key (kbd "C-c RET") 'gptel-send))
+
+
+  ;; See...
+  ;; 1. https://github.com/s-kostyaev/ellama
+  ;; 2. https://github.com/ahyatt/llm
+  (with-eval-after-load 'ellama
+    ;; TODO: Investigate setting up multiple providers, as we do with gptel...
+    ;; OpenAI...
+    (require 'llm-openai)
+    (setopt ellama-provider (make-llm-openai
+                             :key (authinfo/get-password "api.openai.com")
+                             :chat-model "gpt-4o")))
+
+  (with-eval-after-load 'openai
+    (setq
+     openai-key (authinfo/get-password "api.openai.om")))
+
   ;; JS / React
 
   (setq-default
@@ -833,6 +906,7 @@ before packages are loaded."
     (interactive)
     (let ((enable-local-variables :all))
       (hack-dir-local-variables-non-file-buffer)))
+
   (defun dir-locals-reload-for-all-buffers-in-this-directory ()
     "For every buffer with the same `default-directory` as the current buffer's, reload dir-locals."
     (interactive)
