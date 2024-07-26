@@ -11,6 +11,10 @@ in {
   #Folder nav shell shortcuts
   home.file."${dir-nav-posix}".source = ./dir-nav.sh;
 
+  #TODO: Revisit this
+  #      .. probably want to enable services.gpg-agent and install a pinentry package also...
+  programs.gpg.enable = true;
+
   programs.starship.enable = true;
 
   programs.thefuck.enable = true;

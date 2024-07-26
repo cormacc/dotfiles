@@ -834,27 +834,33 @@ before packages are loaded."
   ;; AI and LLM...
 
 
-  ;; .... Authentication helpers
+  ;; ... Authentication helpers
 
-  (defun authinfo/get-login (host)
+  (defun authinfo/get-login-info (host)
     "Extract username and password from an encrypted auth-source entry"
     (require 'auth-source)
-    (car (auth-source-search
-          :host host
-          :requires '(:user :secret))))
+    (if-let (login-info (car (auth-source-search
+                              :host host
+                              :requires '(:user :secret))))
+        login-info
+      (user-error "No authinfo entry found for '%s'" host)))
 
   (defun authinfo/get-username (host)
     "Extract username from an encrypted auth-source entry"
-    (let* ((auth (authinfo/get-login host)))
+    (let* ((auth (authinfo/get-login-info host)))
       (plist-get auth :user)))
 
   (defun authinfo/get-password (host)
     "Extract username from an encrypted auth-source entry."
     ;; This assumes a callable secret to decrypt the password...
-    (let* ((auth (authinfo/get-login host)))
-      (funcall (plist-get auth :secret))))
+    (let* ((login-info (authinfo/get-login-info host))
+           (secret (plist-get auth :secret)))
+      (if (functionp secret)
+          (encode-coding-string (funcall secret) 'utf-8)
+        secret)))
 
 
+  ;; ... llm-client layer -- gptel backends
   ;; See https://github.com/karthink/gptel
   (with-eval-after-load 'gptel
     (gptel-make-anthropic "Claude"
@@ -872,6 +878,8 @@ before packages are loaded."
     (global-set-key (kbd "C-c RET") 'gptel-send))
 
 
+
+  ;; ... llm-client layer -- ellama backends
   ;; See...
   ;; 1. https://github.com/s-kostyaev/ellama
   ;; 2. https://github.com/ahyatt/llm
@@ -883,6 +891,7 @@ before packages are loaded."
                              :key (authinfo/get-password "api.openai.com")
                              :chat-model "gpt-4o")))
 
+  ;; ... dedicated openai layer
   (with-eval-after-load 'openai
     (setq
      openai-key (authinfo/get-password "api.openai.om")))
