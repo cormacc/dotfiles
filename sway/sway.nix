@@ -34,14 +34,23 @@ in {
     networkmanagerapplet
     helvum # Patch bay for pipewire audio
     # Wayland...
+    # ... notifications
+    swaynotificationcenter
+    libnotify
+    inotify-tools
+    # ... screenshots
+    sway-contrib.grimshot
     grim # screenshot functionality
     slurp # screenshot functionality
+    swappy
+    # ... clipboard
     wl-clipboard # wl-copy and wl-paste for copy/paste from stdin / stdout
     cliphist
+    # ... screen related etc.
     wluma
-    inotify-tools
     brightnessctl
     wf-recorder
+    # ... misc
     showmethekey # useful for identifying keycodes etc. for config
     # More sway-targeted....
     foot #terminal
@@ -93,14 +102,14 @@ in {
   };
 
   # mako  - a notification daemon for Wayland
-  # TODO: Look at SwayNotificationCenter?
-  services.mako = {
-    enable = true;
-    extraConfig = ''
-[mode=do-not-disturb]
-invisible=1
-'';
-  };
+  # DEPRECATED: Using SwayNotificationCenter instead
+#   services.mako = {
+#     enable = true;
+#     extraConfig = ''
+# [mode=do-not-disturb]
+# invisible=1
+# '';
+#   };
 
   # programs.swayr = {
   #   enable=true;

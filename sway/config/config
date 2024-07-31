@@ -39,3 +39,7 @@ bar {
 ### N.B. do this last, as may use definitions from prior includes
 #include $config-dir/autostart
 include $config-dir/autostarts.conf
+
+# TODO: Move this elsewhere
+# Toggle control center
+bindsym $mod+Shift+n exec swaync-client -t -sw
