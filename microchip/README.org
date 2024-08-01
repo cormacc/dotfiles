@@ -1,0 +1,127 @@
+#+TITLE: Microchip MPLAB-X Installation Instructions (Arch)
+#+AUTHOR: Cormac Cannon
+#+EMAIL: cormac.cannon@neuromoddevices.com
+#+LANGUAGE: en
+#+COPYRIGHT: Neuromod Devices Ltd. 2024
+#+DATE: 2024-08-01
+
+
+# EXPORT SETUP
+
+# 1. Ensure exports include both source block contents and any results
+#+PROPERTY: header-args :exports both
+
+# 2. Suppress author in title, and prevent ^ and _ from initiating super and subscript....
+#     N.B. can still use the braced forms -- i.e. 'bla^{super}_{sub}'
+#+OPTIONS: author:nil ^:nil
+
+# 3. HTML export theme
+#+SETUPFILE: ~/Documents/templates/org-html-themes/org/theme-readtheorg.setup
+
+# 4. ODT (and DOCX) export styles/theme
+#    N.B. Editing the ODT can cause the embedded logo jpg name to change... if this occurs, unzip the odt to check the new name and update this line
+#+ODT_STYLES_FILE: ("~/Documents/templates/nmd-template.odt" ("styles.xml" "content.xml" "Pictures/1000000000000A4F000004659ACFB30B1A81D55F.jpg"))
+
+
+# Startup options : Want to view rendered versions of latex fragments (equations etc.) by default
+#+STARTUP:: latexpreview
+
+
+
+
+* Table of Contents                                         :TOC_2_gh:noexport:
+- [[#installation-instructions][Installation instructions]]
+  - [[#install-yay-an-aur-build-helper][Install ~yay~ (an AUR build helper)]]
+  - [[#install-the-mplab-x-aur-package][Install the MPLAB-X AUR package]]
+  - [[#patch-the-failing-java8-openjfx-package][Patch the failing ~java8-openjfx~ package]]
+  - [[#rebuild-mplabx-again][Rebuild MPLABX again]]
+- [[#references][References]]
+
+* Installation instructions
+MPLAB-X is available in the AUR (Arch User Repository).
+
+** Install ~yay~ (an AUR build helper)
+#+begin_src sh
+  sudo pacman -Sy yay
+#+end_src
+
+** Install the MPLAB-X AUR package
+#+begin_src sh
+  yay -Sy microchip-mplabx-bin
+#+end_src
+
+** Patch the failing ~java8-openjfx~ package
+A principal dependency of MPLAB-X is OpenJFX (JavaFX) for an ancient version 8 of OpenJDK.
+Currently (August 2024) this is failing to build for two reasons:
+1. The source archive URL referenced from the
+2. The current build defaults specified in /etc/makepkg.conf cause the source build to fail
+
+N.B. (1) above may be a transient issue, but it's happening consistently at the moment.
+
+A corrected snapshot of the PKGBUILD as of 01/08/2024 has been provided for reference purposes:
+[[./java8-openjfx/PKGBUILD]]
+
+*** Locate the PKGBUILD in the yay cache
+After the failed build attempt, you should find the PKGBUILD folder at [[~/.cache/yay/java8-openjfx]], and the PKGBUILD itself at [[~/.cache/yay/java8-openjfx/PKGBUILD]].
+
+*** Correct the source archive URL
+Amend ...
+#+begin_src makepkg
+source=(
+  https://hg.openjdk.java.net/openjfx/8u-dev/rt/archive/${pkgver//./}-ga.tar.bz2
+  ... <other source deps> ...
+)
+#+end_src
+
+... to ...
+
+#+begin_src makepkg
+source=(
+  # ORIGINAL URL - DOWNLOAD CORRUPT AS OF 01/08/2024
+  # https://hg.openjdk.java.net/openjfx/8u-dev/rt/archive/${pkgver//./}-ga.tar.bz2
+  # ALTERNATE ARCHIVE URL FOR THE 8u202-ga TAG
+  https://hg.openjdk.org/openjfx/8u-dev/rt/archive/85d09981ae0d.tar.bz2
+  ... <other source deps> ...
+)
+#+end_src
+
+*** Correct the source archive checksum
+Amend ...
+#+begin_src makepkg
+sha256sums=('813ed6bbe7669b5acae7908720b9e353771e854be75c57a323310d0b9271daff'
+            ... <other checksums> ...
+)
+#+end_src
+
+... to ...
+
+#+begin_src makepkg
+sha256sums=(#ORIGINAL CHECKSUM for 8u202-ga.tar.bz2
+            #'813ed6bbe7669b5acae7908720b9e353771e854be75c57a323310d0b9271daff'
+            #CHECKSUM FOR ALTERNATE ARCHIVE
+            '5b5e8ae9228cbb3ea4f857499e6462bbd98688d778ef8646bb042cd93d66c6d8'
+            ... <other checksums> ...
+)
+#+end_src
+
+*** Rebuild
+#+begin_src sh
+  makepkg --syncdeps
+#+end_src
+
+*** Install
+#+begin_src sh
+  makepkg --install
+#+end_src
+
+** Rebuild MPLABX again
+Try installing mplabx once more -- this time successfully hopefully...
+#+begin_src sh
+  yay -Sy microchip-mplabx-bin
+#+end_src
+
+* References
+- [[https://aur.archlinux.org/packages/java8-openjfx][AUR search - java8-openjfx package]]
+- [[https://wiki.openjdk.org/display/OpenJFX/Main][OpenJDK Wiki / OpenJFX]]
+- [[https://wiki.openjdk.org/display/OpenJFX/Building+OpenJFX+8u#BuildingOpenJFX8u-GettingtheSources][OpenJFX build instructions]]
+- [[https://wiki.openjdk.org/display/OpenJFX/Building+OpenJFX+8u#BuildingOpenJFX8u-GettingtheSources][OpenJFX repo for JDK8]] / [[https://hg.openjdk.org/openjfx/8u-dev/rt/rev/85d09981ae0d][8u202-ga tag]]
