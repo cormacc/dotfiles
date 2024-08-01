@@ -11,9 +11,11 @@ in {
   #Folder nav shell shortcuts
   home.file."${dir-nav-posix}".source = ./dir-nav.sh;
 
-  #TODO: Revisit this
-  #      .. probably want to enable services.gpg-agent and install a pinentry package also...
   programs.gpg.enable = true;
+  services.gpg-agent = {
+    enable = true;
+    pinentryPackage = pkgs.pinentry-gnome3;
+  };
 
   programs.starship.enable = true;
 
