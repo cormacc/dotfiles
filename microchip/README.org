@@ -72,9 +72,7 @@ source=(
   ... <other source deps> ...
 )
 #+end_src
-
 ... to ...
-
 #+begin_src makepkg
 source=(
   # ORIGINAL URL - DOWNLOAD CORRUPT AS OF 01/08/2024
@@ -92,9 +90,7 @@ sha256sums=('813ed6bbe7669b5acae7908720b9e353771e854be75c57a323310d0b9271daff'
             ... <other checksums> ...
 )
 #+end_src
-
 ... to ...
-
 #+begin_src makepkg
 sha256sums=(#ORIGINAL CHECKSUM for 8u202-ga.tar.bz2
             #'813ed6bbe7669b5acae7908720b9e353771e854be75c57a323310d0b9271daff'
@@ -102,6 +98,17 @@ sha256sums=(#ORIGINAL CHECKSUM for 8u202-ga.tar.bz2
             '5b5e8ae9228cbb3ea4f857499e6462bbd98688d778ef8646bb042cd93d66c6d8'
             ... <other checksums> ...
 )
+#+end_src
+
+*** Modify ~/etc/makepkg.conf~
+Amend ...
+#+begin_src
+LDFLAGS="-Wl,-O1 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now \
+         -Wl,-z,pack-relative-relocs"
+#+end_src
+... to ...
+#+begin_src
+LDFLAGS="-Wl,-O1 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now"
 #+end_src
 
 *** Rebuild
@@ -112,6 +119,18 @@ sha256sums=(#ORIGINAL CHECKSUM for 8u202-ga.tar.bz2
 *** Install
 #+begin_src sh
   makepkg --install
+#+end_src
+
+
+*** (Optionally) Revert the modification to ~/etc/makepkg.conf~
+Revert ...
+#+begin_src
+LDFLAGS="-Wl,-O1 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now"
+#+end_src
+... to ...
+#+begin_src
+LDFLAGS="-Wl,-O1 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now \
+         -Wl,-z,pack-relative-relocs"
 #+end_src
 
 ** Rebuild MPLABX again
