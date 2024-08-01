@@ -158,7 +158,7 @@ This function should only modify configuration layer settings."
                ;;Use your primary O365 e-mail address here, or set to t to load it from ~/.authinfo(.gpg)
                ;; Disabling for now, as can't get the new auth mechanism to work
                ;; org-user-o365 t
-               org-user-roam-directory "~/org/roam/")
+               org-user-roam-directory "~/notes/roam/")
      ;; outshine
      pandoc
      ;; ----------------------------------------------------------------
