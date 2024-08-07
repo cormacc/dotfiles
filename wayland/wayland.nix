@@ -1,17 +1,18 @@
 {config, pkgs, ... }:
 
 let
-  sway-dotfiles-root = "${config.home.homeDirectory}/dotfiles/sway";
+  wayland-dotfiles-root = "${config.home.homeDirectory}/dotfiles/wayland";
   commonSessionVariables = {
     #Use fish as default shell, but NOT login shell as not posix compliant
-    TERMINAL = "foot -e /usr/bin/env fish";
+    # FIXME: Bypassing for now, as nix profile not getting sourced under fish...
+    #TERMINAL = "foot -e /usr/bin/env fish";
     #N.B. Check that this overrides the foot-extra specified in some OS defaults (e.g. manjaro)
     #     foot is included in ncurses / makes interop easier, and foot-extra additions included in ncurses version since 2021-11-13
     TERM = "foot";
 
     #Prevents java UIs showing up as a gray window on i3 and sway...
     _JAVA_AWT_WM_NONREPARENTING = 1;
-    #Ensure sway-exec can source executables installed by home-manager
+    #Ensure sway-exec etc. can source executables installed by home-manager
     PATH = "${config.home.homeDirectory}/.nix-profile/bin:$PATH";
   };
 in {
@@ -19,6 +20,10 @@ in {
   home.sessionVariables = commonSessionVariables;
   #... and environment.d for gdm, kdm etc. that don't source user profile
   systemd.user.sessionVariables = commonSessionVariables;
+
+  # N.B. Install the following packages at OS level
+  # - sway
+  # - waybar (as nix-installed variant has privilege issues with hyprland)
 
   # The following packages have home-manager modules, but convenient to
   # install directly and link their config files using mkOutOfStoreSymlink
@@ -35,11 +40,10 @@ in {
     helvum # Patch bay for pipewire audio
     # Wayland...
     # ... notifications
-    swaynotificationcenter
+    swaynotificationcenter # Usable on hyprland too
     libnotify
     inotify-tools
     # ... screenshots
-    sway-contrib.grimshot
     grim # screenshot functionality
     slurp # screenshot functionality
     swappy
@@ -54,13 +58,12 @@ in {
     showmethekey # useful for identifying keycodes etc. for config
     # More sway-targeted....
     foot #terminal
-    swaylock
     # wob # services.wob.enable below doesn't seem to install wob fo rsome reason...
-    waybar
+    #
+    # waybar
     rofi #launcher / dmenu replacement
     fuzzel #alternative dmenu replacement
     jq # json parsing -- used by various sway/waybar scripts
-    swaybg #backgrounds
     bc # gnu calculator -- used in some scripts
 
   ];
@@ -102,7 +105,7 @@ in {
   };
 
   # mako  - a notification daemon for Wayland
-  # DEPRECATED: Using SwayNotificationCenter instead
+  # DEPRECATED: Using SwayNotificationCenter instead for sway. And builtin for hyprland?
 #   services.mako = {
 #     enable = true;
 #     extraConfig = ''
@@ -111,26 +114,15 @@ in {
 # '';
 #   };
 
-  # programs.swayr = {
-  #   enable=true;
-  #   systemd.enable = true;
-  # };
-
   programs.fuzzel = {
     enable=true;
   };
 
-  home.file."${config.xdg.configHome}/sway".source = config.lib.file.mkOutOfStoreSymlink "${sway-dotfiles-root}/config";
-
-  # waybar - status bar
-  # TODO: Look at yambar?
-  home.file."${config.xdg.configHome}/waybar".source = config.lib.file.mkOutOfStoreSymlink "${sway-dotfiles-root}/waybar";
-
   # rofi - a dmenu replacement
-  home.file."${config.xdg.configHome}/rofi".source = config.lib.file.mkOutOfStoreSymlink "${sway-dotfiles-root}/rofi";
+  home.file."${config.xdg.configHome}/rofi".source = config.lib.file.mkOutOfStoreSymlink "${wayland-dotfiles-root}/rofi";
 
   # foot - terminal
-  home.file."${config.xdg.configHome}/foot/foot.ini".source = config.lib.file.mkOutOfStoreSymlink "${sway-dotfiles-root}/foot.ini";
+  home.file."${config.xdg.configHome}/foot/foot.ini".source = config.lib.file.mkOutOfStoreSymlink "${wayland-dotfiles-root}/foot.ini";
 
   home.file."${config.xdg.configHome}/fontconfig/conf.d/51-monospace.conf".source = ./fontconfig.conf;
 

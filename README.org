@@ -179,7 +179,7 @@ N.B. applying this flake defines a 'hms' (as in home-manager switch) alias to th
 *** Generate a unique SSH key for this installation
 Use the newer ED25519 algorithm (per [[https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent][Github instructions]]).
 #+begin_src shell
-  ssh-keygen -t ed25519 -C "your_email@example.com"
+  ssh-keygen -t ed25519 -C "$EMAIL"
 #+end_src
 
 Then add the new key via Gitlab settings.

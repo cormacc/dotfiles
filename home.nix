@@ -20,10 +20,12 @@ in
     ./shell/shell.nix
     # Include these at flake level instead?
     ./nmd/nmd.nix
-    ./sway/sway.nix
+    ./wayland/wayland.nix
+    ./wayland/sway/sway.nix
+    ./wayland/hypr/hypr.nix
     ./editors/editors.nix
-    # Bypass for now -- try OS install to see if it allows video acceleration to be enabled..
-    ./desktop/web.nix
+    # Bypass for now -- nix-installed chromium can't use hardware acceleration - on non NixOS at least
+    # ./desktop/web.nix
     ./desktop/audio.nix
     ./programming.nix
     ./desktop/office.nix

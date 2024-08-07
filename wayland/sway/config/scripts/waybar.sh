@@ -3,4 +3,4 @@
 
 pkill waybar
 
-waybar > $(mktemp -t XXXX.waybar.log)
+waybar -c ~/.config/sway/waybar-sway.jsonc -s ~/.config/sway/waybar-sway.css > $(mktemp -t XXXX.waybar.log)
