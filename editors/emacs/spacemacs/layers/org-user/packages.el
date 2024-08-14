@@ -31,23 +31,22 @@
 
 (defconst org-user-packages
   '(
-     (org-archive-subtree-hierarchical :location local)
-     org
-     org-web-tools
-     org-sidebar
-     org-super-agenda
-     org-roam-bibtex
-     ;; magit-todos
-     ob-typescript
-     leuven-theme
-     org-roam
-     ;; excorporate
-     (vulpea :location (recipe
-                        :fetcher github
-                        :repo "d12frosted/vulpea"
-                        :branch "master"))
-     ;; excorporate
-     )
+    (org-archive-subtree-hierarchical :location local)
+    org
+    org-web-tools
+    org-sidebar
+    ;; org-super-agenda
+    org-roam-bibtex
+    ;; magit-todos
+    ob-typescript
+    ;; leuven-theme
+    org-roam
+    ;; excorporate
+    ;; (vulpea :location (recipe
+    ;;                    :fetcher github
+    ;;                    :repo "d12frosted/vulpea"
+    ;;                    :branch "master"))
+    )
   "The list of Lisp packages required by the org-user layer.
 
 Each entry is either:
@@ -98,60 +97,60 @@ Each entry is either:
           )
   )
 
-(defun org-user/init-org-super-agenda ()
-  :defer t)
+;; (defun org-user/init-org-super-agenda ()
+;;   :defer t)
 
-(defun org-user/post-init-org-super-agenda ()
-  (setq org-agenda-custom-commands
-        '(
-          ("w" "At work" tags-todo "@work"
-           ((org-agenda-overriding-header "Work")
-            (org-agenda-skip-function #'org-user-agenda-skip-all-siblings-but-first)))
-          ("h" "At home" tags-todo "@home"
-           ((org-agenda-overriding-header "Home")
-            (org-agenda-skip-function #'org-user-agenda-skip-all-siblings-but-first)))
-          ("o" "Overview"
-           ;;; Adapted from https://hugocisneros.com/org-config/
-           ((agenda "" ((org-agenda-span 'day)
-                        (org-super-agenda-groups
-                         '((:name "Today"
-                                  :time-grid t
-                                  :date today
-                                  :todo "TODAY"
-                                  :scheduled today
-                                  :order 1)))))
-            (alltodo "" ((org-agenda-overriding-header "")
-                         (org-super-agenda-groups
-                          '(;; Each group has an implicit boolean OR operator between its selectors.
-                            (:name "Today"
-                                   :deadline today
-                                   :face (:background "black"))
-                            (:name "Overdue"
-                                   :and (:deadline past :todo ("TODO" "WAITING" "HOLD" "NEXT"))
-                                   :face (:background "#7f1b19"))
-                            ;; (:name "Work Important"
-                            ;;        :and (:priority>= "B" :category "Work" :todo ("TODO" "NEXT")))
-                            ;; (:name "Work other"
-                            ;;        :and (:category "Work" :todo ("TODO" "NEXT")))
-                            (:name "Important"
-                                   :priority "A")
-                            (:priority<= "B"
-                                         ;; Show this section after "Today" and "Important", because
-                                         ;; their order is unspecified, defaulting to 0. Sections
-                                         ;; are displayed lowest-number-first.
-                                         :order 1)
-                            ;; (:name "Papers"
-                            ;;        :file-path "org/roam/notes")
-                            (:name "Waiting"
-                                   :todo "WAITING"
-                                   :order 9)
-                            (:name "Someday"
-                                   :todo "SOMEDAY"
-                                   :order 10)))))))
+;; (defun org-user/post-init-org-super-agenda ()
+;;   (setq org-agenda-custom-commands
+;;         '(
+;;           ("w" "At work" tags-todo "@work"
+;;            ((org-agenda-overriding-header "Work")
+;;             (org-agenda-skip-function #'org-user-agenda-skip-all-siblings-but-first)))
+;;           ("h" "At home" tags-todo "@home"
+;;            ((org-agenda-overriding-header "Home")
+;;             (org-agenda-skip-function #'org-user-agenda-skip-all-siblings-but-first)))
+;;           ("o" "Overview"
+;;            ;;; Adapted from https://hugocisneros.com/org-config/
+;;            ((agenda "" ((org-agenda-span 'day)
+;;                         (org-super-agenda-groups
+;;                          '((:name "Today"
+;;                                   :time-grid t
+;;                                   :date today
+;;                                   :todo "TODAY"
+;;                                   :scheduled today
+;;                                   :order 1)))))
+;;             (alltodo "" ((org-agenda-overriding-header "")
+;;                          (org-super-agenda-groups
+;;                           '(;; Each group has an implicit boolean OR operator between its selectors.
+;;                             (:name "Today"
+;;                                    :deadline today
+;;                                    :face (:background "black"))
+;;                             (:name "Overdue"
+;;                                    :and (:deadline past :todo ("TODO" "WAITING" "HOLD" "NEXT"))
+;;                                    :face (:background "#7f1b19"))
+;;                             ;; (:name "Work Important"
+;;                             ;;        :and (:priority>= "B" :category "Work" :todo ("TODO" "NEXT")))
+;;                             ;; (:name "Work other"
+;;                             ;;        :and (:category "Work" :todo ("TODO" "NEXT")))
+;;                             (:name "Important"
+;;                                    :priority "A")
+;;                             (:priority<= "B"
+;;                                          ;; Show this section after "Today" and "Important", because
+;;                                          ;; their order is unspecified, defaulting to 0. Sections
+;;                                          ;; are displayed lowest-number-first.
+;;                                          :order 1)
+;;                             ;; (:name "Papers"
+;;                             ;;        :file-path "org/roam/notes")
+;;                             (:name "Waiting"
+;;                                    :todo "WAITING"
+;;                                    :order 9)
+;;                             (:name "Someday"
+;;                                    :todo "SOMEDAY"
+;;                                    :order 10)))))))
 
-          ))
-  (add-hook 'org-agenda-mode-hook 'org-super-agenda-mode)
-  )
+;;           ))
+;;   (add-hook 'org-agenda-mode-hook 'org-super-agenda-mode)
+;;   )
 
 (defun org-user/init-org-sidebar ()
   :defer t)
@@ -165,32 +164,32 @@ Each entry is either:
 (defun org-user/init-ob-typescript ()
   :defer t)
 
-(defun org-user/init-leuven-theme ()
-  :defer t)
+;; (defun org-user/init-leuven-theme ()
+;;   :defer t)
 
 ;; See https://d12frosted.io/posts/2021-01-16-task-management-with-roam-vol5.html
-(defun org-user/init-vulpea ()
-  (use-package vulpea
-    ;; Not deferring, as 'vulpea-buffer-tags-get' not tagged with ;;;###autoload upstream...
-    ;; :defer t
-    :after org-roam
-    :ensure t
-    ;; hook into org-roam-db-autosync-mode you wish to enable
-    ;; persistence of meta values (see respective section in README to
-    ;; find out what meta means)
-    ;; :hook ((org-roam-db-autosync-mode . vulpea-db-autosync-enable)))
-    ;; As the hook approach isn't working for me in spacemacs...
-    :init (vulpea-db-autosync-enable)
-  ))
+;; (defun org-user/init-vulpea ()
+;;   (use-package vulpea
+;;     ;; Not deferring, as 'vulpea-buffer-tags-get' not tagged with ;;;###autoload upstream...
+;;     ;; :defer t
+;;     :after org-roam
+;;     :ensure t
+;;     ;; hook into org-roam-db-autosync-mode you wish to enable
+;;     ;; persistence of meta values (see respective section in README to
+;;     ;; find out what meta means)
+;;     ;; :hook ((org-roam-db-autosync-mode . vulpea-db-autosync-enable)))
+;;     ;; As the hook approach isn't working for me in spacemacs...
+;;     :init (vulpea-db-autosync-enable)
+;;     ))
 
-(defun org-user/post-init-vulpea ()
-  (add-hook 'find-file-hook #'org-user/vulpea-project-update-tag)
-  (add-hook 'before-save-hook #'org-user/vulpea-project-update-tag)
-  ;; (advice-add 'org-agenda :before #'org-user/vulpea-agenda-files-update)
-  (advice-add 'org-agenda-files :filter-return #'org-user/inject-vulpea-project-files)
-  ;; As the hook approach isn't working for me in spacemacs...
-  ;; (vulpea-db-autosync-enable)
-  )
+;; (defun org-user/post-init-vulpea ()
+;;   (add-hook 'find-file-hook #'org-user/vulpea-project-update-tag)
+;;   (add-hook 'before-save-hook #'org-user/vulpea-project-update-tag)
+;;   ;; (advice-add 'org-agenda :before #'org-user/vulpea-agenda-files-update)
+;;   (advice-add 'org-agenda-files :filter-return #'org-user/inject-vulpea-project-files)
+;;   ;; As the hook approach isn't working for me in spacemacs...
+;;   ;; (vulpea-db-autosync-enable)
+;;   )
 
 (defun org-user/pre-init-org-roam ()
   (if org-user-roam-directory (setq org-roam-directory org-user-roam-directory)))
