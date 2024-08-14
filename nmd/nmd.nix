@@ -16,6 +16,8 @@
   # See https://github.com/abraunegg/onedrive
   home.packages = with pkgs; [
     onedrive
+    maestral
+    maestral-gui
   ];
   home.file."${config.xdg.configHome}/onedrive/config".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/nmd/onedrive-config";
   #Manually link to systemd service, as home-manager not doing it for us here
