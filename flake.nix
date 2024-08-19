@@ -50,9 +50,9 @@
           system = "x86_64-linux";
           specialArgs = { hostName = "xps15"; };
           modules = [
-            # Nvidia packages not building as of 22/06/2024
-            # ./nixos-nvidia.nix
+            ./nixos-nvidia.nix
             ./hosts/xps15/hardware-configuration.nix
+            ./hosts/xps15/nixos-configuration.nix
             ./nixos.nix
             ./nixos-extra.nix
           ];

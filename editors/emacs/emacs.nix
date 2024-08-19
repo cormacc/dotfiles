@@ -27,6 +27,8 @@ in {
     libvterm-neovim
     libtool
     cmake
+    gnumake
+    gcc
     # Plantuml + deps
     jdk21
     graphviz

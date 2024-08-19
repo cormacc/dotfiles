@@ -20,7 +20,7 @@
   boot.loader.efi.canTouchEfiVariables = true;
 
   # nixpkgs kernel version usually trailing a bit...
-  # boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.kernelPackages = pkgs.linuxPackages_latest;
 
   # Required to install sway via home-manager
   # ... but we're installing via nixos
@@ -128,6 +128,8 @@
     git
     home-manager
     lshw
+    chromium
+    waybar
   ];
 
   environment.variables.EDITOR = "vim";
