@@ -98,6 +98,8 @@
     '';
   };
 
+  programs.hyprland.enable = true;
+  programs.hyprlock.enable = true;
 
   # enable docker
   virtualisation.docker.enable = true;
@@ -130,6 +132,7 @@
     lshw
     chromium
     waybar
+    kitty
   ];
 
   environment.variables.EDITOR = "vim";
