@@ -16,7 +16,8 @@ in {
   home.packages = with pkgs; [
     # ... screenshots
     sway-contrib.grimshot
-    swaylock
+    # Install this at system level -- PAM issues authenticating otherwise
+    # swaylock
   ];
 
   # programs.swayr = {
