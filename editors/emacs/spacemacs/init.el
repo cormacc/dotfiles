@@ -44,8 +44,8 @@ This function should only modify configuration layer settings."
      ;; Completion layers
      ;; ----------------------------------------------------------------
      ;; Helm layer is loaded automatically if ivy or compleseus layers not specified
-     ;; compleseus
-     ivy
+     compleseus
+     ;; ivy
      ;; ----------------------------------------------------------------
      ;; Completion layers
      ;; ================================================================
@@ -471,7 +471,8 @@ It should only modify the values of Spacemacs settings."
    ;; a non-negative integer (pixel size), or a floating-point (point size).
    ;; Point size is recommended, because it's device independent. (default 10.0)
    ;; N.B. use 'fc-list' to list installed font names on linux
-   dotspacemacs-default-font '("Source Code Pro"
+   dotspacemacs-default-font '(;;"FiraCode Nerd Font"
+                               "Source Code Pro"
                                :size 10.0
                                :weight normal
                                :width normal)
