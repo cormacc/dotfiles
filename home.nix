@@ -65,7 +65,7 @@ in
     hmb = "home-manager build --flake '${flakePath}' --impure";
     hms = "home-manager switch --flake '${flakePath}' --impure";
     nob = "nixos-rebuild build --flake '${flakePath}' --impure";
-    nos = "sudo nixos-rebuild switch --flake ${flakePath}#`cat /etc/hostname` --impure";
+    nos = "sudo nixos-rebuild switch --flake ${dotRoot}#`cat /etc/hostname` --impure";
   };
 
   services.syncthing = {
