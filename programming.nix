@@ -12,8 +12,9 @@
     bubblewrap
 
     # Should install these per project... but bridging the gap while flakifying all the things...
-    python3
-    pipenv
-    poetry
+    # UPDATE: Install at OS-level instead -- nix-profile python complicates some package installation on arch linux
+    # python3
+    # pipenv
+    # poetry
   ];
 }

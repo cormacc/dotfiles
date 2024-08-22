@@ -133,6 +133,11 @@
     chromium
     waybar
     kitty
+    # Install system python at OS level...
+    # ... this keeps home-manager config compatible with Arch linux package management
+    python3
+    pipenv
+    poetry
   ];
 
   environment.variables.EDITOR = "vim";

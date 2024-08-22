@@ -24,6 +24,7 @@ in {
   # N.B. Install the following packages at OS level
   # - sway
   # - waybar (as nix-installed variant has privilege issues with hyprland)
+  # - python3 (as nix-installed variant breaks some aur packages on Arch linux)
 
   # The following packages have home-manager modules, but convenient to
   # install directly and link their config files using mkOutOfStoreSymlink
@@ -35,7 +36,7 @@ in {
     xdg-desktop-portal-gtk
     adwaita-icon-theme
     font-awesome
-    python3
+
     networkmanagerapplet
     helvum # Patch bay for pipewire audio
     # Wayland...
