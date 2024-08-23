@@ -16,8 +16,9 @@
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   # Bootloader.
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
+  # Now customised per-host in hosts/<host>/nixos-configuration.nix
+  # boot.loader.systemd-boot.enable = true;
+  # boot.loader.efi.canTouchEfiVariables = true;
 
   # nixpkgs kernel version usually trailing a bit...
   boot.kernelPackages = pkgs.linuxPackages_latest;
