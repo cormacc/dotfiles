@@ -27,6 +27,11 @@
   # ... but we're installing via nixos
   #security.polkit.enable = true;
 
+  # Laptop bits
+  # ... TODO: Move to nixos-laptop.nix... if I ever get another non-laptop...
+  services.thermald.enable = true;
+  # This conflicts with services.power-profiles.daemon.enable... which appears to be true by default
+  # services.tlp.enable = true;
 
   networking.hostName = specialArgs.hostName; # Define your hostname.
 
@@ -103,13 +108,27 @@
   programs.hyprlock.enable = true;
 
   # enable docker
-  virtualisation.docker.enable = true;
-
-  # use docker without Root access (Rootless docker)
-  virtualisation.docker.rootless = {
+  virtualisation.docker = {
     enable = true;
-    setSocketVariable = true;
+
+    # use docker without Root access (Rootless docker)
+    # ... though this interferes with running supabase locally
+    # rootless = {
+    #   enable = true;
+    #   setSocketVariable = true;
+    # };
+
+    # Enable remote access for supabase cli with rootless docker...
+    # .... although this doesn't work currently...
+    # ... see https://github.com/supabase/cli/issues/2588
+    # ... also https://docs.docker.com/engine/daemon/remote-access/
+    # daemon.settings = {
+    #   hosts = [
+    #     "tcp://127.0.0.1:2375"
+    #   ];
+    # };
   };
+
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users.cormacc = {
