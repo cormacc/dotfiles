@@ -30,6 +30,7 @@
           modules = [
             ./nixos-nvidia.nix
             ./hosts/t470p/hardware-configuration.nix
+            ./hosts/nixos-configuration-default.nix
             ./nixos.nix
             ./nixos-extra.nix
             home-manager.nixosModules.home-manager
@@ -64,6 +65,7 @@
             # TBD which nvidia package I need for an old mx150
             ./nixos-nvidia.nix
             ./hosts/t580/hardware-configuration.nix
+            ./hosts/nixos-configuration-default.nix
             ./nixos.nix
             #./nixos-extra.nix
           ];
