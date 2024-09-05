@@ -46,6 +46,7 @@ in {
     # ... clojure
     clj-kondo
     joker
+    clojure-lsp
     # ...
   ];
 
