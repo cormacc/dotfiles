@@ -70,6 +70,15 @@
             #./nixos-extra.nix
           ];
         };
+        nas = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = { hostName = "nas"; };
+          modules = [
+            ./hosts/nas/hardware-configuration.nix
+            ./hosts/nixos-configuration-default.nix
+            ./nixos.nix
+          ];
+        };
       };
 
       homeConfigurations = {
