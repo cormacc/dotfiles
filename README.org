@@ -43,6 +43,8 @@ Some introductory text
     - [[#clone-this-repository][Clone this repository]]
     - [[#set-git-name-and-e-mail][Set Git name and e-mail]]
     - [[#apply-the-home-manager-flake][Apply the Home Manager flake]]
+      - [[#minimal-install][Minimal install]]
+      - [[#workstation-install][Workstation install]]
   - [[#post-installation-activities][Post-installation activities]]
     - [[#generate-a-unique-ssh-key-for-this-installation][Generate a unique SSH key for this installation]]
     - [[#hybridarch-linux-additional-setup-steps][Hybrid/arch linux additional setup steps]]
@@ -166,7 +168,17 @@ N.B. the flake also relies on the USER environment variable for username, but th
 
 *** Apply the Home Manager flake
 
-To provision your home environment, run the command provided below to rebuild the configuration:
+To provision your home environment, run one of the commands provided below.
+
+**** Minimal install
+Use the minimal configuration for a server or WSL (i.e. no desktop environment installed).
+#+begin_src shell
+  export NIXPKGS_ALLOW_UNFREE=1
+  home-manager switch --flake './dotfiles#minimal' --impure -b backup
+#+end_src
+
+**** Workstation install
+Use the full configuration for a developer workstation.
 #+begin_src shell
   export NIXPKGS_ALLOW_UNFREE=1
   home-manager switch --flake './dotfiles#default' --impure -b backup
