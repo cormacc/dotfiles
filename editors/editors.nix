@@ -6,13 +6,6 @@
     ./emacs/emacs.nix
   ];
 
-  home.file.".editorconfig".source=./doteditorconfig;
-
-  programs.vim = {
-    enable = true;
-    defaultEditor = true;
-  };
-
   programs.vscode = {
     enable = true;
     extensions = with pkgs.vscode-extensions; [

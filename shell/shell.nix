@@ -8,6 +8,10 @@ let
   '';
 in {
 
+  home.packages = with pkgs; [
+    babashka # shell scripting in clojure
+  ];
+
   #Folder nav shell shortcuts
   home.file."${dir-nav-posix}".source = ./dir-nav.sh;
 
