@@ -37,6 +37,8 @@ in {
     # Layer dependencies.
     # TODO: install these in project flakes instead maybe?
     #       ... though the layers are enabled in global config ...
+    # ... bash
+    bash-language-server
     # ... c/c++
     cmake-language-server
     clang-tools
