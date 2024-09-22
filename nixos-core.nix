@@ -61,6 +61,18 @@
 
   services.fwupd.enable = true;
 
+  # Mount the moosefs cluster
+  services.moosefs.client.enable = true;
+  fileSystems."/mnt/mfs" = {
+    device = "192.168.1.51:/";
+    fsType = "moosefs";
+    options = [ # If you don't have this options attribute, it'll default to "defaults"
+      # boot options for fstab. Search up fstab mount options you can use
+      "nofail" # Prevent system from failing if this drive doesn't mount
+      "_netdev"
+    ];
+  };
+
   # Keyboard and mouse
   console.keyMap = "ie";
   services.libinput.enable = true;
@@ -98,6 +110,7 @@
     git
     home-manager
     lshw
+    docker-compose
   ];
 
   environment.variables.EDITOR = "vim";

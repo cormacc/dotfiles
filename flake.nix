@@ -75,8 +75,8 @@
           specialArgs = { hostName = "nas"; };
           modules = [
             ./hosts/nas/hardware-configuration.nix
-            ./hosts/nixos-configuration-default.nix
-            ./nixos.nix
+            ./hosts/nas/nixos-configuration.nix
+            ./nixos-server.nix
           ];
         };
       };
