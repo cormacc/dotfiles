@@ -13,13 +13,14 @@
   boot.loader.grub.device = "/dev/sda";
   boot.loader.grub.useOSProber = true;
 
-  fileSystems."/mnt/data" = {
-    device = "/dev/disk/by-uuid/c377f942-7a0c-4381-be14-c3f054aa8cf8";
-    fsType = "btrfs";
-    options = [ # If you don't have this options attribute, it'll default to "defaults"
-      # boot options for fstab. Search up fstab mount options you can use
-      "users" # Allows any user to mount and unmount
-      "nofail" # Prevent system from failing if this drive doesn't mount
-    ];
+  fileSystems = {
+    "/mnt/data" = {
+      device = "/dev/disk/by-uuid/c377f942-7a0c-4381-be14-c3f054aa8cf8";
+      fsType = "btrfs";
+    };
+    "mnt/downloads" = {
+      device = "/dev/disk/by-uuid/f92f15c2-6666-4ac1-ba76-0bdadbf8652d";
+      fsType = "ext4";
+    };
   };
 }
