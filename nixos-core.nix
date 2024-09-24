@@ -64,7 +64,7 @@
   # Mount the moosefs cluster
   services.moosefs.client.enable = true;
   fileSystems."/mnt/mfs" = {
-    device = "<lan-address>:/";
+    device = "mfsmaster:/";
     fsType = "moosefs";
     options = [ # If you don't have this options attribute, it'll default to "defaults"
       # boot options for fstab. Search up fstab mount options you can use
