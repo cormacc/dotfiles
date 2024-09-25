@@ -278,7 +278,9 @@ This function should only modify configuration layer settings."
    ;; wrapped in a layer. If you need some configuration for these
    ;; packages, then consider creating a layer. You can also put the
    ;; configuration in `dotspacemacs/user-config'.
-   dotspacemacs-additional-packages '(direnv)
+   ;; dotspacemacs-additional-packages '(direnv)
+   dotspacemacs-additional-packages '(envrc)
+
 
    ;; A list of packages that cannot be updated.
    dotspacemacs-frozen-packages '()
@@ -792,7 +794,8 @@ Put your configuration code here, except for variables that should be set
 before packages are loaded."
   (define-key global-map (kbd "C-+") 'text-scale-increase)
   (define-key global-map (kbd "C-=") 'text-scale-decrease)
-  (direnv-mode)
+  ;; (direnv-mode)
+  (envrc-global-mode)
 
   (setq-default evil-escape-key-sequence "xz")
 
@@ -863,6 +866,9 @@ before packages are loaded."
 
   ;; ... llm-client layer -- gptel backends
   ;; See https://github.com/karthink/gptel
+  ;; This config assumes api keys are stored in ~/.authinfo.gpg, as illustrated below...
+  ;;  machine api.openai.com login apikey password ****
+  ;;  machine api.anthropic.com login apikey password ****
   (with-eval-after-load 'gptel
     (gptel-make-anthropic "Claude"
       :stream t
