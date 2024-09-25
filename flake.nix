@@ -70,13 +70,27 @@
             #./nixos-extra.nix
           ];
         };
+        # Retiring C2750D box as nas...
+        # nas = nixpkgs.lib.nixosSystem {
+        #   system = "x86_64-linux";
+        #   specialArgs = { hostName = "nas"; };
+        #   modules = [
+        #     ./hosts/c2750d4i/hardware-configuration.nix
+        #     ./hosts/c2750d4i/nixos-configuration.nix
+        #     ./nixos-server.nix
+        #   ];
+        # };
+        #... in favour of t470p
         nas = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           specialArgs = { hostName = "nas"; };
           modules = [
-            ./hosts/nas/hardware-configuration.nix
-            ./hosts/nas/nixos-configuration.nix
+            ./hosts/t470p/hardware-configuration.nix
+            ./hosts/t470p/nixos-configuration.nix
+            #... server-only
             ./nixos-server.nix
+            #... or if we want best of both worlds
+            # ./nixos.nix
           ];
         };
       };
