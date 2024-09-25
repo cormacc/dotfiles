@@ -9,6 +9,9 @@
     ./nixos-core.nix
   ];
 
+  # Use latest kernel for workstations
+  boot.kernelPackages = pkgs.linuxPackages_latest;
+
   # Keyboard and mouse
   services.xserver.xkb = {
     layout = "ie";
@@ -26,6 +29,7 @@
     jack.enable = true;
   };
 
+  services.blueman.enable = true;
   services.printing.enable = true;
 
   # Laptop bits

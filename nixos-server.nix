@@ -9,13 +9,10 @@
     ./nixos-core.nix
   ];
 
-  # List packages installed in system profile. To search, run:
-  # $ nix search wget
+  # Use latest zfs-compatible kernel for servers
+  boot.kernelPackages = config.boot.zfs.package.latestCompatibleLinuxPackages;
+
   environment.systemPackages = with pkgs; [
-    # Install system python at OS level...
-    # ... this keeps home-manager config compatible with Arch linux package management
-    # python3
-    # pipenv
-    # poetry
+    zfs
   ];
 }
