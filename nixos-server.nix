@@ -9,10 +9,17 @@
     ./nixos-core.nix
   ];
 
-  # Use latest zfs-compatible kernel for servers
-  boot.kernelPackages = config.boot.zfs.package.latestCompatibleLinuxPackages;
+  # Use latest kernel when not using zfs
+  boot.kernelPackages = pkgs.linuxPackages_latest;
 
-  environment.systemPackages = with pkgs; [
-    zfs
-  ];
+  # ZFS config
+  # Bypassing for now due to issues with external drive enclosure
+  #services.zfs.trim.enable = true;
+  # networking.hostId = "684e91bc";
+  # boot.supportedFilesystems = [ "zfs" ];
+  # services.zfs.autoScrub.enable = true;
+
+  # environment.systemPackages = with pkgs; [
+  #   zfs
+  # ];
 }
