@@ -66,7 +66,8 @@ This function should only modify configuration layer settings."
                    langtool-java-classpath "/usr/share/languagetool:/usr/share/java/languagetool/*"
                    langtool-default-language "en-GB")
      multiple-cursors
-     prettier
+     ;; Prefer lsp-layer formatting?
+     ;; prettier
      templates
      ;; see https://themegallery.robdor.com/
      ;; themes-megapack
@@ -103,6 +104,7 @@ This function should only modify configuration layer settings."
      (shell :variables
             shell-default-shell 'vterm
             shell-default-term-shell "~/.nix-profile/bin/fish")
+     spell-checking
      treemacs
      version-control
      ;; (version-control :variables
@@ -137,7 +139,7 @@ This function should only modify configuration layer settings."
      (org :variables
           jiralib-url "https://neuromod.atlassian.net:443"
           org-enable-appear-support t
-          org-enable-jira-support t
+          ;; org-enable-jira-support t
           org-enable-notifications t
           org-start-notification-daemon-on-startup t
           ;; org-modern screws with table alignment
@@ -195,6 +197,8 @@ This function should only modify configuration layer settings."
           lsp-ui-remap-xref-keybindings t
           )
      tree-sitter
+     (syntax-checking :variables
+                      syntax-checking-enable-by-default nil)
      ;; ----------------------------------------------------------------
      ;; Language support layers
      ;; ================================================================
@@ -224,7 +228,7 @@ This function should only modify configuration layer settings."
      ;;   gofmt-command "goimports"
      ;;   go-use-gometalinter t
      ;;   godoc-at-point-function 'godoc-gogetdoc)
-     graphql
+     ;; graphql
      ;; haskell
      html
      ;; This results in a json error rendering latex fragments in org buffers for some reason?
@@ -256,17 +260,13 @@ This function should only modify configuration layer settings."
            ;; ruby-version-manager 'rbenv
            ;; ruby-enable-enh-ruby-mode t
            )
-     (rust :variables
-           rust-format-on-save t)
+     ;; (rust :variables
+     ;;       rust-format-on-save t)
      ;; scheme
      shell-scripts
-     spell-checking
      sql
      ;; svelte
-     (syntax-checking :variables
-                      syntax-checking-enable-by-default nil
-                      )
-     ;; sql
+
      ;; systemd
      (typescript :variables typescript-backend 'tide)
 
@@ -799,6 +799,9 @@ before packages are loaded."
 
   (setq-default evil-escape-key-sequence "xz")
 
+  ;; Prevent remote files in recentf list causing a tramp error on startup
+  (setq recentf-keep '(file-remote-p file-readable-p))
+
   ;; Place all '.#*' emacs backup files in a single directory rather than alongside your files
   (setq backup-directory-alist
         `(("." . ,(concat user-emacs-directory "backups"))))
@@ -838,32 +841,6 @@ before packages are loaded."
   ;; AI and LLM...
 
 
-  ;; ... Authentication helpers
-
-  (defun authinfo/get-login-info (host)
-    "Extract username and password from an encrypted auth-source entry"
-    (require 'auth-source)
-    (if-let (login-info (car (auth-source-search
-                              :host host
-                              :requires '(:user :secret))))
-        login-info
-      (user-error "No authinfo entry found for '%s'" host)))
-
-  (defun authinfo/get-username (host)
-    "Extract username from an encrypted auth-source entry"
-    (let* ((auth (authinfo/get-login-info host)))
-      (plist-get auth :user)))
-
-  (defun authinfo/get-password (host)
-    "Extract username from an encrypted auth-source entry."
-    ;; This assumes a callable secret to decrypt the password...
-    (let* ((login-info (authinfo/get-login-info host))
-           (secret (plist-get auth :secret)))
-      (if (functionp secret)
-          (encode-coding-string (funcall secret) 'utf-8)
-        secret)))
-
-
   ;; ... llm-client layer -- gptel backends
   ;; See https://github.com/karthink/gptel
   ;; This config assumes api keys are stored in ~/.authinfo.gpg, as illustrated below...
@@ -872,10 +849,10 @@ before packages are loaded."
   (with-eval-after-load 'gptel
     (gptel-make-anthropic "Claude"
       :stream t
-      :key (authinfo/get-password "api.anthropic.com"))
+      :key (auth-source-pick-first-password :host "api.anthropic.com"))
     (setq
      ;; Backend defaults to ChatGPT/gpt-3.5-turbo. Overridding...
-     gptel-backend (gptel-make-openai "ChatGPT" :stream t :key (authinfo/get-password "api.openai.com"))
+     gptel-backend (gptel-make-openai "ChatGPT" :stream t :key (auth-source-pick-first-password :host "api.openai.com"))
      gptel-model "gpt-4o"
 
      ;; gptel-backend (gptel-make-anthropic "Claude" :stream t :key (authinfo/get-password "api.anthropic.com"))
@@ -895,13 +872,13 @@ before packages are loaded."
     ;; OpenAI...
     (require 'llm-openai)
     (setopt ellama-provider (make-llm-openai
-                             :key (authinfo/get-password "api.openai.com")
+                             :key (auth-source-pick-first-password :host "api.openai.com")
                              :chat-model "gpt-4o")))
 
   ;; ... dedicated openai layer
   (with-eval-after-load 'openai
     (setq
-     openai-key (authinfo/get-password "api.openai.om")))
+     openai-key (auth-source-pick-first-password :host "api.openai.om")))
 
   ;; JS / React
 
