@@ -42,6 +42,7 @@ Some introductory text
   - [[#setup-your-home-environment][Setup your home environment]]
     - [[#clone-this-repository][Clone this repository]]
     - [[#set-git-name-and-e-mail][Set Git name and e-mail]]
+    - [[#ssh-keys--host-aliases][SSH keys / host aliases]]
     - [[#apply-the-home-manager-flake][Apply the Home Manager flake]]
       - [[#minimal-install][Minimal install]]
       - [[#workstation-install][Workstation install]]
@@ -165,6 +166,13 @@ Adapt and enter the following in your shell session to set them:
   export EMAIL="<your.email>@<domain.com>"
 #+end_src
 N.B. the flake also relies on the USER environment variable for username, but that should be automatically set at login.
+
+*** SSH keys / host aliases
+On my work machines, I typically setup two ssh keys -- one for my work identity/e-mail, and the other for my personal e-mail address which I use for open source contributions etc. (github and gitlab.com).
+The primary key is the work key, located at [[~/.ssh/id_ed25519]].
+In order to use the personal key automatically for relevant hosts, a couple of aliases are setup in [[./home-core.nix]]
+An additional alias has been defined for administration of a self-hosted gitlab instance on AWS. This requires the host tld to be specified as an environment variable (=GITLAB=) when initially applying the flake.
+
 
 *** Apply the Home Manager flake
 
