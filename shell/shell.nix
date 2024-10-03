@@ -10,6 +10,8 @@ in {
 
   home.packages = with pkgs; [
     babashka # shell scripting in clojure
+    unzip
+    p7zip
   ];
 
   #Folder nav shell shortcuts
