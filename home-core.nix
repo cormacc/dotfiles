@@ -13,6 +13,9 @@ let
   homedir = builtins.getEnv "HOME";
   dotRoot = "${homedir}/dotfiles";
   flakePath = "${dotRoot}#${cfgName}";
+
+  # Secrets
+  gitlabHost = builtins.getEnv "GITLAB";
 in
 {
 
@@ -38,14 +41,15 @@ in
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
 
-  # Allow unfree packages
-  # FIXME: I've tried setting the relevant options in flake.nix but not
-  # working for me - hence the session variable workaround
   home.sessionVariables = {
+    # Allow unfree packages
+    # FIXME: I've tried setting the relevant options in flake.nix but not
+    # working for me - hence the session variable workaround
     NIXPKGS_ALLOW_UNFREE = 1;
-    #persist name and e-mail env variables from initial config...
+    # Persist env variables from initial config...
     NAME = "${name}";
     EMAIL = "${email}";
+    GITLAB = "${gitlabHost}";
   };
 
   home.shellAliases = {
@@ -93,10 +97,15 @@ in
   AddKeysToAgent yes
   IdentityFile ~/.ssh/id_ed25519_personal
 
-  Host gitlab.com
   Hostname gitlab.com
   AddKeysToAgent yes
   IdentityFile ~/.ssh/id_ed25519_personal
+
+  Host gitlab
+  Hostname ${gitlabHost}
+  Port 1022
+  User ec2-user
+  IdentityFile ~/.ssh/LightsailDefaultKey-eu-west-1.pem
 ";
     #TODO: Vaguely remember these relating to emacs/tramp.. reinstate as needed
     # controlMaster = "auto";
@@ -108,8 +117,8 @@ in
     enable = true;
     delta.enable = true;
     lfs.enable = true;
-    userName = "Cormac Cannon";
-    userEmail = "cormacc@gmail.com";
+    userName = "${name}";
+    userEmail = "${username}@gmail.com";
   };
   home.file.".local/bin/syncup".source=./git/bin/syncup;
 
