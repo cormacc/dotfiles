@@ -10,16 +10,20 @@
   ];
 
   # Use latest kernel when not using zfs
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  # boot.kernelPackages = pkgs.linuxPackages_latest;
 
   # ZFS config
-  # Bypassing for now due to issues with external drive enclosure
-  #services.zfs.trim.enable = true;
-  # networking.hostId = "684e91bc";
-  # boot.supportedFilesystems = [ "zfs" ];
-  # services.zfs.autoScrub.enable = true;
+  services.zfs.trim.enable = true;
+  #TODO: belongs in host/<host>/nixos-configuration.nix
+  networking.hostId = "684e91bc";
+  boot.supportedFilesystems = [ "zfs" ];
+  services.zfs.autoScrub.enable = true;
 
-  # environment.systemPackages = with pkgs; [
-  #   zfs
-  # ];
+  environment.systemPackages = with pkgs; [
+    zfs
+  ];
+
+  virtualisation.docker.storageDriver = "zfs";
+  #TODO: Move to <host>/nixos-configuration.nix
+  boot.zfs.extraPools = ["data"];
 }
