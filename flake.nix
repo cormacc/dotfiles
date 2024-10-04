@@ -81,12 +81,25 @@
         #   ];
         # };
         #... in favour of t470p
+        t470-nas = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = { hostName = "t470-nas"; };
+          modules = [
+            ./hosts/t470p/hardware-configuration.nix
+            ./hosts/t470p/nixos-configuration.nix
+            #... server-only
+            ./nixos-server.nix
+            #... or if we want best of both worlds
+            # ./nixos.nix
+          ];
+        };
+        #... or odroid h4
         nas = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           specialArgs = { hostName = "nas"; };
           modules = [
-            ./hosts/t470p/hardware-configuration.nix
-            ./hosts/t470p/nixos-configuration.nix
+            ./hosts/odroid-h4/hardware-configuration.nix
+            ./hosts/nixos-configuration-default.nix
             #... server-only
             ./nixos-server.nix
             #... or if we want best of both worlds
