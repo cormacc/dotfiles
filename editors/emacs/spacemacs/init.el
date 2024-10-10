@@ -211,7 +211,7 @@ This function should only modify configuration layer settings."
             ;; c-c++-backend 'lsp-ccls
             c-c++-backend 'lsp-clangd
             ;; c-c++-adopt-subprojects t
-            ;; c-c++-enable-semantic-highlight t
+            c-c++-enable-semantic-highlight t
             gendoxy-header-copyright "(c) Neuromod Devices Ltd. 2024"
             ;; c-c++-enable-semantic-highlight 'rainbow
             )
@@ -220,7 +220,8 @@ This function should only modify configuration layer settings."
               clojure-enable-linters '(clj-kondo joker)
               )
      (cmake :variables
-            cmake-enable-cmake-ide-support t
+            ;; I was using this to generate compile_commands.json, but doing it via ceedling config now...
+            ;; cmake-enable-cmake-ide-support t
             )
      docker
      emacs-lisp
