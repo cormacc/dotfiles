@@ -50,6 +50,9 @@ in {
     swappy
     # ... clipboard
     wl-clipboard # wl-copy and wl-paste for copy/paste from stdin / stdout
+    # TODO: Hold off on flake updates until this commit gets deployed as latest nixpkgs:
+    #       https://github.com/NixOS/nixpkgs/pull/348887
+    # TODO: Review/rework sway config for 0.6.x -- existing config largely lifted from manjaro / overly complicated
     cliphist
     # ... screen related etc.
     wluma
