@@ -9,19 +9,13 @@
 ;;
 ;;; License: GPLv3
 
-(defun org-user/config ()
-  ;; For interop, prefer visual to actual indentation
-  (setq org-startup-indented t)
-  (add-hook 'org-mode-hook #'visual-line-mode)
-  (setq org-confirm-babel-evaluate nil
-        org-src-fontify-natively t
-        org-src-tab-acts-natively t
-        org-startup-folded nil)
-  ;; Output to docx rather than odf
-  (setq org-odt-preferred-output-format "docx")
-  ;; Allow a., A. etc. for lists
-  (setq org-list-allow-alphabetical t)
+(defun org-user/configure-babel ()
+  (setq org-confirm-babel-evaluate nil)
   (require 'ob-ruby)
+  ;; Configure clojure backend to use babashka -- otherwise need leiningen and a running repl to eval codeblocks
+  (require 'ob-clojure)
+  (setq org-babel-clojure-backend 'babashka)
+  ;; TODO Remind myself why this is necessary.... and why not necessary for clojure...
   (org-babel-do-load-languages
    'org-babel-load-languages
    '((C . t)
@@ -30,12 +24,24 @@
      (python . t)
      (ruby . t)
      (shell . t)
-     (typescript . t)
-     ))
-  (setq org-use-sub-superscripts "{}")
+     (typescript . t))))
+
+(defun org-user/configure-exports ()
   (setq org-export-with-sub-superscripts "{}")
-  (setq org-src-tab-acts-natively t)
-  ;;BEGIN GTD
+  ;; Output to docx rather than odf
+  (setq org-odt-preferred-output-format "docx")
+  ;; TODO: Figure out why I needed this?
+  (defun toggle-org-html-export-on-save ()
+    (interactive)
+    (if (memq 'org-html-export-to-html after-save-hook)
+        (progn
+          (remove-hook 'after-save-hook 'org-html-export-to-html t)
+          (message "Disabled org html export on save for current buffer..."))
+      (add-hook 'after-save-hook 'org-html-export-to-html nil t)
+      (message "Enabled org html export on save for current buffer..."))))
+
+
+(defun org-user/configure-gtd ()
   ;; Pilfered from https://emacs.cafe/emacs/orgmode/gtd/2017/06/30/orgmode-gtd.html
   ;; See also: http://www.cachestocaches.com/2016/9/my-workflow-org-agenda/
   ;;TODO: add @home context -- also see skip section of website linked above to show only first item from each project...
@@ -56,18 +62,22 @@
 
 
   (defun org-current-is-todo ()
-    (string= "TODO" (org-get-todo-state)))
+    (string= "TODO" (org-get-todo-state))))
 
+(defun org-user/config ()
+  ;; For interop, prefer visual to actual indentation
+  (setq org-startup-indented t
+        org-startup-folded nil)
+  (add-hook 'org-mode-hook #'visual-line-mode)
+  (setq org-src-fontify-natively t
+        org-src-tab-acts-natively t)
+  ;; Allow a., A. etc. for lists
+  (setq org-list-allow-alphabetical t)
+  (setq org-use-sub-superscripts "{}")
 
-  ;;END GTD
-  (defun toggle-org-html-export-on-save ()
-    (interactive)
-    (if (memq 'org-html-export-to-html after-save-hook)
-        (progn
-          (remove-hook 'after-save-hook 'org-html-export-to-html t)
-          (message "Disabled org html export on save for current buffer..."))
-      (add-hook 'after-save-hook 'org-html-export-to-html nil t)
-      (message "Enabled org html export on save for current buffer..."))))
+  (org-user/configure-babel)
+  (org-user/configure-gtd)
+  (org-user/configure-exports))
 
 ;; See https://github.com/alphapapa/org-sidebar/blob/master/examples.org
 ;; This is nice in theory, but more work required -- some conflicts with spacemacs keybindings?

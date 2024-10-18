@@ -38,6 +38,7 @@
     ;; org-super-agenda
     org-roam-bibtex
     ;; magit-todos
+    ob-clojurescript
     ob-typescript
     ;; leuven-theme
     org-roam
@@ -160,6 +161,9 @@ Each entry is either:
 
 (defun org-user/post-init-org-archive-subtree-hierarchical ()
   (setq org-archive-default-command 'org-archive-subtree-hierarchical))
+
+(defun org-user/init-ob-clojurescript ()
+  :defer t)
 
 (defun org-user/init-ob-typescript ()
   :defer t)
