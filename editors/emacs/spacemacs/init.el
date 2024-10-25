@@ -178,7 +178,9 @@ This function should only modify configuration layer settings."
                plantuml-jar-path (getenv "PLANTUML_JAR")
                org-plantuml-jar-path (getenv "PLANTUML_JAR")
                )
-     ;;N.B. toml support provided by rust language layer
+     ;;N.B. toml support provided by rust language layer, so disable here
+     ;;     if re-eneabling that
+     toml
      yaml
      ;; ----------------------------------------------------------------
      ;; Markup / file format layers
