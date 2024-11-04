@@ -57,7 +57,8 @@ in {
     # ... screen related etc.
     wluma
     brightnessctl
-    wf-recorder
+    # Disabling 4/11/2024 -- build error
+    # wf-recorder
     # ... misc
     showmethekey # useful for identifying keycodes etc. for config
     # More sway-targeted....
