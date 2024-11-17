@@ -67,7 +67,7 @@
             ./hosts/t580/hardware-configuration.nix
             ./hosts/nixos-configuration-default.nix
             ./nixos.nix
-            #./nixos-extra.nix
+            ./nixos-extra.nix
           ];
         };
         # Retiring C2750D box as nas...
