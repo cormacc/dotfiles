@@ -19,6 +19,8 @@
   (org-babel-do-load-languages
    'org-babel-load-languages
    '((C . t)
+     (emacs-lisp . t)
+     (http . t)
      (js . t)
      (plantuml . t)
      (python . t)
