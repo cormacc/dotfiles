@@ -98,6 +98,8 @@ This function should only modify configuration layer settings."
              ranger-show-preview t
              ranger-cleanup-on-disable t
              ranger-show-dotfiles t)
+     (restclient :variables
+                 restclient-use-org t)
      ;; search-engine
      ;;'semantic' used by cmode for refactoring support
      ;; semantic
