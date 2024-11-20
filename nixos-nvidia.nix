@@ -47,7 +47,9 @@
     # Optionally, you may need to select the appropriate driver version for your specific GPU.
     # Search nixpkgs for something like: linuxKernel.packages.linux_6_9.nvidia_x11
     # package = config.boot.kernelPackages.nvidiaPackages.stable;
-
+    # Stable package build failing against kernel 6.12 20/11/2024 - using beta as a dodge
+    package = config.boot.kernelPackages.nvidiaPackages.beta;
+    # package = linuxKernel.packages.linux_6_12.nvidia_x11
 
   };
 
@@ -59,6 +61,6 @@
   # llm-related additions - per https://gist.github.com/reklis/fb300e1b6c3549b1b2a82b891a8cc1b7
   # N.B. Unverified
   nixpkgs.config.cudaSupport = true;
-  virtualisation.docker.enableNvidia = true;
+  hardware.nvidia-container-toolkit.enable = true;
   virtualisation.docker.extraOptions = "--add-runtime nvidia=/run/current-system/sw/bin/nvidia-container-runtime";
 }
