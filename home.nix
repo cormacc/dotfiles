@@ -28,6 +28,8 @@ in
     # ./desktop/web.nix
     ./desktop/audio.nix
     ./programming.nix
+    # Bypass for now -- nix installed llm tools can't access GPU
+    # ./llm.nix
     ./desktop/office.nix
     ./sysadmin.nix
     # ./desktop/entertainment.nix
