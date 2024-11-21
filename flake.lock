@@ -20,7 +20,41 @@
         "type": "github"
       }
     },
+    "microchip": {
+      "inputs": {
+        "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1732147956,
+        "narHash": "sha256-IqIKf9CGvMzYTXunhguCGM17lh73cfv3fQx/gRcvx1Y=",
+        "owner": "cormacc",
+        "repo": "nix-microchip",
+        "rev": "5ddc03729408c24ffbc190a312876ae93eb9ca27",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cormacc",
+        "repo": "nix-microchip",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
+      "locked": {
+        "lastModified": 1719426051,
+        "narHash": "sha256-yJL9VYQhaRM7xs0M867ZFxwaONB9T2Q4LnGo1WovuR4=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "89c49874fb15f4124bf71ca5f42a04f2ee5825fd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-24.05",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_2": {
       "locked": {
         "lastModified": 1732014248,
         "narHash": "sha256-y/MEyuJ5oBWrWAic/14LaIr/u5E0wRVzyYsouYY3W6w=",
@@ -39,7 +73,8 @@
     "root": {
       "inputs": {
         "home-manager": "home-manager",
-        "nixpkgs": "nixpkgs"
+        "microchip": "microchip",
+        "nixpkgs": "nixpkgs_2"
       }
     }
   },
