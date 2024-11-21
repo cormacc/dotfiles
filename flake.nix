@@ -7,9 +7,12 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
+    microchip.url = "github:cormacc/nix-microchip";
+    # microchip.url = "github:Fuwn/nix-microchip";
+    # microchip.url = "/home/cormacc/dev/nix-microchip";
   };
 
-  outputs = { self, nixpkgs, home-manager, ... } @inputs:
+  outputs = { self, nixpkgs, home-manager, microchip, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -20,6 +23,9 @@
           allowUnfree = true;
           allowUnfreePredicate = _: true;
         };
+        overlays = [
+          microchip.overlays.default
+        ];
       };
     in {
       nixosConfigurations = {
