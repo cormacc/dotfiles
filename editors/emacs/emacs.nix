@@ -19,6 +19,7 @@ in {
   home.packages = with pkgs; [
     aspell
     aspellDicts.en
+    source-code-pro
     gsettings-desktop-schemas
     #vterm deps
     # .. This is old/broken -- see https://weblog.zamazal.org/sw-problem-nixos-emacs-vterm/
