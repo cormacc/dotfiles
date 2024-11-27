@@ -5,8 +5,7 @@
   home.file.".mutebutton".source=./.mutebutton;
 
   # Dropbox account
-  # N.B. This is broken as of 2024-1-11 -- pending merging of this fix in nixpkgs
-  # https://github.com/NixOS/nixpkgs/pull/277422
+  # N.B. This doesn't seem to install the tray widget
   # services.dropbox = {
   #   enable = true;
   #   path = "${config.home.homeDirectory}/dropbox";
@@ -17,6 +16,7 @@
   home.packages = with pkgs; [
     #File sharing etc
     onedrive
+    # Dropbox alternative -- use one or the other
     maestral
     maestral-gui
 
