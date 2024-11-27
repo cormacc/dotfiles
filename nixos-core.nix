@@ -33,7 +33,9 @@
   users.users.cormacc = {
     isNormalUser = true;
     description = "Cormac Cannon";
-    extraGroups = [ "networkmanager" "wheel" "docker" ];
+    # N.B. on NixOS, dialout (rather than lp or uucp) is the group for serial port access
+
+    extraGroups = [ "networkmanager" "wheel" "dialout" "lp" "audio" "video" "render" "docker" "kvm" "adm" "systemd-journal"];
     packages = with pkgs; [];
   };
 
