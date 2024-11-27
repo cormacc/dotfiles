@@ -40,6 +40,7 @@ in {
 
     networkmanagerapplet
     helvum # Patch bay for pipewire audio
+    pavucontrol
     # Wayland...
     # ... notifications
     swaynotificationcenter # Usable on hyprland too
