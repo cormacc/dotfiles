@@ -62,6 +62,7 @@
             ./hosts/xps15/nixos-configuration.nix
             ./nixos.nix
             ./nixos-extra.nix
+            ./nixos-llm.nix
           ];
         };
         t580 = nixpkgs.lib.nixosSystem {
