@@ -69,7 +69,6 @@
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
-    chromium
     waybar
     kitty
     # Install system python at OS level...

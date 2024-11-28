@@ -5,14 +5,23 @@
   inputs = {
     # nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    home-manager.url = "github:nix-community/home-manager";
-    home-manager.inputs.nixpkgs.follows = "nixpkgs";
-    microchip.url = "github:cormacc/nix-microchip";
-    # microchip.url = "github:Fuwn/nix-microchip";
-    # microchip.url = "/home/cormacc/dev/nix-microchip";
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    nixgl = {
+      url = "github:nix-community/nixGL";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    microchip = {
+      url = "github:cormacc/nix-microchip";
+      # url = "github:Fuwn/nix-microchip";
+      # url = "/home/cormacc/dev/nix-microchip";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, home-manager, microchip, ... } @inputs:
+  outputs = { self, nixpkgs, home-manager, nixgl, microchip, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -24,6 +33,7 @@
           allowUnfreePredicate = _: true;
         };
         overlays = [
+          nixgl.overlay
           microchip.overlays.default
         ];
       };
@@ -121,7 +131,10 @@
           modules = [
             ./home.nix
           ];
-          extraSpecialArgs = { cfgName = "default"; };
+          extraSpecialArgs = {
+            cfgName = "default";
+            inherit nixgl;
+          };
         };
         minimal = home-manager.lib.homeManagerConfiguration {
           inherit pkgs;
