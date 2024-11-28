@@ -1,4 +1,4 @@
-{ config, pkgs, specialArgs, ... }:
+{ config, pkgs, nixgl, specialArgs, ... }:
 
 let
   # Input parameters
@@ -15,6 +15,11 @@ let
   flakePath = "${dotRoot}#${cfgName}";
 in
 {
+  # nixgl config -- a np for nixos, but useful on hybrid config...
+  nixGL.packages = nixgl.packages;
+  nixGL.defaultWrapper = "mesa";
+  nixGL.offloadWrapper = "nvidiaPrime";
+  nixGL.installScripts = [ "mesa" "nvidiaPrime" ];
 
   imports = [
     ./home-core.nix
@@ -24,11 +29,11 @@ in
     ./wayland/sway/sway.nix
     ./wayland/hypr/hypr.nix
     ./editors/editors.nix
-    # Bypass for now -- nix-installed chromium can't use hardware acceleration - on non NixOS at least
-    # ./desktop/web.nix
+    ./desktop/web.nix
     ./desktop/audio.nix
     ./programming.nix
     # Bypass for now -- nix installed llm tools can't access GPU
+    # TODO: Check if this is the case after adding user to the 'render' group...
     # ./llm.nix
     ./desktop/office.nix
     ./sysadmin.nix
