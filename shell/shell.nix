@@ -36,12 +36,23 @@ in {
 
   programs.bash = {
     enable = true;
-    initExtra = sharedPosixInit;
+    initExtra = ''${sharedPosixInit}
+      _bb_tasks() {
+    COMPREPLY=( $(compgen -W "$(bb tasks |tail -n +3 |cut -f1 -d ' ')" -- ''${COMP_WORDS[COMP_CWORD]}) );
+}
+# autocomplete filenames as well
+complete -f -F _bb_tasks bb'';
   };
 
   programs.zsh = {
     enable = true;
-    initExtra = sharedPosixInit;
+    initExtra = ''${sharedPosixInit}
+      _bb_tasks() {
+    local matches=(`bb tasks |tail -n +3 |cut -f1 -d ' '`)
+    compadd -a matches
+    _files # autocomplete filenames as well
+}
+compdef _bb_tasks bb'';
     antidote = {
       enable = true;
       useFriendlyNames = true;
@@ -84,4 +95,5 @@ in {
     };
   };
 
+  home.file.".config/fish/completions/bb.fish".source = ./bb.fish;
 }
