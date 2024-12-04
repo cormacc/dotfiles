@@ -115,11 +115,24 @@ in
 
   programs.git = {
     enable = true;
-    delta.enable = true;
-    lfs.enable = true;
     userName = "${name}";
     userEmail = "${username}@gmail.com";
+    lfs.enable = true;
+    # We can only enable one of delta, diff-so-fancy and difftastic
+    # delta.enable = true;
+    # Colorised diff output
+    # diff-so-fancy.enable = true;
+    # Structural diff
+    difftastic.enable = true;
+    extraConfig = {
+      core = {
+        autocrlf = "input";
+      };
+    };
   };
+  # Automated changelog generation...
+  programs.git-cliff.enable = true;
+
   home.file.".local/bin/syncup".source=./git/bin/syncup;
 
   # Set vim as default editor for shell use
