@@ -139,13 +139,13 @@ This function should only modify configuration layer settings."
      ;; deft
      ;;http://spacemacs.org/layers/+emacs/org/README.html
      (org :variables
-          jiralib-url "https://neuromod.atlassian.net:443"
+          ;; jiralib-url "https://neuromod.atlassian.net:443"
           org-enable-appear-support t
           ;; org-enable-jira-support t
-          org-enable-notifications t
-          org-start-notification-daemon-on-startup t
+          ;; org-enable-notifications t
+          ;; org-start-notification-daemon-on-startup t
           ;; org-modern screws with table alignment
-          ;; org-enable-modern-support t
+          org-enable-modern-support t
           org-enable-roam-protocol t
           org-enable-roam-support t
           org-enable-roam-ui t
