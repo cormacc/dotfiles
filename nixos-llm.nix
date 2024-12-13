@@ -23,7 +23,9 @@
   };
 
   environment.systemPackages = with pkgs; [
-    llama-cpp
+    # Stick with ollama for initial work to keep rebuild times under control
+    # Poke at llama-cpp again later when I'm looking at optimisation...
+    # llama-cpp
     ollama
   ];
 }
