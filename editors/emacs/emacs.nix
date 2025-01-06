@@ -26,6 +26,9 @@ in {
     # libvterm
     # ... This allegedly isn't
     libvterm-neovim
+    # org export
+    zip #for ODT export
+    # Other...
     libtool
     cmake
     gnumake
