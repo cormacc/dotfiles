@@ -305,17 +305,13 @@ NixOS keeps all previously built iterations of the system (generations) until pu
 Garbage collection needs to be run manually (or scheduled using cron), but flushes generations more than a week old.
 
 #+begin_src shell
-nix-env --list-generations
+  nix-collect-garbage  --delete-old
 
-nix-collect-garbage  --delete-old
+  # recommeneded to sometimes run as sudo to collect additional garbage
+  sudo nix-collect-garbage -d
 
-nix-collect-garbage  --delete-generations 1 2 3
+  # Obsolete kernels etc will get deleted from /boot on next nixos rebuild switch
 
-# recommeneded to sometimes run as sudo to collect additional garbage
-sudo nix-collect-garbage -d
-
-# As a separation of concerns - you will need to run this command to clean out boot
-sudo /run/current-system/bin/switch-to-configuration boot
 #+end_src
 
 *** System updates (channel management)
