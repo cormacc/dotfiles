@@ -70,7 +70,10 @@
   # $ nix search wget
   environment.systemPackages = with pkgs; [
     waybar
+    # Install term at os level
     kitty
+    foot
+    ghostty
     # Install system python at OS level...
     # ... this keeps home-manager config compatible with Arch linux package management
     python3
