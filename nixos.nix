@@ -70,10 +70,10 @@
   # $ nix search wget
   environment.systemPackages = with pkgs; [
     waybar
-    # Install term at os level
+    # Install GPU accelerated terminals at os level
     kitty
-    foot
     ghostty
+    # ... we use foot by default on wayland, but that's not GPU-accelerated so can be owned by home-manager
     # Install system python at OS level...
     # ... this keeps home-manager config compatible with Arch linux package management
     python3

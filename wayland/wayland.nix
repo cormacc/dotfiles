@@ -54,8 +54,6 @@ in {
     # ... install this at system level...
     wl-clipboard # wl-copy and wl-paste for copy/paste from stdin / stdout
     wl-clipboard-x11
-    # TODO: Hold off on flake updates until this commit gets deployed as latest nixpkgs:
-    #       https://github.com/NixOS/nixpkgs/pull/348887
     # TODO: Review/rework sway config for 0.6.x -- existing config largely lifted from manjaro / overly complicated
     cliphist
     # ... screen related etc.
