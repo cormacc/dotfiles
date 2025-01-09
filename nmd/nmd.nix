@@ -20,6 +20,9 @@
     maestral
     maestral-gui
 
+    # STM32 development
+    stm32cubemx
+
     # Microchip dev environment - from my overlay
     mplab-x
   ];
