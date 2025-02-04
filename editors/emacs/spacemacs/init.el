@@ -145,7 +145,7 @@ This function should only modify configuration layer settings."
           ;; org-enable-notifications t
           ;; org-start-notification-daemon-on-startup t
           ;; org-modern screws with table alignment
-          org-enable-modern-support t
+          ;; org-enable-modern-support t
           org-enable-roam-protocol t
           org-enable-roam-support t
           org-enable-roam-ui t
