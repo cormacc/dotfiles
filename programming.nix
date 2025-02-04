@@ -17,5 +17,10 @@
 
     # Serial terminal
     minicom
+
+    # Compilers etc. for evaluating 3rd party repos without a flake...
+    # ... clojure
+    clojure
+    neil
   ];
 }
