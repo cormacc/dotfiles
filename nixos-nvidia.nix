@@ -48,7 +48,7 @@
     # Search nixpkgs for something like: linuxKernel.packages.linux_6_9.nvidia_x11
     # package = config.boot.kernelPackages.nvidiaPackages.stable;
     # Stable package build failing against kernel 6.12 20/11/2024 - using beta as a dodge
-    package = config.boot.kernelPackages.nvidiaPackages.beta;
+    # package = config.boot.kernelPackages.nvidiaPackages.beta;
     # package = linuxKernel.packages.linux_6_12.nvidia_x11
 
   };
