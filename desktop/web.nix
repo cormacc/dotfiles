@@ -9,6 +9,10 @@
       { id = "nngceckbapebfimnlniiiahkandclblb"; }
       # xBrowserSync
       { id = "lcbjdhceifofjlpecfpeimnnphbcjgnc"; }
+      # Shadow-cljs UI
+      { id = "hpcbebiekdogcnamniekdaknicncdban"; }
+      # OPFS explorer
+      { id = "acndjpgkpaclldomagafnognkcgjignd"; }
     ];
   };
 
