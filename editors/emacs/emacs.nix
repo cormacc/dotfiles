@@ -67,6 +67,9 @@ in {
     # package = pkgs.emacs29;
   };
 
+
+  # Spacemacs
+
   home.file."${config.xdg.configHome}/emacs" = {
     recursive = true;
     #Use this variant to pin a specific commit
@@ -87,4 +90,29 @@ in {
   # home.file."${config.xdg.configHome}/spacemacs".source = .config/spacemacs;
   # ... or this to keep it editable in-place, rather than have to 'home-manager switch ...' after each edit
   home.file."${config.xdg.configHome}/spacemacs".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/spacemacs";
+
+
+  # Doom emacs
+  # This doesn't work, as doomemacs wants to modify its own directory
+  # Cloning manually instead for now
+  # home.file."${config.xdg.configHome}/emacs-doom" = {
+  #   recursive = true;
+  #   source = builtins.fetchGit {
+  #     url = "https://github.com/doomemacs/doomemacs";
+  #     ref = "master";
+  #   };
+  # };
+
+  # Do this to have a symlinked read-only version
+  # home.file."${config.xdg.configHome}/spacemacs".source = .config/spacemacs;
+  # ... or this to keep it editable in-place, rather than have to 'home-manager switch ...' after each edit
+  home.file."${config.xdg.configHome}/doom".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/doom";
+
+
+  # TODO: add config dir after populating initial config...
+
+  home.shellAliases = {
+    demacs = "emacs --init-dir ~/.config/emacs-doom";
+    doom = "~/.config/emacs-doom/bin/doom";
+  };
 }
