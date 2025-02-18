@@ -1,6 +1,8 @@
 { config, lib, pkgs, ... }:
 {
 
+  # See https://nixos.wiki/wiki/Nvidia#CUDA
+
   # Enable OpenGL
   # ... on unstable
   hardware.graphics = {
@@ -36,19 +38,18 @@
     # Support is limited to the Turing and later architectures. Full list of
     # supported GPUs is at:
     # https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus
-    # Only available from driver 515.43.04+
-    # Currently alpha-quality/buggy, so false is currently the recommended setting.
-    open = false;
+    # Recommended for newer gpus for driver versions >=560
+    open = true;
 
     # Enable the Nvidia settings menu,
 	  # accessible via `nvidia-settings`.
     nvidiaSettings = true;
 
+    # package = config.boot.kernelPackages.nvidiaPackages.stable;
+    # Stable package is pretty old / LTS
+    package = config.boot.kernelPackages.nvidiaPackages.latest;
     # Optionally, you may need to select the appropriate driver version for your specific GPU.
     # Search nixpkgs for something like: linuxKernel.packages.linux_6_9.nvidia_x11
-    # package = config.boot.kernelPackages.nvidiaPackages.stable;
-    # Stable package build failing against kernel 6.12 20/11/2024 - using beta as a dodge
-    # package = config.boot.kernelPackages.nvidiaPackages.beta;
     # package = linuxKernel.packages.linux_6_12.nvidia_x11
 
   };
