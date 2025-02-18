@@ -22,5 +22,8 @@
     # ... clojure
     clojure
     neil
+
+    # Programming assistance
+    aider-chat
   ];
 }
