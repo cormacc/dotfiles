@@ -59,11 +59,17 @@ in {
   home.file.".local/bin/md2org".source=./bin/md2org;
   home.file.".local/bin/org2md".source=./bin/org2md;
 
+  # TODO: Add more config for doom -- currently we're checking out manually to this location
+  home.shellAliases = {
+    emacs-doom = "emacs --init-directory=~/.config/doom-emacs";
+  };
+
   # Emacs and dependencies
   programs.emacs = {
     enable = true;
     # Using pure GTK build for wayland, but not sure it's necessary...
-    package = pkgs.emacs29-pgtk;
+    # package = pkgs.emacs29-pgtk;
+    # FIXME: Pinning emacs29 pending fix for emacs30 -- imminent as of 08/03/2025
     # package = pkgs.emacs29;
   };
 

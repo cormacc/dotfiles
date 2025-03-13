@@ -65,7 +65,7 @@ This function should only modify configuration layer settings."
      (languagetool :variables
                    langtool-java-classpath "/usr/share/languagetool:/usr/share/java/languagetool/*"
                    langtool-default-language "en-GB")
-     multiple-cursors
+     ;; multiple-cursors
      ;; Prefer lsp-layer formatting?
      ;; prettier
      templates
@@ -127,7 +127,7 @@ This function should only modify configuration layer settings."
                  llm-client-enable-gptel t
                  llm-client-enable-ellama t)
      ;; ... the openai layer provides functionality similar to llm-client/ellama, but for openai only
-     openai
+     ;; openai
      ;; ----------------------------------------------------------------
      ;; AI/llm layers
      ;; ================================================================
