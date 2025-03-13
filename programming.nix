@@ -22,6 +22,8 @@
     # ... clojure
     clojure
     neil
+    # ... js
+    nodejs
 
     # Programming assistance
     aider-chat
