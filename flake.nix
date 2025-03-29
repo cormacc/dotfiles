@@ -79,8 +79,7 @@
           system = "x86_64-linux";
           specialArgs = { hostName = "t580"; };
           modules = [
-            # TBD which nvidia package I need for an old mx150
-            ./nixos-nvidia.nix
+            # ./nixos-nvidia-legacy.nix
             ./hosts/t580/hardware-configuration.nix
             ./hosts/nixos-configuration-default.nix
             ./nixos.nix

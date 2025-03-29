@@ -3,6 +3,7 @@
 
   # See https://nixos.wiki/wiki/Nvidia#CUDA
 
+
   # Load nvidia driver for Xorg and Wayland
   services.xserver.videoDrivers = ["nvidia"];
 
@@ -27,7 +28,8 @@
     # supported GPUs is at:
     # https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus
     # Recommended for newer gpus for driver versions >=560
-    open = true;
+    # Not supported for older gpus
+    open = false;
 
     # Enable the Nvidia settings menu,
 	  # accessible via `nvidia-settings`.
