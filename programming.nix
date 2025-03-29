@@ -22,6 +22,7 @@
     # ... clojure
     clojure
     neil
+    bbin
     # ... js
     nodejs
 

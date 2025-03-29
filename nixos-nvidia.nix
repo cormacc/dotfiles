@@ -3,18 +3,6 @@
 
   # See https://nixos.wiki/wiki/Nvidia#CUDA
 
-  # Enable OpenGL
-  # ... on unstable
-  hardware.graphics = {
-    enable = true;
-  };
-  # ... on 24.05
-  # hardware.opengl = {
-  #   enable = true;
-  #   # driSupport = true;
-  #   # driSupport32Bit = true;
-  # };
-
   # Load nvidia driver for Xorg and Wayland
   services.xserver.videoDrivers = ["nvidia"];
 

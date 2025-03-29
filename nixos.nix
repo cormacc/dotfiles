@@ -37,6 +37,18 @@
   # This conflicts with services.power-profiles.daemon.enable... which appears to be true by default
   # services.tlp.enable = true;
 
+  # Enable OpenGL
+  # ... on unstable
+  hardware.graphics = {
+    enable = true;
+  };
+  # ... on 24.05
+  # hardware.opengl = {
+  #   enable = true;
+  #   # driSupport = true;
+  #   # driSupport32Bit = true;
+  # };
+
   # Display manager etc.
   services.xserver.enable = true;
   services.xserver.displayManager.gdm.enable = true;
