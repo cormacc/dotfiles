@@ -68,9 +68,9 @@ in {
   programs.emacs = {
     enable = true;
     # Using pure GTK build for wayland, but not sure it's necessary...
-    # package = pkgs.emacs29-pgtk;
+    package = pkgs.emacs-pgtk;
     # FIXME: Pinning emacs29 pending fix for emacs30 -- imminent as of 08/03/2025
-    # package = pkgs.emacs29;
+    # package = pkgs.emacs29-pgtk;
   };
 
 
