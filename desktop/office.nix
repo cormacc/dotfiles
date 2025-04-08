@@ -2,6 +2,7 @@
 
 {
   home.packages = with pkgs; [
+    xsane
     # -> libreoffice and deps...
     libreoffice
     hyphen

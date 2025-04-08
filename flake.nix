@@ -15,10 +15,18 @@
     };
     microchip = {
       url = "github:cormacc/nix-microchip";
-      # url = "github:Fuwn/nix-microchip";
       # url = "/home/cormacc/dev/nix-microchip";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+  };
+
+  nixConfig = {
+    extra-substituters = [
+      "https://nix-community.cachix.org"
+    ];
+    extra-trusted-gpg-public-keys = [
+      "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+    ];
   };
 
   outputs = { self, nixpkgs, home-manager, nixgl, microchip, ... } @inputs:

@@ -91,5 +91,7 @@
     python3
     pipenv
     poetry
+    # Virtual machines etc.
+    qemu SDL2
   ];
 }
