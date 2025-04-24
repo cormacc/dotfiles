@@ -284,7 +284,7 @@ This function should only modify configuration layer settings."
    ;; packages, then consider creating a layer. You can also put the
    ;; configuration in `dotspacemacs/user-config'.
    ;; dotspacemacs-additional-packages '(direnv)
-   dotspacemacs-additional-packages '(envrc)
+   dotspacemacs-additional-packages '(envrc html-to-hiccup)
 
 
    ;; A list of packages that cannot be updated.
@@ -848,8 +848,16 @@ before packages are loaded."
 
 
 
-  ;; AI and LLM...
+  ;; Clojure/Script
+  ;; N.B. This (html-to-hiccup) must also be added to spacemacs-additional-packages
+  ;; https://github.com/plexus/html-to-hiccup
+  (with-eval-after-load 'clojure-mode
+    (define-key clojure-mode-map (kbd "s-c") #'html-to-hiccup-convert-region)
+    (define-key clojure-mode-map (kbd "s-y") #'html-to-hiccup-yank)
+    (setq html-to-hiccup-use-shorthand-p t))
 
+
+  ;; AI and LLM...
 
   ;; ... llm-client layer -- gptel backends
   ;; See https://github.com/karthink/gptel
@@ -974,25 +982,6 @@ before packages are loaded."
   )
 
 
-
-;; Work around octave mod issue
-;; (eval-after-load 'octave
-;;   (setq octave-mode-hook
-;;     (lambda () (progn (setq octave-comment-char ?%)
-;;                  (setq comment-start "%")
-;;                  (setq indent-tabs-mode nil)
-;;                  (setq comment-add 0)
-;;                  (setq tab-width 2)
-;;                  (setq tab-stop-list (number-sequence 2 200 2))
-;;                  (setq octave-block-offset 2)
-
-;;                  (defun octave-indent-comment ()
-;;                    "A function for `smie-indent-functions' (which see)."
-;;                    (save-excursion
-;;                      (back-to-indentation)
-;;                      (cond
-;;                        ((octave-in-string-or-comment-p) nil)
-;;                        ((looking-at-p "\\(\\s<\\)\\1\\{2,\\}") 0)))))))
 
 
 ;; TODO: Look at this http://www.clauswitt.com/a-walkthrough-of-my-spacemacs-configuration-files.html
