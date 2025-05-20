@@ -8,7 +8,26 @@
   # Work around issues with mkOutOfStoreSymlink and nix 2.18.x (Jun 2024)
   nix.package = pkgs.nixVersions.latest;
 
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings = {
+    experimental-features = [ "nix-command" "flakes" ];
+    trusted-users = ["root" "@wheel" "cormacc"];
+    # extra-substituters = [
+    #   "https://nix-community.cachix.org"
+    # ];
+    # extra-trusted-gpg-public-keys = [
+    #   "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+    # ];
+
+    substituters = [
+      "https://cache.nixos.org"
+      "https://nix-community.cachix.org"
+    ];
+    trusted-public-keys = [
+      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+      "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+    ];
+
+  };
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;

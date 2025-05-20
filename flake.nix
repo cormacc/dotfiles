@@ -21,6 +21,7 @@
   };
 
   nixConfig = {
+    trusted-users = ["root" "@wheel" "cormacc"];
     extra-substituters = [
       "https://nix-community.cachix.org"
     ];

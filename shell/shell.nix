@@ -20,7 +20,7 @@ in {
   programs.gpg.enable = true;
   services.gpg-agent = {
     enable = true;
-    pinentryPackage = pkgs.pinentry-gnome3;
+    pinentry.package = pkgs.pinentry-gnome3;
   };
 
   programs.starship.enable = true;
@@ -46,7 +46,7 @@ complete -f -F _bb_tasks bb'';
 
   programs.zsh = {
     enable = true;
-    initExtra = ''${sharedPosixInit}
+    initContent = ''${sharedPosixInit}
       _bb_tasks() {
     local matches=(`bb tasks |tail -n +3 |cut -f1 -d ' '`)
     compadd -a matches
