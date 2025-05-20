@@ -16,4 +16,12 @@
     ];
   };
 
+  # See https://github.com/kuba2k2/firefox-webserial for webserial API polyfill/extension ...
+  # N.B. The provided native executable for linux is dynamically linked -- I'll need to recompile
+  #      from the repo to use on nixos
+  programs.firefox = {
+    enable = true;
+    package = config.lib.nixGL.wrap pkgs.firefox-devedition;
+  };
+
 }

@@ -36,7 +36,7 @@ in
     # TODO: Check if this is the case after adding user to the 'render' group...
     # ./llm.nix
     ./desktop/office.nix
-    ./sysadmin.nix
+    # ./sysadmin.nix
     # ./desktop/entertainment.nix
   ];
 
