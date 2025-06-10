@@ -25,7 +25,6 @@ in {
 
   programs.starship.enable = true;
 
-  programs.thefuck.enable = true;
   programs.ranger.enable = true;
 
   #Alternatives/enhancements to standard posix commands
