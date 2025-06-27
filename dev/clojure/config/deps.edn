@@ -1,0 +1,13 @@
+{:aliases
+ ;; Clojure MCP
+ ;; See https://github.com/bhauman/clojure-mcp
+ ;; See https://github.com/bhauman/clojure-mcp/commits/main for latest sha
+ {:mcp
+  {:deps {org.slf4j/slf4j-nop {:mvn/version "2.0.16"} ;; Required for stdio server
+          com.bhauman/clojure-mcp {:git/url "https://github.com/bhauman/clojure-mcp.git"
+                                   :git/sha "3bf3184e5ec064d7d07d1624b8b2023033bbe6d6"}
+          ;; This concise variant gives me a github auth error...
+          ;; io.github.bhaumann/clojure-mcp {:git/sha "3bf3184e5ec064d7d07d1624b8b2023033bbe6d6"}
+          }
+   :exec-fn clojure-mcp.main/start-mcp-server
+   :exec-args {:port 7888}}}}

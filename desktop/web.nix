@@ -24,4 +24,9 @@
     package = config.lib.nixGL.wrap pkgs.firefox-devedition;
   };
 
+
+  home.packages = [
+    (config.lib.nixGL.wrap pkgs.microsoft-edge)
+  ];
+
 }

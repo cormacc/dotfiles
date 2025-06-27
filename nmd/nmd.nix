@@ -20,6 +20,8 @@
     maestral
     maestral-gui
 
+    teams-for-linux
+
     # STM32 development
     stm32cubemx
 

@@ -1,4 +1,4 @@
-{ config, lib, pkgs, modulesPath, ... }:
+{ inputs, config, lib, pkgs, modulesPath, ... }:
 
 {
   services = {
@@ -27,5 +27,7 @@
     # Poke at llama-cpp again later when I'm looking at optimisation...
     # llama-cpp
     ollama
+    # Can't install with home-manager yet...
+    # inputs.claude.packages.${system}.claude-desktop-with-fhs
   ];
 }

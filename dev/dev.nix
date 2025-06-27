@@ -19,14 +19,17 @@
     minicom
 
     # Compilers etc. for evaluating 3rd party repos without a flake...
-    # ... clojure
-    clojure
-    neil
-    bbin
     # ... js
     nodejs
 
+    # Misc tools
+    libxml2
+
     # Programming assistance
     aider-chat
+  ];
+
+  imports = [
+    ./clojure/clojure.nix
   ];
 }
