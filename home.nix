@@ -31,10 +31,8 @@ in
     ./editors/editors.nix
     ./desktop/web.nix
     ./desktop/audio.nix
-    ./programming.nix
-    # Bypass for now -- nix installed llm tools can't access GPU
-    # TODO: Check if this is the case after adding user to the 'render' group...
-    # ./llm.nix
+    ./dev/dev.nix
+    ./llm.nix
     ./desktop/office.nix
     # ./sysadmin.nix
     # ./desktop/entertainment.nix

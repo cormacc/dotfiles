@@ -18,6 +18,11 @@
       # url = "/home/cormacc/dev/nix-microchip";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    claude = {
+      url = "github:k3d3/claude-desktop-linux-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+      # inputs.flake-utils.follows = "flake-utils";
+    };
   };
 
   nixConfig = {
@@ -30,7 +35,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, home-manager, nixgl, microchip, ... } @inputs:
+  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -74,7 +79,10 @@
         #    as os-level tweaking should happen less often than local environment
         xps15 = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { hostName = "xps15"; };
+          specialArgs = {
+            inherit inputs;
+            hostName = "xps15";
+          };
           modules = [
             ./nixos-nvidia.nix
             ./hosts/xps15/hardware-configuration.nix
@@ -141,7 +149,7 @@
           ];
           extraSpecialArgs = {
             cfgName = "default";
-            inherit nixgl;
+            inherit inputs system nixgl;
           };
         };
         minimal = home-manager.lib.homeManagerConfiguration {
