@@ -5,7 +5,7 @@
  {:mcp
   {:deps {org.slf4j/slf4j-nop {:mvn/version "2.0.16"} ;; Required for stdio server
           com.bhauman/clojure-mcp {:git/url "https://github.com/bhauman/clojure-mcp.git"
-                                   :git/sha "3bf3184e5ec064d7d07d1624b8b2023033bbe6d6"}
+                                   :git/sha "fa5bf3a79f2d94fd98ab7270e312bb9f571c7121"}
           ;; This concise variant gives me a github auth error...
           ;; io.github.bhaumann/clojure-mcp {:git/sha "3bf3184e5ec064d7d07d1624b8b2023033bbe6d6"}
           }
