@@ -21,6 +21,9 @@
     # Compilers etc. for evaluating 3rd party repos without a flake...
     # ... js
     nodejs
+    bun
+    # ... rust
+    rust-bin.stable.latest.default
 
     # Misc tools
     libxml2
