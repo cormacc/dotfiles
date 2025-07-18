@@ -23,6 +23,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
       # inputs.flake-utils.follows = "flake-utils";
     };
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {
@@ -35,7 +39,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude, ... } @inputs:
+  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude, rust-overlay, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -49,6 +53,7 @@
         overlays = [
           nixgl.overlay
           microchip.overlays.default
+          rust-overlay.overlays.default
         ];
       };
     in {
