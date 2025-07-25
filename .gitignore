@@ -1,1 +1,3 @@
 /dev/clojure/config/.*
+.lsp
+.clj-kondo
