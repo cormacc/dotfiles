@@ -59,6 +59,13 @@
   services.desktopManager.gnome.enable = true;
 
 
+  # Dev tools...
+  services.udev.packages = [
+    pkgs.nrf-udev
+    pkgs.openocd
+    # pkgs.segger-jlink
+  ];
+
   # Required to install sway via home-manager
   # ... but we're installing via nixos
   #security.polkit.enable = true;
@@ -93,5 +100,8 @@
     poetry
     # Virtual machines etc.
     qemu SDL2
+
+    # segger-jlink
+    openocd
   ];
 }

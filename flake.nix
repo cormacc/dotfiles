@@ -49,6 +49,11 @@
         config = {
           allowUnfree = true;
           allowUnfreePredicate = _: true;
+          permittedInsecurePackages = [
+            #This is ignored...
+            "segger-jlink-qt4-810"
+          ];
+          segger-jlink.acceptLicense = true;
         };
         overlays = [
           nixgl.overlay

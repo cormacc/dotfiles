@@ -46,6 +46,8 @@ in
     # FIXME: I've tried setting the relevant options in flake.nix but not
     # working for me - hence the session variable workaround
     NIXPKGS_ALLOW_UNFREE = 1;
+    # Doing this globally is undoubtedly a bad idea... but I'm lazy
+    NIXPKGS_ALLOW_INSECURE = 1;
     # Persist env variables from initial config...
     NAME = "${name}";
     EMAIL = "${email}";

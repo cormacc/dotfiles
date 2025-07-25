@@ -57,7 +57,7 @@
   users.users.cormacc = {
     isNormalUser = true;
     description = "Cormac Cannon";
-    extraGroups = [ "networkmanager" "wheel" "dialout" "lp" "audio" "video" "render" "docker" "kvm" "adm" "systemd-journal"];
+    extraGroups = [ "networkmanager" "wheel" "dialout" "lp" "audio" "video" "render" "docker" "kvm" "adm" "systemd-journal" "uucp"];
     packages = with pkgs; [];
   };
 
