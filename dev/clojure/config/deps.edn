@@ -5,9 +5,11 @@
  {:mcp
   {:deps {org.slf4j/slf4j-nop {:mvn/version "2.0.16"} ;; Required for stdio server
           com.bhauman/clojure-mcp {:git/url "https://github.com/bhauman/clojure-mcp.git"
-                                   :git/sha "fa5bf3a79f2d94fd98ab7270e312bb9f571c7121"}
+                                   :git/sha "5024190dab84c91d95e45832d90fdcb2fa728739"}
           ;; This concise variant gives me a github auth error...
           ;; io.github.bhaumann/clojure-mcp {:git/sha "3bf3184e5ec064d7d07d1624b8b2023033bbe6d6"}
           }
    :exec-fn clojure-mcp.main/start-mcp-server
-   :exec-args {:port 7888}}}}
+   :exec-args {:port 7888
+               ;;The bash-over-nrepl tool gets unresponsive with cljs projects...
+               :bash-over-nrepl false}}}}

@@ -108,15 +108,24 @@ in {
   # };
 
   # Do this to have a symlinked read-only version
-  # home.file."${config.xdg.configHome}/spacemacs".source = .config/spacemacs;
+  # home.file."${config.xdg.configHome}/doom".source = .config/doom;
   # ... or this to keep it editable in-place, rather than have to 'home-manager switch ...' after each edit
   home.file."${config.xdg.configHome}/doom".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/doom";
 
+
+  # Corgi emacs... a clojure-focused minimal config with spacemacs-like keybindings
+  # See https://github.com/corgi-emacs/corgi
+
+  # Do this to have a symlinked read-only version
+  # home.file."${config.xdg.configHome}/corgi".source = .config/corgi;
+  # ... or this to keep it editable in-place, rather than have to 'home-manager switch ...' after each edit
+  home.file."${config.xdg.configHome}/emacs-corgi".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/corgi";
 
   # TODO: add config dir after populating initial config...
 
   home.shellAliases = {
     demacs = "emacs --init-dir ~/.config/emacs-doom";
     doom = "~/.config/emacs-doom/bin/doom";
+    cemacs = "emacs --init-dir ~/.config/emacs-corgi";
   };
 }
