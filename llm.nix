@@ -13,7 +13,7 @@
     # pkgs.llama-cpp
     pkgs.cherry-studio
     pkgs.claude-code
-    # inputs.claude.packages.${system}.claude-desktop-with-fhs
+    pkgs.nur.repos.charmbracelet.crush
     inputs.claude.packages.${system}.claude-desktop
     #... this may cause issues with aur on arch - see wayland.nix
     # (python3.withPackages (python-pkgs: with python-pkgs; [

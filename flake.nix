@@ -27,6 +27,11 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Nix User Repository
+    nur = {
+      url = "github:nix-community/NUR";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {
@@ -39,7 +44,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude, rust-overlay, ... } @inputs:
+  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude, rust-overlay, nur, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -59,6 +64,7 @@
           nixgl.overlay
           microchip.overlays.default
           rust-overlay.overlays.default
+          nur.overlays.default
         ];
       };
     in {
@@ -68,6 +74,7 @@
           system = "x86_64-linux";
           specialArgs = { hostName = "t470p"; };
           modules = [
+            nur.modules.nixos.default
             ./nixos-nvidia.nix
             ./hosts/t470p/hardware-configuration.nix
             ./hosts/nixos-configuration-default.nix

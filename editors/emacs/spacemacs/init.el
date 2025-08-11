@@ -284,7 +284,13 @@ This function should only modify configuration layer settings."
    ;; packages, then consider creating a layer. You can also put the
    ;; configuration in `dotspacemacs/user-config'.
    ;; dotspacemacs-additional-packages '(direnv)
-   dotspacemacs-additional-packages '(envrc html-to-hiccup)
+   dotspacemacs-additional-packages
+   '(envrc
+     html-to-hiccup
+     eca
+     (claude-code-ide :location (recipe
+                                 :fetcher github
+                                 :repo "manzaltu/claude-code-ide.el")))
 
 
    ;; A list of packages that cannot be updated.
@@ -858,6 +864,17 @@ before packages are loaded."
 
 
   ;; AI and LLM...
+
+  ;; Emacs ECA (Editor Code Assistant)
+  ;; ... ECA expects keys in environment rather than in emacs config...
+  (setenv "ANTHROPIC_API_KEY" (auth-source-pick-first-password :host "api.anthropic.com"))
+  (setenv "OPENAI_API_API_KEY" (auth-source-pick-first-password :host "api.openai.com"))
+
+  ;; claude-code-ide
+  (require 'claude-code-ide)
+  (with-eval-after-load 'claude-code-ide
+    (claude-code-ide-emacs-tools-setup)
+    (global-set-key (kbd "C-c C-'") 'claude-code-ide-menu))
 
   ;; ... llm-client layer -- gptel backends
   ;; See https://github.com/karthink/gptel
