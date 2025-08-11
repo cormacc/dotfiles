@@ -3,6 +3,9 @@
 {
   home.packages = with pkgs; [
     xsane
+    #graphics
+    gimp3-with-plugins
+    krita
     # -> libreoffice and deps...
     libreoffice
     hyphen
