@@ -16,6 +16,8 @@ let
 
   # Secrets
   gitlabHost = builtins.getEnv "GITLAB";
+  openaiKey = builtins.getEnv "OPENAI_API_KEY";
+  anthropicKey = builtins.getEnv "ANTHROPIC_API_KEY";
 in
 {
 
@@ -52,6 +54,8 @@ in
     NAME = "${name}";
     EMAIL = "${email}";
     GITLAB = "${gitlabHost}";
+    OPENAI_API_KEY = "${openaiKey}";
+    ANTHROPIC_API_KEY = "${anthropicKey}";
   };
 
   home.shellAliases = {
