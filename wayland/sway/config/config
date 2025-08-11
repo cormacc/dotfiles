@@ -43,3 +43,9 @@ include $config-dir/autostarts.conf
 # TODO: Move this elsewhere
 # Toggle control center
 bindsym $mod+Shift+n exec swaync-client -t -sw
+
+
+
+# ~/.config/sway/config
+focus_follows_mouse no
+focus_on_window_activation focus

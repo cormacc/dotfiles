@@ -975,6 +975,19 @@ before packages are loaded."
             (insert (format-time-string "[%F %T.%3N] "))))))
   (advice-add 'message :before 'my/add-timestamp-message)
 
+  ;; == Have sway follow emacs focus
+  (defun sway-focus-frame ()
+    "Focus the Sway container containing the current Emacs frame."
+    (when (display-graphic-p)
+      (let* ((frame-id (frame-parameter nil 'outer-window-id))
+             (cmd (format "swaymsg '[id=%s] focus'" frame-id)))
+        (start-process "sway-focus" nil "sh" "-c" cmd))))
+
+  ;; Hook into frame focus events
+  (add-hook 'focus-in-hook #'sway-focus-frame)
+  (add-hook 'buffer-list-update-hook #'sway-focus-frame)
+
+
   ;; == WORKAROUNDS -- REVISIT REGULARLY ==
 
   ;; Clipboard on wayland
