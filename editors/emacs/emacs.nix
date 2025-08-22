@@ -20,6 +20,7 @@ in {
     aspell
     aspellDicts.en
     source-code-pro
+    ripgrep
     gsettings-desktop-schemas
     #vterm deps
     # .. This is old/broken -- see https://weblog.zamazal.org/sw-problem-nixos-emacs-vterm/
@@ -33,11 +34,12 @@ in {
     cmake
     gnumake
     gcc
-    # Plantuml + deps
-    jdk21
-    graphviz
+    # charts
     plantuml
-    ripgrep
+    # plantuml-c4
+    # jdk21
+    graphviz
+    mermaid-cli
     # Layer dependencies.
     # TODO: install these in project flakes instead maybe?
     #       ... though the layers are enabled in global config ...
