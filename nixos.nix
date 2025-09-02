@@ -51,12 +51,12 @@
 
   # Display manager etc.
   services.xserver.enable = true;
-  services.displayManager.gdm.enable = true;
+  services.xserver.displayManager.gdm.enable = true;
   services.gnome.gnome-keyring.enable = true;
 
 
   # Desktop environments
-  services.desktopManager.gnome.enable = true;
+  # services.desktopManager.gnome.enable = true;
 
 
   # Dev tools...
