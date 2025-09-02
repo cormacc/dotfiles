@@ -46,7 +46,8 @@ in {
     # ... bash
     bash-language-server
     # ... c/c++
-    cmake-language-server
+    # FIXME: Causing an installation error as of 26/08/2025
+    # cmake-language-server
     clang-tools
     # ... python
     pyright

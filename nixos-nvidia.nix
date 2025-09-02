@@ -33,9 +33,9 @@
 	  # accessible via `nvidia-settings`.
     nvidiaSettings = true;
 
-    # package = config.boot.kernelPackages.nvidiaPackages.stable;
+    package = config.boot.kernelPackages.nvidiaPackages.stable;
     # Stable package is pretty old / LTS
-    package = config.boot.kernelPackages.nvidiaPackages.latest;
+    # package = config.boot.kernelPackages.nvidiaPackages.latest;
     # Optionally, you may need to select the appropriate driver version for your specific GPU.
     # Search nixpkgs for something like: linuxKernel.packages.linux_6_9.nvidia_x11
     # package = linuxKernel.packages.linux_6_12.nvidia_x11
