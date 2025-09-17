@@ -27,8 +27,8 @@ in
 
   # Home Manager needs a bit of information about you and the
   # paths it should manage.
-  home.username = "${username}";
-  home.homeDirectory = "/home/${username}";
+  #home.username = "${username}";
+  #home.homeDirectory = "${homedir}";
 
   # This value determines the Home Manager release that your
   # configuration is compatible with. This helps avoid breakage
@@ -63,7 +63,10 @@ in
     hms = "home-manager switch --flake '${flakePath}' --impure";
     nob = "nixos-rebuild build --flake '${flakePath}' --impure";
     nos = "sudo nixos-rebuild switch --flake \"${dotRoot}#`cat /etc/hostname`\" --impure";
+    # Constructing path manually here -- sudo -E doesn't inherit USER or HOME
+    drs = "sudo -E darwin-rebuild switch --flake '/Users/cormacc/dotfiles/nix-darwin' --impure";
   };
+
 
   # To setup direnv in a given folder...
   # 1. create a flake.nix in the folder

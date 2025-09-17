@@ -42,9 +42,9 @@ in
 
   services.syncthing = {
     enable = true;
-    tray = {
-      enable = true;
-    };
+    # tray = {
+    #   enable = true;
+    # };
   };
   # TODO: Add some configuration here?
 
