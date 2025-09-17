@@ -11,7 +11,7 @@
     # TODO: Add open-webui
     # pkgs.ollama
     # pkgs.llama-cpp
-    pkgs.cherry-studio
+    # pkgs.cherry-studio
     pkgs.claude-code
     pkgs.nur.repos.charmbracelet.crush
     inputs.claude.packages.${system}.claude-desktop
