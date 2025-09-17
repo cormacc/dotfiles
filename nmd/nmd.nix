@@ -20,13 +20,13 @@
     maestral
     maestral-gui
 
-    teams-for-linux
+    #teams-for-linux
 
     # STM32 development
-    stm32cubemx
+    #stm32cubemx
 
     # Microchip dev environment - from my overlay
-    mplab-x
+    #mplab-x
   ];
   home.file."${config.xdg.configHome}/onedrive/config".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/nmd/onedrive-config";
   #Manually link to systemd service, as home-manager not doing it for us here

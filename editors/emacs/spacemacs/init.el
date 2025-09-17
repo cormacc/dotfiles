@@ -460,7 +460,7 @@ It should only modify the values of Spacemacs settings."
    ;; N.B. use 'fc-list' to list installed font names on linux
    dotspacemacs-default-font '(;;"FiraCode Nerd Font"
                                "Source Code Pro"
-                               :size 10.0
+                               :size (if (eq system-type 'darwin) 14.0 12.0)
                                :weight normal
                                :width normal)
 
@@ -994,21 +994,22 @@ before packages are loaded."
 
   ;; Clipboard on wayland
   ;; See https://www.emacswiki.org/emacs/CopyAndPaste#h5o-4
-  (setq wl-copy-process nil)
-  (defun wl-copy (text)
-    (setq wl-copy-process (make-process :name "wl-copy"
-                                        :buffer nil
-                                        :command '("wl-copy" "-f" "-n")
-                                        :connection-type 'pipe
-                                        :noquery t))
-    (process-send-string wl-copy-process text)
-    (process-send-eof wl-copy-process))
-  (defun wl-paste ()
-    (if (and wl-copy-process (process-live-p wl-copy-process))
-        nil ; should return nil if we're the current paste owner
-      (shell-command-to-string "wl-paste -n | tr -d \r")))
-  (setq interprogram-cut-function 'wl-copy)
-  (setq interprogram-paste-function 'wl-paste)
+  (when (eq system-type 'gnu/linux)
+    (setq wl-copy-process nil)
+    (defun wl-copy (text)
+      (setq wl-copy-process (make-process :name "wl-copy"
+                                          :buffer nil
+                                          :command '("wl-copy" "-f" "-n")
+                                          :connection-type 'pipe
+                                          :noquery t))
+      (process-send-string wl-copy-process text)
+      (process-send-eof wl-copy-process))
+    (defun wl-paste ()
+      (if (and wl-copy-process (process-live-p wl-copy-process))
+          nil ; should return nil if we're the current paste owner
+        (shell-command-to-string "wl-paste -n | tr -d \r")))
+    (setq interprogram-cut-function 'wl-copy)
+    (setq interprogram-paste-function 'wl-paste))
 
   ;; == END WORKAROUNDS
   )

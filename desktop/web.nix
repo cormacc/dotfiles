@@ -8,7 +8,7 @@
       # Bitwarden
       { id = "nngceckbapebfimnlniiiahkandclblb"; }
       # xBrowserSync
-      { id = "lcbjdhceifofjlpecfpeimnnphbcjgnc"; }
+      # { id = "lcbjdhceifofjlpecfpeimnnphbcjgnc"; }
       # Shadow-cljs UI
       { id = "hpcbebiekdogcnamniekdaknicncdban"; }
       # OPFS explorer

@@ -9,11 +9,8 @@
     nerd-fonts.fira-code
     nerd-fonts.caskaydia-cove
 
-    zeal # requires opengl
-
     # Tools to help with nixpkg development...
     bundix
-    bubblewrap
 
     # Serial terminal
     minicom
@@ -23,13 +20,12 @@
     nodejs
     bun
     # ... rust
-    rust-bin.stable.latest.default
+    #rust-bin.stable.latest.default
+    cargo
+    rustc
 
     # Misc tools
     libxml2
-
-    # Programming assistance
-    aider-chat
   ];
 
   imports = [
