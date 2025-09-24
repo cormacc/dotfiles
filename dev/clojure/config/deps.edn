@@ -9,7 +9,7 @@
 
                                    ;; :git/tag "v0.1.8-alpha"
                                    ;; :git/sha "457f197"
-                                   :git/sha "89feeb0be877e06e129aa84ce16522f8b0a36c38"
+                                   :git/sha "f81db882fcab43b85e973693a3fa5737a8090d21"
                                    ;;
                                    }
           #_io.github.bhauman/clojure-mcp #_{:git/url "https://github.com/bhauman/clojure-mcp.git" :git/sha "latest"}}
@@ -20,9 +20,9 @@
   :mcp-bb
   {:deps {org.slf4j/slf4j-nop {:mvn/version "2.0.16"} ;; Required for stdio server
           com.bhauman/clojure-mcp {:git/url "https://github.com/bhauman/clojure-mcp.git"
-                                   ;; :git/tag "v0.1.8-alpha"
+                                   ;; :git/tag "v0.1.10-alpha"
                                    ;; :git/sha "457f197"
-                                   :git/sha "89feeb0be877e06e129aa84ce16522f8b0a36c38"
+                                   :git/sha "f81db882fcab43b85e973693a3fa5737a8090d21"
                                    ;;
                                    }}
    :exec-fn clojure-mcp.main/start-mcp-server
