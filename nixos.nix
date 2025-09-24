@@ -58,6 +58,9 @@
   # Desktop environments
   # services.desktopManager.gnome.enable = true;
 
+  # Compatibility shim for dynamic binaries....
+  # See https://github.com/mic92/envfs
+  # services.envfs.enable = true;
 
   # Dev tools...
   services.udev.packages = [

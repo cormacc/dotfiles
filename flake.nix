@@ -101,6 +101,7 @@
             hostName = "xps15";
           };
           modules = [
+            # envfs.nixosModules.envfs
             ./nixos-nvidia.nix
             ./hosts/xps15/hardware-configuration.nix
             ./hosts/xps15/nixos-configuration.nix
