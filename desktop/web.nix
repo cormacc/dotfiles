@@ -27,6 +27,7 @@
 
   home.packages = [
     (config.lib.nixGL.wrap pkgs.microsoft-edge)
+    (config.lib.nixGL.wrap pkgs.google-chrome)
   ];
 
 }
