@@ -1,3 +1,6 @@
+;; See these configs for ideas:
+;; - https://github.com/practicalli/clojure-cli-config/blob/main/deps.edn
+;; - https://github.com/seancorfield/dot-clojure
 {:aliases
  ;; Clojure MCP
  ;; See https://github.com/bhauman/clojure-mcp
@@ -27,4 +30,8 @@
                                    }}
    :exec-fn clojure-mcp.main/start-mcp-server
    :exec-args {:port 7888
-               :nrepl-env-type :bb}}}}
+               :nrepl-env-type :bb}}
+  ;; https://github.com/lambdaisland/kaocha-cucumbe
+  ;; - used for kaocha-runner.el to run Kaocha test runner in Emacs Cider
+  :lib/kaocha
+  {:extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}}}}

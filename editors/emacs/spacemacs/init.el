@@ -221,6 +221,7 @@ This function should only modify configuration layer settings."
      ceedling
      (clojure :variables
               clojure-enable-linters '(clj-kondo joker)
+              clojure-enable-kaocha-runner t
               )
      (cmake :variables
             ;; I was using this to generate compile_commands.json, but doing it via ceedling config now...
