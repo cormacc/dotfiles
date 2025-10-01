@@ -4,8 +4,11 @@
   home.packages = with pkgs; [
     # Compilers etc. for evaluating 3rd party repos without a flake...
     jdk24
-    # ... clojure
     clojure
+    # ... editor support
+    clj-kondo
+    joker
+    # ... CLI support
     polylith
     neil
     bbin
