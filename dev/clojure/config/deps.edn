@@ -12,7 +12,7 @@
 
                                    ;; :git/tag "v0.1.8-alpha"
                                    ;; :git/sha "457f197"
-                                   :git/sha "f81db882fcab43b85e973693a3fa5737a8090d21"
+                                   :git/sha "88c9baa20635daa27b5036b473f64ad819647539"
                                    ;;
                                    }
           #_io.github.bhauman/clojure-mcp #_{:git/url "https://github.com/bhauman/clojure-mcp.git" :git/sha "latest"}}
@@ -25,7 +25,7 @@
           com.bhauman/clojure-mcp {:git/url "https://github.com/bhauman/clojure-mcp.git"
                                    ;; :git/tag "v0.1.10-alpha"
                                    ;; :git/sha "457f197"
-                                   :git/sha "f81db882fcab43b85e973693a3fa5737a8090d21"
+                                   :git/sha "88c9baa20635daa27b5036b473f64ad819647539"
                                    ;;
                                    }}
    :exec-fn clojure-mcp.main/start-mcp-server
