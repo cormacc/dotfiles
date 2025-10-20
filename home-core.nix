@@ -121,21 +121,24 @@ in
 
   programs.git = {
     enable = true;
-    userName = "${name}";
-    userEmail = "${username}@gmail.com";
     lfs.enable = true;
-    # We can only enable one of delta, diff-so-fancy and difftastic
-    # delta.enable = true;
-    # Colorised diff output
-    # diff-so-fancy.enable = true;
-    # Structural diff
-    difftastic.enable = true;
-    extraConfig = {
+    settings = {
+      user = {
+        name = "${name}";
+        email = "${username}@gmail.com";
+      };
       core = {
         autocrlf = "input";
       };
     };
   };
+
+  # We can only enable one of delta, diff-so-fancy and difftastic
+  # programs.delta.enable = true;
+  # Colorised diff output
+  # programs.diff-so-fancy.enable = true;
+  # Structural diff
+  programs.difftastic.enable = true;
   # Automated changelog generation...
   programs.git-cliff.enable = true;
 
