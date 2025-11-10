@@ -10,7 +10,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nixgl = {
-      url = "github:nix-community/nixGL";
+      # url = "github:nix-community/nixGL";
+      # FIXME: Awaiting merge of nvidia version parsing fix to nixgl master...
+      #        See https://github.com/nix-community/nixGL/pull/187
+      url = "https://github.com/phirsch/nixGL/archive/fix-versionMatch.tar.gz";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     microchip = {
@@ -71,7 +74,7 @@
       nixosConfigurations = {
         # This configuration consolidates system and home directory setup...
         t470p = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
+          system = "${system}";
           specialArgs = { hostName = "t470p"; };
           modules = [
             nur.modules.nixos.default
@@ -95,7 +98,7 @@
         #... this separate nixos and home-manager, arguably a better approach
         #    as os-level tweaking should happen less often than local environment
         xps15 = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
+          system = "${system}";
           specialArgs = {
             inherit inputs;
             hostName = "xps15";
@@ -111,7 +114,7 @@
           ];
         };
         t580 = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
+          system = "${system}";
           specialArgs = { hostName = "t580"; };
           modules = [
             # ./nixos-nvidia-legacy.nix
@@ -123,7 +126,7 @@
         };
         # Retiring C2750D box as nas...
         # nas = nixpkgs.lib.nixosSystem {
-        #   system = "x86_64-linux";
+        #   system = "${system}";
         #   specialArgs = { hostName = "nas"; };
         #   modules = [
         #     ./hosts/c2750d4i/hardware-configuration.nix
@@ -133,7 +136,7 @@
         # };
         #... in favour of t470p
         t470-nas = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
+          system = "${system}";
           specialArgs = { hostName = "t470-nas"; };
           modules = [
             ./hosts/t470p/hardware-configuration.nix
@@ -146,7 +149,7 @@
         };
         #... or odroid h4
         nas = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
+          system = "${system}";
           specialArgs = { hostName = "nas"; };
           modules = [
             ./hosts/odroid-h4/hardware-configuration.nix
