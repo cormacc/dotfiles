@@ -110,7 +110,8 @@
             ./hosts/xps15/nixos-configuration.nix
             ./nixos.nix
             ./nixos-extra.nix
-            ./nixos-llm.nix
+            #Not currently doing anything with ollama, and it takes ages to build...
+            #./nixos-llm.nix
           ];
         };
         t580 = nixpkgs.lib.nixosSystem {
