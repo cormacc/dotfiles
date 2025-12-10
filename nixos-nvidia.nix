@@ -33,7 +33,9 @@
 	  # accessible via `nvidia-settings`.
     nvidiaSettings = true;
 
-    package = config.boot.kernelPackages.nvidiaPackages.stable;
+    #package = config.boot.kernelPackages.nvidiaPackages.stable;
+    #Using beta (Dec 25) pending fix for https://github.com/NixOS/nixpkgs/issues/467814
+    package = config.boot.kernelPackages.nvidiaPackages.beta;
     # Stable package is pretty old / LTS
     # package = config.boot.kernelPackages.nvidiaPackages.latest;
     # Optionally, you may need to select the appropriate driver version for your specific GPU.
