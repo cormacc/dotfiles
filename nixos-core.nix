@@ -5,9 +5,6 @@
 { config, pkgs, specialArgs, ... }:
 
 {
-  # Work around issues with mkOutOfStoreSymlink and nix 2.18.x (Jun 2024)
-  nix.package = pkgs.nixVersions.latest;
-
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
     trusted-users = ["root" "@wheel" "cormacc"];
