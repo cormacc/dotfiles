@@ -112,7 +112,7 @@ in {
   };
 
   # mako  - a notification daemon for Wayland
-  # DEPRECATED: Using SwayNotificationCenter instead for sway. And builtin for hyprland?
+  # DEPRECATED: Using SwayNotificationCenter instead for sway and hyprland
 #   services.mako = {
 #     enable = true;
 #     extraConfig = ''
@@ -121,8 +121,19 @@ in {
 # '';
 #   };
 
+  programs.kitty = {
+    enable = true;
+    shellIntegration = {
+      enableFishIntegration = true;
+      enableZshIntegration = true;
+    };
+    settings = {
+      confirm_os_window_close = 0;
+    };
+  };
+
   programs.fuzzel = {
-    enable=true;
+    enable = true;
   };
 
   # rofi - a dmenu replacement
