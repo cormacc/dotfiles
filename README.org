@@ -26,7 +26,6 @@ Some introductory text
 - [[#overview][Overview]]
 - [[#known-issues--limitations][Known issues / limitations]]
   - [[#opengl-applications-on-non-nixos][OpenGL applications on non-NixOS]]
-  - [[#mkoutofstoresymlink-broken-with-current-stable-version-of-nix][mkOutOfStoreSymlink broken with current stable version of nix]]
 - [[#provisioning-a-new-accountinstallation][Provisioning a new account/installation]]
   - [[#non-nixos][Non-NixOS]]
     - [[#install-nix][Install Nix]]
@@ -87,18 +86,6 @@ This repository also includes NixOS configuration for a couple of hosts, however
 ** OpenGL applications on non-NixOS
 Applications requiring OpenGL don't work when installed using Home Manager without NixOS.
 This is an upstream issue with a number of viable workarounds, but for now I'm just installing OpenGL apps from the Arch repositories.
-
-** mkOutOfStoreSymlink broken with current stable version of nix
-As of July 2024, the stable version of nix (?2.18.x?) for new installs breaks the mkOutOfStoreSymlink function of home-manager, used extensively in this configuration. This is nice for environment config with a higher churn rate (e.g. emacs, sway etc.), as it symlinks to the git-controlled files, allowing configuration changes to be applied immediately without having to 'home-manager --switch ...' each time and creating large numbers of generations.
-
-It's impure, but I'm OK with it.
-
-To work around this, update the installed version of nix using something like the following after initial installation...
-#+begin_src sh
-  nix-env --install --file '<nixpkgs>' --attr nixVersions.latest cacert -I nixpkgs=channel:nixpkgs-unstable
-#+end_src
-
-Alternatively, strip the uses of '.mkOutOfStoreSymlink' from the .nix files in this repo.
 
 * Provisioning a new account/installation
 
