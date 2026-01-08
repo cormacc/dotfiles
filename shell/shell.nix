@@ -45,6 +45,8 @@ complete -f -F _bb_tasks bb'';
 
   programs.zsh = {
     enable = true;
+    # This is the new default for stateversion >= 26.05
+    dotDir = "${config.xdg.configHome}/zsh";
     initContent = ''${sharedPosixInit}
       _bb_tasks() {
     local matches=(`bb tasks |tail -n +3 |cut -f1 -d ' '`)
