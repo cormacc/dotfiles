@@ -16,10 +16,12 @@ let
 in
 {
   # nixgl config -- a np for nixos, but useful on hybrid config...
-  nixGL.packages = nixgl.packages;
-  nixGL.defaultWrapper = "mesa";
-  nixGL.offloadWrapper = "nvidiaPrime";
-  nixGL.installScripts = [ "mesa" "nvidiaPrime" ];
+  targets.genericLinux.nixGL = {
+    packages = nixgl.packages;
+    defaultWrapper = "mesa";
+    offloadWrapper = "nvidiaPrime";
+    installScripts = [ "mesa" "nvidiaPrime" ];
+  };
 
   imports = [
     ./home-core.nix
