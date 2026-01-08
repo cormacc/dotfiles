@@ -117,6 +117,20 @@ in
     # controlMaster = "auto";
     # controlPath = "~/.ssh/master-%r@%h:%p";
     # serverAliveInterval = 15;
+    enableDefaultConfig = false;
+    # Old SSH default config.... TODO: RTFM and see what I should keep
+    matchBlocks."*" = {
+      forwardAgent = false;
+      addKeysToAgent = "no";
+      compression = false;
+      serverAliveInterval = 0;
+      serverAliveCountMax = 3;
+      hashKnownHosts = false;
+      userKnownHostsFile = "~/.ssh/known_hosts";
+      controlMaster = "no";
+      controlPath = "~/.ssh/master-%r@%n:%p";
+      controlPersist = "no";
+    };
   };
 
   programs.git = {
