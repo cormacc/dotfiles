@@ -52,7 +52,6 @@
 
       system.primaryUser = "cormacc";
 
-      # This may not be necessary....
       users.users.cormacc = {
         name = "cormacc";
         home = "/Users/cormacc";

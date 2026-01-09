@@ -24,7 +24,7 @@ in
   };
 
   imports = [
-    ./home-core.nix
+    ./home-linux.nix
     # Include these at flake level instead?
     ./nmd/nmd.nix
     ./wayland/wayland.nix

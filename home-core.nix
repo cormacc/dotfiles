@@ -25,11 +25,6 @@ in
     ./shell/shell.nix
   ];
 
-  # Home Manager needs a bit of information about you and the
-  # paths it should manage.
-  home.username = "${username}";
-  # N.B. This may be incompatible with nix-darwin....
-  home.homeDirectory = "${homedir}";
 
   # This value determines the Home Manager release that your
   # configuration is compatible with. This helps avoid breakage
