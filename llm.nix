@@ -15,7 +15,9 @@
     pkgs.claude-code
     pkgs.crush
     pkgs.opencode
-    inputs.claude.packages.${system}.claude-desktop
+    pkgs.amp-cli
+    pkgs.beads
+    # inputs.claude.packages.${system}.claude-desktop
     #... this may cause issues with aur on arch - see wayland.nix
     # (python3.withPackages (python-pkgs: with python-pkgs; [
     #   huggingface-hub

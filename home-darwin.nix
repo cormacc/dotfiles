@@ -21,6 +21,7 @@ in
     #./nmd/nmd.nix
     ./editors/editors.nix
     ./dev/dev.nix
+    ./llm.nix
     #./desktop/office.nix
   ];
 

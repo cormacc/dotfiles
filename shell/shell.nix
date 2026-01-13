@@ -4,12 +4,13 @@ let
   dir-nav-posix = ".profile.d/dir-nav.sh";
   sharedPosixInit = ''
      . ~/${dir-nav-posix}
-     . ~/.profile
+     export PATH="$HOME/.local/bin:$PATH"
   '';
 in {
 
   home.packages = with pkgs; [
     babashka # shell scripting in clojure
+    bbin
     unzip
     p7zip
   ];

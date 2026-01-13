@@ -31,7 +31,14 @@
    :exec-fn clojure-mcp.main/start-mcp-server
    :exec-args {:port 7888
                :nrepl-env-type :bb}}
-  ;; https://github.com/lambdaisland/kaocha-cucumbe
+  ;; https://github.com/lambdaisland/kaocha
   ;; - used for kaocha-runner.el to run Kaocha test runner in Emacs Cider
   :lib/kaocha
-  {:extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}}}}
+  {:extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}}
+
+;; https://github.com/bhauman/rebel-readline
+  ;; clojure -Xrebel for a rebel repl
+  :rebel {:extra-deps {com.bhauman/rebel-readline {:mvn/version "0.1.5"}}
+          :exec-fn rebel-readline.tool/repl
+          :exec-args {:key-map :viins}
+          :main-opts ["-m" "rebel-readline.main"]}}}

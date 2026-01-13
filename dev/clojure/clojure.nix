@@ -8,10 +8,10 @@
     # ... editor support
     clj-kondo
     joker
+    parinfer-rust-emacs
     # ... CLI support
     polylith
     neil
-    bbin
   ];
 
   home.file."${config.xdg.configHome}/clojure".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/dev/clojure/config";
