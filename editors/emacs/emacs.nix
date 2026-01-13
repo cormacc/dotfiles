@@ -17,8 +17,10 @@ in {
   programs.texlive.enable = true;
 
   home.packages = with pkgs; [
-    aspell
-    aspellDicts.en
+    # aspell
+    # aspellDicts.en
+    # aspellDicts.ga
+    (aspellWithDicts (dicts: with dicts; [en en-computers en-science ga]))
     source-code-pro
     ripgrep
     gsettings-desktop-schemas
