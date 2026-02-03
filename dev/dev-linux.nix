@@ -1,14 +1,7 @@
-{ config, pkgs, ... }:
+{ config, pkgs, nixgl, ... }:
 
 {
-  imports = [
-    ./dev.nix
-  ];
-
   home.packages = with pkgs; [
-    zeal # requires opengl
-
-    # Tools to help with nixpkg development...
-    bubblewrap
+    (config.lib.nixGL.wrap zeal)
   ];
 }
