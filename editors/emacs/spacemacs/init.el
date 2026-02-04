@@ -288,6 +288,7 @@ This function should only modify configuration layer settings."
    '(envrc
      html-to-hiccup
      eca
+     alabaster-themes
      ;; FIXME: Claude-code-ide installation failing on darwin 09/01/2026
      (claude-code-ide :location (recipe
                                  :fetcher github

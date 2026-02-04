@@ -42,7 +42,6 @@
     ob-typescript
     ;; leuven-theme
     org-roam
-    ob-mermaid
     ;; excorporate
     ;; (vulpea :location (recipe
     ;;                    :fetcher github
@@ -87,10 +86,6 @@ Each entry is either:
   ;;TODO: Set path to mmdc?
   (spacemacs|use-package-add-hook org
     :post-config (add-to-list 'org-babel-load-languages '(mermaid . t))))
-
-
-(defun org-user/init-ob-mermaid ()
-  (use-package ob-mermaid))
 
 (defun org-user/init-org-web-tools ()
   :defer t
