@@ -289,6 +289,7 @@ This function should only modify configuration layer settings."
      html-to-hiccup
      eca
      alabaster-themes
+     doom-themes
      ;; FIXME: Claude-code-ide installation failing on darwin 09/01/2026
      (claude-code-ide :location (recipe
                                  :fetcher github
@@ -302,7 +303,9 @@ This function should only modify configuration layer settings."
    dotspacemacs-frozen-packages '()
 
    ;; A list of packages that will not be installed and loaded.
-   dotspacemacs-excluded-packages '()
+   dotspacemacs-excluded-packages
+   ;; ....N.B. This prevents an error on load when setting a doom theme as default...
+   '(doom-flatwhite-theme)
 
    ;; Defines the behaviour of Spacemacs when installing packages.
    ;; Possible values are `used-only', `used-but-keep-unused' and `all'.
@@ -438,12 +441,9 @@ It should only modify the values of Spacemacs settings."
    ;; List of themes, the first of the list is loaded when spacemacs starts.
    ;; Press `SPC T n' to cycle to the next theme in the list (works great
    ;; with 2 themes variants, one dark and one light)
-   ;; dotspacemacs-themes '(misterioso
-   ;;                       modus-operandi)
-   dotspacemacs-themes '(modus-vivendi
-                         modus-operandi)
-   ;; dotspacemacs-themes '(doom-oksolar-dark
-   ;;                       doom-one-light)
+   dotspacemacs-themes '(alabaster-themes-light
+                         doom-flatwhite
+                         modus-vivendi)
 
    ;; Set the theme for the Spaceline. Supported themes are `spacemacs',
    ;; `all-the-icons', `custom', `doom', `vim-powerline' and `vanilla'. The
