@@ -1,17 +1,27 @@
 { config, pkgs, ... }:
 
+let
+  brepl = pkgs.callPackage (pkgs.fetchFromGitHub {
+    owner = "licht1stein";
+    repo = "brepl";
+    rev = "v2.6.3";
+    hash = "sha256-1r+7DQcfOSD9gaBE3Hu961Se5lUqxIHPzF4E2NaNl/E=";
+  } + "/package.nix") {};
+in
 {
-  home.packages = with pkgs; [
+  home.packages = [
     # Compilers etc. for evaluating 3rd party repos without a flake...
-    jdk25
-    clojure
+    pkgs.jdk25
+    pkgs.clojure
     # ... editor support
-    clj-kondo
-    joker
-    parinfer-rust-emacs
+    pkgs.clj-kondo
+    pkgs.joker
+    pkgs.parinfer-rust-emacs
     # ... CLI support
-    polylith
-    neil
+    pkgs.polylith
+    pkgs.neil
+    # ... nrepl connections for claude etc. -- see https://github.com/licht1stein/brepl
+    brepl
   ];
 
   home.file."${config.xdg.configHome}/clojure".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/dev/clojure/config";
