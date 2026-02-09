@@ -11,7 +11,6 @@
 
     # Tools to help with nixpkg development...
     bundix
-    bubblewrap
 
     # Serial terminal
     minicom
