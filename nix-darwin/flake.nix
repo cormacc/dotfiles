@@ -10,9 +10,13 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    claude-code = {
+      url = "github:sadjow/claude-code-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = inputs@{ self, nix-darwin, home-manager, nixpkgs }:
+  outputs = inputs@{ self, nix-darwin, home-manager, nixpkgs, claude-code }:
   let
     configuration = { pkgs, ... }: {
       # List packages installed in system profile. To search by name, run:
@@ -71,7 +75,7 @@
           "audacity"
           "reaper"
           "claude"
-          "claude-code"
+          # "claude-code"
           "dash"
           "gimp"
           "libreoffice"
@@ -83,9 +87,11 @@
     # Build darwin flake using:
     # $ darwin-rebuild build --flake .#Cormacs-MacBook-Air
     darwinConfigurations."Cormacs-MacBook-Air" = nix-darwin.lib.darwinSystem {
-      modules = [ configuration
+      modules = [
+        configuration
         home-manager.darwinModules.home-manager
         {
+
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
           home-manager.users.cormacc = import ../home-darwin.nix;
@@ -93,6 +99,8 @@
           # Optionally, use home-manager.extraSpecialArgs to pass
           # arguments to home.nix
           home-manager.extraSpecialArgs = { cfgName = "minimal"; };
+
+          nixpkgs.overlays = [ claude-code.overlays.default ];
         }
       ];
     };
