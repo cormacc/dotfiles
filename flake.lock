@@ -1,6 +1,6 @@
 {
   "nodes": {
-    "claude": {
+    "claude-code": {
       "inputs": {
         "flake-utils": "flake-utils",
         "nixpkgs": [
@@ -8,16 +8,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1764098187,
-        "narHash": "sha256-H6JjWXhKqxZ8QLMoqndZx9e5x0Sv5AiipSmqvIxIbgo=",
-        "owner": "k3d3",
-        "repo": "claude-desktop-linux-flake",
-        "rev": "b2b040cb68231d2118906507d9cc8fd181ca6308",
+        "lastModified": 1770407694,
+        "narHash": "sha256-4xSpkgFV5GYEW6IO1CeVVY+lZMQ0QdKX25MxMXGu3GQ=",
+        "owner": "sadjow",
+        "repo": "claude-code-nix",
+        "rev": "5719a158291f024816c543362771df57e2ebb9d3",
         "type": "github"
       },
       "original": {
-        "owner": "k3d3",
-        "repo": "claude-desktop-linux-flake",
+        "owner": "sadjow",
+        "repo": "claude-code-nix",
         "type": "github"
       }
     },
@@ -157,11 +157,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1770386786,
-        "narHash": "sha256-rjEIo6SkKiLjeXjUFobisuD+osnH2xnagHPbgb0PtwA=",
+        "lastModified": 1770417499,
+        "narHash": "sha256-HtyRMX8OLgAZJWfdWsFidNPUJgMIlrKAOGPDisNhc+I=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "0d52bf34636bb41dcd3155a227999dfd74b64d57",
+        "rev": "eb1c0f893dc2bdd4748c76c100e9924e0454ac55",
         "type": "github"
       },
       "original": {
@@ -172,7 +172,7 @@
     },
     "root": {
       "inputs": {
-        "claude": "claude",
+        "claude-code": "claude-code",
         "home-manager": "home-manager",
         "microchip": "microchip",
         "nixgl": "nixgl",
