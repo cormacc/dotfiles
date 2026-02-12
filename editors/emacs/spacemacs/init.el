@@ -304,8 +304,9 @@ This function should only modify configuration layer settings."
 
    ;; A list of packages that will not be installed and loaded.
    dotspacemacs-excluded-packages
-   ;; ....N.B. This prevents an error on load when setting a doom theme as default...
-   '(doom-flatwhite-theme)
+   ;; ....N.B. This prevents an error on load when setting a packaged theme as default...
+   '(doom-flatwhite-theme
+     alabaster-themes-light-theme)
 
    ;; Defines the behaviour of Spacemacs when installing packages.
    ;; Possible values are `used-only', `used-but-keep-unused' and `all'.
