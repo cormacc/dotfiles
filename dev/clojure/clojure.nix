@@ -12,6 +12,9 @@ in
   home.packages = [
     # Compilers etc. for evaluating 3rd party repos without a flake...
     pkgs.jdk25
+    # ... replace jdk with these next two if we want to use GraalVM/WASM
+    # pkgs.binaryen
+    # pkgs.graalvmPackages.graalvm-oracle
     pkgs.clojure
     # ... editor support
     pkgs.clj-kondo
