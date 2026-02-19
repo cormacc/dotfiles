@@ -4,11 +4,14 @@
   programs.chromium = {
     enable = true;
     package = config.lib.nixGL.wrap pkgs.chromium;
+    dictionaries = [ pkgs.hunspellDictsChromium.en-gb ];
     extensions = [
       # Bitwarden
       { id = "nngceckbapebfimnlniiiahkandclblb"; }
-      # xBrowserSync
-      # { id = "lcbjdhceifofjlpecfpeimnnphbcjgnc"; }
+      # floccus bookmarks sync
+      { id = "fnaicdffflnofjppbagibeoednhnbjhg"; }
+      # Dataspex
+      { id = "blgomkhaagnapapellmdfelmohbalneo"; }
       # Shadow-cljs UI
       { id = "hpcbebiekdogcnamniekdaknicncdban"; }
       # OPFS explorer
@@ -26,7 +29,7 @@
 
 
   home.packages = [
-    (config.lib.nixGL.wrap pkgs.microsoft-edge)
+    # (config.lib.nixGL.wrap pkgs.microsoft-edge)
     (config.lib.nixGL.wrap pkgs.google-chrome)
   ];
 
