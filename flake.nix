@@ -110,6 +110,7 @@
             hostName = "xps15";
           };
           modules = [
+            { nixpkgs.config.allowUnfree = true; }
             # envfs.nixosModules.envfs
             ./nixos-nvidia.nix
             ./hosts/xps15/hardware-configuration.nix
