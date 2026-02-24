@@ -34,6 +34,11 @@
       url = "github:nix-community/NUR";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Beads -- memory for AI coding assistants
+    # beads = {
+    #   url = "github:steveyegge/beads";
+    #   inputs.nixpkgs.follows = "nixpkgs-unstable";
+    # };
   };
 
   nixConfig = {
