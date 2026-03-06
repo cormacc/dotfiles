@@ -16,6 +16,8 @@
       { id = "hpcbebiekdogcnamniekdaknicncdban"; }
       # OPFS explorer
       { id = "acndjpgkpaclldomagafnognkcgjignd"; }
+      # EPupp (webpage tampering with clojurescript)
+      { id = "bfcbpnmgefiblppimmoncoflmcejdbei"; }
     ];
   };
 
