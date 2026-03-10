@@ -39,7 +39,7 @@ in {
     font-awesome
 
     networkmanagerapplet
-    helvum # Patch bay for pipewire audio
+    crosspipe # Patch bay for pipewire audio
     pavucontrol
     # Wayland...
     # ... notifications
