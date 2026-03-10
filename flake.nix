@@ -35,10 +35,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # Beads -- memory for AI coding assistants
-    # beads = {
-    #   url = "github:steveyegge/beads";
-    #   inputs.nixpkgs.follows = "nixpkgs-unstable";
-    # };
+    beads-flake = {
+      # url = "github:steveyegge/beads";
+      url = "github:cormacc/beads/flake-hash";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {
@@ -57,7 +58,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude-code, rust-overlay, nur, ... } @inputs:
+  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude-code, rust-overlay, nur, beads-flake, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
