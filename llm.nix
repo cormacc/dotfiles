@@ -1,4 +1,7 @@
 { inputs, system, config, pkgs, ... }:
+let
+  beads = inputs.beads-flake.packages.${system}.default;
+in
 
 {
   #N.B. This is for hybrid use within home-manager
@@ -17,7 +20,7 @@
     pkgs.crush
     pkgs.opencode
     pkgs.amp-cli
-    pkgs.beads
+    beads
     #... this may cause issues with aur on arch - see wayland.nix
     # (python3.withPackages (python-pkgs: with python-pkgs; [
     #   huggingface-hub
