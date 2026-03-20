@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+CALLER_CWD="$(pwd)"
+cd ~/.config/bbg
+if [ $# -eq 0 ]; then
+  bb tasks --cwd "$CALLER_CWD"
+else
+  bb "$@" --cwd "$CALLER_CWD"
+fi

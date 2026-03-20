@@ -1,0 +1,5 @@
+{:tasks {:requires ([babashka.cli :as cli])
+         :enter (def cwd (:cwd (cli/parse-opts *command-line-args*)))
+         todo
+         {:doc "TODO Write some global tasks"
+          :task (println "TODO: I don't do  anything yet - called from: " cwd)}}}
