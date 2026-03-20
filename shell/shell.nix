@@ -98,4 +98,6 @@ compdef _bb_tasks bb'';
   };
 
   home.file.".config/fish/completions/bb.fish".source = ./bb.fish;
+  home.file.".local/bin/bbg".source=./bbg/bbg;
+  home.file.".config/bbg".source=config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/shell/bbg";
 }
