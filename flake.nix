@@ -25,6 +25,10 @@
       url = "github:sadjow/claude-code-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    claude-desktop = {
+      url = "github:aaddrick/claude-desktop-debian";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -58,7 +62,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude-code, rust-overlay, nur, beads-flake, ... } @inputs:
+  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude-code, claude-desktop, rust-overlay, nur, beads-flake, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -80,6 +84,7 @@
           rust-overlay.overlays.default
           nur.overlays.default
           claude-code.overlays.default
+          claude-desktop.overlays.default
         ];
       };
     in {
