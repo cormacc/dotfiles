@@ -17,6 +17,7 @@ in
     # pkgs.cherry-studio
     pkgs.claude-code
     # pkgs.claude-code-bun #alternative...
+    pkgs.claude-desktop-fhs
     pkgs.crush
     pkgs.opencode
     pkgs.amp-cli
