@@ -144,6 +144,8 @@ in
         autocrlf = "input";
       };
     };
+    # This is a new default -- setting explicitly here as my home.stateVersion is < 25.05
+    signing.format = null;
   };
 
   # We can only enable one of delta, diff-so-fancy and difftastic
