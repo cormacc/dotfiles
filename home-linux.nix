@@ -23,5 +23,6 @@ in
 
   imports = [
     ./home-core.nix
+    ./llm-linux.nix
   ];
 }

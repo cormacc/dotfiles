@@ -35,7 +35,7 @@ in
     ./desktop/audio.nix
     ./dev/dev.nix
     ./dev/dev-linux.nix
-    ./llm.nix
+    ./agents.nix
     ./desktop/office.nix
     # ./sysadmin.nix
     # ./desktop/entertainment.nix

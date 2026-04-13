@@ -21,15 +21,7 @@
       # url = "/home/cormacc/dev/nix-microchip";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    coding-agents = {
-      url = "github:kissgyorgy/coding-agents";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    # Now installing claude-code from coding-agents flake instead...
-    # claude-code = {
-    #   url = "github:sadjow/claude-code-nix";
-    #   inputs.nixpkgs.follows = "nixpkgs";
-    # };
+    llm-agents.url = "github:numtide/llm-agents.nix";
     claude-desktop = {
       url = "github:aaddrick/claude-desktop-debian";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -51,17 +43,17 @@
       "https://cache.nixos.org"
       "https://nix-community.cachix.org"
       "https://hyprland.cachix.org"
-      "https://claude-code.cachix.org"
+      "https://cache.numtide.com"
     ];
     extra-trusted-gpg-public-keys = [
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
       "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
       "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
-      "claude-code.cachix.org-1:YeXf2aNu7UTX8Vwrze0za1WEDS+4DuI2kVeWEE4fsRk="
+      "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
     ];
   };
 
-  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude-desktop, rust-overlay, nur, beads-flake, coding-agents, ... } @inputs:
+  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude-desktop, rust-overlay, nur, llm-agents, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -82,6 +74,8 @@
           microchip.overlays.default
           rust-overlay.overlays.default
           nur.overlays.default
+          llm-agents.overlays.default
+          claude-desktop.overlays.default
         ];
       };
     in {

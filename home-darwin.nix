@@ -1,4 +1,4 @@
-{ config, pkgs, nixgl, specialArgs, ... }:
+{ config, pkgs, nixgl, specialArgs, inputs, ... }:
 
 let
   # Input parameters
@@ -21,7 +21,7 @@ in
     #./nmd/nmd.nix
     ./editors/editors.nix
     ./dev/dev.nix
-    ./llm.nix
+    ./agents.nix
     #./desktop/office.nix
   ];
 
