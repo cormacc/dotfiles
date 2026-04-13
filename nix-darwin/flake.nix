@@ -10,13 +10,14 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    claude-code = {
-      url = "github:sadjow/claude-code-nix";
+    claude-desktop = {
+      url = "github:aaddrick/claude-desktop-debian";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    llm-agents.url = "github:numtide/llm-agents.nix";
   };
 
-  outputs = inputs@{ self, nix-darwin, home-manager, nixpkgs, claude-code }:
+  outputs = inputs@{ self, nix-darwin, home-manager, nixpkgs, claude-desktop, llm-agents }:
   let
     configuration = { pkgs, ... }: {
       # List packages installed in system profile. To search by name, run:
@@ -98,9 +99,15 @@
 
           # Optionally, use home-manager.extraSpecialArgs to pass
           # arguments to home.nix
-          home-manager.extraSpecialArgs = { cfgName = "minimal"; };
+          home-manager.extraSpecialArgs = {
+            cfgName = "minimal";
+            inherit inputs;
+          };
 
-          nixpkgs.overlays = [ claude-code.overlays.default ];
+          nixpkgs.overlays = [
+            llm-agents.overlays.default
+            claude-desktop.overlays.default
+          ];
         }
       ];
     };
