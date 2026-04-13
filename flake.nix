@@ -21,10 +21,15 @@
       # url = "/home/cormacc/dev/nix-microchip";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    claude-code = {
-      url = "github:sadjow/claude-code-nix";
+    coding-agents = {
+      url = "github:kissgyorgy/coding-agents";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Now installing claude-code from coding-agents flake instead...
+    # claude-code = {
+    #   url = "github:sadjow/claude-code-nix";
+    #   inputs.nixpkgs.follows = "nixpkgs";
+    # };
     claude-desktop = {
       url = "github:aaddrick/claude-desktop-debian";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -36,12 +41,6 @@
     # Nix User Repository
     nur = {
       url = "github:nix-community/NUR";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    # Beads -- memory for AI coding assistants
-    beads-flake = {
-      # url = "github:steveyegge/beads";
-      url = "github:cormacc/beads/flake-hash";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -62,7 +61,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude-code, claude-desktop, rust-overlay, nur, beads-flake, ... } @inputs:
+  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude-desktop, rust-overlay, nur, beads-flake, coding-agents, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -83,8 +82,6 @@
           microchip.overlays.default
           rust-overlay.overlays.default
           nur.overlays.default
-          claude-code.overlays.default
-          claude-desktop.overlays.default
         ];
       };
     in {

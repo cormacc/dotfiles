@@ -1,9 +1,33 @@
 { inputs, system, config, pkgs, ... }:
 let
   beads = inputs.beads-flake.packages.${system}.default;
-in
 
+  # Paths
+  homedir = builtins.getEnv "HOME";
+  dotRoot = "${homedir}/dotfiles";
+  agentsRoot = "${dotRoot}/agents";
+  skillsDir = "${agentsRoot}/skills";
+  extensionsDir = "${agentsRoot}/pi/extensions";
+in
 {
+  imports = [ inputs.coding-agents.homeManagerModules.default ];
+
+  nixpkgs.overlays = [
+    inputs.coding-agents.overlays.default
+    # inputs.claude-code.overlays.default
+    inputs.claude-desktop.overlays.default
+  ];
+
+  coding-agents = {
+    claude-code.enable = true;
+    skillsDir = skillsDir;
+    pi-coding-agent = {
+      enable = true;
+      extensionsDir = extensionsDir;
+    };
+  };
+
+
   #N.B. This is for hybrid use within home-manager
   #     If running nixos, probably better to use nixos level modules to install these
   #     May be easier to get GPU acceleration etc. up and running...
@@ -14,14 +38,8 @@ in
     # TODO: Add open-webui
     # pkgs.ollama
     # pkgs.llama-cpp
-    # pkgs.cherry-studio
-    pkgs.claude-code
-    # pkgs.claude-code-bun #alternative...
-    pkgs.claude-desktop-fhs
-    pkgs.crush
-    pkgs.opencode
-    pkgs.amp-cli
-    beads
+    # pkgs.claude-code
+    pkgs.claude-desktop
     #... this may cause issues with aur on arch - see wayland.nix
     # (python3.withPackages (python-pkgs: with python-pkgs; [
     #   huggingface-hub
