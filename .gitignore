@@ -1,3 +1,4 @@
 /dev/clojure/config/.*
 .lsp
 .clj-kondo
+.agents/tmp
