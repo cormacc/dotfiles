@@ -189,7 +189,7 @@ export default function (pi: ExtensionAPI) {
             if (
               matchesKey(data, "escape") ||
               matchesKey(data, "q") ||
-              matchesKey(data, "alt+f")
+              matchesKey(data, "ctrl+alt+f")
             ) {
               diffPanel?.setFocused(false);
               tui.requestRender();
@@ -197,7 +197,7 @@ export default function (pi: ExtensionAPI) {
               return;
             }
 
-            if (matchesKey(data, "alt+d")) {
+            if (matchesKey(data, "ctrl+alt+d")) {
               diffPanel?.setFocused(false);
               done("close");
               return;
@@ -283,12 +283,12 @@ export default function (pi: ExtensionAPI) {
     handler: async (_args, ctx) => togglePanel(ctx),
   });
 
-  pi.registerShortcut("alt+d", {
+  pi.registerShortcut("ctrl+alt+d", {
     description: "Toggle git diff panel",
     handler: async (ctx) => togglePanel(ctx),
   });
 
-  pi.registerShortcut("alt+f", {
+  pi.registerShortcut("ctrl+alt+f", {
     description: "Focus diff panel for keyboard navigation",
     handler: async (ctx) => {
       focusPanel(ctx);
@@ -576,7 +576,7 @@ class DiffPanel {
     const info = total > 0 ? ` ${this.scroll + 1}–${visEnd}/${total}` : "";
     const help = this.focused
       ? `j/k ↑↓ scroll · PgDn/Up · n/m file · Enter fold · a names/preview/full · Esc back${info}`
-      : `Alt+F focus · Alt+j/k scroll · Alt+e fold${info}`;
+      : `Ctrl+Alt+F focus · Alt+j/k scroll · Alt+e fold${info}`;
     out.push(borderV + this.pad(th.fg("dim", ` ${help}`), innerW) + borderV);
     out.push(b("╰" + hFill + "╯"));
 

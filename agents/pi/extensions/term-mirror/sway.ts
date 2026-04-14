@@ -1,5 +1,5 @@
 import type { ExecFn, MirrorBackend } from "./types.js";
-import { sq, sleep } from "./types.js";
+import { sq, sleep, DEFAULT_PANE_HEIGHT_PCT } from "./types.js";
 import { writeFileSync, readFileSync, unlinkSync, statSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { readlink } from "node:fs/promises";
@@ -8,6 +8,14 @@ import { fileURLToPath } from "node:url";
 
 const APP_ID = "pi-mirror";
 const SCROLLBACK_MAX = 500_000;
+
+/** Per-tab state for managed processes. */
+interface TabState {
+  conId: number;
+  appId: string;
+  inputFifo: string;
+  outputLog: string;
+}
 
 export class SwayBackend implements MirrorBackend {
   readonly label = "sway";
@@ -21,10 +29,16 @@ export class SwayBackend implements MirrorBackend {
   private readonly sessionId: string;
   private readonly rcFile: string;
   private readonly signalFifo: string;
+  private readonly agentSignalFifo: string;
   private readonly readyFifo: string;
   private readonly inputFifo: string;
   private readonly outputLog: string;
   private readonly relayScript: string;
+
+  /** Managed process tabs keyed by targetId (string con_id). */
+  private tabs = new Map<string, TabState>();
+  /** Whether the mirror area has been converted to tabbed layout. */
+  private tabbedLayout = false;
 
   constructor(exec: ExecFn, onReset?: () => void) {
     this.exec = exec;
@@ -32,6 +46,7 @@ export class SwayBackend implements MirrorBackend {
     this.sessionId = randomUUID().slice(0, 8);
     this.rcFile = `/tmp/pi-mirror-rc-${this.sessionId}`;
     this.signalFifo = `/tmp/pi-mirror-signal-${this.sessionId}`;
+    this.agentSignalFifo = `/tmp/pi-mirror-agent-signal-${this.sessionId}`;
     this.readyFifo = `/tmp/pi-mirror-ready-${this.sessionId}`;
     this.inputFifo = `/tmp/pi-mirror-input-${this.sessionId}`;
     this.outputLog = `/tmp/pi-mirror-log-${this.sessionId}`;
@@ -95,9 +110,11 @@ export class SwayBackend implements MirrorBackend {
     this.paneReady = false;
     this.conId = 0;
     this.shellPid = 0;
+    this.tabbedLayout = false;
     for (const f of [
       this.rcFile,
       this.signalFifo,
+      this.agentSignalFifo,
       this.readyFifo,
       this.inputFifo,
       this.outputLog,
@@ -106,6 +123,15 @@ export class SwayBackend implements MirrorBackend {
         unlinkSync(f);
       } catch {}
     }
+    // Clean up all tab resources
+    for (const [, tab] of this.tabs) {
+      for (const f of [tab.inputFifo, tab.outputLog]) {
+        try {
+          unlinkSync(f);
+        } catch {}
+      }
+    }
+    this.tabs.clear();
     this.onReset?.();
   }
 
@@ -213,7 +239,7 @@ export class SwayBackend implements MirrorBackend {
       "resize",
       "set",
       "height",
-      "25",
+      String(DEFAULT_PANE_HEIGHT_PCT),
       "ppt",
     );
     // Return focus to the pi window
@@ -234,7 +260,7 @@ export class SwayBackend implements MirrorBackend {
       const raw = readFileSync(this.outputLog, "utf-8");
       const clean = raw.replace(
         // eslint-disable-next-line no-control-regex
-        /\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?(?:\x07|\x1b\\)|\x1b[()][0-9A-B]|\r/g,
+        /\x1b\[[0-9;?]*[a-zA-Z><=]|\x1b[=>]|\x1b\].*?(?:\x07|\x1b\\)|\x1b[()][0-9A-B]|\r/g,
         "",
       );
       const allLines = clean.split("\n");
@@ -305,7 +331,7 @@ export class SwayBackend implements MirrorBackend {
       return [
         envSetup,
         `typeset -gi __pi_seq=0`,
-        `__pi_precmd() { local rc=$?; echo "$((++__pi_seq)) $rc" > ${this.rcFile}; (echo > ${this.signalFifo} &) 2>/dev/null; return $rc; }`,
+        `__pi_precmd() { local rc=$?; echo "$((++__pi_seq)) $rc" > ${this.rcFile}; (echo > ${this.signalFifo} &; echo > ${this.agentSignalFifo} &) 2>/dev/null; return $rc; }`,
         `__pi_ready() { (echo > ${this.readyFifo} &) 2>/dev/null; }`,
         `precmd_functions=(__pi_precmd $precmd_functions __pi_ready)`,
       ].join("; ");
@@ -313,7 +339,7 @@ export class SwayBackend implements MirrorBackend {
       return [
         envSetup,
         `__pi_seq=0`,
-        `__pi_pcmd() { local rc=$?; echo "$((++__pi_seq)) $rc" > ${this.rcFile}; (echo > ${this.signalFifo} &) 2>/dev/null; return $rc; }`,
+        `__pi_pcmd() { local rc=$?; echo "$((++__pi_seq)) $rc" > ${this.rcFile}; (echo > ${this.signalFifo} &; echo > ${this.agentSignalFifo} &) 2>/dev/null; return $rc; }`,
         `__pi_rdy() { (echo > ${this.readyFifo} &) 2>/dev/null; }`,
         `PROMPT_COMMAND="__pi_pcmd;\${PROMPT_COMMAND};__pi_rdy"`,
       ].join("; ");
@@ -321,12 +347,18 @@ export class SwayBackend implements MirrorBackend {
   }
 
   async prepareForHook(): Promise<void> {
-    for (const f of [this.rcFile, this.signalFifo, this.readyFifo]) {
+    for (const f of [
+      this.rcFile,
+      this.signalFifo,
+      this.agentSignalFifo,
+      this.readyFifo,
+    ]) {
       try {
         unlinkSync(f);
       } catch {}
     }
     await this.exec("mkfifo", [this.signalFifo], { timeout: 2000 });
+    await this.exec("mkfifo", [this.agentSignalFifo], { timeout: 2000 });
     await this.exec("mkfifo", [this.readyFifo], { timeout: 2000 });
   }
 
@@ -352,6 +384,17 @@ export class SwayBackend implements MirrorBackend {
     }
   }
 
+  async waitForAgentSignal(timeoutMs: number): Promise<boolean> {
+    try {
+      const r = await this.exec("cat", [this.agentSignalFifo], {
+        timeout: timeoutMs,
+      });
+      return r.code === 0;
+    } catch {
+      return false;
+    }
+  }
+
   async waitForReady(timeoutMs: number): Promise<boolean> {
     try {
       const r = await this.exec("cat", [this.readyFifo], {
@@ -368,16 +411,25 @@ export class SwayBackend implements MirrorBackend {
       "bash",
       [
         "-c",
-        `(echo > ${this.signalFifo} &; echo > ${this.readyFifo} &) 2>/dev/null`,
+        `(echo > ${this.signalFifo} &; echo > ${this.agentSignalFifo} &; echo > ${this.readyFifo} &) 2>/dev/null`,
       ],
       { timeout: 2000 },
     ).catch(() => {});
+  }
+
+  async killPane(): Promise<void> {
+    if (this.conId > 0) {
+      await this.swaymsg(`[con_id=${this.conId}]`, "kill").catch(() => {});
+      this.conId = 0;
+      this.paneReady = false;
+    }
   }
 
   cleanup(): void {
     for (const f of [
       this.rcFile,
       this.signalFifo,
+      this.agentSignalFifo,
       this.readyFifo,
       this.inputFifo,
       this.outputLog,
@@ -386,5 +438,273 @@ export class SwayBackend implements MirrorBackend {
         unlinkSync(f);
       } catch {}
     }
+    // Clean up all tab resources
+    for (const [, tab] of this.tabs) {
+      for (const f of [tab.inputFifo, tab.outputLog]) {
+        try {
+          unlinkSync(f);
+        } catch {}
+      }
+    }
+    this.tabs.clear();
+  }
+
+  // ── tab management ─────────────────────────────────────
+
+  /**
+   * Find a sway node by con_id.
+   * Returns the node from the tree or null.
+   */
+  private async findNodeById(conId: number): Promise<any | null> {
+    const tree = await this.getTree();
+    if (!tree) return null;
+    return this.findNode(tree, (n) => n.id === conId);
+  }
+
+  async createTab(name: string): Promise<string | null> {
+    if (!this.paneReady || this.conId === 0) return null;
+
+    const appId = `pi-mirror-tab-${name}`;
+    const inputFifo = `/tmp/pi-mirror-input-${this.sessionId}-${name}`;
+    const outputLog = `/tmp/pi-mirror-log-${this.sessionId}-${name}`;
+
+    // Prepare FIFO and log for the new tab's relay
+    try {
+      unlinkSync(inputFifo);
+    } catch {}
+    writeFileSync(outputLog, "");
+    await this.exec("mkfifo", [inputFifo], { timeout: 2000 });
+
+    // Focus the mirror container so the new window lands as a sibling
+    await this.swaymsg(`[con_id=${this.conId}]`, "focus");
+
+    // On first tab: `splith` creates a nested container when the next window
+    // opens, keeping the agent window outside. Then `layout tabbed` converts
+    // only the nested container. Subsequent tabs just join the existing
+    // tabbed container.
+    if (!this.tabbedLayout) {
+      await this.swaymsg("splith");
+    }
+
+    // Launch foot with a unique app_id and title, running the relay script
+    const cmd =
+      `foot --app-id ${appId} --title ${sq(name)}` +
+      ` python3 ${sq(this.relayScript)} ${sq(inputFifo)} ${sq(outputLog)}`;
+
+    const r = await this.exec("bash", ["-c", `swaymsg exec ${sq(cmd)}`], {
+      timeout: 5000,
+    });
+    if (r.code !== 0 && r.code !== null) {
+      try {
+        unlinkSync(inputFifo);
+      } catch {}
+      try {
+        unlinkSync(outputLog);
+      } catch {}
+      await this.swaymsg("focus", "up");
+      return null;
+    }
+
+    // Wait for the window to appear in the sway tree
+    let tabConId = 0;
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline) {
+      const tree = await this.getTree();
+      const node = this.findNode(
+        tree,
+        (n: any) => n.app_id === appId && n.type === "con",
+      );
+      if (node) {
+        tabConId = node.id;
+        break;
+      }
+      await sleep(300);
+    }
+
+    if (!tabConId) {
+      try {
+        unlinkSync(inputFifo);
+      } catch {}
+      try {
+        unlinkSync(outputLog);
+      } catch {}
+      await this.swaymsg("focus", "up");
+      return null;
+    }
+
+    // On first tab: convert the nested container to tabbed layout
+    if (!this.tabbedLayout) {
+      await this.swaymsg("layout", "tabbed");
+      this.tabbedLayout = true;
+    }
+
+    // Return focus to the agent (above the tabbed container)
+    await this.swaymsg("focus", "up");
+
+    const targetId = String(tabConId);
+    this.tabs.set(targetId, { conId: tabConId, appId, inputFifo, outputLog });
+
+    return targetId;
+  }
+
+  async captureTab(targetId: string, lines = 2000): Promise<string> {
+    const tab = this.tabs.get(targetId);
+    if (!tab) return "";
+    try {
+      const raw = readFileSync(tab.outputLog, "utf-8");
+      const clean = raw.replace(
+        // eslint-disable-next-line no-control-regex
+        /\x1b\[[0-9;?]*[a-zA-Z><=]|\x1b[=>]|\x1b\].*?(?:\x07|\x1b\\)|\x1b[()][0-9A-B]|\r/g,
+        "",
+      );
+      const allLines = clean.split("\n");
+      const result = allLines.slice(-lines).join("\n");
+
+      // Trim scrollback if too large
+      try {
+        const stat = statSync(tab.outputLog);
+        if (stat.size > SCROLLBACK_MAX) {
+          const keep = raw.slice(-Math.floor(SCROLLBACK_MAX / 2));
+          writeFileSync(tab.outputLog, keep);
+        }
+      } catch {}
+
+      return result;
+    } catch {
+      return "";
+    }
+  }
+
+  async sendTextToTab(targetId: string, text: string): Promise<void> {
+    const tab = this.tabs.get(targetId);
+    if (!tab) return;
+    await this.exec(
+      "bash",
+      ["-c", `printf '%s' ${sq(text)} > ${sq(tab.inputFifo)}`],
+      { timeout: 5000 },
+    );
+  }
+
+  async sendEnterToTab(targetId: string): Promise<void> {
+    const tab = this.tabs.get(targetId);
+    if (!tab) return;
+    await this.exec("bash", ["-c", `printf '\\r' > ${sq(tab.inputFifo)}`], {
+      timeout: 5000,
+    });
+  }
+
+  async sendCtrlCToTab(targetId: string): Promise<void> {
+    const tab = this.tabs.get(targetId);
+    if (!tab) return;
+    await this.exec("bash", ["-c", `printf '\\x03' > ${sq(tab.inputFifo)}`], {
+      timeout: 5000,
+    });
+  }
+
+  async closeTab(targetId: string): Promise<void> {
+    const tab = this.tabs.get(targetId);
+    if (!tab) return;
+    await this.swaymsg(`[con_id=${tab.conId}]`, "kill").catch(() => {});
+    for (const f of [tab.inputFifo, tab.outputLog]) {
+      try {
+        unlinkSync(f);
+      } catch {}
+    }
+    this.tabs.delete(targetId);
+  }
+
+  async isTabAlive(targetId: string): Promise<boolean> {
+    const tab = this.tabs.get(targetId);
+    if (!tab) return false;
+    const node = await this.findNodeById(tab.conId);
+    return node !== null;
+  }
+
+  /** Focus a tab by its target ID (sway con_id as string). */
+  async focusTab(targetId: string): Promise<void> {
+    const tab = this.tabs.get(targetId);
+    if (tab) {
+      await this.swaymsg(`[con_id=${tab.conId}]`, "focus");
+      // Return focus to the agent window above
+      await this.swaymsg("focus", "up");
+    }
+  }
+
+  /** Focus the main mirror pane. */
+  async focusMirrorPane(): Promise<void> {
+    if (this.conId > 0) {
+      await this.swaymsg(`[con_id=${this.conId}]`, "focus");
+      // Return focus to the agent window above
+      await this.swaymsg("focus", "up");
+    }
+  }
+
+  // ── hide/show (scratchpad) ─────────────────────────────
+
+  /**
+   * Hide a pane by moving it to the sway scratchpad.
+   * The pane stays alive but is invisible. Works for both the
+   * main mirror pane and process tabs.
+   */
+  async hidePaneToScratchpad(conId?: number): Promise<void> {
+    const id = conId ?? this.conId;
+    if (id > 0) {
+      await this.swaymsg(`[con_id=${id}]`, "move", "scratchpad");
+    }
+  }
+
+  /**
+   * Show a single pane from the scratchpad back below the
+   * focused (pi) window as a vertical split.
+   */
+  private async restoreFromScratchpad(id: number): Promise<void> {
+    // Pull from scratchpad (appears as floating)
+    await this.swaymsg(`[con_id=${id}]`, "scratchpad", "show");
+    // Un-float to tile it
+    await this.swaymsg(`[con_id=${id}]`, "floating", "disable");
+  }
+
+  /**
+   * Restore the main mirror pane (and optionally process tabs) from
+   * the scratchpad. Restores the tabbed layout if tabs exist.
+   *
+   * @param tabConIds - con_ids of process tabs to also restore
+   */
+  async showPaneFromScratchpad(tabConIds: number[] = []): Promise<void> {
+    if (this.conId <= 0) return;
+
+    // Ensure pi's container is set to split vertically so the
+    // pane lands below rather than beside it.
+    await this.swaymsg("splitv");
+
+    // Restore the main mirror pane first
+    await this.restoreFromScratchpad(this.conId);
+
+    if (tabConIds.length > 0) {
+      // Focus the mirror pane so tabs land as siblings
+      await this.swaymsg(`[con_id=${this.conId}]`, "focus");
+      await this.swaymsg("splith");
+
+      // Restore each tab next to the mirror pane
+      for (const tabId of tabConIds) {
+        await this.restoreFromScratchpad(tabId);
+      }
+
+      // Re-apply tabbed layout to the container holding the mirror + tabs
+      await this.swaymsg("layout", "tabbed");
+    }
+
+    // Resize the mirror area back to the expected height
+    await this.swaymsg(
+      `[con_id=${this.conId}]`,
+      "resize",
+      "set",
+      "height",
+      String(DEFAULT_PANE_HEIGHT_PCT),
+      "ppt",
+    );
+
+    // Return focus to pi
+    await this.swaymsg("focus", "up");
   }
 }
