@@ -17,7 +17,6 @@ in
   home.packages = [
     #Pi + deps
     pkgs.llm-agents.pi
-    pkgs.tmux
     pkgs.prettier
     #Claude code + deps
     pkgs.llm-agents.claude-code

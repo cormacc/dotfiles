@@ -166,4 +166,13 @@ in
     enable = true;
     defaultEditor = true;
   };
+
+  programs.tmux = {
+    enable = true;
+    extraConfig = ''
+      set -s extended-keys on
+      set -s extended-keys-format csi-u
+      set -as terminal-features 'xterm*:extkeys'
+    '';
+  };
 }

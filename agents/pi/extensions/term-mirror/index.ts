@@ -566,7 +566,8 @@ export default function (pi: ExtensionAPI) {
       const toggleHint = visible
         ? theme.fg("dim", "M-m hide")
         : theme.fg("warning", "M-m show");
-      const tabHint = hasTabs ? "  " + theme.fg("dim", "M-h M-l") : "";
+      const tabHint = hasTabs ? theme.fg("dim", "M-h M-l") + "  " : "";
+      const sep = theme.fg("border", " │ ");
 
       const status =
         " " +
