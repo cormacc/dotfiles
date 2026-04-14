@@ -13,17 +13,13 @@ pi --mirror
 The extension is auto-discovered from `~/.pi/agent/extensions/` but only
 activates when the `--mirror` flag is passed.
 
-Supports three backends:
+Supports two backends:
 
 - **tmux** — detected via `$TMUX`, uses tmux split panes and `tmux wait-for`
   for instant signaling.
-- **kitty** — detected via `$KITTY_PID` (when not inside tmux), uses kitty's
-  remote control protocol (`kitty @`) and a named pipe (FIFO) for instant
+- **sway** — detected via `$SWAYSOCK`, launches a foot terminal split via
+  swaymsg, uses a PTY relay for I/O and named pipes (FIFOs) for instant
   signaling.
-- **ghostty** — detected via `$TERM_PROGRAM=ghostty` (macOS only), uses
-  Ghostty's AppleScript API for terminal control and a named pipe (FIFO) for
-  instant signaling. Screen capture uses `write_screen_file:copy` via the
-  clipboard.
 
 ## Features
 
@@ -31,22 +27,22 @@ Supports three backends:
   of a hidden subprocess. The user sees every command as it executes.
 - **Bidirectional** — when the user types commands in the pane, the agent is
   notified instantly and can respond to the output.
-- **Clean command display** — the actual command text is sent to the shell via
-  `tmux send-keys`. No wrapper scripts, markers, or temp file execution visible
-  in the terminal.
+- **Clean command display** — the actual command text is sent to the shell
+  directly (via `tmux send-keys` or a PTY relay). No wrapper scripts, markers,
+  or temp file execution visible in the terminal.
 - **Exit code tracking** — a shell hook (`precmd` for zsh, `PROMPT_COMMAND` for
   bash) atomically writes a sequence number + exit code to a temp file after
   every command.
-- **Instant detection** — uses `tmux wait-for` (tmux) or a named pipe FIFO
-  (kitty) for zero-CPU event-driven notifications. Both command completion
+- **Instant detection** — uses `tmux wait-for` (tmux) or named pipe FIFOs
+  (sway) for zero-CPU event-driven notifications. Both command completion
   (agent) and user activity detection block with no busy loops.
 - **Prompt-aware output parsing** — auto-detects the user's prompt symbol and
   height from the pane after `clear`. Uses this to cleanly extract command
   output, stripping prompt lines and RPROMPT timestamps. The same parsing logic
   is used for both agent commands and user activity.
-- **Pane lifecycle management** — auto-creates a horizontal split pane on
-  startup. Recovers if the user closes the pane. Reuses existing panes across
-  agent restarts via a saved pane ID file.
+- **Pane lifecycle management** — auto-creates a split pane on startup.
+  Recovers if the user closes the pane. Reuses existing panes across agent
+  restarts via saved state (tmux session env or sway window ID).
 - **Multi-line commands** — commands with newlines are wrapped in `{ ... }` to
   form a single compound command. This ensures `precmd` fires only once (after
   all commands complete), not after each line. Works with heredocs, quoted
@@ -75,38 +71,21 @@ Supports three backends:
          └── tmux wait-for ─────────┘  (event-driven, zero CPU)
 ```
 
-**kitty backend:**
+**sway backend:**
 
 ```
 ┌─────────────────────┐  ┌──────────────────────┐
-│  pi (agent window)  │  │  shared vsplit (id:N) │
+│  pi (agent window)  │  │  foot terminal (id:N) │
 │                     │  │                       │
-│  term-mirror ext    │──│  zsh/bash + hook      │
-│  ├─ bash tool       │  │  ├─ precmd writes RC  │
-│  ├─ read_terminal   │  │  └─ echo > FIFO &     │
-│  └─ activity loop   │  │                       │
+│  term-mirror ext    │──│  sway-relay.py + pty  │
+│  ├─ bash tool       │  │  ├─ zsh/bash + hook   │
+│  ├─ read_terminal   │  │  ├─ precmd writes RC  │
+│  └─ activity loop   │  │  └─ echo > FIFO &     │
 └─────────────────────┘  └──────────────────────┘
          │                          │
-         ├── kitty @ send-text ─────┘  (remote control via socket)
-         ├── kitty @ get-text
-         └── cat FIFO (blocks)         (zero CPU, like tmux wait-for)
-```
-
-**ghostty backend (macOS):**
-
-```
-┌─────────────────────┐  ┌──────────────────────┐
-│  pi (agent split)   │  │  shared split (id:N)  │
-│                     │  │                       │
-│  term-mirror ext    │──│  zsh/bash + hook      │
-│  ├─ bash tool       │  │  ├─ precmd writes RC  │
-│  ├─ read_terminal   │  │  └─ echo > FIFO &     │
-│  └─ activity loop   │  │                       │
-└─────────────────────┘  └──────────────────────┘
-         │                          │
-         ├── osascript (AppleScript)┘  (split, input text, send key)
-         ├── write_screen_file          (capture via clipboard)
-         └── cat FIFO (blocks)         (zero CPU, like kitty)
+         ├── input FIFO ────────────┘  (text injection via relay)
+         ├── output log file            (capture via log)
+         └── cat signal FIFO (blocks)   (zero CPU, like tmux wait-for)
 ```
 
 ### Shell Hook
@@ -117,10 +96,10 @@ hook:
 1. Registers a `precmd` function (zsh) or `PROMPT_COMMAND` (bash).
 2. On every prompt: stores `<seq> <exit_code>`.
    - **tmux:** in a tmux session env var (`PI_LAST_RC`) via `tmux set-environment`.
-   - **kitty:** in a temp file (`/tmp/pi-mirror-rc-<session-uuid>`).
+   - **sway:** in a temp file (`/tmp/pi-mirror-rc-<session-uuid>`).
 3. Signals completion to wake any blocked waiters.
    - **tmux:** `tmux wait-for -S pi-prompt`.
-   - **kitty:** `echo > /tmp/pi-mirror-signal-<session-uuid> &` (writes to a
+   - **sway:** `echo > /tmp/pi-mirror-signal-<session-uuid> &` (writes to a
      named pipe/FIFO; backgrounded so the shell doesn't block if no reader is
      connected yet).
 
@@ -143,17 +122,17 @@ These are used by both `extractOutput` (agent commands) and `formatActivity`
 ### Agent Commands (`bash` tool)
 
 1. Capture the pane state (`before`).
-2. Send the command text via `tmux send-keys`.
-3. Block on `tmux wait-for pi-prompt` until precmd fires.
-4. Read exit code from the RC file.
+2. Send the command text to the pane (via `tmux send-keys` or input FIFO).
+3. Block until precmd fires (via `tmux wait-for` or signal FIFO).
+4. Read exit code from the RC storage.
 5. Capture the pane state (`after`).
 6. Diff `before`/`after`, find the last prompt line with command text, collect
    output lines until the next prompt block.
 
 ### User Activity Detection
 
-A background async loop blocks on `tmux wait-for pi-prompt`. When signaled
-(and the agent is idle):
+A background async loop blocks on the prompt signal (via `tmux wait-for` or
+signal FIFO). When signaled (and the agent is idle):
 
 1. Capture the pane and diff against the last snapshot.
 2. Parse the diff using the same prompt-aware logic: find the last command,
@@ -164,8 +143,7 @@ A background async loop blocks on `tmux wait-for pi-prompt`. When signaled
 ### Pane Recovery
 
 On every `bash` call, `ensurePane()` checks if the target pane is still alive
-via `tmux list-panes` (never targets a potentially dead pane directly). If the
-pane was closed:
+(via `tmux list-panes` or the sway tree). If the pane was closed:
 
 1. Reset all state (paneReady, hookInstalled, RC files).
 2. Wait 500ms for terminal resize to settle.
@@ -173,14 +151,14 @@ pane was closed:
 4. Wait for a shell to start (polls `pane_current_command` for up to 10s).
 5. Reinstall the hook.
 
-The pane ID is saved in the tmux session environment (`PI_MIRROR_PANE`) so it
-can be reused across agent restarts without creating duplicate panes.
+The pane ID is saved persistently (tmux session env or sway window ID file) so
+it can be reused across agent restarts without creating duplicate panes.
 
 ## Tools
 
 ### `bash` (overrides built-in)
 
-Executes a command in the shared tmux pane.
+Executes a command in the shared terminal pane.
 
 | Parameter | Type     | Description                       |
 | --------- | -------- | --------------------------------- |
@@ -189,7 +167,7 @@ Executes a command in the shared tmux pane.
 
 ### `read_terminal`
 
-Reads recent content from the shared tmux pane scrollback.
+Reads recent content from the shared terminal pane scrollback.
 
 | Parameter | Type     | Description                        |
 | --------- | -------- | ---------------------------------- |
@@ -208,25 +186,12 @@ Reads recent content from the shared tmux pane scrollback.
 - Must run pi inside a tmux session.
 - The shell in the split pane must be zsh or bash.
 
-**kitty backend:**
+**sway backend:**
 
-- Must run pi inside kitty (detected via `$KITTY_PID`).
-- Remote control must be enabled in kitty.conf:
-  ```
-  allow_remote_control socket-only
-  listen_on unix:/tmp/kitty-{kitty_pid}
-  ```
-- The `splits` layout must be enabled (e.g., `enabled_layouts splits`).
+- Must run pi under sway (detected via `$SWAYSOCK`).
+- `foot` terminal must be available.
+- Python 3 must be available (for the PTY relay script).
 - The shell must be zsh or bash.
-
-**ghostty backend:**
-
-- Must run pi inside Ghostty on macOS (detected via `$TERM_PROGRAM=ghostty`).
-- Ghostty 1.1.0+ required (for AppleScript API support).
-- No special configuration needed — AppleScript support is built in.
-- The shell must be zsh or bash.
-- Note: Screen capture briefly uses the system clipboard. Non-text clipboard
-  content (e.g. images) may be lost during capture.
 
 ## State Storage
 
@@ -237,22 +202,16 @@ Reads recent content from the shared tmux pane scrollback.
 | `PI_MIRROR_PANE` | Pane ID for cross-restart reuse            |
 | `PI_LAST_RC`     | `<seq> <exit_code>` written by precmd hook |
 
-**kitty backend** — state in temp files (UUID-scoped per session for multi-agent safety):
+**sway backend** — state in temp files (UUID-scoped per session for multi-agent safety):
 
-| File                                   | Purpose                                    |
-| -------------------------------------- | ------------------------------------------ |
-| `/tmp/pi-mirror-pane-<KITTY_WINDOW>`   | Window ID for cross-restart reuse          |
-| `/tmp/pi-mirror-rc-<session-uuid>`     | `<seq> <exit_code>` written by precmd hook |
-| `/tmp/pi-mirror-signal-<session-uuid>` | Named pipe (FIFO) for event-driven signals |
-
-**ghostty backend** — state in temp files:
-
-| File                                   | Purpose                                    |
-| -------------------------------------- | ------------------------------------------ |
-| `/tmp/pi-mirror-ghostty-pane`          | Terminal ID for cross-restart reuse        |
-| `/tmp/pi-mirror-rc-<session-uuid>`     | `<seq> <exit_code>` written by precmd hook |
-| `/tmp/pi-mirror-signal-<session-uuid>` | Named pipe (FIFO) for event-driven signals |
-| `/tmp/pi-mirror-ready-<session-uuid>`  | Named pipe (FIFO) for ready signals        |
+| File                                         | Purpose                                    |
+| -------------------------------------------- | ------------------------------------------ |
+| `/tmp/pi-mirror-log-<session-uuid>`          | Output log from PTY relay                  |
+| `/tmp/pi-mirror-input-<session-uuid>`        | Input FIFO for text injection              |
+| `/tmp/pi-mirror-rc-<session-uuid>`           | `<seq> <exit_code>` written by precmd hook |
+| `/tmp/pi-mirror-signal-<session-uuid>`       | Named pipe (FIFO) for activity signals     |
+| `/tmp/pi-mirror-agent-signal-<session-uuid>` | Named pipe (FIFO) for agent signals        |
+| `/tmp/pi-mirror-ready-<session-uuid>`        | Named pipe (FIFO) for ready signals        |
 
 ### Diff Viewer Pane
 
@@ -281,8 +240,8 @@ completion, and used a 3-second `setInterval` for user activity. This was
 replaced with blocking mechanisms that use zero CPU while waiting:
 
 - **tmux:** `tmux wait-for` blocks until signaled by `tmux wait-for -S`.
-- **kitty:** `cat /tmp/pi-mirror-signal-<uuid>` blocks on a named pipe (FIFO)
-  until the precmd hook writes to it via `echo > fifo &`.
+- **sway:** `cat <fifo>` blocks on a named pipe (FIFO) until the precmd hook
+  writes to it via `echo > fifo &`.
 
 Both the agent command wait loop and the user activity loop use this mechanism.
 Detection is instant rather than delayed by a polling interval.

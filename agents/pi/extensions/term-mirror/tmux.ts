@@ -5,9 +5,10 @@
  * State is stored in tmux session environment variables (no temp files).
  */
 import type { ExecFn, MirrorBackend } from "./types.js";
-import { sleep } from "./types.js";
+import { sleep, DEFAULT_PANE_HEIGHT_PCT } from "./types.js";
 
 const WAIT_CHANNEL = "pi-prompt";
+const AGENT_WAIT_CHANNEL = "pi-agent-prompt";
 const READY_CHANNEL = "pi-ready";
 const ENV_PANE_ID = "PI_MIRROR_PANE";
 const ENV_LAST_RC = "PI_LAST_RC";
@@ -57,6 +58,22 @@ export class TmuxBackend implements MirrorBackend {
   private async checkPaneAlive(paneId: string): Promise<boolean> {
     if (!paneId) return false;
     try {
+      const r = await this.exec(
+        "tmux",
+        ["list-panes", "-s", "-F", "#{pane_id}"],
+        { timeout: 2000 },
+      );
+      return r.stdout.trim().split("\n").includes(paneId);
+    } catch {
+      return false;
+    }
+  }
+
+  /** Check if a pane is in the same tmux window as the pi pane. */
+  private async isPaneInCurrentWindow(paneId: string): Promise<boolean> {
+    if (!paneId) return false;
+    try {
+      // list-panes (no -s) only lists panes in the current window
       const r = await this.exec("tmux", ["list-panes", "-F", "#{pane_id}"], {
         timeout: 2000,
       });
@@ -115,6 +132,9 @@ export class TmuxBackend implements MirrorBackend {
 
     if (this.target) {
       if (await this.checkPaneAlive(this.target)) {
+        if (!(await this.isPaneInCurrentWindow(this.target))) {
+          await this.rejoinMirrorPane();
+        }
         this.paneReady = true;
         return true;
       }
@@ -124,14 +144,21 @@ export class TmuxBackend implements MirrorBackend {
     const savedId = await this.getEnv(ENV_PANE_ID);
     if (savedId && (await this.checkPaneAlive(savedId))) {
       this.target = savedId;
+      // If the pane is alive but stranded in another window (e.g. after
+      // tab swapping), rejoin it as a split in the current window.
+      if (!(await this.isPaneInCurrentWindow(savedId))) {
+        await this.rejoinMirrorPane();
+      }
       this.paneReady = true;
       return true;
     }
 
     const split = await this.tmux(
       "split-window",
-      "-h",
+      "-v",
       "-d",
+      "-l",
+      `${DEFAULT_PANE_HEIGHT_PCT}%`,
       "-P",
       "-F",
       "#{pane_id}",
@@ -216,7 +243,7 @@ export class TmuxBackend implements MirrorBackend {
       return [
         envSetup,
         `typeset -gi __pi_seq=0`,
-        `__pi_precmd() { local rc=$?; tmux set-environment ${ENV_LAST_RC} "$((++__pi_seq)) $rc"; tmux wait-for -S ${WAIT_CHANNEL} 2>/dev/null; return $rc; }`,
+        `__pi_precmd() { local rc=$?; tmux set-environment ${ENV_LAST_RC} "$((++__pi_seq)) $rc"; tmux wait-for -S ${WAIT_CHANNEL} 2>/dev/null; tmux wait-for -S ${AGENT_WAIT_CHANNEL} 2>/dev/null; return $rc; }`,
         `__pi_ready() { tmux wait-for -S ${READY_CHANNEL} 2>/dev/null; }`,
         `precmd_functions=(__pi_precmd $precmd_functions __pi_ready)`,
       ].join("; ");
@@ -224,7 +251,7 @@ export class TmuxBackend implements MirrorBackend {
       return [
         envSetup,
         `__pi_seq=0`,
-        `__pi_pcmd() { local rc=$?; tmux set-environment ${ENV_LAST_RC} "$((++__pi_seq)) $rc"; tmux wait-for -S ${WAIT_CHANNEL} 2>/dev/null; return $rc; }`,
+        `__pi_pcmd() { local rc=$?; tmux set-environment ${ENV_LAST_RC} "$((++__pi_seq)) $rc"; tmux wait-for -S ${WAIT_CHANNEL} 2>/dev/null; tmux wait-for -S ${AGENT_WAIT_CHANNEL} 2>/dev/null; return $rc; }`,
         `__pi_rdy() { tmux wait-for -S ${READY_CHANNEL} 2>/dev/null; }`,
         `PROMPT_COMMAND="__pi_pcmd;\${PROMPT_COMMAND};__pi_rdy"`,
       ].join("; ");
@@ -257,6 +284,17 @@ export class TmuxBackend implements MirrorBackend {
     }
   }
 
+  async waitForAgentSignal(timeoutMs: number): Promise<boolean> {
+    try {
+      const r = await this.exec("tmux", ["wait-for", AGENT_WAIT_CHANNEL], {
+        timeout: timeoutMs,
+      });
+      return r.code === 0;
+    } catch {
+      return false;
+    }
+  }
+
   async waitForReady(timeoutMs: number): Promise<boolean> {
     try {
       const r = await this.exec("tmux", ["wait-for", READY_CHANNEL], {
@@ -270,10 +308,111 @@ export class TmuxBackend implements MirrorBackend {
 
   async unblockWait(): Promise<void> {
     await this.tmux("wait-for", "-S", WAIT_CHANNEL).catch(() => {});
+    await this.tmux("wait-for", "-S", AGENT_WAIT_CHANNEL).catch(() => {});
     await this.tmux("wait-for", "-S", READY_CHANNEL).catch(() => {});
+  }
+
+  async killPane(): Promise<void> {
+    if (this.target) {
+      await this.tmux("kill-pane", "-t", this.target).catch(() => {});
+      await this.unsetEnv(ENV_PANE_ID).catch(() => {});
+      this.target = "";
+      this.paneReady = false;
+    }
   }
 
   cleanup(): void {
     // tmux state lives in session env variables, nothing to clean up
+  }
+
+  // ── tab management ─────────────────────────────────────
+
+  async createTab(name: string): Promise<string | null> {
+    // Create a new tmux window (tab) in the same session, don't switch to it
+    const r = await this.tmux(
+      "new-window",
+      "-d",
+      "-P",
+      "-F",
+      "#{pane_id}",
+      "-n",
+      name,
+    );
+    if (r.code !== 0) return null;
+    const paneId = r.stdout.trim();
+    return paneId || null;
+  }
+
+  async captureTab(targetId: string, lines = 2000): Promise<string> {
+    const r = await this.tmux(
+      "capture-pane",
+      "-p",
+      "-J",
+      "-t",
+      targetId,
+      "-S",
+      `-${lines}`,
+    );
+    return r.code === 0 ? r.stdout : "";
+  }
+
+  async sendTextToTab(targetId: string, text: string): Promise<void> {
+    await this.tmux("send-keys", "-t", targetId, "-l", text);
+  }
+
+  async sendEnterToTab(targetId: string): Promise<void> {
+    await this.tmux("send-keys", "-t", targetId, "Enter");
+  }
+
+  async sendCtrlCToTab(targetId: string): Promise<void> {
+    await this.tmux("send-keys", "-t", targetId, "C-c");
+  }
+
+  async closeTab(targetId: string): Promise<void> {
+    await this.tmux("kill-pane", "-t", targetId).catch(() => {});
+  }
+
+  async isTabAlive(targetId: string): Promise<boolean> {
+    return this.checkPaneAlive(targetId);
+  }
+
+  // ── pane swapping (for tab switching in mirror slot) ────
+
+  /** Swap two panes (can be in different windows). Refocuses the pi pane after. */
+  async swapPanes(src: string, dst: string): Promise<void> {
+    await this.tmux("swap-pane", "-s", src, "-t", dst);
+    // swap-pane can shift focus to the swapped pane; go back up to pi
+    await this.tmux("select-pane", "-U");
+  }
+
+  /**
+   * Move the mirror pane (shell) back to below the current pane (pi).
+   * Used when a process pane that was in the mirror slot dies.
+   */
+  async rejoinMirrorPane(): Promise<void> {
+    if (!this.target) return;
+    await this.joinPaneBelow(this.target);
+  }
+
+  /** Break a pane out of the current window into a hidden window. */
+  async breakPaneOut(paneId: string): Promise<void> {
+    await this.tmux("break-pane", "-d", "-s", paneId);
+  }
+
+  /** Join a pane back below the current pane (pi) as a vertical split. */
+  async joinPaneBelow(paneId: string): Promise<void> {
+    try {
+      await this.tmux(
+        "join-pane",
+        "-v",
+        "-d",
+        "-l",
+        `${DEFAULT_PANE_HEIGHT_PCT}%`,
+        "-s",
+        paneId,
+      );
+    } catch {
+      // If join fails (e.g. pane dead), ensurePane will handle recovery
+    }
   }
 }
