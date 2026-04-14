@@ -1,11 +1,6 @@
 import type { ExecFn, MirrorBackend } from "./types.js";
 import { sq, sleep } from "./types.js";
-import {
-  writeFileSync,
-  readFileSync,
-  unlinkSync,
-  statSync,
-} from "node:fs";
+import { writeFileSync, readFileSync, unlinkSync, statSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { readlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -85,10 +80,7 @@ export class SwayBackend implements MirrorBackend {
       if (byId) return byId;
     }
 
-    return this.findNode(
-      tree,
-      (n) => n.app_id === APP_ID && n.type === "con",
-    );
+    return this.findNode(tree, (n) => n.app_id === APP_ID && n.type === "con");
   }
 
   async paneAlive(): Promise<boolean> {
@@ -126,7 +118,10 @@ export class SwayBackend implements MirrorBackend {
     if (!win?.pid) return 0;
 
     // Walk: foot -> python3 (relay) -> shell
-    const walkChildren = async (ppid: number, depth: number): Promise<number> => {
+    const walkChildren = async (
+      ppid: number,
+      depth: number,
+    ): Promise<number> => {
       if (depth > 4) return 0;
       try {
         const r = await this.exec(
@@ -187,6 +182,9 @@ export class SwayBackend implements MirrorBackend {
     writeFileSync(this.outputLog, "");
     await this.exec("mkfifo", [this.inputFifo], { timeout: 2000 });
 
+    // Set vertical split on the focused (pi) container so the new window lands below
+    await this.swaymsg("splitv");
+
     // Launch foot with the relay script
     const cmd =
       `foot --app-id ${APP_ID}` +
@@ -208,6 +206,18 @@ export class SwayBackend implements MirrorBackend {
       await sleep(300);
     }
     if (!this.conId) return false;
+
+    // Resize the mirror window to occupy the bottom quarter of the screen
+    await this.swaymsg(
+      `[con_id=${this.conId}]`,
+      "resize",
+      "set",
+      "height",
+      "25",
+      "ppt",
+    );
+    // Return focus to the pi window
+    await this.swaymsg("focus", "up");
 
     if (!(await this.waitForShell())) {
       await this.swaymsg(`[con_id=${this.conId}]`, "kill");
@@ -263,19 +273,15 @@ export class SwayBackend implements MirrorBackend {
   }
 
   async sendEnter(): Promise<void> {
-    await this.exec(
-      "bash",
-      ["-c", `printf '\\r' > ${sq(this.inputFifo)}`],
-      { timeout: 5000 },
-    );
+    await this.exec("bash", ["-c", `printf '\\r' > ${sq(this.inputFifo)}`], {
+      timeout: 5000,
+    });
   }
 
   async sendCtrlC(): Promise<void> {
-    await this.exec(
-      "bash",
-      ["-c", `printf '\\x03' > ${sq(this.inputFifo)}`],
-      { timeout: 5000 },
-    );
+    await this.exec("bash", ["-c", `printf '\\x03' > ${sq(this.inputFifo)}`], {
+      timeout: 5000,
+    });
   }
 
   async getShellName(): Promise<string> {

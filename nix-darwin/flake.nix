@@ -71,12 +71,12 @@
         casks = [
           "emacs-app"
           "ghostty"
+          "kitty"
           "google-chrome"
           "ungoogled-chromium"
           "audacity"
           "reaper"
           "claude"
-          # "claude-code"
           "dash"
           "gimp"
           "libreoffice"

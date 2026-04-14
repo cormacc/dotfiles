@@ -1,20 +1,31 @@
 { config, pkgs, ... }:
 let
-  # Paths
+  # Source paths
   dotRoot = "${config.home.homeDirectory}/dotfiles";
   agentsRoot = "${dotRoot}/agents";
   piRoot = "${agentsRoot}/pi";
   skillsDir = "${agentsRoot}/skills";
+  # Dest paths
+  agentsConfig =  "${config.home.homeDirectory}/.agents";
+  piConfig =  "${config.home.homeDirectory}/.pi/agent";
+  # The xdg.configHome stuff causes pain / erratic detection...
+  # piConfig = "${config.xdg.configHome}/pi";
 in
 {
+  # home.sessionVariables.PI_CODING_AGENT_DIR = "$piConfig";
+
   home.packages = [
+    #Pi + deps
     pkgs.llm-agents.pi
+    pkgs.tmux
+    pkgs.prettier
+    #Claude code + deps
     pkgs.llm-agents.claude-code
   ];
 
-  home.file.".pi/agent/settings.json".source = config.lib.file.mkOutOfStoreSymlink "${piRoot}/settings.json";
-  home.file.".pi/agent/extensions".source = config.lib.file.mkOutOfStoreSymlink "${piRoot}/extensions";
-  home.file.".pi/agent/skills".source = config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
-  home.file.".pi/agent/prompts".source = config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/prompts";
-
+  home.file."${agentsConfig}/skills".source = config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
+  home.file."${piConfig}/AGENTS.md".source = config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/AGENTS.md";
+  home.file."${piConfig}/prompts".source = config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/prompts";
+  home.file."${piConfig}/settings.json".source = config.lib.file.mkOutOfStoreSymlink "${piRoot}/settings.json";
+  home.file."${piConfig}/extensions".source = config.lib.file.mkOutOfStoreSymlink "${piRoot}/extensions";
 }
