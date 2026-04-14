@@ -35,10 +35,9 @@ import {
   formatSize,
 } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
-import { writeFileSync } from "node:fs";
 
 import type { MirrorBackend, ManagedProcess } from "./types.js";
-import { sq, sleep, sanitizeName, DEFAULT_PANE_HEIGHT_PCT } from "./types.js";
+import { sq, sleep, sanitizeName, diffSnapshots } from "./types.js";
 import { TmuxBackend } from "./tmux.js";
 import { SwayBackend } from "./sway.js";
 
@@ -93,22 +92,35 @@ export default function (pi: ExtensionAPI) {
       return;
     }
 
-    const isTmux = backend instanceof TmuxBackend;
     const sessionUi = ctx.ui;
+
+    // ── helpers ────────────────────────────────────────────
+
+    /** Get the backend target ID for the currently active tab (null = main pane). */
+    function activeTargetId(): string | null {
+      if (activeTabName === null) return null;
+      return processes.get(activeTabName)?.targetId ?? null;
+    }
+
+    /** Get all process tab target IDs. */
+    function allTabTargetIds(): string[] {
+      return [...processes.values()].map((p) => p.targetId);
+    }
 
     // ── shell hook ─────────────────────────────────────────
 
     async function installHook(): Promise<boolean> {
       if (hookInstalled) return true;
 
+      const mainId = backend.mainTargetId;
       const shell = await backend.getShellName();
       const hook = backend.generateHookCode(shell);
 
       for (let attempt = 0; attempt < 2; attempt++) {
         await backend.prepareForHook();
 
-        await backend.sendText(` ${hook} && clear`);
-        await backend.sendEnter();
+        await backend.sendText(mainId, ` ${hook} && clear`);
+        await backend.sendEnter(mainId);
 
         // __pi_precmd fires first in the precmd chain (before direnv etc.)
         const signaled = await backend.waitForPrompt(60000);
@@ -119,7 +131,7 @@ export default function (pi: ExtensionAPI) {
         // so the prompt is fully drawn when this returns
         await backend.waitForReady(60000);
 
-        const pane = (await backend.capturePane(50)).trimEnd();
+        const pane = (await backend.capture(mainId, 50)).trimEnd();
         const paneLines = pane.split("\n");
         let h = 0;
         for (let i = paneLines.length - 1; i >= 0; i--) {
@@ -247,7 +259,8 @@ export default function (pi: ExtensionAPI) {
         };
       }
 
-      const before = await backend.capturePane();
+      const mainId = backend.mainTargetId;
+      const before = await backend.capture(mainId);
       const { seq: seqBefore } = await backend.readRc();
 
       const paneCwd = await backend.getPaneCwd();
@@ -258,8 +271,8 @@ export default function (pi: ExtensionAPI) {
         sendCmd = `{\n${sendCmd}\n}`;
       }
 
-      await backend.sendText(` ${sendCmd}`);
-      await backend.sendEnter();
+      await backend.sendText(mainId, ` ${sendCmd}`);
+      await backend.sendEnter(mainId);
 
       const timeout = timeoutMs || 120_000;
       const deadline = Date.now() + timeout;
@@ -268,7 +281,7 @@ export default function (pi: ExtensionAPI) {
 
       while (Date.now() < deadline) {
         if (signal?.aborted) {
-          await backend.sendCtrlC();
+          await backend.sendCtrlC(mainId);
           return { output: "Cancelled", exitCode: 130 };
         }
 
@@ -277,8 +290,6 @@ export default function (pi: ExtensionAPI) {
 
         await backend.waitForAgentSignal(remaining);
 
-        // Always check RC regardless of signal — handles cases where the
-        // agent FIFO timed out (e.g. 5s polling window)
         const { seq, rc } = await backend.readRc();
         if (seq > seqBefore) {
           exitCode = rc;
@@ -296,11 +307,11 @@ export default function (pi: ExtensionAPI) {
       }
 
       if (!completed) {
-        await backend.sendCtrlC();
+        await backend.sendCtrlC(mainId);
         await backend.waitForAgentSignal(5000);
       }
 
-      const after = await backend.capturePane();
+      const after = await backend.capture(mainId);
       let output = extractOutput(before, after);
 
       if (!completed) output += "\n[command timed out]";
@@ -317,6 +328,7 @@ export default function (pi: ExtensionAPI) {
       (async () => {
         const { signal } = activityAbort!;
         let lastSeenSeq = (await backend.readRc()).seq;
+        const mainId = backend.mainTargetId;
 
         while (!signal.aborted && backend.isPaneReady()) {
           if (agentRunning) {
@@ -345,52 +357,15 @@ export default function (pi: ExtensionAPI) {
           if (agentRunning) continue;
 
           try {
-            const dbg = (msg: string) => {
-              try {
-                writeFileSync(
-                  "/tmp/pi-mirror-debug.log",
-                  `${new Date().toISOString()} ${msg}\n`,
-                  { flag: "a" },
-                );
-              } catch {}
-            };
+            const current = (await backend.capture(mainId, 200)).trim();
+            if (current === lastSnapshot) continue;
 
-            dbg(
-              `signaled, agentRunning=${agentRunning}, promptSymbol=${JSON.stringify(promptSymbol)}, promptHeight=${promptHeight}`,
-            );
-
-            const current = (await backend.capturePane(200)).trim();
-            if (current === lastSnapshot) {
-              dbg(`skip: same snapshot`);
-              continue;
-            }
-
-            const bLines = lastSnapshot.split("\n");
-            const aLines = current.split("\n");
-            let i = 0;
-            while (
-              i < bLines.length &&
-              i < aLines.length &&
-              bLines[i] === aLines[i]
-            )
-              i++;
-            const diff = aLines.slice(i).join("\n").trim();
-
+            const diff = diffSnapshots(lastSnapshot, current);
             lastSnapshot = current;
-            if (diff.length < 5) {
-              dbg(`skip: diff too short (${diff.length})`);
-              continue;
-            }
-
-            dbg(
-              `diff (${diff.length} chars): ${JSON.stringify(diff.slice(0, 500))}`,
-            );
+            if (diff.length < 5) continue;
 
             const { rc } = await backend.readRc();
             const message = await formatActivity(diff, rc);
-            dbg(
-              `formatActivity result: ${JSON.stringify(message?.slice(0, 300) ?? null)}`,
-            );
             if (!message) continue;
 
             if (activeTabName !== null) {
@@ -409,14 +384,9 @@ export default function (pi: ExtensionAPI) {
             while (agentRunning && !signal.aborted) await sleep(500);
             if (signal.aborted || !backend.isPaneReady()) break;
 
-            const postAgent = (await backend.capturePane(200)).trim();
+            const postAgent = (await backend.capture(mainId, 200)).trim();
             if (postAgent !== lastSnapshot) {
-              const pb = lastSnapshot.split("\n");
-              const pa = postAgent.split("\n");
-              let pi2 = 0;
-              while (pi2 < pb.length && pi2 < pa.length && pb[pi2] === pa[pi2])
-                pi2++;
-              const postDiff = pa.slice(pi2).join("\n").trim();
+              const postDiff = diffSnapshots(lastSnapshot, postAgent);
 
               if (postDiff.length >= 5) {
                 const { rc: postRc } = await backend.readRc();
@@ -437,7 +407,7 @@ export default function (pi: ExtensionAPI) {
                 }
               }
             }
-            lastSnapshot = (await backend.capturePane(200)).trim();
+            lastSnapshot = (await backend.capture(mainId, 200)).trim();
           } catch {}
         }
 
@@ -476,7 +446,7 @@ export default function (pi: ExtensionAPI) {
               if (p.mode === "watch") {
                 try {
                   p.lastSnapshot = (
-                    await backend.captureTab(p.targetId, 200)
+                    await backend.capture(p.targetId, 200)
                   ).trim();
                 } catch {}
               }
@@ -491,7 +461,11 @@ export default function (pi: ExtensionAPI) {
             const alive = await backend.isTabAlive(proc.targetId);
             if (!alive) {
               // If this was the active tab, recover the shell pane
-              if (activeTabName === name) await recoverShellPane();
+              if (activeTabName === name) {
+                activeTabName = null;
+                await backend.recoverShellToMirror();
+                updateTabWidget();
+              }
 
               // Process died — report and remove
               pi.sendMessage(
@@ -510,25 +484,13 @@ export default function (pi: ExtensionAPI) {
             // Only diff output for watch-mode processes
             if (proc.mode !== "watch") continue;
 
-            const current = (
-              await backend.captureTab(proc.targetId, 200)
-            ).trim();
+            const current = (await backend.capture(proc.targetId, 200)).trim();
             if (current === proc.lastSnapshot) continue;
 
-            // Re-check: process may have been stopped during captureTab
+            // Re-check: process may have been stopped during capture
             if (!processes.has(name)) continue;
 
-            const bLines = proc.lastSnapshot.split("\n");
-            const aLines = current.split("\n");
-            let i = 0;
-            while (
-              i < bLines.length &&
-              i < aLines.length &&
-              bLines[i] === aLines[i]
-            )
-              i++;
-            const diff = aLines.slice(i).join("\n").trim();
-
+            const diff = diffSnapshots(proc.lastSnapshot, current);
             proc.lastSnapshot = current;
             if (diff.length < 5) continue;
 
@@ -602,10 +564,9 @@ export default function (pi: ExtensionAPI) {
       const tabList = parts.join(" ");
 
       const toggleHint = visible
-        ? theme.fg("dim", "C-M-t hide")
-        : theme.fg("warning", "C-M-t show");
-      const tabHint = hasTabs ? theme.fg("dim", "C-M-← C-M-→") + "  " : "";
-      const sep = theme.fg("border", " │ ");
+        ? theme.fg("dim", "M-m hide")
+        : theme.fg("warning", "M-m show");
+      const tabHint = hasTabs ? "  " + theme.fg("dim", "M-h M-l") : "";
 
       const status =
         " " +
@@ -627,59 +588,14 @@ export default function (pi: ExtensionAPI) {
       if (tabName === activeTabName) return;
       tabsWithActivity.delete(tabName ?? "pi-shell");
 
-      if (isTmux) {
-        const tmuxBackend = backend as TmuxBackend;
+      const fromId = activeTargetId();
+      const toId =
+        tabName === null ? null : (processes.get(tabName)?.targetId ?? null);
 
-        // If mirror is hidden, show it first with the target tab
-        if (!mirrorVisible) {
-          const targetId =
-            tabName === null
-              ? backend.displayTarget()
-              : processes.get(tabName)?.targetId;
-          if (targetId) {
-            await tmuxBackend.joinPaneBelow(targetId);
-            mirrorVisible = true;
-            activeTabName = tabName;
-            updateTabWidget();
-          }
-          return;
-        }
-
-        const currentId =
-          activeTabName === null
-            ? backend.displayTarget()
-            : processes.get(activeTabName)?.targetId;
-        const targetId =
-          tabName === null
-            ? backend.displayTarget()
-            : processes.get(tabName)?.targetId;
-
-        if (!currentId || !targetId || currentId === targetId) return;
-
-        await tmuxBackend.swapPanes(currentId, targetId);
-      } else {
-        const swayBackend = backend as SwayBackend;
-
-        // If mirror is hidden, show it first
-        if (!mirrorVisible) {
-          const tabIds = [...processes.values()]
-            .map((p) => parseInt(p.targetId, 10))
-            .filter((id) => id > 0);
-          await swayBackend.showPaneFromScratchpad(tabIds);
-          mirrorVisible = true;
-        }
-
-        // Focus the target container (sway manages tabbed layout natively)
-        const targetId =
-          tabName === null ? null : processes.get(tabName)?.targetId;
-
-        if (tabName === null) {
-          await swayBackend.focusMirrorPane();
-        } else if (targetId) {
-          await swayBackend.focusTab(targetId);
-        }
+      // Only switch the underlying tab; don't auto-show the mirror
+      if (mirrorVisible) {
+        await backend.switchTab(fromId, toId);
       }
-
       activeTabName = tabName;
       updateTabWidget();
     }
@@ -695,62 +611,14 @@ export default function (pi: ExtensionAPI) {
       await switchToTab(nextName === "pi-shell" ? null : nextName);
     }
 
-    /** Recover shell pane to mirror slot after a process pane dies in-place. */
-    async function recoverShellPane(): Promise<void> {
-      activeTabName = null;
-      if (isTmux) {
-        await (backend as TmuxBackend).rejoinMirrorPane();
-      } else {
-        // Sway: focus the main mirror pane
-        await (backend as SwayBackend).focusMirrorPane();
-      }
-      updateTabWidget();
-    }
-
     /** Toggle the mirror pane visibility (hide/show the split). */
     async function toggleMirror(): Promise<void> {
-      if (isTmux) {
-        const tmuxBackend = backend as TmuxBackend;
-
-        if (mirrorVisible) {
-          const paneId = activeTabName
-            ? processes.get(activeTabName)?.targetId
-            : backend.displayTarget();
-          if (paneId) {
-            await tmuxBackend.breakPaneOut(paneId);
-            mirrorVisible = false;
-          }
-        } else {
-          const paneId = activeTabName
-            ? processes.get(activeTabName)?.targetId
-            : backend.displayTarget();
-          if (paneId) {
-            await tmuxBackend.joinPaneBelow(paneId);
-            mirrorVisible = true;
-          }
-        }
+      if (mirrorVisible) {
+        await backend.hide();
+        mirrorVisible = false;
       } else {
-        const swayBackend = backend as SwayBackend;
-
-        if (mirrorVisible) {
-          // Hide all mirror-related panes to scratchpad
-          // Hide process tabs first, then the main pane
-          for (const [, proc] of processes) {
-            const tab = parseInt(proc.targetId, 10);
-            if (tab > 0) {
-              await swayBackend.hidePaneToScratchpad(tab);
-            }
-          }
-          await swayBackend.hidePaneToScratchpad();
-          mirrorVisible = false;
-        } else {
-          // Restore: bring back the main mirror pane, then tabs with tabbed layout
-          const tabIds = [...processes.values()]
-            .map((p) => parseInt(p.targetId, 10))
-            .filter((id) => id > 0);
-          await swayBackend.showPaneFromScratchpad(tabIds);
-          mirrorVisible = true;
-        }
+        await backend.show(allTabTargetIds());
+        mirrorVisible = true;
       }
       updateTabWidget();
     }
@@ -789,8 +657,8 @@ export default function (pi: ExtensionAPI) {
             };
           }
 
-          // Auto-switch to shell tab and show mirror if hidden
-          if (activeTabName !== null || !mirrorVisible) await switchToTab(null);
+          // Auto-switch to shell tab (but don't auto-show the mirror)
+          if (activeTabName !== null) await switchToTab(null);
 
           onUpdate?.({
             content: [
@@ -810,7 +678,9 @@ export default function (pi: ExtensionAPI) {
           );
 
           if (backend.isPaneReady()) {
-            lastSnapshot = (await backend.capturePane(200)).trim();
+            lastSnapshot = (
+              await backend.capture(backend.mainTargetId, 200)
+            ).trim();
           }
 
           const t = truncateTail(output, {
@@ -867,7 +737,9 @@ export default function (pi: ExtensionAPI) {
             isError: true,
           };
         }
-        const text = (await backend.capturePane(params.lines || 200)).trim();
+        const text = (
+          await backend.capture(backend.mainTargetId, params.lines || 200)
+        ).trim();
         return {
           content: [{ type: "text", text: text || "(terminal is empty)" }],
           details: {},
@@ -945,17 +817,16 @@ export default function (pi: ExtensionAPI) {
         // always prepend a `cd` to the correct working directory.
         // We also sleep briefly after tab creation to let the shell in the
         // new tab fully initialise — without this, tmux send-keys can hit a
-        // race where the first character is duplicated (e.g. "bb foo" becomes
-        // "bbb foo") because the shell isn't ready to receive input yet.
+        // race where the first character is duplicated.
         await sleep(300);
         const fullCmd = `cd ${sq(ctx.cwd)} && ${params.command}`;
 
-        await backend.sendTextToTab(targetId, fullCmd);
-        await backend.sendEnterToTab(targetId);
+        await backend.sendText(targetId, fullCmd);
+        await backend.sendEnter(targetId);
 
         // Wait briefly for initial output
         await sleep(1000);
-        const snapshot = (await backend.captureTab(targetId, 200)).trim();
+        const snapshot = (await backend.capture(targetId, 200)).trim();
 
         const proc: ManagedProcess = {
           name,
@@ -1027,17 +898,15 @@ export default function (pi: ExtensionAPI) {
           };
         }
 
-        await backend.sendTextToTab(proc.targetId, params.text);
+        await backend.sendText(proc.targetId, params.text);
         if (params.enter !== false) {
-          await backend.sendEnterToTab(proc.targetId);
+          await backend.sendEnter(proc.targetId);
         }
 
         // Wait briefly and capture output
         await sleep(500);
-        const output = (await backend.captureTab(proc.targetId, 50)).trim();
-        proc.lastSnapshot = (
-          await backend.captureTab(proc.targetId, 200)
-        ).trim();
+        const output = (await backend.capture(proc.targetId, 50)).trim();
+        proc.lastSnapshot = (await backend.capture(proc.targetId, 200)).trim();
 
         return {
           content: [{ type: "text", text: output || "(no output)" }],
@@ -1071,15 +940,21 @@ export default function (pi: ExtensionAPI) {
         }
 
         const alive = await backend.isTabAlive(proc.targetId);
-        const output = (
-          await backend.captureTab(proc.targetId, params.lines || 200)
-        ).trim();
+        let output = "";
+        try {
+          output = (
+            await backend.capture(proc.targetId, params.lines || 200)
+          ).trim();
+        } catch {
+          // Target may be gone if the tab just died
+        }
 
         const status = alive ? "running" : "exited";
 
         if (!alive) {
           // Clean up dead process
           processes.delete(params.name);
+          updateTabWidget();
           const hasWatch = [...processes.values()].some(
             (p) => p.mode === "watch",
           );
@@ -1130,9 +1005,9 @@ export default function (pi: ExtensionAPI) {
 
         let finalOutput = "";
         if (await backend.isTabAlive(proc.targetId)) {
-          await backend.sendCtrlCToTab(proc.targetId);
+          await backend.sendCtrlC(proc.targetId);
           await sleep(1000);
-          finalOutput = (await backend.captureTab(proc.targetId, 50)).trim();
+          finalOutput = (await backend.capture(proc.targetId, 50)).trim();
           await backend.closeTab(proc.targetId);
         }
 
@@ -1142,6 +1017,9 @@ export default function (pi: ExtensionAPI) {
           (p) => p.mode === "watch",
         );
         if (!hasWatch) await stopWatchLoopAndWait();
+
+        // Clean up stopped marker now that the watch loop has drained
+        stoppedProcesses.delete(params.name);
 
         return {
           content: [
@@ -1169,6 +1047,7 @@ export default function (pi: ExtensionAPI) {
         }
 
         const lines: string[] = [];
+        const dead: string[] = [];
         for (const [name, proc] of processes) {
           const alive = await backend.isTabAlive(proc.targetId);
           const status = alive ? "running" : "exited";
@@ -1176,6 +1055,17 @@ export default function (pi: ExtensionAPI) {
           lines.push(
             `  ${name}: ${proc.command} [${status}, ${proc.mode}, ${age}s]`,
           );
+          if (!alive) dead.push(name);
+        }
+
+        // Clean up dead processes
+        for (const name of dead) processes.delete(name);
+        if (dead.length > 0) {
+          updateTabWidget();
+          const hasWatch = [...processes.values()].some(
+            (p) => p.mode === "watch",
+          );
+          if (!hasWatch) stopWatchLoop();
         }
 
         return {
@@ -1189,19 +1079,19 @@ export default function (pi: ExtensionAPI) {
 
     // ── register shortcuts ─────────────────────────────────
 
-    pi.registerShortcut("ctrl+alt+left", {
+    pi.registerShortcut("alt+h", {
       description: "Previous mirror tab",
       handler: async () => {
         await cycleTab(-1);
       },
     });
-    pi.registerShortcut("ctrl+alt+right", {
+    pi.registerShortcut("alt+l", {
       description: "Next mirror tab",
       handler: async () => {
         await cycleTab(1);
       },
     });
-    pi.registerShortcut("ctrl+alt+t", {
+    pi.registerShortcut("alt+m", {
       description: "Toggle mirror pane",
       handler: async () => {
         await toggleMirror();
@@ -1246,18 +1136,11 @@ export default function (pi: ExtensionAPI) {
     const ok = await backend.ensurePane();
     if (ok) {
       await installHook();
-      lastSnapshot = (await backend.capturePane(200)).trim();
+      lastSnapshot = (await backend.capture(backend.mainTargetId, 200)).trim();
       startActivityLoop();
 
       // Start with the mirror pane hidden
-      if (isTmux) {
-        const paneId = backend.displayTarget();
-        if (paneId) {
-          await (backend as TmuxBackend).breakPaneOut(paneId);
-        }
-      } else {
-        await (backend as SwayBackend).hidePaneToScratchpad();
-      }
+      await backend.hide();
       mirrorVisible = false;
 
       updateTabWidget();
