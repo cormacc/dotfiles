@@ -13,13 +13,17 @@ pi --mirror
 The extension is auto-discovered from `~/.pi/agent/extensions/` but only
 activates when the `--mirror` flag is passed.
 
-Supports two backends:
+Supports three backends:
 
 - **tmux** — detected via `$TMUX`, uses tmux split panes and `tmux wait-for`
   for instant signaling.
 - **kitty** — detected via `$KITTY_PID` (when not inside tmux), uses kitty's
   remote control protocol (`kitty @`) and a named pipe (FIFO) for instant
   signaling.
+- **ghostty** — detected via `$TERM_PROGRAM=ghostty` (macOS only), uses
+  Ghostty's AppleScript API for terminal control and a named pipe (FIFO) for
+  instant signaling. Screen capture uses `write_screen_file:copy` via the
+  clipboard.
 
 ## Features
 
@@ -86,6 +90,23 @@ Supports two backends:
          ├── kitty @ send-text ─────┘  (remote control via socket)
          ├── kitty @ get-text
          └── cat FIFO (blocks)         (zero CPU, like tmux wait-for)
+```
+
+**ghostty backend (macOS):**
+
+```
+┌─────────────────────┐  ┌──────────────────────┐
+│  pi (agent split)   │  │  shared split (id:N)  │
+│                     │  │                       │
+│  term-mirror ext    │──│  zsh/bash + hook      │
+│  ├─ bash tool       │  │  ├─ precmd writes RC  │
+│  ├─ read_terminal   │  │  └─ echo > FIFO &     │
+│  └─ activity loop   │  │                       │
+└─────────────────────┘  └──────────────────────┘
+         │                          │
+         ├── osascript (AppleScript)┘  (split, input text, send key)
+         ├── write_screen_file          (capture via clipboard)
+         └── cat FIFO (blocks)         (zero CPU, like kitty)
 ```
 
 ### Shell Hook
@@ -198,6 +219,15 @@ Reads recent content from the shared tmux pane scrollback.
 - The `splits` layout must be enabled (e.g., `enabled_layouts splits`).
 - The shell must be zsh or bash.
 
+**ghostty backend:**
+
+- Must run pi inside Ghostty on macOS (detected via `$TERM_PROGRAM=ghostty`).
+- Ghostty 1.1.0+ required (for AppleScript API support).
+- No special configuration needed — AppleScript support is built in.
+- The shell must be zsh or bash.
+- Note: Screen capture briefly uses the system clipboard. Non-text clipboard
+  content (e.g. images) may be lost during capture.
+
 ## State Storage
 
 **tmux backend** — all state in tmux session environment variables (no temp files):
@@ -214,6 +244,15 @@ Reads recent content from the shared tmux pane scrollback.
 | `/tmp/pi-mirror-pane-<KITTY_WINDOW>`   | Window ID for cross-restart reuse          |
 | `/tmp/pi-mirror-rc-<session-uuid>`     | `<seq> <exit_code>` written by precmd hook |
 | `/tmp/pi-mirror-signal-<session-uuid>` | Named pipe (FIFO) for event-driven signals |
+
+**ghostty backend** — state in temp files:
+
+| File                                   | Purpose                                    |
+| -------------------------------------- | ------------------------------------------ |
+| `/tmp/pi-mirror-ghostty-pane`          | Terminal ID for cross-restart reuse        |
+| `/tmp/pi-mirror-rc-<session-uuid>`     | `<seq> <exit_code>` written by precmd hook |
+| `/tmp/pi-mirror-signal-<session-uuid>` | Named pipe (FIFO) for event-driven signals |
+| `/tmp/pi-mirror-ready-<session-uuid>`  | Named pipe (FIFO) for ready signals        |
 
 ### Diff Viewer Pane
 

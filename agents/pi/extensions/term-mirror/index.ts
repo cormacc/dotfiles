@@ -1,10 +1,12 @@
 /**
- * Shared Terminal Extension (tmux + kitty + sway)
+ * Shared Terminal Extension (tmux + kitty + ghostty + sway)
  *
  * Overrides the built-in bash tool to run commands in a shared terminal split.
- * Supports three backends:
+ * Supports four backends:
  *   - tmux: splits via tmux, signals via `tmux wait-for`
  *   - kitty: splits via `kitty @` remote control, signals via named pipe (FIFO)
+ *   - ghostty: splits via AppleScript API, capture via write_screen_file,
+ *             signals via named pipe (FIFO). macOS only.
  *   - sway: splits via swaymsg, output capture via `script`, signals via named pipe (FIFO)
  *
  * The actual command text is sent directly — no wrappers, no markers.
@@ -24,6 +26,8 @@
  *   - tmux: run pi inside tmux. A split pane is auto-created.
  *   - kitty: run pi inside kitty with remote control enabled
  *     (allow_remote_control=socket-only in kitty.conf). A vsplit is auto-created.
+ *   - ghostty: run pi inside Ghostty on macOS. A split is auto-created via
+ *     AppleScript. No special configuration needed.
  *   - sway: run pi under sway. A foot terminal is launched in a split.
  *
  * Environment variables:
@@ -44,6 +48,7 @@ import { sq, sleep } from "./types.js";
 import { TmuxBackend } from "./tmux.js";
 import { KittyBackend } from "./kitty.js";
 import { SwayBackend } from "./sway.js";
+import { GhosttyBackend } from "./ghostty.js";
 
 export default function (pi: ExtensionAPI) {
   // ── CLI flag (registered before anything else) ───────────
@@ -51,7 +56,8 @@ export default function (pi: ExtensionAPI) {
   // is deferred to session_start where getFlag works.
 
   pi.registerFlag("mirror", {
-    description: "Run commands in a shared terminal split (tmux/kitty/sway)",
+    description:
+      "Run commands in a shared terminal split (tmux/kitty/ghostty/sway)",
     type: "boolean",
     default: false,
   });
@@ -83,10 +89,12 @@ export default function (pi: ExtensionAPI) {
       backend = new TmuxBackend(exec, onBackendReset);
     } else if (process.env.KITTY_PID) {
       backend = new KittyBackend(exec, onBackendReset);
+    } else if (process.env.TERM_PROGRAM === "ghostty") {
+      backend = new GhosttyBackend(exec, onBackendReset);
     } else if (process.env.SWAYSOCK) {
       backend = new SwayBackend(exec, onBackendReset);
     } else {
-      ctx.ui.notify("--mirror requires tmux, kitty, or sway", "error");
+      ctx.ui.notify("--mirror requires tmux, kitty, ghostty, or sway", "error");
       return;
     }
 
@@ -460,7 +468,9 @@ export default function (pi: ExtensionAPI) {
                 ? "Are you inside tmux?"
                 : backend.label === "kitty"
                   ? "Is kitty remote control enabled? (allow_remote_control in kitty.conf)"
-                  : "Is SWAYSOCK set? Is foot available?";
+                  : backend.label === "ghostty"
+                    ? "Is Ghostty running on macOS with AppleScript support?"
+                    : "Is SWAYSOCK set? Is foot available?";
             return {
               content: [
                 {
