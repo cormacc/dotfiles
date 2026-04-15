@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pi Modal Editor — Key Bindings Plan</title>
+    <style>
+      :root {
+        --bg: #1e1e2e;
+        --surface: #282840;
+        --border: #3a3a5c;
+        --text: #cdd6f4;
+        --text-muted: #9399b2;
+        --accent: #89b4fa;
+        --accent2: #a6e3a1;
+        --accent3: #f9e2af;
+        --accent4: #f38ba8;
+        --key-bg: #313244;
+        --key-border: #45475a;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        padding: 2rem;
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        font-size: 2rem;
+        color: var(--accent);
+        margin-bottom: 0.5rem;
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 0.75rem;
+      }
+
+      h1 small {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        font-weight: normal;
+        display: block;
+        margin-top: 0.25rem;
+      }
+
+      h2 {
+        font-size: 1.4rem;
+        color: var(--accent2);
+        margin: 2.5rem 0 1rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.4rem;
+      }
+
+      h3 {
+        font-size: 1.1rem;
+        color: var(--accent3);
+        margin: 1.5rem 0 0.75rem;
+      }
+
+      p,
+      li {
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+      }
+
+      code {
+        font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+        font-size: 0.88em;
+        color: var(--accent3);
+      }
+
+      kbd {
+        display: inline-block;
+        background: var(--key-bg);
+        border: 1px solid var(--key-border);
+        border-radius: 4px;
+        padding: 0.1em 0.45em;
+        font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+        font-size: 0.88em;
+        color: var(--accent);
+        white-space: nowrap;
+        box-shadow: 0 1px 0 var(--key-border);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0.75rem 0 1.25rem;
+        background: var(--surface);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      th {
+        text-align: left;
+        padding: 0.6rem 1rem;
+        background: var(--key-bg);
+        color: var(--accent);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      td {
+        padding: 0.5rem 1rem;
+        border-top: 1px solid var(--border);
+        vertical-align: top;
+      }
+
+      td:first-child {
+        white-space: nowrap;
+        width: 30%;
+      }
+
+      tr:hover td {
+        background: rgba(137, 180, 250, 0.05);
+      }
+
+      .mode-badge {
+        display: inline-block;
+        padding: 0.15em 0.6em;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-right: 0.5rem;
+      }
+      .mode-normal {
+        background: #89b4fa22;
+        color: #89b4fa;
+        border: 1px solid #89b4fa44;
+      }
+      .mode-insert {
+        background: #a6e3a122;
+        color: #a6e3a1;
+        border: 1px solid #a6e3a144;
+      }
+      .mode-visual {
+        background: #cba6f722;
+        color: #cba6f7;
+        border: 1px solid #cba6f744;
+      }
+
+      .modes-overview {
+        display: flex;
+        gap: 1rem;
+        margin: 1rem 0 1.5rem;
+        flex-wrap: wrap;
+      }
+
+      .mode-card {
+        flex: 1;
+        min-width: 200px;
+        background: var(--surface);
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        border: 1px solid var(--border);
+      }
+
+      .mode-card h4 {
+        margin-bottom: 0.25rem;
+      }
+
+      .example {
+        background: var(--surface);
+        border-left: 3px solid var(--accent3);
+        padding: 0.6rem 1rem;
+        margin: 0.5rem 0;
+        border-radius: 0 6px 6px 0;
+        font-size: 0.92rem;
+      }
+
+      .note {
+        background: var(--surface);
+        border-left: 3px solid var(--accent);
+        padding: 0.6rem 1rem;
+        margin: 1rem 0;
+        border-radius: 0 6px 6px 0;
+        font-size: 0.92rem;
+      }
+
+      .cut {
+        background: #f38ba811;
+        border-left: 3px solid var(--accent4);
+        padding: 0.6rem 1rem;
+        margin: 1rem 0;
+        border-radius: 0 6px 6px 0;
+        font-size: 0.92rem;
+      }
+
+      .principles {
+        list-style: none;
+        counter-reset: principle;
+      }
+
+      .principles li {
+        counter-increment: principle;
+        padding: 0.5rem 0;
+        padding-left: 2.2rem;
+        position: relative;
+      }
+
+      .principles li::before {
+        content: counter(principle);
+        position: absolute;
+        left: 0;
+        top: 0.5rem;
+        width: 1.6rem;
+        height: 1.6rem;
+        background: var(--accent);
+        color: var(--bg);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.8rem;
+      }
+
+      .principles li strong {
+        color: var(--text);
+      }
+
+      .section-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+      }
+
+      .section-grid .col {
+        min-width: 0;
+      }
+
+      @media (max-width: 700px) {
+        .section-grid {
+          grid-template-columns: 1fr;
+        }
+        body {
+          padding: 1rem;
+        }
+      }
+
+      .strike {
+        text-decoration: line-through;
+        color: var(--text-muted);
+        opacity: 0.5;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>
+      Pi Modal Editor — Key Bindings
+      <small
+        >Draft plan for review — Vim-style modal editing for the pi agent input
+        editor</small
+      >
+    </h1>
+
+    <div class="note">
+      <strong>Context:</strong> This is for pi's <em>message input editor</em> —
+      a text area for composing prompts to an AI coding agent. It is
+      <strong>not</strong> a full file/code editor. There are no files, buffers,
+      windows, LSP, or git to manage — the agent handles those via tools. The
+      keybindings focus on
+      <strong>efficient text composition and editing</strong> within the input.
+    </div>
+
+    <div class="cut">
+      <strong>Removed from initial plan (not applicable):</strong>
+      Buffer management, window/split management, file operations
+      (open/save/rename/recent), project switching, Git integration, Code/LSP
+      actions, toggles (line numbers/minimap/file tree/zen mode),
+      Help/Quit/Session leader submenus (pi has <code>/commands</code> and
+      <code>Ctrl+</code> shortcuts), marks, macros, <code>gg</code>/<code
+        >G</code
+      >
+      file-level jumps, in-editor search (<code>/</code>, <code>?</code>,
+      <code>n</code>, <code>N</code>, <code>*</code>, <code>#</code>).
+    </div>
+
+    <!-- ===================== MODES ===================== -->
+    <h2>Modes</h2>
+
+    <div class="modes-overview">
+      <div class="mode-card">
+        <h4><span class="mode-badge mode-normal">[N]</span> Normal</h4>
+        <p>Navigation and text manipulation</p>
+      </div>
+      <div class="mode-card">
+        <h4><span class="mode-badge mode-insert">[I]</span> Insert</h4>
+        <p>Text entry (default mode on startup)</p>
+      </div>
+      <div class="mode-card">
+        <h4><span class="mode-badge mode-visual">[V]</span> Visual</h4>
+        <p>Character selection for operating on regions</p>
+      </div>
+    </div>
+
+    <h3>Mode Transitions</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>From</th>
+          <th>Key</th>
+          <th>To</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="mode-badge mode-insert">I</span></td>
+          <td><kbd>Esc</kbd></td>
+          <td>Normal</td>
+        </tr>
+        <tr>
+          <td><span class="mode-badge mode-normal">N</span></td>
+          <td><kbd>i</kbd></td>
+          <td>Insert (before cursor)</td>
+        </tr>
+        <tr>
+          <td><span class="mode-badge mode-normal">N</span></td>
+          <td><kbd>a</kbd></td>
+          <td>Insert (after cursor)</td>
+        </tr>
+        <tr>
+          <td><span class="mode-badge mode-normal">N</span></td>
+          <td><kbd>I</kbd></td>
+          <td>Insert (start of line)</td>
+        </tr>
+        <tr>
+          <td><span class="mode-badge mode-normal">N</span></td>
+          <td><kbd>A</kbd></td>
+          <td>Insert (end of line)</td>
+        </tr>
+        <tr>
+          <td><span class="mode-badge mode-normal">N</span></td>
+          <td><kbd>o</kbd> / <kbd>O</kbd></td>
+          <td>Insert (new line below / above)</td>
+        </tr>
+        <tr>
+          <td><span class="mode-badge mode-normal">N</span></td>
+          <td><kbd>v</kbd></td>
+          <td>Visual (character)</td>
+        </tr>
+        <tr>
+          <td><span class="mode-badge mode-normal">N</span></td>
+          <td><kbd>V</kbd></td>
+          <td>Visual (line)</td>
+        </tr>
+        <tr>
+          <td><span class="mode-badge mode-visual">V</span></td>
+          <td><kbd>Esc</kbd></td>
+          <td>Normal</td>
+        </tr>
+        <tr>
+          <td><span class="mode-badge mode-normal">N</span></td>
+          <td><kbd>Esc</kbd></td>
+          <td>Pass through to pi (abort agent, etc.)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ===================== NORMAL MODE ===================== -->
+    <h2>Normal Mode</h2>
+
+    <div class="section-grid">
+      <div class="col">
+        <h3>Motions</h3>
+        <p>Composable with operators: <code>{op}{motion}</code></p>
+        <table>
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd></td>
+              <td>Left, Down, Up, Right</td>
+            </tr>
+            <tr>
+              <td><kbd>w</kbd> / <kbd>b</kbd></td>
+              <td>Next / prev word start</td>
+            </tr>
+            <tr>
+              <td><kbd>e</kbd></td>
+              <td>Next word end</td>
+            </tr>
+            <tr>
+              <td><kbd>W</kbd> / <kbd>B</kbd> / <kbd>E</kbd></td>
+              <td>Same, WORD (whitespace-delimited)</td>
+            </tr>
+            <tr>
+              <td><kbd>0</kbd> / <kbd>$</kbd></td>
+              <td>Line start / end</td>
+            </tr>
+            <tr>
+              <td><kbd>^</kbd></td>
+              <td>First non-blank on line</td>
+            </tr>
+            <tr>
+              <td><kbd>f</kbd><em>{c}</em> / <kbd>F</kbd><em>{c}</em></td>
+              <td>Find char forward / backward</td>
+            </tr>
+            <tr>
+              <td><kbd>t</kbd><em>{c}</em> / <kbd>T</kbd><em>{c}</em></td>
+              <td>Till char forward / backward</td>
+            </tr>
+            <tr>
+              <td><kbd>;</kbd> / <kbd>,</kbd></td>
+              <td>Repeat / reverse last f/t</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl-d</kbd> / <kbd>Ctrl-u</kbd></td>
+              <td>Half-page down / up (for long messages)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Text Objects</h3>
+        <p>Used with operators: <code>{op}{a|i}{obj}</code></p>
+        <table>
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Object</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>w</kbd> / <kbd>W</kbd></td>
+              <td>word / WORD</td>
+            </tr>
+            <tr>
+              <td><kbd>p</kbd></td>
+              <td>Paragraph (blank-line delimited block)</td>
+            </tr>
+            <tr>
+              <td><kbd>"</kbd> <kbd>'</kbd> <kbd>`</kbd></td>
+              <td>Quoted string</td>
+            </tr>
+            <tr>
+              <td><kbd>(</kbd> <kbd>)</kbd></td>
+              <td>Parentheses</td>
+            </tr>
+            <tr>
+              <td><kbd>[</kbd> <kbd>]</kbd></td>
+              <td>Brackets</td>
+            </tr>
+            <tr>
+              <td><kbd>{</kbd> <kbd>}</kbd></td>
+              <td>Braces</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col">
+        <h3>Operators</h3>
+        <p>Compose with motions or text objects</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>d</kbd></td>
+              <td>Delete</td>
+            </tr>
+            <tr>
+              <td><kbd>c</kbd></td>
+              <td>Change (delete + enter insert mode)</td>
+            </tr>
+            <tr>
+              <td><kbd>y</kbd></td>
+              <td>Yank (copy)</td>
+            </tr>
+            <tr>
+              <td><kbd>&gt;</kbd> / <kbd>&lt;</kbd></td>
+              <td>Indent / dedent</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="example">
+          <strong>Examples:</strong>
+          <code>dw</code> delete word · <code>ci"</code> change inside quotes ·
+          <code>yap</code> yank around paragraph · <code>&gt;&gt;</code> indent
+          current line · <code>d$</code> delete to end of line
+        </div>
+
+        <h3>Single-key Commands</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>x</kbd></td>
+              <td>Delete char under cursor</td>
+            </tr>
+            <tr>
+              <td><kbd>X</kbd></td>
+              <td>Delete char before cursor</td>
+            </tr>
+            <tr>
+              <td><kbd>r</kbd><em>{c}</em></td>
+              <td>Replace char with <em>{c}</em></td>
+            </tr>
+            <tr>
+              <td><kbd>s</kbd></td>
+              <td>Substitute char (delete + insert)</td>
+            </tr>
+            <tr>
+              <td><kbd>S</kbd></td>
+              <td>Substitute line (clear line + insert)</td>
+            </tr>
+            <tr>
+              <td><kbd>p</kbd> / <kbd>P</kbd></td>
+              <td>Paste after / before cursor</td>
+            </tr>
+            <tr>
+              <td><kbd>u</kbd></td>
+              <td>Undo</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl-r</kbd></td>
+              <td>Redo</td>
+            </tr>
+            <tr>
+              <td><kbd>.</kbd></td>
+              <td>Repeat last change</td>
+            </tr>
+            <tr>
+              <td><kbd>J</kbd></td>
+              <td>Join current line with next</td>
+            </tr>
+            <tr>
+              <td><kbd>~</kbd></td>
+              <td>Toggle case of char</td>
+            </tr>
+            <tr>
+              <td><kbd>D</kbd></td>
+              <td>Delete to end of line (<code>d$</code>)</td>
+            </tr>
+            <tr>
+              <td><kbd>C</kbd></td>
+              <td>Change to end of line (<code>c$</code>)</td>
+            </tr>
+            <tr>
+              <td><kbd>Y</kbd></td>
+              <td>Yank entire line (<code>yy</code>)</td>
+            </tr>
+            <tr>
+              <td><kbd>dd</kbd></td>
+              <td>Delete entire line</td>
+            </tr>
+            <tr>
+              <td><kbd>cc</kbd></td>
+              <td>Change entire line</td>
+            </tr>
+            <tr>
+              <td><kbd>yy</kbd></td>
+              <td>Yank entire line</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===================== VISUAL MODE ===================== -->
+    <h2>Visual Mode</h2>
+    <p>
+      Enter with <kbd>v</kbd> (character) or <kbd>V</kbd> (line). Use motions to
+      extend selection, then apply an operator.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><em>any motion</em></td>
+          <td>Extend selection</td>
+        </tr>
+        <tr>
+          <td><kbd>d</kbd> / <kbd>x</kbd></td>
+          <td>Delete selection</td>
+        </tr>
+        <tr>
+          <td><kbd>c</kbd> / <kbd>s</kbd></td>
+          <td>Change selection (delete + insert)</td>
+        </tr>
+        <tr>
+          <td><kbd>y</kbd></td>
+          <td>Yank selection</td>
+        </tr>
+        <tr>
+          <td><kbd>&gt;</kbd> / <kbd>&lt;</kbd></td>
+          <td>Indent / dedent selection</td>
+        </tr>
+        <tr>
+          <td><kbd>~</kbd></td>
+          <td>Toggle case of selection</td>
+        </tr>
+        <tr>
+          <td><kbd>u</kbd> / <kbd>U</kbd></td>
+          <td>Lowercase / uppercase selection</td>
+        </tr>
+        <tr>
+          <td><kbd>o</kbd></td>
+          <td>Swap cursor to other end of selection</td>
+        </tr>
+        <tr>
+          <td><kbd>Esc</kbd></td>
+          <td>Cancel selection → Normal</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ===================== COUNTS ===================== -->
+    <h2>Numeric Prefix</h2>
+    <p>
+      Most motions and commands accept a count: <code>3w</code> (3 words
+      forward), <code>2dd</code> (delete 2 lines), <code>5x</code> (delete 5
+      chars).
+    </p>
+
+    <!-- ===================== PASSTHROUGH ===================== -->
+    <h2>Passthrough to Pi</h2>
+    <div class="note">
+      These pi shortcuts work in <strong>all modes</strong> and are passed
+      through to the host app unchanged.
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Pi Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><kbd>Ctrl-c</kbd></td>
+          <td>Clear editor / abort</td>
+        </tr>
+        <tr>
+          <td><kbd>Ctrl-d</kbd></td>
+          <td>Exit (when editor empty)</td>
+        </tr>
+        <tr>
+          <td><kbd>Ctrl-z</kbd></td>
+          <td>Suspend to background</td>
+        </tr>
+        <tr>
+          <td><kbd>Ctrl-l</kbd></td>
+          <td>Open model selector</td>
+        </tr>
+        <tr>
+          <td><kbd>Ctrl-p</kbd> / <kbd>Shift-Ctrl-p</kbd></td>
+          <td>Cycle scoped models forward / backward</td>
+        </tr>
+        <tr>
+          <td><kbd>Shift-Tab</kbd></td>
+          <td>Cycle thinking level</td>
+        </tr>
+        <tr>
+          <td><kbd>Ctrl-o</kbd></td>
+          <td>Collapse / expand tool output</td>
+        </tr>
+        <tr>
+          <td><kbd>Ctrl-t</kbd></td>
+          <td>Collapse / expand thinking blocks</td>
+        </tr>
+        <tr>
+          <td><kbd>Ctrl-g</kbd></td>
+          <td>Open in external editor ($VISUAL / $EDITOR)</td>
+        </tr>
+        <tr>
+          <td><kbd>Ctrl-v</kbd></td>
+          <td>Paste image from clipboard</td>
+        </tr>
+        <tr>
+          <td><kbd>Enter</kbd></td>
+          <td>Submit message (Normal &amp; Insert mode)</td>
+        </tr>
+        <tr>
+          <td><kbd>Shift-Enter</kbd></td>
+          <td>New line (Insert mode)</td>
+        </tr>
+        <tr>
+          <td><kbd>Alt-Enter</kbd></td>
+          <td>Queue follow-up message</td>
+        </tr>
+        <tr>
+          <td><kbd>Tab</kbd></td>
+          <td>Path completion (Insert mode)</td>
+        </tr>
+        <tr>
+          <td><kbd>@</kbd></td>
+          <td>File reference fuzzy search (Insert mode)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ===================== LEADER MENU ===================== -->
+    <h2>
+      Leader Key
+      <small style="color: var(--text-muted); font-size: 0.8em"
+        >(Normal mode, <kbd>Space</kbd>)</small
+      >
+    </h2>
+    <div class="note">
+      A small leader menu for <strong>pi-specific actions</strong> that benefit
+      from quick access in Normal mode. These are convenience shortcuts — all
+      are also available via <code>/commands</code> or <code>Ctrl+</code> keys.
+    </div>
+    <div class="note">
+      <strong>Overlay hint:</strong> After pressing <kbd>Space</kbd>, a popup
+      listing available leader bindings appears after a short delay (default:
+      <strong>500 ms</strong>, configurable via
+      <code>setLeaderOverlayDelay(ms)</code>). The overlay dismisses
+      automatically when a binding key is pressed or leader is cancelled.
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Action</th>
+          <th>Equivalent</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><kbd>Space</kbd> <kbd>m</kbd></td>
+          <td>Switch model</td>
+          <td><code>Ctrl-l</code> / <code>/model</code></td>
+        </tr>
+        <tr>
+          <td><kbd>Space</kbd> <kbd>t</kbd></td>
+          <td>Cycle thinking level</td>
+          <td><code>Shift-Tab</code></td>
+        </tr>
+        <tr>
+          <td><kbd>Space</kbd> <kbd>o</kbd></td>
+          <td>Toggle tool output</td>
+          <td><code>Ctrl-o</code></td>
+        </tr>
+        <tr>
+          <td><kbd>Space</kbd> <kbd>k</kbd></td>
+          <td>Toggle thinking blocks</td>
+          <td><code>Ctrl-t</code></td>
+        </tr>
+        <tr>
+          <td><kbd>Space</kbd> <kbd>e</kbd></td>
+          <td>Open in external editor</td>
+          <td><code>Ctrl-g</code></td>
+        </tr>
+        <tr>
+          <td><kbd>Space</kbd> <kbd>n</kbd></td>
+          <td>New session</td>
+          <td><code>/new</code></td>
+        </tr>
+        <tr>
+          <td><kbd>Space</kbd> <kbd>r</kbd></td>
+          <td>Resume session</td>
+          <td><code>/resume</code></td>
+        </tr>
+        <tr>
+          <td><kbd>Space</kbd> <kbd>b</kbd></td>
+          <td>Session tree (branch)</td>
+          <td><code>/tree</code></td>
+        </tr>
+        <tr>
+          <td><kbd>Space</kbd> <kbd>c</kbd></td>
+          <td>Compact context</td>
+          <td><code>/compact</code></td>
+        </tr>
+        <tr>
+          <td><kbd>Space</kbd> <kbd>y</kbd></td>
+          <td>Copy last response</td>
+          <td><code>/copy</code></td>
+        </tr>
+        <tr>
+          <td><kbd>Space</kbd> <kbd>s</kbd></td>
+          <td>Settings</td>
+          <td><code>/settings</code></td>
+        </tr>
+        <tr>
+          <td><kbd>Space</kbd> <kbd>R</kbd></td>
+          <td>Reload extensions</td>
+          <td><code>/reload</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>
+      Git Sub-menu
+      <small style="color: var(--text-muted); font-size: 0.85em"
+        >(<kbd>Space</kbd> <kbd>g</kbd>)</small
+      >
+    </h3>
+    <div class="note">
+      Leader keys support <strong>nested sub-menus</strong>. Press
+      <kbd>Space</kbd> then <kbd>g</kbd> to open the git sub-menu. The overlay
+      updates to show sub-menu bindings, and the pending indicator shows the
+      full path (e.g. <code>SPC g</code>).
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Action</th>
+          <th>Equivalent</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><kbd>Space</kbd> <kbd>g</kbd> <kbd>d</kbd></td>
+          <td>Git diff</td>
+          <td><code>/diff</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ===================== CONFIGURATION ===================== -->
+    <h2>Configuration</h2>
+    <p>
+      Leader menus are defined in
+      <code>keybindings.json</code> alongside the extension source. The file
+      supports multiple leader keys, nested sub-menus, and two action types.
+    </p>
+
+    <h3>File Format</h3>
+    <div class="example">
+      <pre><code>{
+  "menus": {
+    "space": {
+      "label": "Leader (Space)",
+      "key": " ",
+      "items": {
+        "n": { "label": "New session", "action": "command:/new" },
+        "m": { "label": "Switch model", "action": "passthrough:ctrl+l" },
+        "g": {
+          "label": "+git",
+          "items": {
+            "d": { "label": "Diff", "action": "command:/diff" }
+          }
+        }
+      }
+    }
+  }
+}</code></pre>
+    </div>
+
+    <h3>Action Types</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Prefix</th>
+          <th>Description</th>
+          <th>Example</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>command:</code></td>
+          <td>Submit a slash command</td>
+          <td><code>command:/new</code>, <code>command:/diff</code></td>
+        </tr>
+        <tr>
+          <td><code>passthrough:</code></td>
+          <td>Forward a key combo to pi</td>
+          <td>
+            <code>passthrough:ctrl+l</code>, <code>passthrough:shift+tab</code>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Supported Passthrough Keys</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Pi Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>ctrl+l</code></td>
+          <td>Open model selector</td>
+        </tr>
+        <tr>
+          <td><code>ctrl+o</code></td>
+          <td>Toggle tool output</td>
+        </tr>
+        <tr>
+          <td><code>ctrl+t</code></td>
+          <td>Toggle thinking blocks</td>
+        </tr>
+        <tr>
+          <td><code>ctrl+g</code></td>
+          <td>Open external editor</td>
+        </tr>
+        <tr>
+          <td><code>shift+tab</code></td>
+          <td>Cycle thinking level</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <strong>Multiple leaders:</strong> You can define additional leader keys
+      by adding more entries under <code>menus</code> with different
+      <code>key</code> values (e.g. <code>","</code> or <code>"\\"</code>). Each
+      menu is independent with its own overlay and sub-menu tree.
+    </div>
+
+    <!-- ===================== PRINCIPLES ===================== -->
+    <h2>Design Principles</h2>
+    <ol class="principles">
+      <li>
+        <strong>Insert-first</strong> — Starts in Insert mode since most
+        interactions are typing a prompt and hitting Enter. Normal mode is there
+        when you need to edit, not as the default.
+      </li>
+      <li>
+        <strong>Composability</strong> — Operators × motions × text objects.
+        Learn a few building blocks, combine freely.
+      </li>
+      <li>
+        <strong>Passthrough by default</strong> — All existing pi
+        <code>Ctrl+</code> shortcuts work unchanged in every mode. The modal
+        layer only intercepts printable keys in Normal/Visual modes.
+      </li>
+      <li>
+        <strong>Vim grammar, not Vim scope</strong> — Core editing grammar
+        (motions, operators, text objects) is preserved, but features that don't
+        apply to a message input (files, buffers, windows, LSP, macros, marks)
+        are omitted.
+      </li>
+      <li>
+        <strong>Counts</strong> — Numeric prefixes work with motions and
+        operators (<code>3dw</code> = delete 3 words).
+      </li>
+    </ol>
+  </body>
+</html>

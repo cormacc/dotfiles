@@ -7,7 +7,7 @@
     # TODO: Add open-webui
     # pkgs.ollama
     # pkgs.llama-cpp
-    pkgs.claude-desktop
+    # pkgs.claude-desktop
     #... this may cause issues with aur on arch - see wayland.nix
     # (python3.withPackages (python-pkgs: with python-pkgs; [
     #   huggingface-hub
