@@ -2,14 +2,16 @@
  * Extension Development Helper
  *
  * Registers a `/ext` command that:
- * 1. Reads all relevant pi extension development documentation
- * 2. Autocompletes `@extdir` for extensions in getAgentDir()/extensions/
- * 3. Injects docs + extension source into context for the LLM
+ * 1. Autocompletes extension names from getAgentDir()/extensions/
+ * 2. Injects extension source into context for the LLM
+ *
+ * Documentation loading is handled by the ext-dev skill, which instructs
+ * the agent to read the relevant pi docs on demand.
  *
  * Usage:
- *   /ext                  — Load docs, ask what to work on
- *   /ext plan-mode        — Load docs + source of the plan-mode extension
- *   /ext my-ext do X      — Load docs + source, with a specific instruction
+ *   /ext                  — List available extensions
+ *   /ext my-ext           — Load source of the my-ext extension
+ *   /ext my-ext do X      — Load source, with a specific instruction
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -40,7 +42,7 @@ function listExtensions(agentDir: string): string[] {
 }
 
 /**
- * Read all .ts files from an extension (single file or directory).
+ * Read all files from an extension (single file or directory).
  */
 function readExtensionSource(
   agentDir: string,
@@ -97,76 +99,10 @@ function collectFiles(
   return results;
 }
 
-/**
- * Resolve the pi package's docs and examples directories via PI_PACKAGE_DIR
- * (set by the pi launcher script).
- */
-function getPiPaths(): { docsDir: string | null; examplesDir: string | null } {
-  const pkgDir = process.env.PI_PACKAGE_DIR;
-  if (!pkgDir) return { docsDir: null, examplesDir: null };
-
-  const docsDir = path.join(pkgDir, "docs");
-  const examplesDir = path.join(pkgDir, "examples", "extensions");
-
-  return {
-    docsDir: fs.existsSync(docsDir) ? docsDir : null,
-    examplesDir: fs.existsSync(examplesDir) ? examplesDir : null,
-  };
-}
-
-/**
- * Read documentation files, returning their content.
- */
-function readDocs(docsDir: string, files: string[]): string {
-  let content = "";
-
-  for (const file of files) {
-    const filePath = path.join(docsDir, file);
-    if (fs.existsSync(filePath)) {
-      content += `\n\n${"=".repeat(60)}\n# ${file}\n${"=".repeat(60)}\n\n`;
-      content += fs.readFileSync(filePath, "utf-8");
-    }
-  }
-
-  return content;
-}
-
 export default function (pi: ExtensionAPI) {
   const agentDir = getAgentDir();
 
-  // --- Custom message renderers for context visibility ---
-  pi.registerMessageRenderer("ext-dev-docs", (message, { expanded }, theme) => {
-    const details = message.details as
-      | {
-          docFiles: { name: string; size: number; preview: string }[];
-          totalBytes: number;
-        }
-      | undefined;
-    const docFiles = details?.docFiles ?? [];
-    const totalBytes = details?.totalBytes ?? 0;
-
-    let text = theme.fg("toolTitle", theme.bold("/ext "));
-    text += theme.fg(
-      "muted",
-      `loaded ${docFiles.length} docs (${formatSize(totalBytes)})`,
-    );
-
-    for (const file of docFiles) {
-      if (expanded) text += "\n";
-      text += `\n  ${theme.fg("dim", file.name)} ${theme.fg("muted", formatSize(file.size))}`;
-      if (expanded) {
-        const lines = file.preview.split("\n").filter((l) => l.length > 0);
-        for (const line of lines) {
-          text += `\n    ${theme.fg("dim", line)}`;
-        }
-      }
-    }
-
-    const box = new Box(1, 1, (t) => theme.bg("customMessageBg", t));
-    box.addChild(new Text(text, 0, 0));
-    return box;
-  });
-
+  // --- Custom message renderer for extension source ---
   pi.registerMessageRenderer(
     "ext-dev-source",
     (message, { expanded }, theme) => {
@@ -213,7 +149,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerCommand("ext", {
     description:
-      "Load extension development docs and optionally target an extension with @name",
+      "Load extension source into context. Use with no args to list extensions.",
 
     getArgumentCompletions: (prefix: string): AutocompleteItem[] | null => {
       const extNames = listExtensions(agentDir);
@@ -232,61 +168,6 @@ export default function (pi: ExtensionAPI) {
     },
 
     handler: async (args, ctx) => {
-      const { docsDir, examplesDir } = getPiPaths();
-
-      // --- Read documentation ---
-      const PREVIEW_LINES = 5;
-      const docFileNames = [
-        "extensions.md",
-        "tui.md",
-        "keybindings.md",
-        "themes.md",
-      ];
-      let docsContent = "";
-      const loadedDocFiles: { name: string; size: number; preview: string }[] =
-        [];
-      if (docsDir) {
-        docsContent = readDocs(docsDir, docFileNames);
-        for (const file of docFileNames) {
-          const filePath = path.join(docsDir, file);
-          if (fs.existsSync(filePath)) {
-            const content = fs.readFileSync(filePath, "utf-8");
-            const preview = content
-              .split("\n")
-              .slice(0, PREVIEW_LINES)
-              .join("\n");
-            loadedDocFiles.push({
-              name: file,
-              size: Buffer.byteLength(content, "utf-8"),
-              preview,
-            });
-          }
-        }
-      } else {
-        ctx.ui.notify("Could not locate pi documentation directory", "warning");
-      }
-
-      // --- Read examples README as a reference ---
-      let examplesRef = "";
-      if (examplesDir) {
-        const readmePath = path.join(examplesDir, "README.md");
-        if (fs.existsSync(readmePath)) {
-          const content = fs.readFileSync(readmePath, "utf-8");
-          examplesRef += `\n\n${"=".repeat(60)}\n# Extension Examples Reference\n${"=".repeat(60)}\n\n`;
-          examplesRef += content;
-          examplesRef += `\n\nExamples directory: ${examplesDir}\nUse the read tool to inspect specific examples as needed.\n`;
-          const preview = content
-            .split("\n")
-            .slice(0, PREVIEW_LINES)
-            .join("\n");
-          loadedDocFiles.push({
-            name: "examples/extensions/README.md",
-            size: Buffer.byteLength(content, "utf-8"),
-            preview,
-          });
-        }
-      }
-
       // --- Parse extension name from args (first word) ---
       const parts = args.trim().split(/\s+/);
       const extNames = listExtensions(agentDir);
@@ -294,85 +175,63 @@ export default function (pi: ExtensionAPI) {
         parts.length > 0 && extNames.includes(parts[0]) ? parts[0] : null;
       const freeText = extName ? parts.slice(1).join(" ").trim() : args.trim();
 
-      // --- Read extension source if specified ---
-      const PREVIEW_LINES_SRC = 5;
-      let extSource = "";
-      let extFileDetails: { path: string; size: number; preview: string }[] =
-        [];
-      let extBasePath = "";
-      if (extName) {
-        const ext = readExtensionSource(agentDir, extName);
-        if (ext) {
-          extBasePath = ext.basePath;
-          extFileDetails = ext.files.map((f) => ({
-            path: f.path,
-            size: Buffer.byteLength(f.content, "utf-8"),
-            preview: f.content
-              .split("\n")
-              .slice(0, PREVIEW_LINES_SRC)
-              .join("\n"),
-          }));
-          extSource += `# Extension: ${extName}\nBase path: ${ext.basePath}\n`;
-          for (const file of ext.files) {
-            extSource += `\n## ${file.path}\n\n${file.content}\n`;
-          }
-        } else {
+      // --- No extension specified: list available extensions ---
+      if (!extName) {
+        if (extNames.length === 0) {
           ctx.ui.notify(
-            `Extension "${extName}" not found in ${path.join(agentDir, "extensions")}`,
-            "error",
+            `No extensions found in ${path.join(agentDir, "extensions")}`,
+            "warning",
           );
           return;
         }
+        const list = extNames.map((n) => `  ${n}`).join("\n");
+        ctx.ui.notify(`Available extensions:\n${list}`, "info");
+
+        if (freeText) {
+          pi.sendUserMessage(freeText);
+        }
+        return;
       }
 
-      // --- Inject docs as a context message ---
-      const docsContext =
-        "# Pi Extension Development Documentation\n\n" +
-        "Below is the complete documentation for developing pi extensions, " +
-        "including the extension API, TUI components, keybindings, and theming.\n" +
-        docsContent +
-        examplesRef;
+      // --- Read extension source ---
+      const PREVIEW_LINES = 5;
+      const ext = readExtensionSource(agentDir, extName);
+      if (!ext) {
+        ctx.ui.notify(
+          `Extension "${extName}" not found in ${path.join(agentDir, "extensions")}`,
+          "error",
+        );
+        return;
+      }
+
+      const extFileDetails = ext.files.map((f) => ({
+        path: f.path,
+        size: Buffer.byteLength(f.content, "utf-8"),
+        preview: f.content.split("\n").slice(0, PREVIEW_LINES).join("\n"),
+      }));
+
+      let extSource = `# Extension: ${extName}\nBase path: ${ext.basePath}\n`;
+      for (const file of ext.files) {
+        extSource += `\n## ${file.path}\n\n${file.content}\n`;
+      }
 
       pi.sendMessage(
         {
-          customType: "ext-dev-docs",
-          content: docsContext,
+          customType: "ext-dev-source",
+          content: extSource,
           display: true,
           details: {
-            docFiles: loadedDocFiles,
-            totalBytes: Buffer.byteLength(docsContext, "utf-8"),
+            extName,
+            files: extFileDetails,
+            basePath: ext.basePath,
+            totalBytes: Buffer.byteLength(extSource, "utf-8"),
           },
         },
         { triggerTurn: false, deliverAs: "nextTurn" },
       );
 
-      // --- Inject extension source as a separate context message ---
-      if (extName && extSource) {
-        pi.sendMessage(
-          {
-            customType: "ext-dev-source",
-            content: extSource,
-            display: true,
-            details: {
-              extName,
-              files: extFileDetails,
-              basePath: extBasePath,
-              totalBytes: Buffer.byteLength(extSource, "utf-8"),
-            },
-          },
-          { triggerTurn: false, deliverAs: "nextTurn" },
-        );
-      }
-
-      // --- Send a simple user message to kick off the turn ---
-      let prompt: string;
-      if (extName) {
-        prompt = freeText || `Help me work on the "${extName}" extension.`;
-      } else {
-        prompt =
-          freeText || "What extension would you like to create or work on?";
-      }
-
+      // --- Send user message to kick off the turn ---
+      const prompt = freeText || `Help me work on the "${extName}" extension.`;
       pi.sendUserMessage(prompt);
     },
   });

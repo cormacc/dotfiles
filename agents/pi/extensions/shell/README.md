@@ -1,4 +1,4 @@
-# term-mirror
+# shell
 
 A [pi-coding-agent](https://github.com/nichochar/pi-coding-agent) extension
 that redirects all agent commands to a shared terminal split, giving both the
@@ -62,7 +62,7 @@ Supports two backends:
 ┌─────────────────────┐  ┌──────────────────────┐
 │  pi (agent pane)    │  │  shared pane (%N)     │
 │                     │  │                       │
-│  term-mirror ext    │──│  zsh/bash + hook      │
+│  shell ext           │──│  zsh/bash + hook      │
 │  ├─ bash tool       │  │  ├─ precmd writes RC  │
 │  ├─ read_terminal   │  │  └─ wait-for -S       │
 │  └─ activity loop   │  │                       │
@@ -77,7 +77,7 @@ Supports two backends:
 ┌─────────────────────┐  ┌──────────────────────┐
 │  pi (agent window)  │  │  foot terminal (id:N) │
 │                     │  │                       │
-│  term-mirror ext    │──│  sway-relay.py + pty  │
+│  shell ext           │──│  sway-relay.py + pty  │
 │  ├─ bash tool       │  │  ├─ zsh/bash + hook   │
 │  ├─ read_terminal   │  │  ├─ precmd writes RC  │
 │  └─ activity loop   │  │  └─ echo > FIFO &     │
@@ -172,6 +172,86 @@ Reads recent content from the shared terminal pane scrollback.
 | Parameter | Type     | Description                        |
 | --------- | -------- | ---------------------------------- |
 | `lines`   | `number` | Lines of scrollback (default: 200) |
+
+### `start_process`
+
+Launch a long-running process in a named tab (e.g. dev server, test watcher,
+REPL). Returns immediately.
+
+| Parameter | Type     | Description                                                               |
+| --------- | -------- | ------------------------------------------------------------------------- |
+| `name`    | `string` | Short name for this process (e.g. "server", "tests")                      |
+| `command` | `string` | Command to run                                                            |
+| `mode`    | `string` | `"watch"` (auto-injects output changes, default) or `"quiet"` (on demand) |
+
+### `send_input`
+
+Send text input to a named running process (e.g. type into a REPL).
+
+| Parameter | Type      | Description                           |
+| --------- | --------- | ------------------------------------- |
+| `name`    | `string`  | Process name                          |
+| `text`    | `string`  | Text to send                          |
+| `enter`   | `boolean` | Send Enter after text (default: true) |
+
+### `read_process`
+
+Read recent output from a named running process.
+
+| Parameter | Type     | Description                        |
+| --------- | -------- | ---------------------------------- |
+| `name`    | `string` | Process name                       |
+| `lines`   | `number` | Lines of scrollback (default: 200) |
+
+### `stop_process`
+
+Stop a named running process (sends Ctrl+C, then kills the tab).
+
+| Parameter | Type     | Description  |
+| --------- | -------- | ------------ |
+| `name`    | `string` | Process name |
+
+### `list_processes`
+
+List all managed background processes and their status.
+
+## Slash Command
+
+### `/term [subcommand]`
+
+| Subcommand              | Description                         |
+| ----------------------- | ----------------------------------- |
+| _(none)_ / `toggle`     | Toggle the mirror pane visibility   |
+| `prev`                  | Switch to previous tab              |
+| `next`                  | Switch to next tab                  |
+| `<index>`               | Switch to tab by 1-based index      |
+| `kill <index\|name>`    | Kill a process tab by index or name |
+| `run "<cmd>"`           | Run a command in the primary shell  |
+| `spawn [title] "<cmd>"` | Spawn a new process tab             |
+
+## Shortcuts
+
+| Key     | Description         |
+| ------- | ------------------- |
+| `Alt-h` | Previous mirror tab |
+| `Alt-l` | Next mirror tab     |
+| `Alt-m` | Toggle mirror pane  |
+
+## Suggested Keybindings
+
+Registered with `modal-editor` under `Space t` (terminal sub-menu):
+
+| Key         | Action        | Command        |
+| ----------- | ------------- | -------------- |
+| `Space t t` | Toggle mirror | `/term toggle` |
+| `Space t h` | Prev tab      | `/term prev`   |
+| `Space t l` | Next tab      | `/term next`   |
+
+## CLI Flag
+
+| Flag          | Description                               |
+| ------------- | ----------------------------------------- |
+| `--no-mirror` | Disable shared terminal split (tmux/sway) |
 
 ## Configuration
 

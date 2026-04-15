@@ -27,4 +27,6 @@ in
   home.file."${piConfig}/prompts".source = config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/prompts";
   home.file."${piConfig}/settings.json".source = config.lib.file.mkOutOfStoreSymlink "${piRoot}/settings.json";
   home.file."${piConfig}/extensions".source = config.lib.file.mkOutOfStoreSymlink "${piRoot}/extensions";
+  # Keep pi-specific skills separate... these typically rely on specific pi extensions
+  home.file."${piConfig}/skills".source = config.lib.file.mkOutOfStoreSymlink "${piRoot}/skills";
 }

@@ -1,8 +1,8 @@
 {
   "menus": {
-    "space": {
-      "label": "Leader (Space)",
-      "key": " ",
+    "comma": {
+      "label": "Leader (Comma)",
+      "key": ",",
       "items": {
         "m": { "label": "Switch model", "action": "passthrough:ctrl+l" },
         "t": { "label": "Cycle thinking", "action": "passthrough:shift+tab" },
@@ -13,15 +13,15 @@
         "r": { "label": "Resume session", "action": "command:/resume" },
         "b": { "label": "Session tree", "action": "command:/tree" },
         "c": { "label": "Compact", "action": "command:/compact" },
-        "y": { "label": "Copy last response", "action": "command:/copy" },
+        "y": { "label": "Copy last response", "action": "command:/copy" }
+      }
+    },
+    "space": {
+      "label": "Leader (Space)",
+      "key": " ",
+      "items": {
         "s": { "label": "Settings", "action": "command:/settings" },
-        "R": { "label": "Reload extensions", "action": "command:/reload" },
-        "g": {
-          "label": "+git",
-          "items": {
-            "d": { "label": "Diff", "action": "command:/diff" }
-          }
-        }
+        "r": { "label": "Reload extensions", "action": "command:/reload" }
       }
     }
   }

@@ -9,7 +9,7 @@ that integrates [Babashka](https://babashka.org/) task running into pi.
 - **Task discovery** — runs `bb tasks` on startup to enumerate available tasks.
 - **`/bb` command** — slash command with auto-completion for all discovered tasks.
 - **Watch process tabs** — tasks whose name starts with `watch` are launched in
-  a dedicated process tab (via `start_process`) when the `term-mirror` extension
+  a dedicated process tab (via `start_process`) when the `shell` extension
   is available. Other tasks run in the default shell.
 
 ## Usage
@@ -17,11 +17,11 @@ that integrates [Babashka](https://babashka.org/) task running into pi.
 ```
 /bb              — list all available tasks
 /bb clean        — run the "clean" task in the shell
-/bb watch-tests  — run in a process tab (term-mirror) or shell (fallback)
+/bb watch-tests  — run in a process tab (shell) or shell (fallback)
 ```
 
 ## Requirements
 
 - `bb` (babashka) must be on `$PATH`.
 - A `bb.edn` file must exist in the project root.
-- For watch process tabs: the `term-mirror` extension must be loaded.
+- For watch process tabs: the `shell` extension must be loaded.
