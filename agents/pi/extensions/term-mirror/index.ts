@@ -72,6 +72,7 @@ export default function (pi: ExtensionAPI) {
     const WATCH_INTERVAL_MS = 4000; // check watch tabs every 4s
     let activeTabName: string | null = null; // null = main shell (tmux tab bar)
     let mirrorVisible = false; // whether the mirror pane is visible as a split
+    const tabsWithActivity = new Set<string>(); // tabs with unseen activity
 
     // Callback invoked by backends when state is reset (pane lost/recreated)
     const onBackendReset = () => {
@@ -392,11 +393,15 @@ export default function (pi: ExtensionAPI) {
             );
             if (!message) continue;
 
+            if (activeTabName !== null) {
+              tabsWithActivity.add("pi-shell");
+              updateTabWidget();
+            }
             pi.sendMessage(
               {
                 customType: "term-activity",
                 content: `User activity in the shared terminal:\n\n${message}`,
-                display: true,
+                display: false,
               },
               { deliverAs: "followUp", triggerTurn: false },
             );
@@ -417,11 +422,15 @@ export default function (pi: ExtensionAPI) {
                 const { rc: postRc } = await backend.readRc();
                 const postMsg = await formatActivity(postDiff, postRc);
                 if (postMsg) {
+                  if (activeTabName !== null) {
+                    tabsWithActivity.add("pi-shell");
+                    updateTabWidget();
+                  }
                   pi.sendMessage(
                     {
                       customType: "term-activity",
                       content: `User activity in the shared terminal:\n\n${postMsg}`,
-                      display: true,
+                      display: false,
                     },
                     { deliverAs: "followUp", triggerTurn: false },
                   );
@@ -489,7 +498,7 @@ export default function (pi: ExtensionAPI) {
                 {
                   customType: "term-activity",
                   content: `Process "${name}" (${proc.command}) has exited.`,
-                  display: true,
+                  display: false,
                 },
                 { deliverAs: "followUp", triggerTurn: false },
               );
@@ -537,11 +546,15 @@ export default function (pi: ExtensionAPI) {
             // Final guard: skip if process was stopped after diff was computed
             if (!processes.has(name) || stoppedProcesses.has(name)) continue;
 
+            if (activeTabName !== name) {
+              tabsWithActivity.add(name);
+              updateTabWidget();
+            }
             pi.sendMessage(
               {
                 customType: "term-activity",
                 content: `Output from process "${name}" (${proc.command}):\n\n${displayDiff}`,
-                display: true,
+                display: false,
               },
               { deliverAs: "followUp", triggerTurn: false },
             );
@@ -581,17 +594,18 @@ export default function (pi: ExtensionAPI) {
       const parts = tabNames.map((name) => {
         const isActive =
           (name === "pi-shell" && !activeTabName) || name === activeTabName;
-        return isActive
-          ? theme.fg("accent", theme.bold(name))
-          : theme.fg("dim", name);
+        if (isActive) return theme.fg("accent", theme.bold(name));
+        if (tabsWithActivity.has(name))
+          return theme.fg("warning", theme.bold(name));
+        return theme.fg("dim", name);
       });
-      const sep = theme.fg("border", " │ ");
-      const tabList = parts.join(sep);
+      const tabList = parts.join(" ");
 
       const toggleHint = visible
         ? theme.fg("dim", "C-M-t hide")
         : theme.fg("warning", "C-M-t show");
-      const tabHint = hasTabs ? "  " + theme.fg("dim", "C-M-← C-M-→") : "";
+      const tabHint = hasTabs ? theme.fg("dim", "C-M-← C-M-→") + "  " : "";
+      const sep = theme.fg("border", " │ ");
 
       const status =
         " " +
@@ -599,8 +613,8 @@ export default function (pi: ExtensionAPI) {
         " " +
         theme.fg("dim", "Processes: ") +
         tabList +
+        sep +
         tabHint +
-        "  " +
         toggleHint +
         " " +
         theme.fg("border", "]") +
@@ -611,6 +625,7 @@ export default function (pi: ExtensionAPI) {
 
     async function switchToTab(tabName: string | null): Promise<void> {
       if (tabName === activeTabName) return;
+      tabsWithActivity.delete(tabName ?? "pi-shell");
 
       if (isTmux) {
         const tmuxBackend = backend as TmuxBackend;
