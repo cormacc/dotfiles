@@ -6,7 +6,7 @@
  *
  * - Regular tasks run in the default pi-shell (via the `bash` tool).
  * - Tasks whose name starts with "watch" run in a dedicated process tab
- *   when the term-mirror extension is available (via `start_process`).
+ *   when the shell extension is available (via `start_process`).
  */
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { AutocompleteItem } from "@mariozechner/pi-tui";
@@ -49,7 +49,7 @@ export default function (pi: ExtensionAPI) {
 
     ctx.ui.notify(`bb-tasks: ${tasks.length} tasks available`, "info");
 
-    // ── detect term-mirror availability ──────────────────
+    // ── detect shell availability ──────────────────
 
     function hasTermMirror(): boolean {
       const allTools = pi.getAllTools();

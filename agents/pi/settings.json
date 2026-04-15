@@ -1,4 +1,5 @@
 {
   "lastChangelogVersion": "0.67.2",
-  "hideThinkingBlock": true
+  "hideThinkingBlock": true,
+  "defaultThinkingLevel": "high"
 }

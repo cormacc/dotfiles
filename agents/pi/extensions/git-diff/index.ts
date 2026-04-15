@@ -11,6 +11,12 @@ import {
 } from "@mariozechner/pi-tui";
 
 import { parseDiff, type DiffFile } from "./parser.js";
+import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.js";
+
+const EXT_NAME = getExtensionName(import.meta.url);
+
+/** Cleanup handle for keybinding suggestions, to avoid duplicates on reload. */
+let cleanupKb: (() => void) | null = null;
 
 const PANEL_FRACTION = 0.4;
 const PANEL_MIN_WIDTH = 45;
@@ -173,7 +179,7 @@ export default function (pi: ExtensionAPI) {
 
     // The capturing overlay is invisible (0x0) — it just captures keyboard input
     // and forwards it to diffPanel. On Escape, it calls done() to return to editor.
-    const promise = ctx.ui.custom<"unfocus" | "close">(
+    const promise = ctx.ui.custom<"unfocus">(
       (tui, _theme, _kb, done) => {
         return {
           render(_width: number): string[] {
@@ -181,20 +187,10 @@ export default function (pi: ExtensionAPI) {
           },
           invalidate(): void {},
           handleInput(data: string): void {
-            if (
-              matchesKey(data, "escape") ||
-              matchesKey(data, "q") ||
-              matchesKey(data, "ctrl+alt+f")
-            ) {
+            if (matchesKey(data, "escape") || matchesKey(data, "q")) {
               diffPanel?.setFocused(false);
               tui.requestRender();
               done("unfocus");
-              return;
-            }
-
-            if (matchesKey(data, "ctrl+alt+d")) {
-              diffPanel?.setFocused(false);
-              done("close");
               return;
             }
 
@@ -249,13 +245,10 @@ export default function (pi: ExtensionAPI) {
       },
     );
 
-    promise.then((result) => {
+    promise.then(() => {
       if (diffPanel) {
         diffPanel.setFocused(false);
         tuiRef?.requestRender();
-      }
-      if (result === "close") {
-        hidePanel(ctx);
       }
     });
   }
@@ -271,49 +264,77 @@ export default function (pi: ExtensionAPI) {
       themeRef = theme;
       return { render: () => [], invalidate: () => {} };
     });
+
+    cleanupKb = suggestKeybindings(pi, EXT_NAME, {
+      menus: {
+        git: {
+          label: "Git",
+          key: " ",
+          items: {
+            g: {
+              label: "+git",
+              items: {
+                d: { label: "Diff toggle", action: "command:/diff toggle" },
+                f: { label: "Diff focus", action: "command:/diff focus" },
+                j: {
+                  label: "Diff scroll ↓",
+                  action: "command:/diff scroll-down",
+                },
+                k: {
+                  label: "Diff scroll ↑",
+                  action: "command:/diff scroll-up",
+                },
+                e: { label: "Diff fold", action: "command:/diff fold" },
+              },
+            },
+          },
+        },
+      },
+    });
   });
 
   pi.registerCommand("diff", {
-    description: "Toggle git diff panel on the right",
-    handler: async (_args, ctx) => togglePanel(ctx),
-  });
+    description:
+      "Control git diff panel: toggle, focus, scroll-up, scroll-down, fold",
+    handler: async (args, ctx) => {
+      const arg = (args || "").trim().toLowerCase();
 
-  pi.registerShortcut("ctrl+alt+d", {
-    description: "Toggle git diff panel",
-    handler: async (ctx) => togglePanel(ctx),
-  });
+      if (!arg || arg === "toggle") {
+        togglePanel(ctx);
+        return;
+      }
 
-  pi.registerShortcut("ctrl+alt+f", {
-    description: "Focus diff panel for keyboard navigation",
-    handler: async (ctx) => {
-      focusPanel(ctx);
-    },
-  });
+      if (arg === "focus") {
+        if (!panelVisible) showPanel(ctx);
+        focusPanel(ctx);
+        return;
+      }
 
-  pi.registerShortcut("alt+j", {
-    description: "Scroll diff panel down",
-    handler: async () => {
-      if (!diffPanel) return;
-      diffPanel.doScroll(SCROLL_STEP);
-      render();
-    },
-  });
+      if (arg === "scroll-down") {
+        if (!diffPanel) return;
+        diffPanel.doScroll(SCROLL_STEP);
+        render();
+        return;
+      }
 
-  pi.registerShortcut("alt+k", {
-    description: "Scroll diff panel up",
-    handler: async () => {
-      if (!diffPanel) return;
-      diffPanel.doScroll(-SCROLL_STEP);
-      render();
-    },
-  });
+      if (arg === "scroll-up") {
+        if (!diffPanel) return;
+        diffPanel.doScroll(-SCROLL_STEP);
+        render();
+        return;
+      }
 
-  pi.registerShortcut("alt+e", {
-    description: "Toggle fold on current diff file",
-    handler: async () => {
-      if (!diffPanel) return;
-      diffPanel.toggleFoldCurrent();
-      render();
+      if (arg === "fold") {
+        if (!diffPanel) return;
+        diffPanel.toggleFoldCurrent();
+        render();
+        return;
+      }
+
+      ctx.ui.notify(
+        `Unknown argument: ${arg}. Usage: /diff [toggle|focus|scroll-up|scroll-down|fold]`,
+        "error",
+      );
     },
   });
 
@@ -325,6 +346,8 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", () => {
+    cleanupKb?.();
+    cleanupKb = null;
     hidePanel();
   });
 }
@@ -559,7 +582,7 @@ class DiffPanel {
     const info = total > 0 ? ` ${this.scroll + 1}–${visEnd}/${total}` : "";
     const help = this.focused
       ? `j/k ↑↓ scroll · PgDn/Up · n/m file · Enter fold · a names/preview/full · Esc back${info}`
-      : `Ctrl+Alt+F focus · Alt+j/k scroll · Alt+e fold${info}`;
+      : `SPC g f focus · SPC g j/k scroll · SPC g e fold${info}`;
     out.push(borderV + this.pad(th.fg("dim", ` ${help}`), innerW) + borderV);
     out.push(b("╰" + hFill + "╯"));
 

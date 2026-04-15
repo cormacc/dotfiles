@@ -59,7 +59,7 @@
   (setq org-refile-targets '(("~/notes/gtd/gtd.org" :maxlevel . 3)
                              ("~/notes/gtd/someday.org" :level . 1)
                              ("~/notes/gtd/reminders.org" :maxlevel . 2)))
-  (setq org-todo-keywords '((sequence "TODO(t)" "NEXT(n)" "WAITING(w)" "SOMEDAY(s)" "|" "DONE(d)" "CANCELLED(c)")))
+  (setq org-todo-keywords '((sequence "TODO(t)" "STARTED(s)" "WAITING(w)" "|" "DONE(d)" "CANCELLED(c)")))
 
 
 

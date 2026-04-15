@@ -40,6 +40,12 @@ import type { MirrorBackend, ManagedProcess } from "./types.js";
 import { sq, sleep, sanitizeName, diffSnapshots } from "./types.js";
 import { TmuxBackend } from "./tmux.js";
 import { SwayBackend } from "./sway.js";
+import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.js";
+
+const EXT_NAME = getExtensionName(import.meta.url);
+
+/** Cleanup handle for keybinding suggestions, to avoid duplicates on reload. */
+let cleanupKeybindings: (() => void) | null = null;
 
 export default function (pi: ExtensionAPI) {
   // ── CLI flag (registered before anything else) ───────────
@@ -708,7 +714,7 @@ export default function (pi: ExtensionAPI) {
             content: [
               {
                 type: "text",
-                text: `term-mirror error: ${err instanceof Error ? err.message : String(err)}`,
+                text: `shell error: ${err instanceof Error ? err.message : String(err)}`,
               },
             ],
             details: { command: params.command, exitCode: 1, cwd: ctx.cwd },
@@ -1099,6 +1105,282 @@ export default function (pi: ExtensionAPI) {
       },
     });
 
+    // ── helpers: command parsing ────────────────────────────
+
+    /** Extract the first single- or double-quoted string from text.
+     *  Returns the unquoted value and the index of the opening quote. */
+    function extractQuoted(
+      text: string,
+    ): { value: string; start: number } | null {
+      const dqIdx = text.indexOf('"');
+      const sqIdx = text.indexOf("'");
+      let quoteChar: string;
+      let start: number;
+      if (dqIdx === -1 && sqIdx === -1) return null;
+      if (dqIdx === -1) {
+        quoteChar = "'";
+        start = sqIdx;
+      } else if (sqIdx === -1) {
+        quoteChar = '"';
+        start = dqIdx;
+      } else if (dqIdx < sqIdx) {
+        quoteChar = '"';
+        start = dqIdx;
+      } else {
+        quoteChar = "'";
+        start = sqIdx;
+      }
+
+      const end = text.indexOf(quoteChar, start + 1);
+      if (end === -1) return null;
+      return { value: text.slice(start + 1, end), start };
+    }
+
+    // ── register command ───────────────────────────────────
+
+    pi.registerCommand("term", {
+      description:
+        'Control the shared terminal: toggle, prev, next, <index>, kill <index|name>, run "<cmd>", spawn [title] "<cmd>"',
+      handler: async (args, ctx) => {
+        const arg = (args || "").trim().toLowerCase();
+
+        if (!arg || arg === "toggle") {
+          await toggleMirror();
+          ctx.ui.notify(
+            mirrorVisible ? "Mirror pane shown" : "Mirror pane hidden",
+            "info",
+          );
+          return;
+        }
+
+        if (arg === "prev") {
+          await cycleTab(-1);
+          ctx.ui.notify(`Switched to ${activeTabName ?? "pi-shell"}`, "info");
+          return;
+        }
+
+        if (arg === "next") {
+          await cycleTab(1);
+          ctx.ui.notify(`Switched to ${activeTabName ?? "pi-shell"}`, "info");
+          return;
+        }
+
+        // /term run "<cmd>" — run a command in the primary pi-shell
+        if (arg.startsWith("run ")) {
+          const runRest = (args || "").trim().slice(4).trim();
+          const runQuoted = extractQuoted(runRest);
+          if (!runQuoted || !runQuoted.value) {
+            ctx.ui.notify('Usage: /term run "<command>"', "error");
+            return;
+          }
+          const cmd = runQuoted.value;
+          if (!(await backend.ensurePane())) {
+            ctx.ui.notify("Error: terminal pane not available", "error");
+            return;
+          }
+          if (!(await installHook())) {
+            ctx.ui.notify("Error: failed to install shell hook", "error");
+            return;
+          }
+          // Switch to shell tab and show the mirror
+          if (activeTabName !== null) await switchToTab(null);
+          if (!mirrorVisible) {
+            await backend.show(allTabTargetIds());
+            mirrorVisible = true;
+            updateTabWidget();
+          }
+          const { exitCode } = await runCommand(cmd, ctx.cwd);
+          if (backend.isPaneReady()) {
+            lastSnapshot = (
+              await backend.capture(backend.mainTargetId, 200)
+            ).trim();
+          }
+          ctx.ui.notify(
+            exitCode === 0
+              ? `Command completed (exit 0)`
+              : `Command failed (exit ${exitCode})`,
+            exitCode === 0 ? "info" : "error",
+          );
+          return;
+        }
+
+        // /term spawn [title] "<cmd>" — spawn a new shell pane
+        if (arg.startsWith("spawn ")) {
+          const rest = (args || "").trim().slice(6).trim();
+          if (!rest) {
+            ctx.ui.notify('Usage: /term spawn [title] "<command>"', "error");
+            return;
+          }
+          if (!(await backend.ensurePane())) {
+            ctx.ui.notify("Error: terminal pane not available", "error");
+            return;
+          }
+
+          // Parse: optional unquoted title token, then quoted command
+          const spawnQuoted = extractQuoted(rest);
+          if (!spawnQuoted || !spawnQuoted.value) {
+            ctx.ui.notify('Usage: /term spawn [title] "<command>"', "error");
+            return;
+          }
+          const command = spawnQuoted.value;
+          const beforeQuote = rest.slice(0, spawnQuoted.start).trim();
+          let title: string;
+          if (beforeQuote && /^\S+$/.test(beforeQuote)) {
+            title = sanitizeName(beforeQuote);
+          } else {
+            title = command.length > 16 ? command.slice(0, 16) + "…" : command;
+            title = sanitizeName(title);
+          }
+
+          // Check for name collision
+          if (processes.has(title)) {
+            const existing = processes.get(title)!;
+            if (await backend.isTabAlive(existing.targetId)) {
+              ctx.ui.notify(
+                `Process "${title}" is already running (${existing.command}). Stop it first or use a different name.`,
+                "error",
+              );
+              return;
+            }
+            processes.delete(title);
+          }
+
+          const targetId = await backend.createTab(title);
+          if (!targetId) {
+            ctx.ui.notify(`Failed to create tab for "${title}"`, "error");
+            return;
+          }
+
+          await sleep(300);
+          const fullCmd = `cd ${sq(ctx.cwd)} && ${command}`;
+          await backend.sendText(targetId, fullCmd);
+          await backend.sendEnter(targetId);
+
+          await sleep(1000);
+          const snapshot = (await backend.capture(targetId, 200)).trim();
+
+          const proc: ManagedProcess = {
+            name: title,
+            command,
+            targetId,
+            mode: "watch",
+            lastSnapshot: snapshot,
+            startedAt: Date.now(),
+          };
+          processes.set(title, proc);
+          updateTabWidget();
+
+          if (!watchLoopRunning) startWatchLoop();
+
+          // Show mirror and switch to the new tab
+          if (!mirrorVisible) {
+            await backend.show(allTabTargetIds());
+            mirrorVisible = true;
+          }
+          await switchToTab(title);
+
+          ctx.ui.notify(`Spawned "${title}": ${command}`, "info");
+          return;
+        }
+
+        // /term kill <index|name> — kill a process tab
+        if (arg.startsWith("kill ")) {
+          const killArg = (args || "").trim().slice(5).trim();
+          if (!killArg) {
+            ctx.ui.notify("Usage: /term kill <index|name>", "error");
+            return;
+          }
+
+          const tabNames = ["pi-shell", ...processes.keys()];
+          let targetName: string | null = null;
+
+          const killIdx = parseInt(killArg, 10);
+          if (!isNaN(killIdx) && String(killIdx) === killArg) {
+            // Numeric argument — 1-based index
+            if (killIdx < 1 || killIdx > tabNames.length) {
+              ctx.ui.notify(
+                `Invalid index ${killIdx}. Range: 1–${tabNames.length} (${tabNames.join(", ")})`,
+                "error",
+              );
+              return;
+            }
+            targetName = tabNames[killIdx - 1];
+          } else {
+            // Alphabetic argument — match by name (case-insensitive)
+            targetName =
+              tabNames.find((n) => n.toLowerCase() === killArg.toLowerCase()) ??
+              null;
+            if (!targetName) {
+              ctx.ui.notify(
+                `No process named "${killArg}". Active: ${tabNames.join(", ")}`,
+                "error",
+              );
+              return;
+            }
+          }
+
+          if (targetName === "pi-shell") {
+            ctx.ui.notify(
+              "Request to close primary shell session ignored",
+              "warning",
+            );
+            return;
+          }
+
+          const proc = processes.get(targetName);
+          if (!proc) {
+            ctx.ui.notify(`No process named "${targetName}".`, "error");
+            return;
+          }
+
+          // Same cleanup as stop_process
+          stoppedProcesses.add(targetName);
+          processes.delete(targetName);
+          updateTabWidget();
+
+          if (activeTabName === targetName) await switchToTab(null);
+
+          if (await backend.isTabAlive(proc.targetId)) {
+            await backend.sendCtrlC(proc.targetId);
+            await sleep(1000);
+            await backend.closeTab(proc.targetId);
+          }
+
+          const hasWatch = [...processes.values()].some(
+            (p) => p.mode === "watch",
+          );
+          if (!hasWatch) await stopWatchLoopAndWait();
+
+          stoppedProcesses.delete(targetName);
+
+          ctx.ui.notify(`Killed "${targetName}"`, "info");
+          return;
+        }
+
+        // Numeric index (1-based)
+        const idx = parseInt(arg, 10);
+        if (!isNaN(idx)) {
+          const tabNames = ["pi-shell", ...processes.keys()];
+          if (idx < 1 || idx > tabNames.length) {
+            ctx.ui.notify(
+              `Invalid index ${idx}. Range: 1–${tabNames.length} (${tabNames.join(", ")})`,
+              "error",
+            );
+            return;
+          }
+          const target = tabNames[idx - 1];
+          await switchToTab(target === "pi-shell" ? null : target);
+          ctx.ui.notify(`Switched to ${target}`, "info");
+          return;
+        }
+
+        ctx.ui.notify(
+          `Unknown argument: ${arg}. Usage: /term [toggle|prev|next|<index>|kill <index|name>|run "<cmd>"|spawn [title] "<cmd>"]`,
+          "error",
+        );
+      },
+    });
+
     // ── register event handlers ────────────────────────────
 
     pi.on("agent_start", async () => {
@@ -1114,6 +1396,11 @@ export default function (pi: ExtensionAPI) {
     });
 
     pi.on("session_shutdown", async () => {
+      // Clean up modal-editor keybinding listener
+      if (cleanupKeybindings) {
+        cleanupKeybindings();
+        cleanupKeybindings = null;
+      }
       stopActivityLoop();
       stopWatchLoop();
       // Swap shell back to mirror slot before closing process tabs
@@ -1150,5 +1437,29 @@ export default function (pi: ExtensionAPI) {
         "info",
       );
     }
+
+    // ── suggest keybindings to modal-editor ────────────────
+
+    cleanupKeybindings = suggestKeybindings(pi, EXT_NAME, {
+      menus: {
+        term: {
+          label: "Terminal",
+          key: " ",
+          items: {
+            s: {
+              label: "+shell",
+              items: {
+                t: {
+                  label: "Toggle mirror",
+                  action: "command:/term toggle",
+                },
+                h: { label: "Prev tab", action: "command:/term prev" },
+                l: { label: "Next tab", action: "command:/term next" },
+              },
+            },
+          },
+        },
+      },
+    });
   });
 }

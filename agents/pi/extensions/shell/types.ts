@@ -1,5 +1,5 @@
 /**
- * Shared types and utilities for the term-mirror extension backends.
+ * Shared types and utilities for the shell extension backends.
  */
 import { unlinkSync, readFileSync, writeFileSync, statSync } from "node:fs";
 

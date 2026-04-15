@@ -87,6 +87,12 @@ interface KeybindingsConfig {
   menus?: Record<string, MenuConfig>;
 }
 
+/** Payload for the modal-editor:suggest-keybindings event. */
+interface KeybindingSuggestion extends KeybindingsConfig {
+  /** Name of the extension suggesting these bindings (used in notifications). */
+  source?: string;
+}
+
 /** Map of passthrough key names to escape sequences */
 const PASSTHROUGH_KEYS: Record<string, string> = {
   "ctrl+l": "\x0c",
@@ -1345,30 +1351,6 @@ class VimEditor extends CustomEditor {
           }
         }
         return;
-      case ",":
-        if (this.lastFind) {
-          const reversed: Record<string, "f" | "F" | "t" | "T"> = {
-            f: "F",
-            F: "f",
-            t: "T",
-            T: "t",
-          };
-          const range = this.motionFindChar(
-            reversed[this.lastFind.type],
-            this.lastFind.char,
-            count,
-          );
-          if (range) {
-            const pos = this.curPos();
-            const target =
-              comparePos(pos, range.start) === 0
-                ? { line: range.end.line, col: range.end.col - 1 }
-                : range.start;
-            this.setCursor(target.line, target.col);
-            this.invalidate();
-          }
-        }
-        return;
 
       // ── Single-key commands ──
       case "x":
@@ -2151,13 +2133,130 @@ class VimEditor extends CustomEditor {
 export default function (pi: ExtensionAPI) {
   let activeEditor: VimEditor | null = null;
 
+  /** Pending keybinding suggestions received before the editor was created. */
+  const pendingSuggestions: KeybindingSuggestion[] = [];
+
+  /** Cleanup functions for pi.events listeners, called on session_shutdown. */
+  const eventCleanups: (() => void)[] = [];
+
+  /**
+   * Merge a KeybindingsConfig into the editor's live leader menus.
+   * Uses the same JSON format as keybindings.json — callers can supply
+   * a full or partial config with just the menus they want to add.
+   *
+   * Menu items are merged additively:
+   *   - New menu keys create new leader roots.
+   *   - Existing menu keys merge their items (new items added).
+   *   - If a suggested key clashes with an existing binding, the
+   *     suggestion is ignored and a warning is shown.
+   *   - Two sub-menus on the same key are merged recursively.
+   */
+  function applySuggestions(
+    editor: VimEditor,
+    config: KeybindingSuggestion,
+    notify?: (msg: string, level: "info" | "warning" | "error") => void,
+  ): void {
+    if (!config?.menus) return;
+    const incoming = buildMenuTree(config, editor);
+    const source = config.source ?? "unknown";
+    const warn =
+      notify ?? ((_m: string, _l: "info" | "warning" | "error") => {});
+
+    for (const [triggerKey, incomingNode] of incoming) {
+      const existing = (editor as any).leaderMenus as Map<string, LeaderNode>;
+      const current = existing.get(triggerKey);
+      if (!current || !current.children) {
+        existing.set(triggerKey, incomingNode);
+      } else {
+        mergeChildren(
+          current.children,
+          incomingNode.children ?? [],
+          triggerKey,
+          source,
+          warn,
+        );
+      }
+    }
+
+    warn(`modal-editor: applied keybindings for ${source}`, "info");
+  }
+
+  /**
+   * Recursively merge incoming children into an existing children array.
+   * `pathPrefix` tracks the key path for warning messages.
+   */
+  function mergeChildren(
+    existing: LeaderEntry[],
+    incoming: LeaderEntry[],
+    pathPrefix: string,
+    source: string,
+    warn: (msg: string, level: "info" | "warning" | "error") => void,
+  ): void {
+    for (const child of incoming) {
+      const idx = existing.findIndex((c) => c.key === child.key);
+      if (idx < 0) {
+        // No clash — add the new entry
+        existing.push(child);
+        continue;
+      }
+
+      const existingChild = existing[idx];
+      const keyPath = `${pathPrefix} ${child.key}`;
+      const bothSubMenus = existingChild.children && child.children;
+
+      if (bothSubMenus) {
+        // Both are sub-menus — merge recursively
+        mergeChildren(
+          existingChild.children!,
+          child.children!,
+          keyPath,
+          source,
+          warn,
+        );
+      } else {
+        // Clash: existing leaf vs incoming, or type mismatch — skip
+        warn(
+          `modal-editor: ignoring suggested binding [${keyPath}] ` +
+            `("${child.label}" from ${source}) — ` +
+            `clashes with existing binding "${existingChild.label}"`,
+          "warning",
+        );
+      }
+    }
+  }
+
+  let sessionNotify:
+    | ((msg: string, level: "info" | "warning" | "error") => void)
+    | null = null;
+
+  pi.on("session_shutdown", () => {
+    // Clean up shared event bus listeners to prevent accumulation on reload
+    for (const cleanup of eventCleanups) cleanup();
+    eventCleanups.length = 0;
+    activeEditor = null;
+    sessionNotify = null;
+  });
+
   pi.on("session_start", (_event, ctx) => {
+    sessionNotify = ctx.ui.notify.bind(ctx.ui);
+
     ctx.ui.setEditorComponent(
       (tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager) => {
         const editor = new VimEditor(tui, theme, keybindings);
         editor.setContext(ctx);
         editor.loadKeybindings();
         activeEditor = editor;
+
+        // Clear pending suggestions — the ready event below will cause
+        // all extensions to re-emit their suggestions (they subscribed to
+        // modal-editor:ready when they called suggestKeybindings()).
+        // Draining pendingSuggestions AND emitting ready would double-apply
+        // for extensions whose session_start fired before ours.
+        pendingSuggestions.length = 0;
+
+        // Signal that the editor is ready and accepting suggestions
+        pi.events.emit("modal-editor:ready", {});
+
         return editor;
       },
     );
@@ -2166,9 +2265,261 @@ export default function (pi: ExtensionAPI) {
   // Allow other extensions (e.g. git-diff) to constrain editor width
   // without replacing the editor component.
   // Emit { fraction, minCols } to reserve space, or { fraction: 0 } to clear.
-  pi.events.on("editor:width-constraint", (data: any) => {
-    const fraction = typeof data?.fraction === "number" ? data.fraction : 0;
-    const minCols = typeof data?.minCols === "number" ? data.minCols : 0;
-    activeEditor?.setWidthConstraint(fraction, minCols);
+  eventCleanups.push(
+    pi.events.on("editor:width-constraint", (data: any) => {
+      const fraction = typeof data?.fraction === "number" ? data.fraction : 0;
+      const minCols = typeof data?.minCols === "number" ? data.minCols : 0;
+      activeEditor?.setWidthConstraint(fraction, minCols);
+    }),
+  );
+
+  /**
+   * Accept keybinding suggestions from other extensions.
+   *
+   * Data should be a KeybindingsConfig object in the same JSON format as
+   * keybindings.json. For example:
+   *
+   *   pi.events.emit("modal-editor:suggest-keybindings", {
+   *     source: "my-extension",
+   *     menus: {
+   *       "term": {
+   *         label: "Terminal",
+   *         key: " ",          // trigger key (" " = Space leader)
+   *         items: {
+   *           "t": {
+   *             label: "+terminal",
+   *             items: {
+   *               "t": { label: "Toggle mirror", action: "command:/term toggle" },
+   *               "n": { label: "Next tab",      action: "command:/term next" },
+   *             }
+   *           }
+   *         }
+   *       }
+   *     }
+   *   });
+   *
+   * Can be called before or after the editor is created — early
+   * suggestions are queued and applied once the editor initialises.
+   */
+  eventCleanups.push(
+    pi.events.on(
+      "modal-editor:suggest-keybindings",
+      (data: KeybindingSuggestion) => {
+        if (activeEditor && sessionNotify) {
+          applySuggestions(activeEditor, data, sessionNotify);
+        } else {
+          pendingSuggestions.push(data);
+        }
+      },
+    ),
+  );
+
+  // ── /modal command ──────────────────────────────────────────────────
+
+  pi.registerCommand("editor", {
+    description: "Modal editor utilities (e.g. /editor bindings)",
+    handler: async (args, ctx) => {
+      const sub = (args ?? "").trim();
+      if (sub !== "bindings") {
+        ctx.ui.notify("Usage: /editor bindings", "info");
+        return;
+      }
+      if (!ctx.hasUI) {
+        ctx.ui.notify("/editor bindings requires interactive mode", "error");
+        return;
+      }
+      if (!activeEditor) {
+        ctx.ui.notify("No modal editor active", "error");
+        return;
+      }
+
+      const menus = (activeEditor as any).leaderMenus as Map<
+        string,
+        LeaderNode
+      >;
+
+      await ctx.ui.custom<undefined>(
+        (_tui, theme, _kb, done) => {
+          return new BindingsOverlay(menus, theme, () => done(undefined));
+        },
+        { overlay: true },
+      );
+    },
   });
+}
+
+// ─── Bindings overlay ────────────────────────────────────────────────────────
+
+class BindingsOverlay {
+  private theme: any;
+  private done: () => void;
+  private flatLines: { prefix: string; label: string; depth: number }[] = [];
+  private scrollOffset = 0;
+  private selected = 0;
+  private cachedWidth?: number;
+  private cachedLines?: string[];
+
+  constructor(menus: Map<string, LeaderNode>, theme: any, done: () => void) {
+    this.theme = theme;
+    this.done = done;
+    this.flatten(menus);
+  }
+
+  private flatten(menus: Map<string, LeaderNode>): void {
+    const displayKey = (k: string) => (k === " " ? "SPC" : k);
+
+    const walk = (entries: LeaderEntry[], path: string[], depth: number) => {
+      for (const entry of entries) {
+        const keyPath = [...path, displayKey(entry.key)];
+        if (entry.children) {
+          this.flatLines.push({
+            prefix: keyPath.join(" "),
+            label: entry.label,
+            depth,
+          });
+          walk(entry.children, keyPath, depth + 1);
+        } else {
+          this.flatLines.push({
+            prefix: keyPath.join(" "),
+            label: entry.label,
+            depth,
+          });
+        }
+      }
+    };
+
+    for (const [triggerKey, node] of menus) {
+      const rootKey = displayKey(triggerKey);
+      if (node.children) {
+        this.flatLines.push({
+          prefix: rootKey,
+          label: node.label ?? "Leader",
+          depth: 0,
+        });
+        walk(node.children, [rootKey], 1);
+      }
+    }
+  }
+
+  handleInput(data: string): void {
+    if (matchesKey(data, "escape") || matchesKey(data, "q")) {
+      this.done();
+      return;
+    }
+    if (matchesKey(data, "up") || matchesKey(data, "k")) {
+      if (this.selected > 0) {
+        this.selected--;
+        this.invalidate();
+      }
+      return;
+    }
+    if (matchesKey(data, "down") || matchesKey(data, "j")) {
+      if (this.selected < this.flatLines.length - 1) {
+        this.selected++;
+        this.invalidate();
+      }
+      return;
+    }
+  }
+
+  render(width: number): string[] {
+    if (this.cachedLines && this.cachedWidth === width) {
+      return this.cachedLines;
+    }
+
+    const th = this.theme;
+    const innerW = width - 4;
+    const lines: string[] = [];
+
+    const hBar = (n: number) => "─".repeat(Math.max(0, n));
+    const topBorder = th.fg("border", `╭${hBar(width - 2)}╮`);
+    const botBorder = th.fg("border", `╰${hBar(width - 2)}╯`);
+
+    const row = (content: string) => {
+      const vis = visibleWidth(content);
+      const pad = Math.max(0, innerW - vis);
+      return (
+        th.fg("border", "│") +
+        " " +
+        content +
+        " ".repeat(pad) +
+        " " +
+        th.fg("border", "│")
+      );
+    };
+
+    const emptyRow = () => row("");
+
+    lines.push(topBorder);
+    lines.push(row(th.fg("accent", th.bold("Keybindings"))));
+    lines.push(emptyRow());
+
+    if (this.flatLines.length === 0) {
+      lines.push(row(th.fg("dim", "No keybindings registered.")));
+      lines.push(emptyRow());
+      lines.push(row(th.fg("dim", "Press Esc or q to close")));
+      lines.push(botBorder);
+      this.cachedWidth = width;
+      this.cachedLines = lines;
+      return lines;
+    }
+
+    const maxVisible = 20;
+    // Adjust scroll
+    if (this.selected < this.scrollOffset) this.scrollOffset = this.selected;
+    if (this.selected >= this.scrollOffset + maxVisible)
+      this.scrollOffset = this.selected - maxVisible + 1;
+
+    const visible = this.flatLines.slice(
+      this.scrollOffset,
+      this.scrollOffset + maxVisible,
+    );
+
+    for (let i = 0; i < visible.length; i++) {
+      const entry = visible[i]!;
+      const globalIdx = this.scrollOffset + i;
+      const isSelected = globalIdx === this.selected;
+
+      const indent = "  ".repeat(entry.depth);
+      const keyStr = th.fg("accent", entry.prefix.padEnd(16));
+      const labelStr = isSelected
+        ? th.fg("text", entry.label)
+        : th.fg("muted", entry.label);
+      const pointer = isSelected ? th.fg("accent", "▌") : " ";
+
+      lines.push(
+        row(
+          truncateToWidth(`${pointer}${indent}${keyStr} ${labelStr}`, innerW),
+        ),
+      );
+    }
+
+    if (this.flatLines.length > maxVisible) {
+      const pos = Math.round(
+        (this.scrollOffset / Math.max(1, this.flatLines.length - maxVisible)) *
+          100,
+      );
+      lines.push(
+        row(
+          th.fg(
+            "dim",
+            `  ${this.scrollOffset + 1}-${Math.min(this.scrollOffset + maxVisible, this.flatLines.length)} of ${this.flatLines.length} (${pos}%)`,
+          ),
+        ),
+      );
+    }
+
+    lines.push(emptyRow());
+    lines.push(row(th.fg("dim", "↑↓/jk navigate • Esc/q close")));
+    lines.push(botBorder);
+
+    this.cachedWidth = width;
+    this.cachedLines = lines;
+    return lines;
+  }
+
+  invalidate(): void {
+    this.cachedWidth = undefined;
+    this.cachedLines = undefined;
+  }
 }
