@@ -3,14 +3,13 @@ import type {
   ExtensionContext,
   Theme,
 } from "@mariozechner/pi-coding-agent";
-import { CustomEditor } from "@mariozechner/pi-coding-agent";
 import type { OverlayHandle, TUI } from "@mariozechner/pi-tui";
 import {
   matchesKey,
   truncateToWidth,
   visibleWidth,
 } from "@mariozechner/pi-tui";
-import { handleReloadShortcut } from "../reload-shortcut/editor.js";
+
 import { parseDiff, type DiffFile } from "./parser.js";
 
 const PANEL_FRACTION = 0.4;
@@ -19,10 +18,6 @@ const CHROME_LINES = 6;
 const FOOTER_ROWS = 2;
 const FOLD_PREVIEW = 5;
 const SCROLL_STEP = 3;
-
-function panelCols(termW: number): number {
-  return Math.max(PANEL_MIN_WIDTH, Math.floor(termW * PANEL_FRACTION));
-}
 
 export default function (pi: ExtensionAPI) {
   let overlayHandle: OverlayHandle | null = null;
@@ -139,8 +134,9 @@ export default function (pi: ExtensionAPI) {
     });
     panelVisible = true;
 
-    ctx.ui.setEditorComponent((tui, theme, kb) => {
-      return new ConstrainedEditor(tui, theme, kb);
+    pi.events.emit("editor:width-constraint", {
+      fraction: PANEL_FRACTION,
+      minCols: PANEL_MIN_WIDTH,
     });
 
     refreshDiff();
@@ -154,8 +150,7 @@ export default function (pi: ExtensionAPI) {
     diffPanel = null;
     panelVisible = false;
 
-    const c = ctx || savedCtx;
-    if (c) c.ui.setEditorComponent(undefined);
+    pi.events.emit("editor:width-constraint", { fraction: 0 });
   }
 
   function togglePanel(ctx: ExtensionContext): void {
@@ -332,18 +327,6 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_shutdown", () => {
     hidePanel();
   });
-}
-
-class ConstrainedEditor extends CustomEditor {
-  handleInput(data: string): void {
-    if (handleReloadShortcut(data, this.onSubmit)) return;
-    super.handleInput(data);
-  }
-
-  render(width: number): string[] {
-    const pw = panelCols(width);
-    return super.render(Math.max(40, width - pw));
-  }
 }
 
 interface FileSection {
