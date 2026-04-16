@@ -11,7 +11,7 @@ import {
 } from "@mariozechner/pi-tui";
 
 import { parseDiff, type DiffFile } from "./parser.js";
-import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.js";
+import { ansiPad, getExtensionName, suggestKeybindings } from "../lib/pi-utils.js";
 
 const EXT_NAME = getExtensionName(import.meta.url);
 
@@ -746,8 +746,6 @@ class DiffPanel {
   }
 
   private pad(s: string, len: number): string {
-    const vis = visibleWidth(s);
-    if (vis >= len) return truncateToWidth(s, len, "…", true);
-    return s + " ".repeat(len - vis);
+    return ansiPad(s, len);
   }
 }

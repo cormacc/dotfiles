@@ -1,5 +1,5 @@
 /**
- * Shared Terminal Extension (tmux + sway)
+ * Term Extension (tmux + sway)
  *
  * Overrides the built-in bash tool to run commands in a shared terminal split.
  * Supports two backends:
@@ -1443,20 +1443,15 @@ export default function (pi: ExtensionAPI) {
     cleanupKeybindings = suggestKeybindings(pi, EXT_NAME, {
       menus: {
         term: {
-          label: "Terminal",
-          key: " ",
+          label: "Term",
+          key: "'",
           items: {
-            s: {
-              label: "+shell",
-              items: {
-                t: {
-                  label: "Toggle mirror",
-                  action: "command:/term toggle",
-                },
-                h: { label: "Prev tab", action: "command:/term prev" },
-                l: { label: "Next tab", action: "command:/term next" },
-              },
+            t: {
+              label: "Show/hide",
+              action: "command:/term toggle",
             },
+            h: { label: "Prev tab", action: "command:/term prev" },
+            l: { label: "Next tab", action: "command:/term next" },
           },
         },
       },

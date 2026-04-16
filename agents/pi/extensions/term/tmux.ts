@@ -1,5 +1,5 @@
 /**
- * Tmux backend for the shell extension.
+ * Tmux backend for the term extension.
  *
  * Uses tmux split panes and `tmux wait-for` for instant signaling.
  * State is stored in tmux session environment variables (no temp files).

@@ -7,6 +7,18 @@
 import { basename, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+
+/**
+ * Pad or truncate an ANSI-styled string to exactly `width` visible columns.
+ * If the string is longer, it is truncated with an ellipsis.
+ * If shorter, it is right-padded with spaces.
+ */
+export function ansiPad(s: string, width: number): string {
+  const vis = visibleWidth(s);
+  if (vis >= width) return truncateToWidth(s, width, "…", true);
+  return s + " ".repeat(width - vis);
+}
 
 export function getExtensionName(importMetaUrl: string): string {
   const filePath = fileURLToPath(importMetaUrl);
