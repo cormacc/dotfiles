@@ -4,6 +4,7 @@
   programs.chromium = {
     enable = true;
     package = config.lib.nixGL.wrap pkgs.chromium;
+    commandLineArgs = [ "--remote-debugging-port=9222" ];
     dictionaries = [ pkgs.hunspellDictsChromium.en-gb ];
     extensions = [
       # Bitwarden
