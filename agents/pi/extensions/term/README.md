@@ -222,20 +222,13 @@ List all managed background processes and their status.
 | Subcommand              | Description                         |
 | ----------------------- | ----------------------------------- |
 | _(none)_ / `toggle`     | Toggle the mirror pane visibility   |
+| `focus`                 | Show (if hidden) and focus the pane |
 | `prev`                  | Switch to previous tab              |
 | `next`                  | Switch to next tab                  |
 | `<index>`               | Switch to tab by 1-based index      |
 | `kill <index\|name>`    | Kill a process tab by index or name |
 | `run "<cmd>"`           | Run a command in the primary shell  |
 | `spawn [title] "<cmd>"` | Spawn a new process tab             |
-
-## Shortcuts
-
-| Key     | Description         |
-| ------- | ------------------- |
-| `Alt-h` | Previous mirror tab |
-| `Alt-l` | Next mirror tab     |
-| `Alt-m` | Toggle mirror pane  |
 
 ## Suggested Keybindings
 
@@ -244,6 +237,7 @@ Registered with `modal-editor` under `Space t` (terminal sub-menu):
 | Key         | Action        | Command        |
 | ----------- | ------------- | -------------- |
 | `Space t t` | Toggle mirror | `/term toggle` |
+| `Space t f` | Focus pane    | `/term focus`  |
 | `Space t h` | Prev tab      | `/term prev`   |
 | `Space t l` | Next tab      | `/term next`   |
 

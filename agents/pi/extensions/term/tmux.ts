@@ -381,4 +381,9 @@ export class TmuxBackend implements MirrorBackend {
       );
     } catch {}
   }
+
+  async focusPane(targetId?: string | null): Promise<void> {
+    const id = targetId ?? this.target;
+    if (id) await this.tmux("select-pane", "-t", id);
+  }
 }

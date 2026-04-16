@@ -4,9 +4,9 @@
  * Detects `bb.edn` in the project root and registers a `/bb` slash command
  * with auto-completion for available babashka tasks.
  *
- * - Regular tasks run in the default pi-shell (via the `bash` tool).
+ * - Regular tasks run via `term:run` event.
  * - Tasks whose name starts with "watch" run in a dedicated process tab
- *   when the shell extension is available (via `start_process`).
+ *   via `term:spawn` event.
  */
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { AutocompleteItem } from "@mariozechner/pi-tui";
@@ -32,6 +32,7 @@ export default function (pi: ExtensionAPI) {
         //   watch    Start file watcher
         tasks = [];
         for (const line of r.stdout.split("\n")) {
+          if (line.startsWith("The following tasks are available")) continue;
           const match = line.match(/^(\S+)\s+(.*)/);
           if (match) {
             tasks.push({ name: match[1], description: match[2].trim() });
@@ -48,13 +49,6 @@ export default function (pi: ExtensionAPI) {
     }
 
     ctx.ui.notify(`bb-tasks: ${tasks.length} tasks available`, "info");
-
-    // ── detect shell availability ──────────────────
-
-    function hasTermMirror(): boolean {
-      const allTools = pi.getAllTools();
-      return allTools.some((t) => t.name === "start_process");
-    }
 
     // ── register /bb command ─────────────────────────────
 
@@ -93,18 +87,10 @@ export default function (pi: ExtensionAPI) {
 
         const isWatch = taskName.startsWith("watch");
 
-        if (isWatch && hasTermMirror()) {
-          // Run in a process tab via sendUserMessage so the agent
-          // calls start_process with the right parameters.
-          pi.sendUserMessage(
-            `Run \`bb ${taskName}\` as a long-running watch process using start_process with name "${taskName}" and mode "watch".`,
-            { deliverAs: "followUp" },
-          );
+        if (isWatch) {
+          pi.events.emit("term:spawn", { command: `bb ${taskName}` });
         } else {
-          // Run in the default shell
-          pi.sendUserMessage(`Run \`bb ${taskName}\` in the terminal.`, {
-            deliverAs: "followUp",
-          });
+          pi.events.emit("term:run", { command: `bb ${taskName}` });
         }
       },
     });

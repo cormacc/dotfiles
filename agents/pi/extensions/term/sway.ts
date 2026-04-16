@@ -567,4 +567,11 @@ export class SwayBackend implements MirrorBackend {
       await this.swaymsg("focus", "up");
     }
   }
+
+  async focusPane(targetId?: string | null): Promise<void> {
+    const id = targetId ? parseInt(targetId, 10) : this.conId;
+    if (id > 0) {
+      await this.swaymsg(`[con_id=${id}]`, "focus");
+    }
+  }
 }

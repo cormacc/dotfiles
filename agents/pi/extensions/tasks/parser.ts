@@ -19,6 +19,8 @@ export interface Task {
   tags: string[];
   description: string;
   children: Task[];
+  /** 1-indexed line number of the heading in the source file. */
+  lineNumber: number;
 }
 
 const VALID_STATUSES = new Set(["TODO", "STARTED", "WAITING", "DONE"]);
@@ -81,7 +83,8 @@ export function parseTasks(content: string): Task[] {
     descriptionLines.length = 0;
   };
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
     const heading = parseHeading(line);
 
     if (heading) {
@@ -96,6 +99,7 @@ export function parseTasks(content: string): Task[] {
         tags: heading.tags,
         description: "",
         children: [],
+        lineNumber: i + 1,
       };
 
       // Pop stack until we find a parent with a lower level
