@@ -27,6 +27,7 @@ import type { KeybindingsManager } from "@mariozechner/pi-coding-agent";
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ansiPad } from "../lib/pi-utils.js";
 
 const EXT_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -2436,16 +2437,7 @@ class BindingsOverlay {
     const botBorder = th.fg("border", `╰${hBar(width - 2)}╯`);
 
     const row = (content: string) => {
-      const vis = visibleWidth(content);
-      const pad = Math.max(0, innerW - vis);
-      return (
-        th.fg("border", "│") +
-        " " +
-        content +
-        " ".repeat(pad) +
-        " " +
-        th.fg("border", "│")
-      );
+      return th.fg("border", "│") + " " + ansiPad(content, innerW) + " " + th.fg("border", "│");
     };
 
     const emptyRow = () => row("");

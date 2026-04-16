@@ -1,4 +1,4 @@
-# shell
+# term
 
 A [pi-coding-agent](https://github.com/nichochar/pi-coding-agent) extension
 that redirects all agent commands to a shared terminal split, giving both the
@@ -62,7 +62,7 @@ Supports two backends:
 ┌─────────────────────┐  ┌──────────────────────┐
 │  pi (agent pane)    │  │  shared pane (%N)     │
 │                     │  │                       │
-│  shell ext           │──│  zsh/bash + hook      │
+│  term ext            │──│  zsh/bash + hook      │
 │  ├─ bash tool       │  │  ├─ precmd writes RC  │
 │  ├─ read_terminal   │  │  └─ wait-for -S       │
 │  └─ activity loop   │  │                       │
@@ -77,7 +77,7 @@ Supports two backends:
 ┌─────────────────────┐  ┌──────────────────────┐
 │  pi (agent window)  │  │  foot terminal (id:N) │
 │                     │  │                       │
-│  shell ext           │──│  sway-relay.py + pty  │
+│  term ext            │──│  sway-relay.py + pty  │
 │  ├─ bash tool       │  │  ├─ zsh/bash + hook   │
 │  ├─ read_terminal   │  │  ├─ precmd writes RC  │
 │  └─ activity loop   │  │  └─ echo > FIFO &     │
