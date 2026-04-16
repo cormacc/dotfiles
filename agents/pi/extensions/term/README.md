@@ -1,158 +1,71 @@
 # term
 
-A [pi-coding-agent](https://github.com/nichochar/pi-coding-agent) extension
-that redirects all agent commands to a shared terminal split, giving both the
-agent and the user full bidirectional visibility of the same terminal.
+A [pi](https://github.com/nichochar/pi-coding-agent) extension that redirects
+agent commands to a shared terminal split, giving both the agent and the user
+full bidirectional visibility of the same terminal.
 
-## Usage
+The extension **activates automatically** when it detects a supported
+environment (tmux or sway). Use `--no-mirror` to disable it.
 
-```bash
-pi --mirror
-```
+## Backends
 
-The extension is auto-discovered from `~/.pi/agent/extensions/` but only
-activates when the `--mirror` flag is passed.
+| Backend  | Detection  | Status                     |
+| -------- | ---------- | -------------------------- |
+| **tmux** | `$TMUX`    | Preferred, actively developed |
+| sway     | `$SWAYSOCK`| Less actively developed    |
 
-Supports two backends:
-
-- **tmux** — detected via `$TMUX`, uses tmux split panes and `tmux wait-for`
-  for instant signaling.
-- **sway** — detected via `$SWAYSOCK`, launches a foot terminal split via
-  swaymsg, uses a PTY relay for I/O and named pipes (FIFOs) for instant
-  signaling.
+**tmux** is the recommended backend. Run pi inside a tmux session and a split
+pane is auto-created. The sway backend launches a foot terminal window and is
+functional but receives less active development.
 
 ## Features
 
-- **Shared terminal** — agent commands run in a visible terminal split instead
-  of a hidden subprocess. The user sees every command as it executes.
+- **Shared terminal** — agent commands run in a visible split instead of a
+  hidden subprocess. The user sees every command as it executes.
 - **Bidirectional** — when the user types commands in the pane, the agent is
-  notified instantly and can respond to the output.
-- **Clean command display** — the actual command text is sent to the shell
-  directly (via `tmux send-keys` or a PTY relay). No wrapper scripts, markers,
-  or temp file execution visible in the terminal.
-- **Exit code tracking** — a shell hook (`precmd` for zsh, `PROMPT_COMMAND` for
-  bash) atomically writes a sequence number + exit code to a temp file after
-  every command.
-- **Instant detection** — uses `tmux wait-for` (tmux) or named pipe FIFOs
-  (sway) for zero-CPU event-driven notifications. Both command completion
-  (agent) and user activity detection block with no busy loops.
-- **Prompt-aware output parsing** — auto-detects the user's prompt symbol and
-  height from the pane after `clear`. Uses this to cleanly extract command
-  output, stripping prompt lines and RPROMPT timestamps. The same parsing logic
-  is used for both agent commands and user activity.
-- **Pane lifecycle management** — auto-creates a split pane on startup.
-  Recovers if the user closes the pane. Reuses existing panes across agent
-  restarts via saved state (tmux session env or sway window ID).
-- **Multi-line commands** — commands with newlines are wrapped in `{ ... }` to
-  form a single compound command. This ensures `precmd` fires only once (after
-  all commands complete), not after each line. Works with heredocs, quoted
-  strings, and nested constructs.
-- **Smart `cd`** — only prepends `cd <dir> &&` when the pane's working directory
-  differs from the agent's.
-- **Pager disabled** — sets `PAGER=cat GIT_PAGER=cat` so commands like
-  `git log` don't block the terminal.
+  notified and can respond to the output.
+- **Process tabs** — long-running processes (dev servers, test watchers, REPLs)
+  run in named tabs with optional auto-reporting of output changes.
+- **Clean command display** — commands are sent to the shell directly (via
+  `tmux send-keys` or a PTY relay). No wrapper scripts or markers visible.
+- **Exit code tracking** — a shell hook captures exit codes after every command.
+- **Instant detection** — event-driven signaling (tmux `wait-for` / named pipe
+  FIFOs) with zero CPU while waiting.
+- **Pane recovery** — auto-recovers if the user closes the pane, reuses
+  existing panes across agent restarts.
 
-## How It Works
+## CLI
 
-### Architecture
-
-**tmux backend:**
-
-```
-┌─────────────────────┐  ┌──────────────────────┐
-│  pi (agent pane)    │  │  shared pane (%N)     │
-│                     │  │                       │
-│  term ext            │──│  zsh/bash + hook      │
-│  ├─ bash tool       │  │  ├─ precmd writes RC  │
-│  ├─ read_terminal   │  │  └─ wait-for -S       │
-│  └─ activity loop   │  │                       │
-└─────────────────────┘  └──────────────────────┘
-         │                          │
-         └── tmux wait-for ─────────┘  (event-driven, zero CPU)
+```bash
+pi                # auto-activates in tmux or sway
+pi --no-mirror    # disable shared terminal
 ```
 
-**sway backend:**
+## Slash Command
 
-```
-┌─────────────────────┐  ┌──────────────────────┐
-│  pi (agent window)  │  │  foot terminal (id:N) │
-│                     │  │                       │
-│  term ext            │──│  sway-relay.py + pty  │
-│  ├─ bash tool       │  │  ├─ zsh/bash + hook   │
-│  ├─ read_terminal   │  │  ├─ precmd writes RC  │
-│  └─ activity loop   │  │  └─ echo > FIFO &     │
-└─────────────────────┘  └──────────────────────┘
-         │                          │
-         ├── input FIFO ────────────┘  (text injection via relay)
-         ├── output log file            (capture via log)
-         └── cat signal FIFO (blocks)   (zero CPU, like tmux wait-for)
-```
+### `/term [subcommand]`
 
-### Shell Hook
+| Subcommand              | Description                         |
+| ----------------------- | ----------------------------------- |
+| _(none)_ / `toggle`     | Toggle the mirror pane visibility   |
+| `focus`                 | Show (if hidden) and focus the pane |
+| `prev`                  | Switch to previous tab              |
+| `next`                  | Switch to next tab                  |
+| `<index>`               | Switch to tab by 1-based index      |
+| `kill <index\|name>`    | Kill a process tab by index or name |
+| `run "<cmd>"`           | Run a command in the primary shell  |
+| `spawn [title] "<cmd>"` | Spawn a new process tab             |
 
-On startup the extension sends the hook code inline to the pane's shell. The
-hook:
+## Keybindings
 
-1. Registers a `precmd` function (zsh) or `PROMPT_COMMAND` (bash).
-2. On every prompt: stores `<seq> <exit_code>`.
-   - **tmux:** in a tmux session env var (`PI_LAST_RC`) via `tmux set-environment`.
-   - **sway:** in a temp file (`/tmp/pi-mirror-rc-<session-uuid>`).
-3. Signals completion to wake any blocked waiters.
-   - **tmux:** `tmux wait-for -S pi-prompt`.
-   - **sway:** `echo > /tmp/pi-mirror-signal-<session-uuid> &` (writes to a
-     named pipe/FIFO; backgrounded so the shell doesn't block if no reader is
-     connected yet).
+Registered with `modal-editor` under `Space t` (terminal sub-menu):
 
-This provides instant, invisible notification that a command has completed,
-along with its exit code. Both mechanisms use zero CPU while waiting.
-
-### Prompt Detection
-
-After the hook is installed and the pane is cleared, the extension captures the
-rendered prompt and detects:
-
-- **`promptHeight`** — number of non-empty trailing lines (typically 2 for a
-  two-line prompt with info bar + input line).
-- **`promptSymbol`** — the first non-space token on the last line (e.g., `❯`,
-  `$`, `#`). Used to identify prompt lines in captured output.
-
-These are used by both `extractOutput` (agent commands) and `formatActivity`
-(user commands) to strip prompt decoration and extract clean command output.
-
-### Agent Commands (`bash` tool)
-
-1. Capture the pane state (`before`).
-2. Send the command text to the pane (via `tmux send-keys` or input FIFO).
-3. Block until precmd fires (via `tmux wait-for` or signal FIFO).
-4. Read exit code from the RC storage.
-5. Capture the pane state (`after`).
-6. Diff `before`/`after`, find the last prompt line with command text, collect
-   output lines until the next prompt block.
-
-### User Activity Detection
-
-A background async loop blocks on the prompt signal (via `tmux wait-for` or
-signal FIFO). When signaled (and the agent is idle):
-
-1. Capture the pane and diff against the last snapshot.
-2. Parse the diff using the same prompt-aware logic: find the last command,
-   collect output, read exit code.
-3. Format as `~/dir $ command\noutput\n[exit code: N]`.
-4. Inject into the conversation via `pi.sendMessage` with `triggerTurn: true`.
-
-### Pane Recovery
-
-On every `bash` call, `ensurePane()` checks if the target pane is still alive
-(via `tmux list-panes` or the sway tree). If the pane was closed:
-
-1. Reset all state (paneReady, hookInstalled, RC files).
-2. Wait 500ms for terminal resize to settle.
-3. Create a new split pane.
-4. Wait for a shell to start (polls `pane_current_command` for up to 10s).
-5. Reinstall the hook.
-
-The pane ID is saved persistently (tmux session env or sway window ID file) so
-it can be reused across agent restarts without creating duplicate panes.
+| Key         | Action        | Command        |
+| ----------- | ------------- | -------------- |
+| `Space t t` | Toggle mirror | `/term toggle` |
+| `Space t f` | Focus pane    | `/term focus`  |
+| `Space t h` | Prev tab      | `/term prev`   |
+| `Space t l` | Next tab      | `/term next`   |
 
 ## Tools
 
@@ -215,38 +128,6 @@ Stop a named running process (sends Ctrl+C, then kills the tab).
 
 List all managed background processes and their status.
 
-## Slash Command
-
-### `/term [subcommand]`
-
-| Subcommand              | Description                         |
-| ----------------------- | ----------------------------------- |
-| _(none)_ / `toggle`     | Toggle the mirror pane visibility   |
-| `focus`                 | Show (if hidden) and focus the pane |
-| `prev`                  | Switch to previous tab              |
-| `next`                  | Switch to next tab                  |
-| `<index>`               | Switch to tab by 1-based index      |
-| `kill <index\|name>`    | Kill a process tab by index or name |
-| `run "<cmd>"`           | Run a command in the primary shell  |
-| `spawn [title] "<cmd>"` | Spawn a new process tab             |
-
-## Suggested Keybindings
-
-Registered with `modal-editor` under `Space t` (terminal sub-menu):
-
-| Key         | Action        | Command        |
-| ----------- | ------------- | -------------- |
-| `Space t t` | Toggle mirror | `/term toggle` |
-| `Space t f` | Focus pane    | `/term focus`  |
-| `Space t h` | Prev tab      | `/term prev`   |
-| `Space t l` | Next tab      | `/term next`   |
-
-## CLI Flag
-
-| Flag          | Description                               |
-| ------------- | ----------------------------------------- |
-| `--no-mirror` | Disable shared terminal split (tmux/sway) |
-
 ## Configuration
 
 | Environment Variable | Description                                     |
@@ -267,100 +148,154 @@ Registered with `modal-editor` under `Space t` (terminal sub-menu):
 - Python 3 must be available (for the PTY relay script).
 - The shell must be zsh or bash.
 
-## State Storage
+## Dependencies
 
-**tmux backend** — all state in tmux session environment variables (no temp files):
+- `lib/pi-utils.ts` — `getExtensionName`, `suggestKeybindings`
+
+---
+
+## Architecture
+
+### Shell Hook
+
+On startup the extension sends hook code inline to the pane's shell. The hook:
+
+1. Registers a `precmd` function (zsh) or `PROMPT_COMMAND` (bash).
+2. On every prompt: stores `<seq> <exit_code>`.
+   - **tmux:** in a tmux session env var (`PI_LAST_RC`) via `tmux set-environment`.
+   - **sway:** in a temp file (`/tmp/pi-mirror-rc-<session-uuid>`).
+3. Signals completion to wake any blocked waiters.
+   - **tmux:** `tmux wait-for -S pi-prompt`.
+   - **sway:** `echo > /tmp/pi-mirror-signal-<session-uuid> &` (writes to a
+     named pipe/FIFO; backgrounded so the shell doesn't block if no reader is
+     connected yet).
+
+### Prompt Detection
+
+After the hook is installed and the pane is cleared, the extension captures the
+rendered prompt and detects:
+
+- **`promptHeight`** — number of non-empty trailing lines (typically 2 for a
+  two-line prompt with info bar + input line).
+- **`promptSymbol`** — the first non-space token on the last line (e.g., `❯`,
+  `$`, `#`). Used to identify prompt lines in captured output.
+
+### Agent Commands (`bash` tool)
+
+1. Capture the pane state (`before`).
+2. Send the command text to the pane (via `tmux send-keys` or input FIFO).
+3. Block until precmd fires (via `tmux wait-for` or signal FIFO).
+4. Read exit code from the RC storage.
+5. Capture the pane state (`after`).
+6. Diff `before`/`after`, find the last prompt line with command text, collect
+   output lines until the next prompt block.
+
+### User Activity Detection
+
+A background async loop blocks on the prompt signal. When signaled (and the
+agent is idle):
+
+1. Capture the pane and diff against the last snapshot.
+2. Parse the diff using the same prompt-aware logic: find the last command,
+   collect output, read exit code.
+3. Format as `~/dir $ command\noutput\n[exit code: N]`.
+4. Inject into the conversation via `pi.sendMessage`.
+
+### Pane Recovery
+
+On every `bash` call, `ensurePane()` checks if the target pane is still alive.
+If the pane was closed:
+
+1. Reset all state (paneReady, hookInstalled, RC files).
+2. Wait 500ms for terminal resize to settle.
+3. Create a new split pane.
+4. Wait for a shell to start (polls `pane_current_command` for up to 10s).
+5. Reinstall the hook.
+
+The pane ID is saved persistently (tmux session env or sway window ID file) so
+it can be reused across agent restarts without creating duplicate panes.
+
+### Backend architecture
+
+**tmux:**
+
+```
+┌─────────────────────┐  ┌──────────────────────┐
+│  pi (agent pane)    │  │  shared pane (%N)     │
+│                     │  │                       │
+│  term ext            │──│  zsh/bash + hook      │
+│  ├─ bash tool       │  │  ├─ precmd writes RC  │
+│  ├─ read_terminal   │  │  └─ wait-for -S       │
+│  └─ activity loop   │  │                       │
+└─────────────────────┘  └──────────────────────┘
+         │                          │
+         └── tmux wait-for ─────────┘  (event-driven, zero CPU)
+```
+
+**sway:**
+
+```
+┌─────────────────────┐  ┌──────────────────────┐
+│  pi (agent window)  │  │  foot terminal (id:N) │
+│                     │  │                       │
+│  term ext            │──│  sway-relay.py + pty  │
+│  ├─ bash tool       │  │  ├─ zsh/bash + hook   │
+│  ├─ read_terminal   │  │  ├─ precmd writes RC  │
+│  └─ activity loop   │  │  └─ echo > FIFO &     │
+└─────────────────────┘  └──────────────────────┘
+         │                          │
+         ├── input FIFO ────────────┘  (text injection via relay)
+         ├── output log file            (capture via log)
+         └── cat signal FIFO (blocks)   (zero CPU, like tmux wait-for)
+```
+
+### State Storage
+
+**tmux** — all state in tmux session environment variables (no temp files):
 
 | Variable         | Purpose                                    |
 | ---------------- | ------------------------------------------ |
 | `PI_MIRROR_PANE` | Pane ID for cross-restart reuse            |
 | `PI_LAST_RC`     | `<seq> <exit_code>` written by precmd hook |
 
-**sway backend** — state in temp files (UUID-scoped per session for multi-agent safety):
+**sway** — state in temp files (UUID-scoped per session):
 
 | File                                         | Purpose                                    |
 | -------------------------------------------- | ------------------------------------------ |
-| `/tmp/pi-mirror-log-<session-uuid>`          | Output log from PTY relay                  |
-| `/tmp/pi-mirror-input-<session-uuid>`        | Input FIFO for text injection              |
-| `/tmp/pi-mirror-rc-<session-uuid>`           | `<seq> <exit_code>` written by precmd hook |
-| `/tmp/pi-mirror-signal-<session-uuid>`       | Named pipe (FIFO) for activity signals     |
-| `/tmp/pi-mirror-agent-signal-<session-uuid>` | Named pipe (FIFO) for agent signals        |
-| `/tmp/pi-mirror-ready-<session-uuid>`        | Named pipe (FIFO) for ready signals        |
+| `/tmp/pi-mirror-log-<uuid>`                  | Output log from PTY relay                  |
+| `/tmp/pi-mirror-input-<uuid>`                | Input FIFO for text injection              |
+| `/tmp/pi-mirror-rc-<uuid>`                   | `<seq> <exit_code>` written by precmd hook |
+| `/tmp/pi-mirror-signal-<uuid>`               | Named pipe (FIFO) for activity signals     |
+| `/tmp/pi-mirror-agent-signal-<uuid>`         | Named pipe (FIFO) for agent signals        |
+| `/tmp/pi-mirror-ready-<uuid>`                | Named pipe (FIFO) for ready signals        |
 
-### Diff Viewer Pane
+### Design Decisions
 
-A read-only pane below the command pane shows `git diff --color=always` output.
-It auto-refreshes after each agent bash command via `tmux wait-for` signaling.
-The user can scroll with tmux copy mode (`prefix + [`).
+**Why event-driven signaling instead of polling?**
+The original implementation polled every 300ms. This was replaced with blocking
+mechanisms (`tmux wait-for` / named pipe FIFOs) that use zero CPU while waiting
+and provide instant detection.
 
-Debug log: `/tmp/pi-mirror-debug.log` (activity loop, temporary).
-
-## Testing
-
-This line was added to test the diff viewer pane.
-And this is a second change to see the diff grow.
-Third change — testing the less-based diff viewer with native scrolling.
-Fourth change — now using direct command injection instead of a loop.
-Fifth change — verifying the diff viewer updates after Edit tool changes.
-Sixth change — testing with multiple file edits in one turn.
-Seventh change — another round.
-
-## Implementation Notes
-
-### Why event-driven signaling instead of polling?
-
-The original implementation polled the RC file every 300ms to detect command
-completion, and used a 3-second `setInterval` for user activity. This was
-replaced with blocking mechanisms that use zero CPU while waiting:
-
-- **tmux:** `tmux wait-for` blocks until signaled by `tmux wait-for -S`.
-- **sway:** `cat <fifo>` blocks on a named pipe (FIFO) until the precmd hook
-  writes to it via `echo > fifo &`.
-
-Both the agent command wait loop and the user activity loop use this mechanism.
-Detection is instant rather than delayed by a polling interval.
-
-### Why `capture-pane -J`?
-
+**Why `capture-pane -J`?**
 Without `-J`, tmux wraps long lines at the pane width, producing multiple
-physical lines per logical line. The user's prompt (with RPROMPT timestamp
-padding) would appear as two lines in the capture, causing the parser to see
-duplicate commands. `-J` joins wrapped lines back into logical lines.
+physical lines per logical line. `-J` joins wrapped lines back into logical
+lines, preventing duplicate prompt detection.
 
-### Why detect prompt from the pane instead of reading PS1?
+**Why detect prompt from the pane instead of reading PS1?**
+`PS1`/`PROMPT` contain unexpanded escape sequences that are useless for matching
+rendered output. The extension captures the pane after `clear` and reads the
+actual rendered prompt.
 
-`PS1`/`PROMPT` contain unexpanded escape sequences (`%~`, `%F{blue}`, etc.)
-that are useless for matching rendered output. Instead, the extension captures
-the pane after `clear` and reads the actual rendered prompt. A 500ms delay
-after the `wait-for` signal ensures the prompt has finished drawing (since
-`precmd` fires before the prompt is rendered).
+**Why save the pane ID in tmux session environment?**
+Pane titles are overwritten by shell prompt themes. A tmux session environment
+variable is scoped to the session, survives agent restarts, and doesn't leave
+temp files.
 
-### Why save the pane ID in tmux session environment?
+**Why wrap multi-line commands in `{ ... }`?**
+When newlines are sent via `send-keys`, each triggers Enter and `precmd` fires
+after each line. Wrapping in `{ ... }` creates a compound command so `precmd`
+fires only once at the end.
 
-Originally the pane was tagged via `tmux select-pane -T "pi-mirror"` and found
-by title. But the user's shell prompt theme overwrites the pane title on every
-prompt redraw, so the tag was lost. A tmux session environment variable
-(`PI_MIRROR_PANE`) is scoped to the session, survives agent restarts, and
-doesn't leave temp files on the filesystem.
-
-### Why wrap multi-line commands in `{ ... }`?
-
-When multiple commands separated by newlines are sent via `send-keys`, each
-newline triggers Enter. The shell executes each command separately, and
-`precmd` fires after each one. The agent's `wait-for` catches the first signal
-and thinks the entire command is done, while remaining commands are still in the
-shell's input buffer. Wrapping in `{ ... }` creates a compound command — the
-shell enters continuation mode on `{`, executes all commands when `}` is
-reached, and `precmd` fires only once at the end.
-
-An earlier approach used backslash (`\`) continuation, but this corrupted
-multi-line string content (e.g., commit messages with newlines) because the `\`
-appeared literally inside quoted strings.
-
-### Why report only the last command in user activity?
-
-The diff between snapshots can contain multiple commands if the user typed
-several between checks. The exit code in the RC file only corresponds to the
-last command. Reporting all commands would show stale exit codes for earlier
-ones. Additionally, zsh autosuggestions or history recall can cause the same
-command text to appear on the new prompt line, creating false duplicates.
+**Why report only the last command in user activity?**
+The exit code in the RC file only corresponds to the last command. Reporting
+all commands in a diff would show stale exit codes for earlier ones.
