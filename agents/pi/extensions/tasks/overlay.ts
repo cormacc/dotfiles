@@ -41,6 +41,7 @@ export class TasksOverlay {
     private cwd: string,
     theme: Theme,
     done: (value: undefined) => void,
+    private onEdit?: (lineNumber: number) => void,
   ) {
     this.theme = theme;
     this.done = done;
@@ -118,6 +119,16 @@ export class TasksOverlay {
     if (matchesKey(data, "ctrl+u")) {
       this.descScrollOffset = Math.max(0, this.descScrollOffset - 5);
       this.invalidate();
+      return;
+    }
+
+    // Open in Emacs at selected task
+    if (matchesKey(data, "e")) {
+      const row = this.rows[this.selected];
+      if (row && this.onEdit) {
+        this.onEdit(row.task.lineNumber);
+        this.done(undefined);
+      }
       return;
     }
 
@@ -349,7 +360,7 @@ export class TasksOverlay {
     lines.push(th.fg("border", `├${hBar(leftW)}┴${hBar(rightW)}┤`));
     const helpText = th.fg(
       "dim",
-      " ↑↓/jk navigate • ←→/hl cycle status • Enter/Space toggle • Ctrl-d/u scroll desc • Esc/q close",
+      " ↑↓/jk navigate • ←→/hl status • Enter toggle • e edit in Emacs • Ctrl-d/u scroll • Esc/q close",
     );
     const helpInnerW = leftW + rightW + 1; // +1 for removed divider
     lines.push(

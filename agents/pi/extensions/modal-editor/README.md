@@ -53,7 +53,7 @@ Leader menus are defined in `keybindings.json` and support:
 
 - Multiple leader keys (each with its own menu tree)
 - Nested sub-menus (e.g. `Space g d` for git diff)
-- Two action types: `command:/slash-cmd` and `passthrough:ctrl+key`
+- Three action types: events (default), `command:` slash commands, and `passthrough:` key forwarding
 
 ### Default Leader Bindings
 
@@ -146,7 +146,8 @@ Edit `keybindings.json` in this directory to customise leader menus.
           "items": {
             "d": { "label": "Diff", "action": "command:/diff" }
           }
-        }
+        },
+        "t": { "label": "Toggle mirror", "action": "term:toggle" }
       }
     }
   }
@@ -155,10 +156,15 @@ Edit `keybindings.json` in this directory to customise leader menus.
 
 ### Action Types
 
-| Prefix         | Description               | Example              |
-| -------------- | ------------------------- | -------------------- |
-| `command:`     | Submit a slash command    | `command:/new`       |
-| `passthrough:` | Forward a key combo to pi | `passthrough:ctrl+l` |
+Any action string without a recognized prefix is emitted as an event on
+`pi.events`. This is the primary mechanism for cross-extension keybindings.
+
+| Prefix         | Description                  | Example              |
+| -------------- | ---------------------------- | -------------------- |
+| *(none)*       | Emit as event (default)      | `term:toggle`        |
+| `command:`     | Submit a slash command       | `command:/new`       |
+| `passthrough:` | Forward a key combo to pi    | `passthrough:ctrl+l` |
+| `event:`       | Emit as event (legacy alias) | `event:term:toggle`  |
 
 ## Files
 

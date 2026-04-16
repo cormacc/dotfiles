@@ -570,9 +570,9 @@ export default function (pi: ExtensionAPI) {
       const tabList = parts.join(" ");
 
       const toggleHint = visible
-        ? theme.fg("dim", "M-m hide")
-        : theme.fg("warning", "M-m show");
-      const tabHint = hasTabs ? theme.fg("dim", "M-h M-l") + "  " : "";
+        ? theme.fg("dim", "'t hide")
+        : theme.fg("warning", "'t show");
+      const tabHint = hasTabs ? theme.fg("dim", "'h 'l") + "  " : "";
       const sep = theme.fg("border", " │ ");
 
       const status =
@@ -629,6 +629,172 @@ export default function (pi: ExtensionAPI) {
       }
       updateTabWidget();
     }
+
+    // ── term event helpers ───────────────────────────────────
+
+    /** Switch to the previous tab and notify. */
+    async function termPrev(): Promise<void> {
+      await cycleTab(-1);
+      sessionUi.notify(`Switched to ${activeTabName ?? "pi-shell"}`, "info");
+    }
+
+    /** Switch to the next tab and notify. */
+    async function termNext(): Promise<void> {
+      await cycleTab(1);
+      sessionUi.notify(`Switched to ${activeTabName ?? "pi-shell"}`, "info");
+    }
+
+    /** Toggle the mirror pane and notify. */
+    async function termToggle(): Promise<void> {
+      await toggleMirror();
+      sessionUi.notify(
+        mirrorVisible ? "Mirror pane shown" : "Mirror pane hidden",
+        "info",
+      );
+    }
+
+    /** Show (if hidden) and focus the mirror pane so the user can type. */
+    async function termFocus(): Promise<void> {
+      if (!(await backend.ensurePane())) {
+        sessionUi.notify("Error: terminal pane not available", "error");
+        return;
+      }
+      if (!mirrorVisible) {
+        await backend.show(allTabTargetIds());
+        mirrorVisible = true;
+        updateTabWidget();
+      }
+      await backend.focusPane(activeTargetId());
+      sessionUi.notify("Focused mirror pane", "info");
+    }
+
+    /** Run a command in the primary pi-shell tab. */
+    async function termRun(cmd: string): Promise<void> {
+      if (!(await backend.ensurePane())) {
+        sessionUi.notify("Error: terminal pane not available", "error");
+        return;
+      }
+      if (!(await installHook())) {
+        sessionUi.notify("Error: failed to install shell hook", "error");
+        return;
+      }
+      // Switch to shell tab and show the mirror
+      if (activeTabName !== null) await switchToTab(null);
+      if (!mirrorVisible) {
+        await backend.show(allTabTargetIds());
+        mirrorVisible = true;
+        updateTabWidget();
+      }
+      const { exitCode } = await runCommand(cmd, ctx.cwd);
+      if (backend.isPaneReady()) {
+        lastSnapshot = (
+          await backend.capture(backend.mainTargetId, 200)
+        ).trim();
+      }
+      sessionUi.notify(
+        exitCode === 0
+          ? `Command completed (exit 0)`
+          : `Command failed (exit ${exitCode})`,
+        exitCode === 0 ? "info" : "error",
+      );
+    }
+
+    /** Spawn a command in a new process tab. */
+    async function termSpawn(command: string, title?: string): Promise<void> {
+      if (!(await backend.ensurePane())) {
+        sessionUi.notify("Error: terminal pane not available", "error");
+        return;
+      }
+
+      let name: string;
+      if (title) {
+        name = sanitizeName(title);
+      } else {
+        name = command.length > 16 ? command.slice(0, 16) + "\u2026" : command;
+        name = sanitizeName(name);
+      }
+
+      // Check for name collision
+      if (processes.has(name)) {
+        const existing = processes.get(name)!;
+        if (await backend.isTabAlive(existing.targetId)) {
+          sessionUi.notify(
+            `Process "${name}" is already running (${existing.command}). Stop it first or use a different name.`,
+            "error",
+          );
+          return;
+        }
+        processes.delete(name);
+      }
+
+      const targetId = await backend.createTab(name);
+      if (!targetId) {
+        sessionUi.notify(`Failed to create tab for "${name}"`, "error");
+        return;
+      }
+
+      await sleep(300);
+      const fullCmd = `cd ${sq(ctx.cwd)} && ${command}`;
+      await backend.sendText(targetId, fullCmd);
+      await backend.sendEnter(targetId);
+
+      await sleep(1000);
+      const snapshot = (await backend.capture(targetId, 200)).trim();
+
+      const proc: ManagedProcess = {
+        name,
+        command,
+        targetId,
+        mode: "watch",
+        lastSnapshot: snapshot,
+        startedAt: Date.now(),
+      };
+      processes.set(name, proc);
+      updateTabWidget();
+
+      if (!watchLoopRunning) startWatchLoop();
+
+      // Show mirror and switch to the new tab
+      if (!mirrorVisible) {
+        await backend.show(allTabTargetIds());
+        mirrorVisible = true;
+      }
+      await switchToTab(name);
+
+      sessionUi.notify(`Spawned "${name}": ${command}`, "info");
+    }
+
+    // ── event bus listeners (for cross-extension invocation) ─
+
+    const unsubTermPrev = pi.events.on("term:prev", () => {
+      termPrev();
+    });
+
+    const unsubTermNext = pi.events.on("term:next", () => {
+      termNext();
+    });
+
+    const unsubTermRun = pi.events.on(
+      "term:run",
+      (data: { command: string }) => {
+        termRun(data.command);
+      },
+    );
+
+    const unsubTermSpawn = pi.events.on(
+      "term:spawn",
+      (data: { command: string; title?: string }) => {
+        termSpawn(data.command, data.title);
+      },
+    );
+
+    const unsubTermToggle = pi.events.on("term:toggle", () => {
+      termToggle();
+    });
+
+    const unsubTermFocus = pi.events.on("term:focus", () => {
+      termFocus();
+    });
 
     // ── register tools ─────────────────────────────────────
 
@@ -1084,26 +1250,6 @@ export default function (pi: ExtensionAPI) {
       },
     });
 
-    // ── register shortcuts ─────────────────────────────────
-
-    pi.registerShortcut("alt+h", {
-      description: "Previous mirror tab",
-      handler: async () => {
-        await cycleTab(-1);
-      },
-    });
-    pi.registerShortcut("alt+l", {
-      description: "Next mirror tab",
-      handler: async () => {
-        await cycleTab(1);
-      },
-    });
-    pi.registerShortcut("alt+m", {
-      description: "Toggle mirror pane",
-      handler: async () => {
-        await toggleMirror();
-      },
-    });
 
     // ── helpers: command parsing ────────────────────────────
 
@@ -1140,28 +1286,27 @@ export default function (pi: ExtensionAPI) {
 
     pi.registerCommand("term", {
       description:
-        'Control the shared terminal: toggle, prev, next, <index>, kill <index|name>, run "<cmd>", spawn [title] "<cmd>"',
+        'Control the shared terminal: toggle, focus, prev, next, <index>, kill <index|name>, run "<cmd>", spawn [title] "<cmd>"',
       handler: async (args, ctx) => {
         const arg = (args || "").trim().toLowerCase();
 
         if (!arg || arg === "toggle") {
-          await toggleMirror();
-          ctx.ui.notify(
-            mirrorVisible ? "Mirror pane shown" : "Mirror pane hidden",
-            "info",
-          );
+          pi.events.emit("term:toggle");
+          return;
+        }
+
+        if (arg === "focus") {
+          pi.events.emit("term:focus");
           return;
         }
 
         if (arg === "prev") {
-          await cycleTab(-1);
-          ctx.ui.notify(`Switched to ${activeTabName ?? "pi-shell"}`, "info");
+          await termPrev();
           return;
         }
 
         if (arg === "next") {
-          await cycleTab(1);
-          ctx.ui.notify(`Switched to ${activeTabName ?? "pi-shell"}`, "info");
+          await termNext();
           return;
         }
 
@@ -1173,34 +1318,7 @@ export default function (pi: ExtensionAPI) {
             ctx.ui.notify('Usage: /term run "<command>"', "error");
             return;
           }
-          const cmd = runQuoted.value;
-          if (!(await backend.ensurePane())) {
-            ctx.ui.notify("Error: terminal pane not available", "error");
-            return;
-          }
-          if (!(await installHook())) {
-            ctx.ui.notify("Error: failed to install shell hook", "error");
-            return;
-          }
-          // Switch to shell tab and show the mirror
-          if (activeTabName !== null) await switchToTab(null);
-          if (!mirrorVisible) {
-            await backend.show(allTabTargetIds());
-            mirrorVisible = true;
-            updateTabWidget();
-          }
-          const { exitCode } = await runCommand(cmd, ctx.cwd);
-          if (backend.isPaneReady()) {
-            lastSnapshot = (
-              await backend.capture(backend.mainTargetId, 200)
-            ).trim();
-          }
-          ctx.ui.notify(
-            exitCode === 0
-              ? `Command completed (exit 0)`
-              : `Command failed (exit ${exitCode})`,
-            exitCode === 0 ? "info" : "error",
-          );
+          await termRun(runQuoted.value);
           return;
         }
 
@@ -1209,10 +1327,6 @@ export default function (pi: ExtensionAPI) {
           const rest = (args || "").trim().slice(6).trim();
           if (!rest) {
             ctx.ui.notify('Usage: /term spawn [title] "<command>"', "error");
-            return;
-          }
-          if (!(await backend.ensurePane())) {
-            ctx.ui.notify("Error: terminal pane not available", "error");
             return;
           }
 
@@ -1224,62 +1338,11 @@ export default function (pi: ExtensionAPI) {
           }
           const command = spawnQuoted.value;
           const beforeQuote = rest.slice(0, spawnQuoted.start).trim();
-          let title: string;
+          let title: string | undefined;
           if (beforeQuote && /^\S+$/.test(beforeQuote)) {
-            title = sanitizeName(beforeQuote);
-          } else {
-            title = command.length > 16 ? command.slice(0, 16) + "…" : command;
-            title = sanitizeName(title);
+            title = beforeQuote;
           }
-
-          // Check for name collision
-          if (processes.has(title)) {
-            const existing = processes.get(title)!;
-            if (await backend.isTabAlive(existing.targetId)) {
-              ctx.ui.notify(
-                `Process "${title}" is already running (${existing.command}). Stop it first or use a different name.`,
-                "error",
-              );
-              return;
-            }
-            processes.delete(title);
-          }
-
-          const targetId = await backend.createTab(title);
-          if (!targetId) {
-            ctx.ui.notify(`Failed to create tab for "${title}"`, "error");
-            return;
-          }
-
-          await sleep(300);
-          const fullCmd = `cd ${sq(ctx.cwd)} && ${command}`;
-          await backend.sendText(targetId, fullCmd);
-          await backend.sendEnter(targetId);
-
-          await sleep(1000);
-          const snapshot = (await backend.capture(targetId, 200)).trim();
-
-          const proc: ManagedProcess = {
-            name: title,
-            command,
-            targetId,
-            mode: "watch",
-            lastSnapshot: snapshot,
-            startedAt: Date.now(),
-          };
-          processes.set(title, proc);
-          updateTabWidget();
-
-          if (!watchLoopRunning) startWatchLoop();
-
-          // Show mirror and switch to the new tab
-          if (!mirrorVisible) {
-            await backend.show(allTabTargetIds());
-            mirrorVisible = true;
-          }
-          await switchToTab(title);
-
-          ctx.ui.notify(`Spawned "${title}": ${command}`, "info");
+          await termSpawn(command, title);
           return;
         }
 
@@ -1375,7 +1438,7 @@ export default function (pi: ExtensionAPI) {
         }
 
         ctx.ui.notify(
-          `Unknown argument: ${arg}. Usage: /term [toggle|prev|next|<index>|kill <index|name>|run "<cmd>"|spawn [title] "<cmd>"]`,
+          `Unknown argument: ${arg}. Usage: /term [toggle|focus|prev|next|<index>|kill <index|name>|run "<cmd>"|spawn [title] "<cmd>"]`,
           "error",
         );
       },
@@ -1396,6 +1459,13 @@ export default function (pi: ExtensionAPI) {
     });
 
     pi.on("session_shutdown", async () => {
+      // Clean up event bus listeners
+      unsubTermPrev();
+      unsubTermNext();
+      unsubTermRun();
+      unsubTermSpawn();
+      unsubTermToggle();
+      unsubTermFocus();
       // Clean up modal-editor keybinding listener
       if (cleanupKeybindings) {
         cleanupKeybindings();
@@ -1446,12 +1516,10 @@ export default function (pi: ExtensionAPI) {
           label: "Term",
           key: "'",
           items: {
-            t: {
-              label: "Show/hide",
-              action: "command:/term toggle",
-            },
-            h: { label: "Prev tab", action: "command:/term prev" },
-            l: { label: "Next tab", action: "command:/term next" },
+            t: {label: "Show/hide", action: "term:toggle"},
+            f: { label: "Focus", action: "term:focus" },
+            h: { label: "Prev tab", action: "term:prev" },
+            l: { label: "Next tab", action: "term:next" },
           },
         },
       },

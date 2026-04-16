@@ -24,6 +24,7 @@ The overlay is a split pane — task tree on the left, description of the select
 | `←` / `h`                 | Cycle status back       |
 | `Ctrl-d` / `Ctrl-u`       | Scroll description pane |
 | `Enter` / `Space` / `Tab` | Toggle collapse         |
+| `e`                       | Edit in Emacs at task   |
 | `Esc` / `q`               | Close                   |
 
 ## TASKS.org Format

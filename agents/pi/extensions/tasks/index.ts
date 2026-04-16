@@ -71,9 +71,14 @@ export default function (pi: ExtensionAPI) {
 
       const tasks = await loadTasks(ctx.cwd);
 
+      const onEdit = (lineNumber: number) => {
+        const filePath = join(ctx.cwd, TASKS_FILE);
+        pi.events.emit("emacs:open", { file: filePath, line: lineNumber });
+      };
+
       await ctx.ui.custom<undefined>(
         (_tui, theme, _kb, done) =>
-          new TasksOverlay(tasks, ctx.cwd, theme, done),
+          new TasksOverlay(tasks, ctx.cwd, theme, done, onEdit),
         {
           overlay: true,
           overlayOptions: {

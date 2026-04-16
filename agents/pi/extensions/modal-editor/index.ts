@@ -103,6 +103,50 @@ const PASSTHROUGH_KEYS: Record<string, string> = {
   "shift+tab": "\x1b[Z",
 };
 
+/**
+ * Keys that are consumed by `dispatchNormal` before the leader-key fallback.
+ * Any leader trigger key in this set will be silently swallowed by a vim
+ * command and never reach the leader check.
+ */
+const NORMAL_MODE_KEYS = new Set([
+  // motions (resolveMotion)
+  "h", "l", "j", "k", "w", "W", "e", "E", "b", "B", "0", "$", "^",
+  // mode switches
+  "i", "a", "I", "A", "o", "O", "v", "V",
+  // operators
+  "d", "c", "y", ">", "<",
+  // find character
+  "f", "F", "t", "T",
+  // repeat find
+  ";",
+  // single-key commands
+  "x", "X", "r", "s", "S", "p", "P", "u", ".", "J", "~", "D", "C", "Y",
+]);
+
+/**
+ * Warn about leader trigger keys that clash with normal-mode vim bindings.
+ * These keys will be swallowed by vim commands and never reach the leader
+ * fallback at the bottom of `dispatchNormal`.
+ */
+function warnClashingLeaderKeys(
+  menus: Map<string, LeaderNode>,
+  source: string,
+  notify?: (msg: string, level: "info" | "warning" | "error") => void,
+): void {
+  if (!notify) return;
+  for (const [triggerKey, node] of menus) {
+    if (NORMAL_MODE_KEYS.has(triggerKey)) {
+      const label = node.label ?? triggerKey;
+      const displayKey = triggerKey === " " ? "SPC" : triggerKey;
+      notify(
+        `modal-editor: leader key "${displayKey}" ("${label}" from ${source}) ` +
+          `clashes with a normal-mode vim binding and will not work`,
+        "warning",
+      );
+    }
+  }
+}
+
 function loadKeybindingsConfig(): KeybindingsConfig {
   const configPath = join(EXT_DIR, "keybindings.json");
   if (!existsSync(configPath)) return {};
@@ -118,18 +162,19 @@ function buildMenuNode(
   config: MenuItemConfig,
   key: string | undefined,
   editor: VimEditor,
+  events?: ExtensionAPI["events"],
 ): LeaderEntry {
   if (config.items) {
     const children: LeaderEntry[] = Object.entries(config.items).map(
-      ([k, item]) => buildMenuNode(item, k, editor),
+      ([k, item]) => buildMenuNode(item, k, editor, events),
     );
     return { key: key!, label: config.label, children } as LeaderEntry;
   }
-  const action = buildAction(config.action ?? "", editor);
+  const action = buildAction(config.action ?? "", editor, events);
   return { key: key!, label: config.label, action } as LeaderEntry;
 }
 
-function buildAction(actionStr: string, editor: VimEditor): () => void {
+function buildAction(actionStr: string, editor: VimEditor, events?: ExtensionAPI["events"]): () => void {
   if (actionStr.startsWith("command:")) {
     const cmd = actionStr.slice("command:".length);
     return () => editor.submitCommand(cmd);
@@ -141,18 +186,23 @@ function buildAction(actionStr: string, editor: VimEditor): () => void {
     // Unknown passthrough — no-op
     return () => {};
   }
-  return () => {};
+  // Default: emit as event. "event:" prefix is accepted for backward
+  // compatibility but not required — bare names are treated as events.
+  if (!actionStr) return () => {};
+  const eventName = actionStr.startsWith("event:") ? actionStr.slice("event:".length) : actionStr;
+  return () => events?.emit(eventName, {});
 }
 
 function buildMenuTree(
   config: KeybindingsConfig,
   editor: VimEditor,
+  events?: ExtensionAPI["events"],
 ): Map<string, LeaderNode> {
   const menus = new Map<string, LeaderNode>();
   if (!config.menus) return menus;
   for (const [_name, menuConfig] of Object.entries(config.menus)) {
     const children: LeaderEntry[] = Object.entries(menuConfig.items).map(
-      ([k, item]) => buildMenuNode(item, k, editor),
+      ([k, item]) => buildMenuNode(item, k, editor, events),
     );
     const node: LeaderNode = { label: menuConfig.label, children };
     menus.set(menuConfig.key, node);
@@ -201,6 +251,7 @@ class VimEditor extends CustomEditor {
   private mode: Mode = "insert";
   private _tui: TUI;
   private _theme: EditorTheme;
+  events?: ExtensionAPI["events"];
 
   // Operator-pending state
   private pendingOperator: string | null = null;
@@ -1954,9 +2005,12 @@ class VimEditor extends CustomEditor {
   }
 
   /** Load menus from keybindings.json */
-  loadKeybindings(): void {
+  loadKeybindings(
+    notify?: (msg: string, level: "info" | "warning" | "error") => void,
+  ): void {
     const config = loadKeybindingsConfig();
-    this.leaderMenus = buildMenuTree(config, this);
+    this.leaderMenus = buildMenuTree(config, this, this.events);
+    warnClashingLeaderKeys(this.leaderMenus, "keybindings.json", notify);
   }
 
   /** Resolve the current leader node from leaderPath */
@@ -2158,10 +2212,12 @@ export default function (pi: ExtensionAPI) {
     notify?: (msg: string, level: "info" | "warning" | "error") => void,
   ): void {
     if (!config?.menus) return;
-    const incoming = buildMenuTree(config, editor);
+    const incoming = buildMenuTree(config, editor, pi.events);
     const source = config.source ?? "unknown";
     const warn =
       notify ?? ((_m: string, _l: "info" | "warning" | "error") => {});
+
+    warnClashingLeaderKeys(incoming, source, warn);
 
     for (const [triggerKey, incomingNode] of incoming) {
       const existing = (editor as any).leaderMenus as Map<string, LeaderNode>;
@@ -2244,8 +2300,9 @@ export default function (pi: ExtensionAPI) {
     ctx.ui.setEditorComponent(
       (tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager) => {
         const editor = new VimEditor(tui, theme, keybindings);
+        editor.events = pi.events;
         editor.setContext(ctx);
-        editor.loadKeybindings();
+        editor.loadKeybindings(sessionNotify ?? undefined);
         activeEditor = editor;
 
         // Clear pending suggestions — the ready event below will cause
@@ -2290,8 +2347,8 @@ export default function (pi: ExtensionAPI) {
    *           "t": {
    *             label: "+terminal",
    *             items: {
-   *               "t": { label: "Toggle mirror", action: "command:/term toggle" },
-   *               "n": { label: "Next tab",      action: "command:/term next" },
+   *               "t": { label: "Toggle mirror", action: "term:toggle" },
+   *               "n": { label: "Next tab",      action: "term:next" },
    *             }
    *           }
    *         }

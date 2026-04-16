@@ -121,6 +121,9 @@ export interface MirrorBackend {
 
   /** Recover the shell pane to the mirror slot (e.g. after a process tab dies). */
   recoverShellToMirror(): Promise<void>;
+
+  /** Focus the mirror pane (or active tab) so the user can type in it. */
+  focusPane(targetId?: string | null): Promise<void>;
 }
 
 /** A long-running process managed in its own tab. */
