@@ -27,6 +27,7 @@ export class SwayBackend implements MirrorBackend {
   readonly label = "sway";
 
   private conId = 0;
+  private piConId = 0;
   private shellPid = 0;
   private paneReady = false;
   private exec: ExecFn;
@@ -106,6 +107,14 @@ export class SwayBackend implements MirrorBackend {
     return null;
   }
 
+  /** Find the currently focused leaf container's con_id (i.e. pi's window). */
+  private async getFocusedConId(): Promise<number> {
+    const tree = await this.getTree();
+    if (!tree) return 0;
+    const focused = this.findNode(tree, (n: any) => n.focused === true);
+    return focused?.id ?? 0;
+  }
+
   private async findMirrorWindow(): Promise<any | null> {
     const tree = await this.getTree();
     if (!tree) return null;
@@ -129,6 +138,7 @@ export class SwayBackend implements MirrorBackend {
   async resetState(): Promise<void> {
     this.paneReady = false;
     this.conId = 0;
+    this.piConId = 0;
     this.shellPid = 0;
     this.tabbedLayout = false;
     unlinkAll(
@@ -201,6 +211,11 @@ export class SwayBackend implements MirrorBackend {
       await sleep(500);
     }
 
+    // Capture pi's window ID (should be focused when ensurePane is called)
+    if (!this.piConId) {
+      this.piConId = await this.getFocusedConId();
+    }
+
     const existing = await this.findMirrorWindow();
     if (existing) {
       this.conId = existing.id;
@@ -245,7 +260,10 @@ export class SwayBackend implements MirrorBackend {
       String(DEFAULT_PANE_HEIGHT_PCT),
       "ppt",
     );
-    await this.swaymsg("focus", "up");
+    // Focus back to pi
+    if (this.piConId > 0) {
+      await this.swaymsg(`[con_id=${this.piConId}]`, "focus");
+    }
 
     if (!(await this.waitForShell())) {
       await this.swaymsg(`[con_id=${this.conId}]`, "kill");
@@ -421,6 +439,8 @@ export class SwayBackend implements MirrorBackend {
     writeFileSync(outputLog, "");
     await this.exec("mkfifo", [inputFifo], { timeout: 2000 });
 
+    // Focus the main terminal so the new tab appears alongside it
+    // in the terminal sub-container.
     await this.swaymsg(`[con_id=${this.conId}]`, "focus");
 
     if (!this.tabbedLayout) {
@@ -436,7 +456,9 @@ export class SwayBackend implements MirrorBackend {
     });
     if (r.code !== 0 && r.code !== null) {
       unlinkAll(inputFifo, outputLog);
-      await this.swaymsg("focus", "up");
+      if (this.piConId > 0) {
+        await this.swaymsg(`[con_id=${this.piConId}]`, "focus");
+      }
       return null;
     }
 
@@ -457,7 +479,9 @@ export class SwayBackend implements MirrorBackend {
 
     if (!tabConId) {
       unlinkAll(inputFifo, outputLog);
-      await this.swaymsg("focus", "up");
+      if (this.piConId > 0) {
+        await this.swaymsg(`[con_id=${this.piConId}]`, "focus");
+      }
       return null;
     }
 
@@ -466,7 +490,10 @@ export class SwayBackend implements MirrorBackend {
       this.tabbedLayout = true;
     }
 
-    await this.swaymsg("focus", "up");
+    // Focus back to pi
+    if (this.piConId > 0) {
+      await this.swaymsg(`[con_id=${this.piConId}]`, "focus");
+    }
 
     const targetId = String(tabConId);
     this.tabs.set(targetId, { conId: tabConId, appId, inputFifo, outputLog });
@@ -492,44 +519,27 @@ export class SwayBackend implements MirrorBackend {
   // ── visibility & focus ─────────────────────────────────
 
   async hide(): Promise<void> {
-    // Hide process tabs first, then the main pane
-    for (const [, tab] of this.tabs) {
-      if (tab.conId > 0) {
-        await this.swaymsg(`[con_id=${tab.conId}]`, "move", "scratchpad");
-      }
-    }
-    if (this.conId > 0) {
-      await this.swaymsg(`[con_id=${this.conId}]`, "move", "scratchpad");
+    // Switch parent container to stacking — only the focused child
+    // (pi) is visible; the terminal area is hidden beneath it.
+    if (this.piConId > 0) {
+      await this.swaymsg(`[con_id=${this.piConId}]`, "focus");
+      await this.swaymsg("layout", "stacking");
     }
   }
 
   async show(tabTargetIds: string[] = []): Promise<void> {
-    if (this.conId <= 0) return;
+    if (this.conId <= 0 || this.piConId <= 0) return;
 
-    await this.swaymsg("splitv");
+    // Switch parent container back to splitv so both pi and the
+    // terminal area are visible.
+    await this.swaymsg(`[con_id=${this.piConId}]`, "focus");
+    await this.swaymsg("layout", "splitv");
 
-    // Restore main mirror pane from scratchpad
-    await this.swaymsg(`[con_id=${this.conId}]`, "scratchpad", "show");
-    await this.swaymsg(`[con_id=${this.conId}]`, "floating", "disable");
-
-    const tabConIds = tabTargetIds
-      .map((id) => this.tabs.get(id)?.conId ?? 0)
-      .filter((id) => id > 0);
-
-    if (tabConIds.length > 0) {
-      await this.swaymsg(`[con_id=${this.conId}]`, "focus");
-      await this.swaymsg("splith");
-
-      for (const tabId of tabConIds) {
-        await this.swaymsg(`[con_id=${tabId}]`, "scratchpad", "show");
-        await this.swaymsg(`[con_id=${tabId}]`, "floating", "disable");
-      }
-
-      await this.swaymsg("layout", "tabbed");
-    }
-
+    // Resize the terminal area to the desired height.  Focusing a
+    // window inside a tabbed sub-container resizes the sub-container
+    // within the parent splitv layout.
+    await this.swaymsg(`[con_id=${this.conId}]`, "focus");
     await this.swaymsg(
-      `[con_id=${this.conId}]`,
       "resize",
       "set",
       "height",
@@ -537,34 +547,39 @@ export class SwayBackend implements MirrorBackend {
       "ppt",
     );
 
-    await this.swaymsg("focus", "up");
+    // Focus back to pi
+    await this.swaymsg(`[con_id=${this.piConId}]`, "focus");
   }
 
   async switchTab(
     _fromTargetId: string | null,
     toTargetId: string | null,
   ): Promise<void> {
-    // Sway manages tabbed layout natively — just focus the target container
+    // Sway manages tabbed layout natively — just focus the target
+    // within the tabbed terminal sub-container.
     if (toTargetId === null) {
-      // Focus main mirror pane
       if (this.conId > 0) {
         await this.swaymsg(`[con_id=${this.conId}]`, "focus");
-        await this.swaymsg("focus", "up");
       }
     } else {
       const tab = this.tabs.get(toTargetId);
       if (tab) {
         await this.swaymsg(`[con_id=${tab.conId}]`, "focus");
-        await this.swaymsg("focus", "up");
       }
+    }
+    // Focus back to pi
+    if (this.piConId > 0) {
+      await this.swaymsg(`[con_id=${this.piConId}]`, "focus");
     }
   }
 
   async recoverShellToMirror(): Promise<void> {
-    // Sway: just focus the main mirror pane
+    // Focus the main shell tab, then return focus to pi
     if (this.conId > 0) {
       await this.swaymsg(`[con_id=${this.conId}]`, "focus");
-      await this.swaymsg("focus", "up");
+    }
+    if (this.piConId > 0) {
+      await this.swaymsg(`[con_id=${this.piConId}]`, "focus");
     }
   }
 
