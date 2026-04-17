@@ -17,18 +17,15 @@ Every coding task follows this loop:
 Before modifying any file:
 
 1. **Read existing code** - Use `read` to examine target file and related files
-2. **Verify nREPL connection** - Test: `clj-nrepl-eval -p 7889 "(+ 1 1)"`
-3. **Initialize dev environment if available** - `clj-nrepl-eval -p 7889 "(fast-dev)"`
-4. **Explore unfamiliar functions** - `clj-nrepl-eval -p 7889 "(clojure.repl/doc function-name)"`
-5. **Test in REPL** - Define and validate functions before saving
-6. **Check edge cases** - nil, empty collections, invalid inputs
-7. **Save only after validation** - Use `edit` or `write`
-8. **Reload before verifying edits** - `clj-nrepl-eval -p 7889 "(require '[project.core] :reload)"`
-9. **Do not report success before verification** - changed functions and relevant tests must pass
+2. **Verify nREPL connection** - Test: `clj-nrepl-eval -p PORT "(+ 1 1)"` (read PORT from `.nrepl-port` or use `--discover-ports`)
+3. **Explore unfamiliar functions** - `clj-nrepl-eval -p PORT "(clojure.repl/doc function-name)"`
+4. **Test in REPL** - Define and validate functions before saving
+5. **Check edge cases** - nil, empty collections, invalid inputs
+6. **Save only after validation** - Use `edit` or `write`
+7. **Reload before verifying edits** - `clj-nrepl-eval -p PORT "(require '[project.core] :reload)"`
+8. **Do not report success before verification** - changed functions and relevant tests must pass
 
 If nREPL fails, ask: "Please start your nREPL server (e.g., `bb nrepl` or `lein repl :headless`)"
-
-If `fast-dev` is unavailable, continue without it.
 
 ### Agent Loop
 
@@ -68,7 +65,7 @@ Ask for clarification when requirements are ambiguous, multiple approaches have 
 ```clojure
 ;; -> for transformations
 (-> user
-    (assoc :last-login (Instant/now))
+    (assoc :last-login (now))
     (update :login-count inc))
 
 ;; ->> for sequences
@@ -92,7 +89,8 @@ Ask for clarification when requirements are ambiguous, multiple approaches have 
 | kebab-case | `calculate-total`, `max-retries` |
 | predicates end with `?` | `valid?`, `active?` |
 | conversions use `->` | `map->vector`, `string->int` |
-| NEVER use `!` suffix | Bad: `save-user!` Good: `save-user` |
+| `!` suffix for unsafe mutation | `swap!`, `reset!`, `save-user!` |
+| `!` prefix for mutable refs | `!conn`, `!store` |
 
 ### Control Flow
 
@@ -116,22 +114,25 @@ Ask for clarification when requirements are ambiguous, multiple approaches have 
   "Calculate total price including tax.
 
    Args:
-     price - base price as BigDecimal
+     price - base price (number)
      rate  - tax rate as decimal (0.08 = 8%)
 
    Returns:
-     BigDecimal total price
+     number - total price
 
    Example:
-     (calculate-total 100.00M 0.08) => 108.00M"
+     (calculate-total 100 0.08) => 108"
   [price rate]
   ...)
 ```
 
-### Namespace Template
+### Namespace Templates
+
+JVM Clojure (`.clj`):
 
 ```clojure
 (ns project.module
+  "Brief description."
   (:require
    [clojure.string :as str]
    [clojure.set :as set])
@@ -141,26 +142,35 @@ Ask for clarification when requirements are ambiguous, multiple approaches have 
 (set! *warn-on-reflection* true)
 ```
 
+ClojureScript (`.cljs`) or cross-platform (`.cljc`):
+
+```clojure
+(ns project.module
+  "Brief description."
+  (:require
+   [clojure.string :as str]))
+```
+
 ## Tools
 
 ### clj-nrepl-eval
 
 ```shell
 # Test expressions
-clj-nrepl-eval -p 7889 "(+ 1 2 3)"
+clj-nrepl-eval -p PORT "(+ 1 2 3)"
 
 # Define and test functions
-clj-nrepl-eval -p 7889 "(defn sum [nums] (reduce + nums))"
-clj-nrepl-eval -p 7889 "(sum [1 2 3])"
+clj-nrepl-eval -p PORT "(defn sum [nums] (reduce + nums))"
+clj-nrepl-eval -p PORT "(sum [1 2 3])"
 
 # Discover functions
-clj-nrepl-eval -p 7889 "(clojure.repl/dir clojure.string)"
-clj-nrepl-eval -p 7889 "(clojure.repl/doc map)"
-clj-nrepl-eval -p 7889 "(clojure.repl/apropos \"split\")"
-clj-nrepl-eval -p 7889 "(clojure.repl/source filter)"
+clj-nrepl-eval -p PORT "(clojure.repl/dir clojure.string)"
+clj-nrepl-eval -p PORT "(clojure.repl/doc map)"
+clj-nrepl-eval -p PORT "(clojure.repl/apropos \"split\")"
+clj-nrepl-eval -p PORT "(clojure.repl/source filter)"
 
 # Load project code
-clj-nrepl-eval -p 7889 "(require '[project.core :as core] :reload)"
+clj-nrepl-eval -p PORT "(require '[project.core :as core] :reload)"
 ```
 
 ### clj-paren-repair
@@ -182,7 +192,7 @@ Before saving any code:
 - [ ] Tested empty collection handling
 - [ ] Used threading macros over deep nesting
 - [ ] Added docstring if public function
-- [ ] Checked naming conventions (no `!` suffix)
+- [ ] Checked naming conventions
 - [ ] Code under 80 characters per line
 - [ ] Closing parens on single line
 
