@@ -169,6 +169,8 @@ in
 
   programs.tmux = {
     enable = true;
+    keyMode = "vi";
+    mouse = true;
     extraConfig = ''
       set -s extended-keys on
       set -s extended-keys-format csi-u
