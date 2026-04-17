@@ -10,7 +10,7 @@ For object/map transformations:
 
 ```clojure
 (-> user
-    (assoc :last-login (Instant/now))
+    (assoc :last-login (now))
     (update :login-count inc)
     (dissoc :temporary-token))
 ```
@@ -106,11 +106,11 @@ Use destructuring:
 | Functions/vars | kebab-case | `calculate-total`, `max-retries` |
 | Predicates | suffix `?` | `valid?`, `active?` |
 | Conversions | source->target | `map->vector`, `string->int` |
+| Unsafe mutation | suffix `!` | `swap!`, `reset!`, `save-user!` |
+| Mutable refs | prefix `!` | `!conn`, `!store` |
 | Dynamic vars | earmuffs | `*connection*` |
 | Private helpers | prefix `-` | `-parse-date` |
 | Unused bindings | underscore | `_request` |
-
-**NEVER use `!` suffix** - this is a Ruby/JavaScript convention, not Clojure.
 
 ## Code Layout
 
@@ -131,8 +131,11 @@ Use destructuring:
 
 ## Namespace Structure
 
+JVM Clojure (`.clj`):
+
 ```clojure
 (ns project.module
+  "Brief description."
   (:require
    [clojure.string :as str]
    [clojure.set :as set]
@@ -143,12 +146,24 @@ Use destructuring:
 (set! *warn-on-reflection* true)
 ```
 
+ClojureScript (`.cljs`) or cross-platform (`.cljc`):
+
+```clojure
+(ns project.module
+  "Brief description."
+  (:require
+   [clojure.string :as str]
+   [project.db :as db]))
+```
+
 Standard aliases:
 - `str` for clojure.string
 - `set` for clojure.set
-- `io` for clojure.java.io
+- `io` for clojure.java.io (JVM only)
 
 ## Error Handling
+
+JVM Clojure (`.clj`):
 
 ```clojure
 (try
@@ -161,7 +176,27 @@ Standard aliases:
     (throw e)))
 ```
 
-Use `ex-info` with structured data:
+ClojureScript (`.cljs`):
+
+```clojure
+(try
+  (some-fallible-op)
+  (catch ExceptionInfo e
+    (log/error "Structured error" (ex-data e)))
+  (catch :default e
+    (log/error "Unexpected error" {:error e})))
+```
+
+Cross-platform (`.cljc`):
+
+```clojure
+(try
+  (some-op)
+  (catch #?(:clj Exception :cljs :default) e
+    (handle-error e)))
+```
+
+Use `ex-info` with structured data (works on all platforms):
 
 ```clojure
 (throw (ex-info "Validation failed"
@@ -183,6 +218,48 @@ Use `ex-info` with structured data:
 ```
 
 Coverage: happy path, nil, empty, boundary values, invalid types.
+
+### Running Tests from the REPL
+
+Use proper test runners that execute fixtures:
+
+```shell
+clj-nrepl-eval -p PORT "(clojure.test/run-test-var #'myapp.test-ns/my-test)"
+clj-nrepl-eval -p PORT "(clojure.test/run-tests 'myapp.test-ns)"
+```
+
+Do NOT call test functions directly -- this bypasses fixtures.
+
+### Exception Testing
+
+JVM Clojure (`.clj`):
+
+```clojure
+(is (thrown? ArithmeticException (/ 1 0)))
+(is (thrown-with-msg? ExceptionInfo #"Invalid" (module/bad-input nil)))
+```
+
+ClojureScript (`.cljs`):
+
+```clojure
+(is (thrown? ExceptionInfo (module/bad-input nil)))
+(is (thrown-with-msg? ExceptionInfo #"Invalid" (module/bad-input nil)))
+(is (thrown? js/Error (module/parse-int "not-a-number")))
+```
+
+### Template-Based Testing
+
+```clojure
+(are [x y] (= x y)
+  2 (+ 1 1)
+  4 (* 2 2)
+  6 (+ 3 3))
+```
+
+### Behavior Notes
+
+- `is` does NOT stop test execution on failure -- all assertions run.
+- The message argument to `is` is ALWAYS evaluated, even on success; keep it cheap.
 
 ## Common Patterns
 
