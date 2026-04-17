@@ -9,14 +9,14 @@ environment (tmux or sway). Use `--no-mirror` to disable it.
 
 ## Backends
 
-| Backend  | Detection  | Status                     |
-| -------- | ---------- | -------------------------- |
-| **tmux** | `$TMUX`    | Preferred, actively developed |
-| sway     | `$SWAYSOCK`| Less actively developed    |
+| Backend  | Detection  | Status                        |
+| -------- | ---------- | ----------------------------- |
+| **sway** | `$SWAYSOCK`| Preferred, actively developed |
+| tmux     | `$TMUX`    | Functional, less actively maintained |
 
-**tmux** is the recommended backend. Run pi inside a tmux session and a split
-pane is auto-created. The sway backend launches a foot terminal window and is
-functional but receives less active development.
+**sway** is the recommended backend and receives the most active development.
+It launches a foot terminal window alongside pi. The tmux backend is functional
+but less actively maintained.
 
 ## Features
 
@@ -235,19 +235,30 @@ it can be reused across agent restarts without creating duplicate panes.
 **sway:**
 
 ```
-┌─────────────────────┐  ┌──────────────────────┐
-│  pi (agent window)  │  │  foot terminal (id:N) │
-│                     │  │                       │
-│  term ext            │──│  sway-relay.py + pty  │
-│  ├─ bash tool       │  │  ├─ zsh/bash + hook   │
-│  ├─ read_terminal   │  │  ├─ precmd writes RC  │
-│  └─ activity loop   │  │  └─ echo > FIFO &     │
-└─────────────────────┘  └──────────────────────┘
+┌───────────────────────────────────────────────────┐
+│  Parent container (splitv visible, stacking hidden)│
+│                                                   │
+│  ┌─────────────────────┐  ┌─────────────────────┐ │
+│  │  pi (agent window)  │  │  Terminal area       │ │
+│  │                     │  │  (tabbed sub-cont.)  │ │
+│  │  term ext           │  │  ┌─────┬──────────┐  │ │
+│  │  ├─ bash tool       │──│  │shell│ proc tabs│  │ │
+│  │  ├─ read_terminal   │  │  │     │          │  │ │
+│  │  └─ activity loop   │  │  │relay│ relay    │  │ │
+│  └─────────────────────┘  │  └─────┴──────────┘  │ │
+│                           └─────────────────────┘ │
+└───────────────────────────────────────────────────┘
          │                          │
          ├── input FIFO ────────────┘  (text injection via relay)
          ├── output log file            (capture via log)
          └── cat signal FIFO (blocks)   (zero CPU, like tmux wait-for)
 ```
+
+Visibility is controlled by toggling the parent container layout:
+- **splitv** → both pi and terminal area visible (vertical split)
+- **stacking** → only the focused child (pi) is visible
+
+Process tabs live inside the terminal area as a tabbed sub-container.
 
 ### State Storage
 
