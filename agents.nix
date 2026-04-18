@@ -20,6 +20,7 @@ in
     pkgs.prettier
     #Claude code + deps
     pkgs.llm-agents.claude-code
+    pkgs.meridian
   ];
 
   home.file."${agentsConfig}/skills".source = config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
