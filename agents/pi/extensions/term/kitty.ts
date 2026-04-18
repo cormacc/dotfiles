@@ -176,6 +176,7 @@ export class KittyBackend implements MirrorBackend {
     await this.kitten(
       "detach-window",
       "--match", `id:${winId}`,
+      "--target-tab", "new",
     ).catch(() => {});
   }
 
@@ -536,15 +537,15 @@ export class KittyBackend implements MirrorBackend {
   // ── visibility & focus ─────────────────────────────────
 
   async hide(): Promise<void> {
-    // Minimize whichever bottom window is currently in pi's tab
     const activeId = this.activeBottomWindowId || this.windowId;
-    if (activeId > 0) {
+    if (activeId <= 0) return;
+    // Park the bottom window into its own tab, leaving pi alone at full height.
+    // This is a clean hide — no sliver, no layout toggles, no notification sound.
+    if (await this.isWindowInPiTab(activeId)) {
+      await this.parkWindow(activeId);
+      // Refocus pi — kitty focuses the newly parked tab by default
       await this.kitten(
-        "resize-window",
-        "--match",
-        `id:${activeId}`,
-        "--axis=vertical",
-        "--increment=-10000",
+        "focus-window", "--match", `id:${this.piWindowId}`,
       ).catch(() => {});
     }
   }
@@ -607,23 +608,11 @@ export class KittyBackend implements MirrorBackend {
       return;
     }
 
-    // Detect whether the current bottom area is visible or minimized
-    const prevInfo = await this.findWindowInTree(prevActiveId);
-    const isMinimized = prevInfo?.window?.lines != null && prevInfo.window.lines <= 2;
-
-    // Swap: park the current bottom window, bring in the target
-    await this.parkWindow(prevActiveId);
+    // Visible swap: bring the new window in first, then park the old one.
+    // This ordering avoids a flash where pi momentarily takes full height.
     await this.bringWindowToPiTab(toWinId);
-
-    // Restore the same visibility state
-    if (!isMinimized) {
-      await this.resizeBottomTo25(toWinId);
-    } else {
-      await this.kitten(
-        "resize-window", "--match", `id:${toWinId}`,
-        "--axis=vertical", "--increment=-10000",
-      ).catch(() => {});
-    }
+    await this.parkWindow(prevActiveId);
+    await this.resizeBottomTo25(toWinId);
 
     // Ensure pi stays focused
     await this.kitten(
