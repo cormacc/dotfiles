@@ -363,6 +363,9 @@ export class TmuxBackend implements MirrorBackend {
     const src = fromTargetId ?? this.target;
     const dst = toTargetId ?? this.target;
     if (src === dst) return;
+    // Only swap if the source pane is in the current tmux window (visible).
+    // When the mirror is hidden (break-pane'd), skip the visual swap.
+    if (!(await this.isPaneInCurrentWindow(src))) return;
     await this.tmux("swap-pane", "-s", src, "-t", dst);
     await this.tmux("select-pane", "-U");
   }

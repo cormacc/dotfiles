@@ -9,14 +9,16 @@ environment (tmux or sway). Use `--no-mirror` to disable it.
 
 ## Backends
 
-| Backend  | Detection  | Status                        |
-| -------- | ---------- | ----------------------------- |
-| **sway** | `$SWAYSOCK`| Preferred, actively developed |
-| tmux     | `$TMUX`    | Functional, less actively maintained |
+| Backend   | Detection          | Status                            |
+| --------- | ------------------ | --------------------------------- |
+| **sway**  | `$SWAYSOCK`        | Preferred, actively developed     |
+| **kitty** | `$KITTY_WINDOW_ID` | Native remote control, no relay   |
+| tmux      | `$TMUX`            | Functional, less actively maintained |
 
 **sway** is the recommended backend and receives the most active development.
-It launches a foot terminal window alongside pi. The tmux backend is functional
-but less actively maintained.
+It launches a foot terminal window alongside pi. The **kitty** backend uses
+kitty's native remote control protocol (`kitten @`) — no PTY relay or external
+terminal needed. The tmux backend is functional but less actively maintained.
 
 ## Features
 
@@ -133,6 +135,7 @@ List all managed background processes and their status.
 | Environment Variable | Description                                     |
 | -------------------- | ----------------------------------------------- |
 | `TMUX_MIRROR_TARGET` | Explicit tmux pane target (default: auto-split) |
+| `KITTY_WINDOW_ID`    | Set automatically by kitty (used for detection) |
 
 ## Requirements
 
@@ -146,6 +149,16 @@ List all managed background processes and their status.
 - Must run pi under sway (detected via `$SWAYSOCK`).
 - `foot` terminal must be available.
 - Python 3 must be available (for the PTY relay script).
+- The shell must be zsh or bash.
+
+**kitty backend:**
+
+- Must run pi inside a kitty window.
+- `allow_remote_control` must be enabled in `kitty.conf` (or use
+  `remote_control_password`).
+- The `kitten` CLI must be available (bundled with kitty).
+- The `splits` layout is recommended for proper vertical splitting
+  (falls back to default layout placement otherwise).
 - The shell must be zsh or bash.
 
 ## Dependencies
@@ -254,11 +267,40 @@ it can be reused across agent restarts without creating duplicate panes.
          └── cat signal FIFO (blocks)   (zero CPU, like tmux wait-for)
 ```
 
-Visibility is controlled by toggling the parent container layout:
-- **splitv** → both pi and terminal area visible (vertical split)
-- **stacking** → only the focused child (pi) is visible
+**kitty:**
 
-Process tabs live inside the terminal area as a tabbed sub-container.
+```
+┌───────────────────────────────────────────────────┐
+│  kitty OS window — single tab (splits layout)     │
+│                                                   │
+│  ┌───────────────────────────────────────────────┐│
+│  │  pi (KITTY_WINDOW_ID window)                  ││
+│  │  term ext                                     ││
+│  │  ├─ bash tool                                 ││
+│  │  ├─ read_terminal                             ││
+│  │  └─ activity loop                             ││
+│  ├───────────────────────────────────────────────┤│
+│  │  mirror window   ← kitten @ send-text         ││
+│  │  zsh/bash + hook ← kitten @ get-text          ││
+│  │                                               ││
+│  │  (process windows live here too, as hsplits;  ││
+│  │   only the active one is expanded, others     ││
+│  │   are minimized via resize --increment)       ││
+│  └───────────────────────────────────────────────┘│
+└───────────────────────────────────────────────────┘
+         │                          │
+         ├── kitten @ send-text ────┘  (text injection, native)
+         ├── kitten @ get-text          (capture, native)
+         └── cat signal FIFO (blocks)   (zero CPU, like sway)
+```
+
+Visibility is controlled by resizing windows within the splits layout:
+- **show** → expand the active bottom-area window (`resize-window --increment=10000`)
+- **hide** → minimize all bottom-area windows (`resize-window --increment=-10000`)
+
+Process windows are created as hsplits from the mirror window (same kitty tab
+as pi). Only one is visible at a time; switching tabs minimizes the old window
+and expands the new one.
 
 ### State Storage
 
@@ -279,6 +321,18 @@ Process tabs live inside the terminal area as a tabbed sub-container.
 | `/tmp/pi-mirror-signal-<uuid>`               | Named pipe (FIFO) for activity signals     |
 | `/tmp/pi-mirror-agent-signal-<uuid>`         | Named pipe (FIFO) for agent signals        |
 | `/tmp/pi-mirror-ready-<uuid>`                | Named pipe (FIFO) for ready signals        |
+
+**kitty** — state in temp files (UUID-scoped per session):
+
+| File                                         | Purpose                                    |
+| -------------------------------------------- | ------------------------------------------ |
+| `/tmp/pi-mirror-rc-<uuid>`                   | `<seq> <exit_code>` written by precmd hook |
+| `/tmp/pi-mirror-signal-<uuid>`               | Named pipe (FIFO) for activity signals     |
+| `/tmp/pi-mirror-agent-signal-<uuid>`         | Named pipe (FIFO) for agent signals        |
+| `/tmp/pi-mirror-ready-<uuid>`                | Named pipe (FIFO) for ready signals        |
+
+Note: kitty uses `kitten @ send-text` and `kitten @ get-text` natively,
+so no input FIFO or output log file is needed (unlike sway's PTY relay).
 
 ### Design Decisions
 

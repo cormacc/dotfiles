@@ -1,10 +1,11 @@
 /**
- * Term Extension (tmux + sway)
+ * Term Extension (tmux + sway + kitty)
  *
  * Overrides the built-in bash tool to run commands in a shared terminal split.
- * Supports two backends:
+ * Supports three backends:
  *   - tmux: splits via tmux, signals via `tmux wait-for`
  *   - sway: splits via swaymsg + foot, PTY relay for I/O, signals via named pipe (FIFO)
+ *   - kitty: splits via `kitten @` remote control, signals via named pipe (FIFO)
  *
  * The actual command text is sent directly — no wrappers, no markers.
  *
@@ -17,12 +18,13 @@
  * new activity when the agent is idle and injects it into the conversation.
  *
  * Usage:
- *   pi              (auto-activates in tmux/sway)
+ *   pi              (auto-activates in tmux/sway/kitty)
  *   pi --no-mirror   (disable shared terminal)
  *
  * Setup:
  *   - tmux: run pi inside tmux. A split pane is auto-created.
  *   - sway: run pi under sway. A foot terminal is launched in a split.
+ *   - kitty: run pi inside kitty with allow_remote_control. A split window is auto-created.
  *
  * Environment variables:
  *   TMUX_MIRROR_TARGET  - tmux target pane (default: auto-created split)
@@ -40,6 +42,7 @@ import type { MirrorBackend, ManagedProcess } from "./types.js";
 import { sq, sleep, sanitizeName, diffSnapshots } from "./types.js";
 import { TmuxBackend } from "./tmux.js";
 import { SwayBackend } from "./sway.js";
+import { KittyBackend } from "./kitty.js";
 import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.js";
 
 const EXT_NAME = getExtensionName(import.meta.url);
@@ -93,8 +96,10 @@ export default function (pi: ExtensionAPI) {
       backend = new TmuxBackend(exec, onBackendReset);
     } else if (process.env.SWAYSOCK) {
       backend = new SwayBackend(exec, onBackendReset);
+    } else if (process.env.KITTY_WINDOW_ID) {
+      backend = new KittyBackend(exec, onBackendReset);
     } else {
-      ctx.ui.notify("--mirror requires tmux or sway", "error");
+      ctx.ui.notify("--mirror requires tmux, sway, or kitty", "error");
       return;
     }
 
@@ -599,10 +604,10 @@ export default function (pi: ExtensionAPI) {
       const toId =
         tabName === null ? null : (processes.get(tabName)?.targetId ?? null);
 
-      // Only switch the underlying tab; don't auto-show the mirror
-      if (mirrorVisible) {
-        await backend.switchTab(fromId, toId);
-      }
+      // Always call switchTab so the backend tracks the active window.
+      // The backend handles visibility internally (only does the visual
+      // swap when the bottom area is populated in pi's tab/window).
+      await backend.switchTab(fromId, toId);
       activeTabName = tabName;
       updateTabWidget();
     }
@@ -1493,9 +1498,19 @@ export default function (pi: ExtensionAPI) {
 
     const ok = await backend.ensurePane();
     if (ok) {
-      await installHook();
-      lastSnapshot = (await backend.capture(backend.mainTargetId, 200)).trim();
-      startActivityLoop();
+      // Install the shell hook in the background — don't block session
+      // startup on FIFO signaling which can take minutes if it fails.
+      // The hook will be installed lazily on first tool use if this
+      // background attempt doesn't complete in time.
+      installHook().then(async () => {
+        if (backend.isPaneReady()) {
+          lastSnapshot = (await backend.capture(backend.mainTargetId, 200)).trim();
+        }
+        startActivityLoop();
+      }).catch(() => {
+        // Hook failed — activity loop still starts so user commands are detected
+        startActivityLoop();
+      });
 
       // Start with the mirror pane hidden
       await backend.hide();
