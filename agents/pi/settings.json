@@ -1,5 +1,6 @@
 {
   "lastChangelogVersion": "0.67.6",
   "hideThinkingBlock": true,
-  "defaultThinkingLevel": "high"
+  "defaultThinkingLevel": "high",
+  "defaultProvider": "claude-code"
 }
