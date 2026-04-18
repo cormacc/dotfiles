@@ -289,7 +289,7 @@ export class KittyBackend implements MirrorBackend {
       "--type=window",
       "--keep-focus",
       "--location=hsplit",
-      "--title=pi-mirror",
+      "--title=π - shell",
       `--env=PI_MIRROR_SESSION=${this.sessionId}`,
     );
 
@@ -304,7 +304,7 @@ export class KittyBackend implements MirrorBackend {
         "launch",
         "--type=window",
         "--keep-focus",
-        "--title=pi-mirror",
+        "--title=π - shell",
         `--env=PI_MIRROR_SESSION=${this.sessionId}`,
       );
       // Note: fallback won't produce hsplit; placement depends on active layout
