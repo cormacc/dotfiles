@@ -22,6 +22,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     llm-agents.url = "github:numtide/llm-agents.nix";
+    # Proxy for claude subscriptions
+    meridian.url = "github:rynfar/meridian";
+
     claude-desktop = {
       url = "github:aaddrick/claude-desktop-debian";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -53,7 +56,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude-desktop, rust-overlay, nur, llm-agents, ... } @inputs:
+  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude-desktop, rust-overlay, nur, llm-agents, meridian, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -75,6 +78,7 @@
           rust-overlay.overlays.default
           nur.overlays.default
           llm-agents.overlays.default
+          meridian.overlays.default
           claude-desktop.overlays.default
         ];
       };

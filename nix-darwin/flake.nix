@@ -15,9 +15,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     llm-agents.url = "github:numtide/llm-agents.nix";
+    # Proxy for claude subscriptions
+    meridian.url = "github:rynfar/meridian";
   };
 
-  outputs = inputs@{ self, nix-darwin, home-manager, nixpkgs, claude-desktop, llm-agents }:
+  outputs = inputs@{ self, nix-darwin, home-manager, nixpkgs, claude-desktop, llm-agents, meridian }:
   let
     configuration = { pkgs, ... }: {
       # List packages installed in system profile. To search by name, run:
@@ -106,6 +108,7 @@
 
           nixpkgs.overlays = [
             llm-agents.overlays.default
+            meridian.overlays.default
             claude-desktop.overlays.default
           ];
         }
