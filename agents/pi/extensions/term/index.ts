@@ -380,7 +380,7 @@ export default function (pi: ExtensionAPI) {
             if (!message) continue;
 
             if (activeTabName !== null) {
-              tabsWithActivity.add("pi-shell");
+              tabsWithActivity.add("π - shell");
               updateTabWidget();
             }
             pi.sendMessage(
@@ -404,7 +404,7 @@ export default function (pi: ExtensionAPI) {
                 const postMsg = await formatActivity(postDiff, postRc);
                 if (postMsg) {
                   if (activeTabName !== null) {
-                    tabsWithActivity.add("pi-shell");
+                    tabsWithActivity.add("π - shell");
                     updateTabWidget();
                   }
                   pi.sendMessage(
@@ -559,14 +559,14 @@ export default function (pi: ExtensionAPI) {
     // ── tab switching ──────────────────────────────────────
 
     function updateTabWidget() {
-      const tabNames = ["pi-shell", ...processes.keys()];
+      const tabNames = ["π - shell", ...processes.keys()];
       const hasTabs = processes.size > 0;
       const visible = mirrorVisible;
       const theme = sessionUi.theme;
 
       const parts = tabNames.map((name) => {
         const isActive =
-          (name === "pi-shell" && !activeTabName) || name === activeTabName;
+          (name === "π - shell" && !activeTabName) || name === activeTabName;
         if (isActive) return theme.fg("accent", theme.bold(name));
         if (tabsWithActivity.has(name))
           return theme.fg("warning", theme.bold(name));
@@ -598,7 +598,7 @@ export default function (pi: ExtensionAPI) {
 
     async function switchToTab(tabName: string | null): Promise<void> {
       if (tabName === activeTabName) return;
-      tabsWithActivity.delete(tabName ?? "pi-shell");
+      tabsWithActivity.delete(tabName ?? "π - shell");
 
       const fromId = activeTargetId();
       const toId =
@@ -613,14 +613,14 @@ export default function (pi: ExtensionAPI) {
     }
 
     async function cycleTab(direction: 1 | -1): Promise<void> {
-      const tabNames = ["pi-shell", ...processes.keys()];
+      const tabNames = ["π - shell", ...processes.keys()];
       if (tabNames.length <= 1) return;
-      const currentName = activeTabName ?? "pi-shell";
+      const currentName = activeTabName ?? "π - shell";
       const currentIdx = tabNames.indexOf(currentName);
       const nextIdx =
         (currentIdx + direction + tabNames.length) % tabNames.length;
       const nextName = tabNames[nextIdx];
-      await switchToTab(nextName === "pi-shell" ? null : nextName);
+      await switchToTab(nextName === "π - shell" ? null : nextName);
     }
 
     /** Toggle the mirror pane visibility (hide/show the split). */
@@ -640,13 +640,13 @@ export default function (pi: ExtensionAPI) {
     /** Switch to the previous tab and notify. */
     async function termPrev(): Promise<void> {
       await cycleTab(-1);
-      sessionUi.notify(`Switched to ${activeTabName ?? "pi-shell"}`, "info");
+      sessionUi.notify(`Switched to ${activeTabName ?? "π - shell"}`, "info");
     }
 
     /** Switch to the next tab and notify. */
     async function termNext(): Promise<void> {
       await cycleTab(1);
-      sessionUi.notify(`Switched to ${activeTabName ?? "pi-shell"}`, "info");
+      sessionUi.notify(`Switched to ${activeTabName ?? "π - shell"}`, "info");
     }
 
     /** Toggle the mirror pane and notify. */
@@ -1359,7 +1359,7 @@ export default function (pi: ExtensionAPI) {
             return;
           }
 
-          const tabNames = ["pi-shell", ...processes.keys()];
+          const tabNames = ["π - shell", ...processes.keys()];
           let targetName: string | null = null;
 
           const killIdx = parseInt(killArg, 10);
@@ -1387,7 +1387,7 @@ export default function (pi: ExtensionAPI) {
             }
           }
 
-          if (targetName === "pi-shell") {
+          if (targetName === "π - shell") {
             ctx.ui.notify(
               "Request to close primary shell session ignored",
               "warning",
@@ -1428,7 +1428,7 @@ export default function (pi: ExtensionAPI) {
         // Numeric index (1-based)
         const idx = parseInt(arg, 10);
         if (!isNaN(idx)) {
-          const tabNames = ["pi-shell", ...processes.keys()];
+          const tabNames = ["π - shell", ...processes.keys()];
           if (idx < 1 || idx > tabNames.length) {
             ctx.ui.notify(
               `Invalid index ${idx}. Range: 1–${tabNames.length} (${tabNames.join(", ")})`,
@@ -1437,7 +1437,7 @@ export default function (pi: ExtensionAPI) {
             return;
           }
           const target = tabNames[idx - 1];
-          await switchToTab(target === "pi-shell" ? null : target);
+          await switchToTab(target === "π - shell" ? null : target);
           ctx.ui.notify(`Switched to ${target}`, "info");
           return;
         }

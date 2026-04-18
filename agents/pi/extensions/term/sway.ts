@@ -233,7 +233,7 @@ export class SwayBackend implements MirrorBackend {
     await this.swaymsg("splitv");
 
     const cmd =
-      `foot --app-id ${APP_ID}` +
+      `foot --app-id ${APP_ID} --title ${sq("π - shell")}` +
       ` python3 ${sq(this.relayScript)} ${sq(this.inputFifo)} ${sq(this.outputLog)}`;
 
     const r = await this.exec("bash", ["-c", `swaymsg exec ${sq(cmd)}`], {
