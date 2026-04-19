@@ -11,14 +11,17 @@ environment (tmux or sway). Use `--no-mirror` to disable it.
 
 | Backend   | Detection          | Status                            |
 | --------- | ------------------ | --------------------------------- |
-| **sway**  | `$SWAYSOCK`        | Preferred, actively developed     |
-| **kitty** | `$KITTY_WINDOW_ID` | Native remote control, no relay   |
+| **kitty** | `$KITTY_WINDOW_ID` | Preferred, native remote control, no relay |
+| **sway**  | `$SWAYSOCK`        | Actively developed                |
 | tmux      | `$TMUX`            | Functional, less actively maintained |
 
-**sway** is the recommended backend and receives the most active development.
-It launches a foot terminal window alongside pi. The **kitty** backend uses
-kitty's native remote control protocol (`kitten @`) — no PTY relay or external
-terminal needed. The tmux backend is functional but less actively maintained.
+**kitty** is the recommended backend. It uses kitty's native remote control
+protocol (`kitten @`) — no PTY relay or external terminal needed. The **sway**
+backend launches a foot terminal window alongside pi and is actively maintained.
+The tmux backend is functional but less actively maintained.
+
+Detection order is kitty → sway → tmux. If running kitty under sway, the kitty
+backend takes precedence.
 
 ## Features
 
