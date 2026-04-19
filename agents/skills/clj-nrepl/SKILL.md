@@ -5,6 +5,26 @@ description: REPL-driven Clojure development for writing, editing, and debugging
 
 # Clojure REPL-Driven Development
 
+## Tool Availability
+
+Two tool sets provide nREPL evaluation. **Prefer pi-clojure** (native pi tools,
+direct TCP, no process-spawn overhead) when the extension is loaded. Fall back
+to the **CLI tools** otherwise.
+
+| Capability | pi-clojure (preferred) | CLI fallback |
+|---|---|---|
+| Find port | `clojure_find_nrepl_port` | read `.nrepl-port` or `clj-nrepl-eval --discover-ports` |
+| Eval | `clojure_eval` | `clj-nrepl-eval -p PORT` |
+| Paren repair (file) | read + `clojure_paren_repair` + write | `clj-paren-repair file.clj` ← prefer |
+| Paren repair (string) | `clojure_paren_repair` | `echo '...' \| clj-paren-repair` |
+
+**Detecting availability:**
+- pi-clojure: `clojure_eval` appears in your tool list when the extension is loaded
+- CLI tools: `which clj-nrepl-eval` / `which clj-paren-repair`
+
+> `clj-paren-repair` is preferred for file repair even when pi-clojure is loaded
+> — it uses a real Clojure reader (edamame), parinfer-rust, and cljfmt.
+
 ## Core Workflow
 
 **Never write code without REPL validation.**
@@ -17,12 +37,12 @@ Every coding task follows this loop:
 Before modifying any file:
 
 1. **Read existing code** - Use `read` to examine target file and related files
-2. **Verify nREPL connection** - Test: `clj-nrepl-eval -p PORT "(+ 1 1)"` (read PORT from `.nrepl-port` or use `--discover-ports`)
-3. **Explore unfamiliar functions** - `clj-nrepl-eval -p PORT "(clojure.repl/doc function-name)"`
+2. **Find port and verify connection** — pi-clojure: `clojure_find_nrepl_port` then `clojure_eval { port: PORT, code: "(+ 1 1)" }`; CLI fallback: `clj-nrepl-eval --discover-ports "(+ 1 1)"`
+3. **Explore unfamiliar functions** — eval `(clojure.repl/doc function-name)` via `clojure_eval` or `clj-nrepl-eval`
 4. **Test in REPL** - Define and validate functions before saving
 5. **Check edge cases** - nil, empty collections, invalid inputs
 6. **Save only after validation** - Use `edit` or `write`
-7. **Reload before verifying edits** - `clj-nrepl-eval -p PORT "(require '[project.core] :reload)"`
+7. **Reload before verifying edits** — eval `(require '[project.core] :reload)` via `clojure_eval` or `clj-nrepl-eval`
 8. **Do not report success before verification** - changed functions and relevant tests must pass
 
 If nREPL fails, ask: "Please start your nREPL server (e.g., `bb nrepl` or `lein repl :headless`)"
@@ -47,7 +67,7 @@ If REPL evaluation, test execution, or namespace loading fails:
 4. Reload affected namespaces
 5. Rerun verification
 
-If delimiter errors occur, use `clj-paren-repair` instead of manual repair.
+If delimiter errors occur, use `clj-paren-repair` (files) or `clojure_paren_repair` (strings) instead of manual repair.
 
 ### Task Communication
 
@@ -153,35 +173,66 @@ ClojureScript (`.cljs`) or cross-platform (`.cljc`):
 
 ## Tools
 
-### clj-nrepl-eval
+### Eval — pi-clojure (preferred)
 
-```shell
-# Test expressions
-clj-nrepl-eval -p PORT "(+ 1 2 3)"
+Available when the `pi-clojure` extension is loaded. Direct TCP to nREPL, no
+process-spawn overhead.
 
-# Define and test functions
-clj-nrepl-eval -p PORT "(defn sum [nums] (reduce + nums))"
-clj-nrepl-eval -p PORT "(sum [1 2 3])"
+```
+# Discover port (checks .nrepl-port, .shadow-cljs/nrepl.port, .cider-nrepl.port, then defaults)
+clojure_find_nrepl_port {}
+
+# Evaluate expressions
+clojure_eval { port: PORT, code: "(+ 1 2 3)" }
+clojure_eval { port: PORT, code: "(defn sum [nums] (reduce + nums))" }
+clojure_eval { port: PORT, code: "(sum [1 2 3])" }
 
 # Discover functions
-clj-nrepl-eval -p PORT "(clojure.repl/dir clojure.string)"
-clj-nrepl-eval -p PORT "(clojure.repl/doc map)"
-clj-nrepl-eval -p PORT "(clojure.repl/apropos \"split\")"
-clj-nrepl-eval -p PORT "(clojure.repl/source filter)"
+clojure_eval { port: PORT, code: "(clojure.repl/dir clojure.string)" }
+clojure_eval { port: PORT, code: "(clojure.repl/doc map)" }
+clojure_eval { port: PORT, code: "(clojure.repl/apropos \"split\")" }
+clojure_eval { port: PORT, code: "(clojure.repl/source filter)" }
 
 # Load project code
+clojure_eval { port: PORT, code: "(require '[project.core :as core] :reload)" }
+
+# Evaluate in a specific namespace
+clojure_eval { port: PORT, ns: "project.core", code: "(my-fn 42)" }
+```
+
+### Eval — clj-nrepl-eval (fallback)
+
+Use when `clojure_eval` is not in your tool list.
+
+```shell
+clj-nrepl-eval --discover-ports "(+ 1 2 3)"
+clj-nrepl-eval -p PORT "(defn sum [nums] (reduce + nums))"
+clj-nrepl-eval -p PORT "(clojure.repl/dir clojure.string)"
+clj-nrepl-eval -p PORT "(clojure.repl/doc map)"
 clj-nrepl-eval -p PORT "(require '[project.core :as core] :reload)"
 ```
 
-### clj-paren-repair
+### Paren repair — clj-paren-repair (preferred for files)
+
+Uses edamame + parinfer-rust + cljfmt: repairs and formats in place.
+Preferred even when pi-clojure is loaded.
 
 ```shell
-# Fix delimiter errors
 clj-paren-repair src/core.clj
 clj-paren-repair src/*.clj test/*.clj
 ```
 
-**Never** manually fix parenthesis errors—use this tool.
+### Paren repair — clojure_paren_repair (string repair)
+
+Available when pi-clojure is loaded. Use for string-based repair or when
+`clj-paren-repair` is unavailable.
+
+```
+clojure_paren_repair { code: "(defn foo [x]" }
+clojure_paren_repair { code: "(defn foo [x])", check: true }
+```
+
+**Never** manually fix parenthesis errors — use one of the tools above.
 
 ## Validation Checklist
 
@@ -208,7 +259,7 @@ Before modifying code:
 
 ## Detailed References
 
-- **Tool usage**: See [references/tool-guide.md](references/tool-guide.md) for complete clj-nrepl-eval and clj-paren-repair documentation
+- **Tool usage**: See [references/tool-guide.md](references/tool-guide.md) for complete documentation of all eval and paren-repair tools
 - **Idiomatic patterns**: See [references/idioms.md](references/idioms.md) for threading macros, control flow, data structures, error handling, and anti-patterns
 
 Load these references when you need:
