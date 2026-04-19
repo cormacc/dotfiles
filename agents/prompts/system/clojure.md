@@ -45,7 +45,7 @@ NEVER attempt to start or manage the nREPL process yourself -- that is the
 user's responsibility.
 
 The `clj-nrepl` skill provides the full REPL-driven workflow, tool documentation
-(clj-nrepl-eval, clj-paren-repair), coding idioms, and validation checklist.
+(clojure_eval / clj-nrepl-eval, clj-paren-repair / clojure_paren_repair), coding idioms, and validation checklist.
 </core-mandate>
 
 <tool-usage priority="medium">
@@ -53,7 +53,7 @@ The `clj-nrepl` skill provides the full REPL-driven workflow, tool documentation
 - read: Examine existing code before modifying (ALWAYS use first)
 - edit: Precise text replacement (must match exactly)
 - write: Create new files (overwrites existing)
-- bash: Execute commands including clj-nrepl-eval
+- bash: Execute commands; use for clj-nrepl-eval when clojure_eval is unavailable
 
 CRITICAL FILE OPERATION RULES:
 - ALWAYS prefer editing existing files in the codebase

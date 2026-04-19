@@ -223,7 +223,12 @@ Coverage: happy path, nil, empty, boundary values, invalid types.
 
 Use proper test runners that execute fixtures:
 
-```shell
+```
+# pi-clojure (preferred)
+clojure_eval { port: PORT, code: "(clojure.test/run-test-var #'myapp.test-ns/my-test)" }
+clojure_eval { port: PORT, code: "(clojure.test/run-tests 'myapp.test-ns)" }
+
+# CLI fallback
 clj-nrepl-eval -p PORT "(clojure.test/run-test-var #'myapp.test-ns/my-test)"
 clj-nrepl-eval -p PORT "(clojure.test/run-tests 'myapp.test-ns)"
 ```
