@@ -1,5 +1,5 @@
 {
-  description = "NixOS configuration";
+  description = "NixOS / nix-darwin configuration";
   # See here for a well commented nixos + home-manager modular config: # https://github.com/TLATER/dotfiles
 
   inputs = {
@@ -19,6 +19,10 @@
     microchip = {
       url = "github:cormacc/nix-microchip";
       # url = "/home/cormacc/dev/nix-microchip";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    nix-darwin = {
+      url = "github:nix-darwin/nix-darwin/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     llm-agents.url = "github:numtide/llm-agents.nix";
@@ -56,7 +60,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, home-manager, nixgl, microchip, claude-desktop, rust-overlay, nur, llm-agents, meridian, ... } @inputs:
+  outputs = { self, nixpkgs, home-manager, nix-darwin, nixgl, microchip, claude-desktop, rust-overlay, nur, llm-agents, meridian, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -92,9 +96,9 @@
             nur.modules.nixos.default
             ./nixos-nvidia.nix
             ./hosts/t470p/hardware-configuration.nix
-            ./hosts/nixos-configuration-default.nix
-            ./nixos.nix
-            ./nixos-extra.nix
+            ./nixos-boot-default.nix
+            ./nixos-workstation.nix
+            ./nixos-gaming.nix
             home-manager.nixosModules.home-manager
             {
               home-manager.useGlobalPkgs = true;
@@ -121,8 +125,8 @@
             ./nixos-nvidia.nix
             ./hosts/xps15/hardware-configuration.nix
             ./hosts/xps15/nixos-configuration.nix
-            ./nixos.nix
-            ./nixos-extra.nix
+            ./nixos-workstation.nix
+            ./nixos-gaming.nix
             #Not currently doing anything with ollama, and it takes ages to build...
             #./nixos-llm.nix
           ];
@@ -133,9 +137,9 @@
           modules = [
             # ./nixos-nvidia-legacy.nix
             ./hosts/t580/hardware-configuration.nix
-            ./hosts/nixos-configuration-default.nix
-            ./nixos.nix
-            ./nixos-extra.nix
+            ./nixos-boot-default.nix
+            ./nixos-workstation.nix
+            ./nixos-gaming.nix
           ];
         };
         # Retiring C2750D box as nas...
@@ -158,7 +162,7 @@
             #... server-only
             ./nixos-server.nix
             #... or if we want best of both worlds
-            # ./nixos.nix
+            # ./nixos-workstation.nix
           ];
         };
         #... or odroid h4
@@ -167,11 +171,11 @@
           specialArgs = { hostName = "nas"; };
           modules = [
             ./hosts/odroid-h4/hardware-configuration.nix
-            ./hosts/nixos-configuration-default.nix
+            ./nixos-boot-default.nix
             #... server-only
             ./nixos-server.nix
             #... or if we want best of both worlds
-            # ./nixos.nix
+            # ./nixos-workstation.nix
           ];
         };
       };
@@ -194,6 +198,30 @@
           ];
           extraSpecialArgs = { cfgName = "minimal"; };
         };
+      };
+
+      # Build darwin config using:
+      # $ darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure
+      darwinConfigurations."Cormacs-MacBook-Air" = nix-darwin.lib.darwinSystem {
+        specialArgs = { inherit self inputs; };
+        modules = [
+          ./darwin-configuration.nix
+          home-manager.darwinModules.home-manager
+          {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.users.cormacc = import ./home-darwin.nix;
+            home-manager.extraSpecialArgs = {
+              cfgName = "minimal";
+              inherit inputs;
+            };
+            nixpkgs.overlays = [
+              llm-agents.overlays.default
+              meridian.overlays.default
+              claude-desktop.overlays.default
+            ];
+          }
+        ];
       };
     };
 

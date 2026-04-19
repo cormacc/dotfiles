@@ -6,7 +6,7 @@
 
 {
   imports = [
-    ./nixos-core.nix
+    ./nixos-base.nix
   ];
 
   # Use latest kernel for workstations
