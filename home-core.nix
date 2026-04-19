@@ -60,7 +60,7 @@ in
     nob = "nixos-rebuild build --flake '${flakePath}' --impure";
     nos = "sudo nixos-rebuild switch --flake \"${dotRoot}#`cat /etc/hostname`\" --impure";
     # Constructing path manually here -- sudo -E doesn't inherit USER or HOME
-    drs = "sudo -E darwin-rebuild switch --flake '/Users/cormacc/dotfiles/nix-darwin' --impure";
+    drs = "sudo -E darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure";
   };
 
 

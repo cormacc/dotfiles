@@ -29,18 +29,18 @@ nix flake check --impure
 
 ## Architecture
 
-The flake (`flake.nix`) defines two output types:
+The flake (`flake.nix`) defines three output types:
 
 - **`nixosConfigurations`**: Full system configs per host (xps15, t470p, t580, t470-nas, nas)
 - **`homeConfigurations`**: User environment configs (`default` = full workstation, `minimal` = server/WSL)
-- **`nix-darwin/flake.nix`**: Separate flake for macOS (aarch64-darwin), imports `../home-darwin.nix`
+- **`darwinConfigurations`**: macOS system configs via nix-darwin (`Cormacs-MacBook-Air`)
 
 ### NixOS module layering
 
-`nixos.nix` imports `nixos-core.nix` and adds workstation concerns (audio, display, sway, hyprland).
+`nixos-workstation.nix` imports `nixos-base.nix` and adds workstation concerns (audio, display, sway, hyprland).
 Host-specific configs live in `hosts/<hostname>/`. Optional mixins:
 - `nixos-nvidia.nix` / `nixos-nvidia-legacy.nix` — GPU drivers
-- `nixos-extra.nix` — additional system packages
+- `nixos-gaming.nix` — Steam and gaming packages
 - `nixos-llm.nix` — ollama/LLM setup
 - `nixos-server.nix` — server-only config
 
@@ -49,7 +49,7 @@ Host-specific configs live in `hosts/<hostname>/`. Optional mixins:
 ```
 home-core.nix  →  shell/shell.nix
       ↑
-home-linux.nix  (adds: llm-linux.nix)
+home-linux.nix
       ↑
 home.nix (full Linux workstation, adds:)
       ├── editors/editors.nix    (emacs configs: corgi, doom, spacemacs)
@@ -85,7 +85,7 @@ the `hms`/`nos`/`drs` shell aliases.
 | `desktop/` | Desktop app modules (web, audio, office, entertainment) |
 | `wayland/` | Wayland compositor configs (sway, hyprland, foot, rofi) |
 | `nmd/` | Work-specific tooling (OneDrive etc.) |
-| `nix-darwin/` | Separate flake for macOS/darwin-rebuild (aarch64-darwin) |
+| `darwin-configuration.nix` | macOS system config (nix-darwin) |
 | `agents/` | AI/coding agent config: pi extensions, prompts, skills |
 | `microchip/` | Microchip embedded dev tooling (see microchip/README.org) |
 | `legacy/` | Deprecated configs (ruby, matlab, cdrip) |
@@ -97,4 +97,4 @@ the `hms`/`nos`/`drs` shell aliases.
 - Overlays applied: nixGL, nix-microchip, rust-overlay, NUR, llm-agents, claude-desktop
 - The `rebuild` script in repo root is hardcoded for xps15 NixOS rebuild only
 - `agents.nix` symlinks `agents/pi/` contents into `~/.pi/agent/` (settings, extensions, prompts, skills)
-- `nix-darwin/` is a standalone flake — run `drs` alias or `darwin-rebuild switch --flake ./nix-darwin` from repo root
+- Darwin config lives in the root flake — run `drs` alias or `darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure`

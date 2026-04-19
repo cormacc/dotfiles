@@ -1,4 +1,4 @@
-{ config, pkgs, nixgl, specialArgs, inputs, ... }:
+{ config, pkgs, specialArgs, ... }:
 
 let
   # Input parameters
