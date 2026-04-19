@@ -124,6 +124,9 @@ export interface MirrorBackend {
 
   /** Focus the mirror pane (or active tab) so the user can type in it. */
   focusPane(targetId?: string | null): Promise<void>;
+
+  /** Rename a tab/window to reflect its numeric index. No-op for backends that don't support it. */
+  renameTab?(targetId: string, title: string): Promise<void>;
 }
 
 /** A long-running process managed in its own tab. */

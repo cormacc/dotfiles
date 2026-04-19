@@ -640,6 +640,15 @@ export class KittyBackend implements MirrorBackend {
     }
   }
 
+  async renameTab(targetId: string, title: string): Promise<void> {
+    await this.kitten(
+      "set-window-title",
+      "--match",
+      `id:${targetId}`,
+      title,
+    ).catch(() => {});
+  }
+
   async focusPane(targetId?: string | null): Promise<void> {
     // Determine which window to focus
     let winId = this.windowId;

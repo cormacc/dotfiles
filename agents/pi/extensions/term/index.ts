@@ -564,15 +564,28 @@ export default function (pi: ExtensionAPI) {
       const visible = mirrorVisible;
       const theme = sessionUi.theme;
 
-      const parts = tabNames.map((name) => {
+      const parts = tabNames.map((name, idx) => {
+        const label = `[${idx}] ${name}`;
         const isActive =
           (name === "π - shell" && !activeTabName) || name === activeTabName;
-        if (isActive) return theme.fg("accent", theme.bold(name));
+        if (isActive) return theme.fg("accent", theme.bold(label));
         if (tabsWithActivity.has(name))
-          return theme.fg("warning", theme.bold(name));
-        return theme.fg("dim", name);
+          return theme.fg("warning", theme.bold(label));
+        return theme.fg("dim", label);
       });
-      const tabList = parts.join(" ");
+
+      // Update backend window titles to reflect current indices (kitty only)
+      tabNames.forEach((name, idx) => {
+        const title = `[${idx}] ${name}`;
+        if (name === "π - shell") {
+          backend.renameTab?.(backend.mainTargetId, title)?.catch(() => {});
+        } else {
+          const proc = processes.get(name);
+          if (proc) backend.renameTab?.(proc.targetId, title)?.catch(() => {});
+        }
+      });
+
+      const tabList = parts.join(theme.fg("dim", " / "));
 
       const toggleHint = visible
         ? theme.fg("dim", "'t hide")
@@ -1364,15 +1377,15 @@ export default function (pi: ExtensionAPI) {
 
           const killIdx = parseInt(killArg, 10);
           if (!isNaN(killIdx) && String(killIdx) === killArg) {
-            // Numeric argument — 1-based index
-            if (killIdx < 1 || killIdx > tabNames.length) {
+            // Numeric argument — 0-based index
+            if (killIdx < 0 || killIdx >= tabNames.length) {
               ctx.ui.notify(
-                `Invalid index ${killIdx}. Range: 1–${tabNames.length} (${tabNames.join(", ")})`,
+                `Invalid index ${killIdx}. Range: 0–${tabNames.length - 1}`,
                 "error",
               );
               return;
             }
-            targetName = tabNames[killIdx - 1];
+            targetName = tabNames[killIdx];
           } else {
             // Alphabetic argument — match by name (case-insensitive)
             targetName =
@@ -1425,20 +1438,20 @@ export default function (pi: ExtensionAPI) {
           return;
         }
 
-        // Numeric index (1-based)
+        // Numeric index (0-based): 0 = π - shell, 1+ = processes
         const idx = parseInt(arg, 10);
         if (!isNaN(idx)) {
           const tabNames = ["π - shell", ...processes.keys()];
-          if (idx < 1 || idx > tabNames.length) {
+          if (idx < 0 || idx >= tabNames.length) {
             ctx.ui.notify(
-              `Invalid index ${idx}. Range: 1–${tabNames.length} (${tabNames.join(", ")})`,
+              `Invalid index ${idx}. Range: 0–${tabNames.length - 1}`,
               "error",
             );
             return;
           }
-          const target = tabNames[idx - 1];
+          const target = tabNames[idx];
           await switchToTab(target === "π - shell" ? null : target);
-          ctx.ui.notify(`Switched to ${target}`, "info");
+          ctx.ui.notify(`Switched to [${idx}] ${target}`, "info");
           return;
         }
 
