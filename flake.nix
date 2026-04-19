@@ -25,9 +25,15 @@
       url = "github:nix-darwin/nix-darwin/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    llm-agents.url = "github:numtide/llm-agents.nix";
+    llm-agents = {
+      url = "github:numtide/llm-agents.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     # Proxy for claude subscriptions
-    meridian.url = "github:rynfar/meridian";
+    meridian = {
+      url = "github:rynfar/meridian";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     claude-desktop = {
       url = "github:aaddrick/claude-desktop-debian";
@@ -93,6 +99,7 @@
           system = "${system}";
           specialArgs = { hostName = "t470p"; };
           modules = [
+            { nixpkgs.config.allowUnfree = true; }
             nur.modules.nixos.default
             ./nixos-nvidia.nix
             ./hosts/t470p/hardware-configuration.nix
@@ -135,6 +142,7 @@
           system = "${system}";
           specialArgs = { hostName = "t580"; };
           modules = [
+            { nixpkgs.config.allowUnfree = true; }
             # ./nixos-nvidia-legacy.nix
             ./hosts/t580/hardware-configuration.nix
             ./nixos-boot-default.nix
@@ -196,7 +204,7 @@
           modules = [
             ./home-linux.nix
           ];
-          extraSpecialArgs = { cfgName = "minimal"; };
+          extraSpecialArgs = { cfgName = "minimal"; inherit inputs; };
         };
       };
 
