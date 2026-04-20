@@ -54,6 +54,7 @@ pi --no-mirror    # disable shared terminal
 | ----------------------- | ----------------------------------- |
 | _(none)_ / `toggle`     | Toggle the mirror pane visibility   |
 | `focus`                 | Show (if hidden) and focus the pane |
+| `status`                | Show backend + ownership debug info |
 | `prev`                  | Switch to previous tab              |
 | `next`                  | Switch to next tab                  |
 | `<index>`               | Switch to tab by 1-based index      |

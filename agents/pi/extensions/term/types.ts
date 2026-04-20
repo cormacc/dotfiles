@@ -127,6 +127,9 @@ export interface MirrorBackend {
 
   /** Rename a tab/window to reflect its numeric index. No-op for backends that don't support it. */
   renameTab?(targetId: string, title: string): Promise<void>;
+
+  /** Optional backend-specific diagnostics shown by `/term status`. */
+  getDebugInfo?(): Promise<Record<string, string | number | boolean>>;
 }
 
 /** A long-running process managed in its own tab. */

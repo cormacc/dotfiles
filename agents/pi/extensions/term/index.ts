@@ -1304,7 +1304,7 @@ export default function (pi: ExtensionAPI) {
 
     pi.registerCommand("term", {
       description:
-        'Control the shared terminal: toggle, focus, prev, next, <index>, kill <index|name>, run "<cmd>", spawn [title] "<cmd>"',
+        'Control the shared terminal: toggle, focus, status, prev, next, <index>, kill <index|name>, run "<cmd>", spawn [title] "<cmd>"',
       handler: async (args, ctx) => {
         const arg = (args || "").trim().toLowerCase();
 
@@ -1325,6 +1325,24 @@ export default function (pi: ExtensionAPI) {
 
         if (arg === "next") {
           await termNext();
+          return;
+        }
+
+        if (arg === "status") {
+          const parts = [
+            `backend=${backend.label}`,
+            `target=${backend.displayTarget()}`,
+            `mirror=${mirrorVisible ? "visible" : "hidden"}`,
+            `active=${activeTabName ?? "π - shell"}`,
+            `processes=${processes.size}`,
+          ];
+          const debug = await backend.getDebugInfo?.();
+          if (debug) {
+            for (const [k, v] of Object.entries(debug)) {
+              parts.push(`${k}=${String(v)}`);
+            }
+          }
+          ctx.ui.notify(parts.join(" | "), "info");
           return;
         }
 
@@ -1456,7 +1474,7 @@ export default function (pi: ExtensionAPI) {
         }
 
         ctx.ui.notify(
-          `Unknown argument: ${arg}. Usage: /term [toggle|focus|prev|next|<index>|kill <index|name>|run "<cmd>"|spawn [title] "<cmd>"]`,
+          `Unknown argument: ${arg}. Usage: /term [toggle|focus|status|prev|next|<index>|kill <index|name>|run "<cmd>"|spawn [title] "<cmd>"]`,
           "error",
         );
       },
