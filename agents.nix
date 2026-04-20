@@ -21,6 +21,7 @@ in
     #Claude code + deps
     pkgs.llm-agents.claude-code
     pkgs.meridian
+    pkgs.llm-agents.codex
   ];
 
   home.file."${agentsConfig}/skills".source = config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
