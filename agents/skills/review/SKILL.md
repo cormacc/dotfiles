@@ -2,16 +2,25 @@
 name: review
 description: Run a code review sub-agent
 ---
-Spawn yourself as a sub-agent via bash to do a code review: $@
+Run the harness-agnostic wrapper script:
 
-Use `pi --print` with appropriate arguments. If the user specifies a model,
-use `--provider` and `--model` accordingly.
+`./scripts/review-subagent "$@"`
 
-Pass a prompt to the sub-agent asking it to review the code for:
-- Bugs and logic errors
-- Security issues
-- Error handling gaps
+Behavior requirements:
+- Wrapper chooses a compatible runner via `REVIEW_AGENT_CMD` or auto-detects (`pi`, `claude`, `codex`).
+- If user requested model/provider, pass via env vars before running wrapper:
+  - `REVIEW_MODEL=<model>`
+  - `REVIEW_PROVIDER=<provider>`
+- Ask the sub-agent to review for:
+  - Bugs and logic errors
+  - Security issues
+  - Error handling gaps
+  - Severity and precise `file:line` locations
 
-Do not read the code yourself. Let the sub-agent do that.
+Do not do a full duplicate review yourself.
+You may only sanity-check obviously suspicious findings.
 
-Report the sub-agent's findings.
+Return:
+- Concise summary
+- Structured findings
+- Or “No issues found.”
