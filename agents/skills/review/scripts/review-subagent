@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Harness-agnostic review wrapper for pi / claude / codex.
+#
+# Inputs:
+#   args                 Review scope (files/dirs/diff/range text)
+#   REVIEW_AGENT_CMD     Optional runner command (default: auto-detect pi/claude/codex)
+#   REVIEW_MODEL         Optional model name
+#   REVIEW_PROVIDER      Optional provider name (used by pi)
+#
+# Output:
+#   Prints sub-agent review findings to stdout.
+
+scope="${*:-the current repository changes}"
+model="${REVIEW_MODEL:-}"
+provider="${REVIEW_PROVIDER:-}"
+
+prompt=$(cat <<EOF
+You are a senior code-review assistant.
+
+Review scope:
+${scope}
+
+Review for:
+1) Bugs and logic errors
+2) Security issues
+3) Error handling gaps
+
+For each finding include:
+- Severity: critical/high/medium/low
+- Location: file:line (or best available location)
+- Why this is a problem
+- Concrete fix suggestion
+
+If no material issues are found, respond exactly with:
+No issues found.
+EOF
+)
+
+# Parse REVIEW_AGENT_CMD as shell words (supports simple command + args).
+if [[ -n "${REVIEW_AGENT_CMD:-}" ]]; then
+  read -r -a base_cmd <<<"${REVIEW_AGENT_CMD}"
+else
+  if command -v pi >/dev/null 2>&1; then
+    base_cmd=(pi)
+  elif command -v claude >/dev/null 2>&1; then
+    base_cmd=(claude)
+  elif command -v codex >/dev/null 2>&1; then
+    base_cmd=(codex)
+  else
+    echo "No compatible review runner found. Install pi, claude, or codex; or set REVIEW_AGENT_CMD." >&2
+    exit 1
+  fi
+fi
+
+runner_name="$(basename "${base_cmd[0]}")"
+
+array_has() {
+  local needle="$1"
+  shift
+  local item
+  for item in "$@"; do
+    [[ "$item" == "$needle" ]] && return 0
+  done
+  return 1
+}
+
+run_pi() {
+  local -a cmd=("${base_cmd[@]}")
+
+  if ! array_has "--print" "${cmd[@]}"; then
+    cmd+=(--print)
+  fi
+  if [[ -n "$provider" ]] && ! array_has "--provider" "${cmd[@]}"; then
+    cmd+=(--provider "$provider")
+  fi
+  if [[ -n "$model" ]] && ! array_has "--model" "${cmd[@]}"; then
+    cmd+=(--model "$model")
+  fi
+
+  cmd+=("$prompt")
+  "${cmd[@]}"
+}
+
+run_claude() {
+  local -a cmd=("${base_cmd[@]}")
+
+  if ! array_has "-p" "${cmd[@]}" && ! array_has "--print" "${cmd[@]}"; then
+    cmd+=(-p)
+  fi
+  if [[ -n "$model" ]] && ! array_has "--model" "${cmd[@]}"; then
+    cmd+=(--model "$model")
+  fi
+  if [[ -n "$provider" ]]; then
+    echo "Warning: REVIEW_PROVIDER is ignored for claude runner." >&2
+  fi
+
+  cmd+=("$prompt")
+  "${cmd[@]}"
+}
+
+run_codex() {
+  local -a cmd=("${base_cmd[@]}")
+
+  if [[ "${#cmd[@]}" -lt 2 ]]; then
+    cmd+=(exec)
+  fi
+  if [[ -n "$model" ]] && ! array_has "-m" "${cmd[@]}" && ! array_has "--model" "${cmd[@]}"; then
+    cmd+=(-m "$model")
+  fi
+  if [[ -n "$provider" ]]; then
+    echo "Warning: REVIEW_PROVIDER is ignored for codex runner." >&2
+  fi
+
+  cmd+=("$prompt")
+  "${cmd[@]}"
+}
+
+case "$runner_name" in
+  pi)
+    run_pi
+    ;;
+  claude)
+    run_claude
+    ;;
+  codex)
+    run_codex
+    ;;
+  *)
+    # Generic fallback for other runners:
+    # - pass prompt as final arg
+    # - model/provider can be consumed by the runner from env if supported
+    "${base_cmd[@]}" "$prompt"
+    ;;
+esac
