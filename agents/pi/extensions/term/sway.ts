@@ -13,7 +13,7 @@ import { readlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const APP_ID = "pi-mirror";
+const APP_ID_PREFIX = "pi-mirror";
 
 /** Per-tab state for managed processes. */
 interface TabState {
@@ -41,6 +41,8 @@ export class SwayBackend implements MirrorBackend {
   private readonly inputFifo: string;
   private readonly outputLog: string;
   private readonly relayScript: string;
+  private appId = "";
+  private tabAppIdPrefix = "";
 
   /** Managed process tabs keyed by targetId (string con_id). */
   private tabs = new Map<string, TabState>();
@@ -124,7 +126,14 @@ export class SwayBackend implements MirrorBackend {
       if (byId) return byId;
     }
 
-    return this.findNode(tree, (n) => n.app_id === APP_ID && n.type === "con");
+    // Never fall back to a global/shared app_id here — each pi instance must
+    // own its own mirror window.
+    if (!this.appId) return null;
+
+    return this.findNode(
+      tree,
+      (n) => n.app_id === this.appId && n.type === "con",
+    );
   }
 
   async paneAlive(): Promise<boolean> {
@@ -138,7 +147,6 @@ export class SwayBackend implements MirrorBackend {
   async resetState(): Promise<void> {
     this.paneReady = false;
     this.conId = 0;
-    this.piConId = 0;
     this.shellPid = 0;
     this.tabbedLayout = false;
     unlinkAll(
@@ -216,6 +224,14 @@ export class SwayBackend implements MirrorBackend {
       this.piConId = await this.getFocusedConId();
     }
 
+    // Scope mirror + process windows to this pi container so multiple pi
+    // instances running under sway don't attach to each other's terminals.
+    if (!this.appId) {
+      const ownerId = this.piConId > 0 ? String(this.piConId) : this.sessionId;
+      this.appId = `${APP_ID_PREFIX}-${ownerId}`;
+      this.tabAppIdPrefix = `${this.appId}-tab`;
+    }
+
     const existing = await this.findMirrorWindow();
     if (existing) {
       this.conId = existing.id;
@@ -233,7 +249,7 @@ export class SwayBackend implements MirrorBackend {
     await this.swaymsg("splitv");
 
     const cmd =
-      `foot --app-id ${APP_ID} --title ${sq("π - shell")}` +
+      `foot --app-id ${this.appId} --title ${sq("π - shell")}` +
       ` python3 ${sq(this.relayScript)} ${sq(this.inputFifo)} ${sq(this.outputLog)}`;
 
     const r = await this.exec("bash", ["-c", `swaymsg exec ${sq(cmd)}`], {
@@ -431,7 +447,7 @@ export class SwayBackend implements MirrorBackend {
   async createTab(name: string): Promise<string | null> {
     if (!this.paneReady || this.conId === 0) return null;
 
-    const appId = `pi-mirror-tab-${name}`;
+    const appId = `${this.tabAppIdPrefix}-${name}`;
     const inputFifo = `/tmp/pi-mirror-input-${this.sessionId}-${name}`;
     const outputLog = `/tmp/pi-mirror-log-${this.sessionId}-${name}`;
 
@@ -588,5 +604,19 @@ export class SwayBackend implements MirrorBackend {
     if (id > 0) {
       await this.swaymsg(`[con_id=${id}]`, "focus");
     }
+  }
+
+  async getDebugInfo(): Promise<Record<string, string | number | boolean>> {
+    return {
+      appId: this.appId || "(unset)",
+      tabAppIdPrefix: this.tabAppIdPrefix || "(unset)",
+      piConId: this.piConId,
+      mirrorConId: this.conId,
+      shellPid: this.shellPid,
+      paneReady: this.paneReady,
+      tabbedLayout: this.tabbedLayout,
+      tabs: this.tabs.size,
+      sessionId: this.sessionId,
+    };
   }
 }
