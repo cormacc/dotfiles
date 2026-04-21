@@ -1,4 +1,4 @@
-{ config, pkgs, nixgl, specialArgs, ... }:
+{ config, pkgs, nixgl, system, specialArgs, ... }:
 
 let
   # Input parameters
@@ -17,10 +17,10 @@ in
 {
   # nixgl config -- a np for nixos, but useful on hybrid config...
   targets.genericLinux.nixGL = {
-    packages = nixgl.packages;
+    packages = nixgl.packages.${system};
     defaultWrapper = "mesa";
     offloadWrapper = "nvidiaPrime";
-    installScripts = [ "mesa" "nvidiaPrime" ];
+    installScripts = [ "mesa" ];
   };
 
   imports = [
