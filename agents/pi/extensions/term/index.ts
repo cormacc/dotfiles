@@ -1,62 +1,29 @@
-/**
- * Term Extension (tmux + sway + kitty)
- *
- * Overrides the built-in bash tool to run commands in a shared terminal split.
- * Supports three backends:
- *   - tmux: splits via tmux, signals via `tmux wait-for`
- *   - sway: splits via swaymsg + foot, PTY relay for I/O, signals via named pipe (FIFO)
- *   - kitty: splits via `kitten @` remote control, signals via named pipe (FIFO)
- *
- * The actual command text is sent directly — no wrappers, no markers.
- *
- * Completion and exit code are detected via a shell hook (precmd for zsh,
- * PROMPT_COMMAND for bash). The hook writes a sequence number + $? and
- * signals completion (tmux wait-for or named pipe/FIFO for sway).
- * Both backends block with zero CPU until signaled.
- *
- * The user can also type commands in the pane. A background loop detects
- * new activity when the agent is idle and injects it into the conversation.
- *
- * Usage:
- *   pi              (auto-activates in tmux/sway/kitty)
- *   pi --no-mirror   (disable shared terminal)
- *
- * Setup:
- *   - tmux: run pi inside tmux. A split pane is auto-created.
- *   - sway: run pi under sway. A foot terminal is launched in a split.
- *   - kitty: run pi inside kitty with allow_remote_control. A split window is auto-created.
- *
- * Environment variables:
- *   TMUX_MIRROR_TARGET  - tmux target pane (default: auto-created split)
- */
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import {
-  truncateTail,
-  DEFAULT_MAX_BYTES,
-  DEFAULT_MAX_LINES,
-  formatSize,
-} from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
-import type { MirrorBackend, ManagedProcess } from "./types.js";
-import { sq, sleep, sanitizeName, diffSnapshots } from "./types.js";
+import { TmuxSessionManager, type TmuxSessionInfo } from "./tmux-sessions.js";
 import { TmuxBackend } from "./tmux.js";
 import { SwayBackend } from "./sway.js";
 import { KittyBackend } from "./kitty.js";
+import type { MonitorBackend } from "./types.js";
+import { sanitizeName, sleep } from "./types.js";
 import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.js";
 
 const EXT_NAME = getExtensionName(import.meta.url);
+const DEFAULT_SESSION = "shell";
 
 /** Cleanup handle for keybinding suggestions, to avoid duplicates on reload. */
 let cleanupKeybindings: (() => void) | null = null;
 
-export default function (pi: ExtensionAPI) {
-  // ── CLI flag (registered before anything else) ───────────
-  // Flags aren't available at init time, so everything else
-  // is deferred to session_start where getFlag works.
+interface SessionMeta {
+  command?: string;
+  mode?: "watch" | "quiet";
+  startedAt: number;
+}
 
+export default function (pi: ExtensionAPI) {
   pi.registerFlag("no-mirror", {
-    description: "Disable shared terminal split (tmux/sway)",
+    description: "Disable term monitor/session integration",
     type: "boolean",
     default: false,
   });
@@ -64,985 +31,453 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     if (pi.getFlag("no-mirror")) return;
 
-    // ── shared state ───────────────────────────────────────
-
-    let hookInstalled = false;
-    let promptHeight = 2;
-    let promptSymbol = "$ ";
-    let agentRunning = false;
-    let activityLoopRunning = false;
-    let activityAbort: AbortController | null = null;
-    let lastSnapshot = "";
-    const processes = new Map<string, ManagedProcess>();
-    const stoppedProcesses = new Set<string>();
-    let watchLoopRunning = false;
-    let watchAbort: AbortController | null = null;
-    const WATCH_INTERVAL_MS = 4000; // check watch tabs every 4s
-    let activeTabName: string | null = null; // null = main shell (tmux tab bar)
-    let mirrorVisible = false; // whether the mirror pane is visible as a split
-    const tabsWithActivity = new Set<string>(); // tabs with unseen activity
-
-    // Callback invoked by backends when state is reset (pane lost/recreated)
-    const onBackendReset = () => {
-      hookInstalled = false;
-    };
-
-    // ── backend detection & creation ───────────────────────
-
-    let backend: MirrorBackend;
-    const exec = pi.exec.bind(pi);
-
-    if (process.env.TMUX) {
-      backend = new TmuxBackend(exec, onBackendReset);
-    } else if (process.env.SWAYSOCK) {
-      backend = new SwayBackend(exec, onBackendReset);
-    } else if (process.env.KITTY_WINDOW_ID) {
-      backend = new KittyBackend(exec, onBackendReset);
-    } else {
-      ctx.ui.notify("--mirror requires tmux, sway, or kitty", "error");
+    if (
+      !process.env.KITTY_WINDOW_ID &&
+      !process.env.SWAYSOCK &&
+      !process.env.TMUX
+    ) {
       return;
     }
 
+    const exec = pi.exec.bind(pi);
+    const sessions = new TmuxSessionManager(exec);
+    let backend: MonitorBackend;
+    if (process.env.KITTY_WINDOW_ID) {
+      backend = new KittyBackend(exec, sessions);
+    } else if (process.env.SWAYSOCK) {
+      backend = new SwayBackend(exec, sessions);
+    } else {
+      backend = new TmuxBackend(exec, sessions);
+    }
     const sessionUi = ctx.ui;
+    const sessionMeta = new Map<string, SessionMeta>();
 
-    // ── helpers ────────────────────────────────────────────
+    let activeSessionName = DEFAULT_SESSION;
+    let monitorVisible = false;
 
-    /** Get the backend target ID for the currently active tab (null = main pane). */
-    function activeTargetId(): string | null {
-      if (activeTabName === null) return null;
-      return processes.get(activeTabName)?.targetId ?? null;
+    function rememberSession(
+      name: string,
+      meta: Partial<SessionMeta> = {},
+    ): void {
+      const existing = sessionMeta.get(name);
+      sessionMeta.set(name, {
+        startedAt: existing?.startedAt ?? Date.now(),
+        command: meta.command ?? existing?.command,
+        mode: meta.mode ?? existing?.mode,
+      });
     }
 
-    /** Get all process tab target IDs. */
-    function allTabTargetIds(): string[] {
-      return [...processes.values()].map((p) => p.targetId);
-    }
-
-    // ── shell hook ─────────────────────────────────────────
-
-    async function installHook(): Promise<boolean> {
-      if (hookInstalled) return true;
-
-      const mainId = backend.mainTargetId;
-      const shell = await backend.getShellName();
-      const hook = backend.generateHookCode(shell);
-
-      for (let attempt = 0; attempt < 2; attempt++) {
-        await backend.prepareForHook();
-
-        await backend.sendText(mainId, ` ${hook} && clear`);
-        await backend.sendEnter(mainId);
-
-        // __pi_precmd fires first in the precmd chain (before direnv etc.)
-        const signaled = await backend.waitForPrompt(60000);
-        const { seq } = await backend.readRc();
-        if (!(seq > 0 || signaled)) continue;
-
-        // __pi_ready fires last in the precmd chain (after direnv etc.)
-        // so the prompt is fully drawn when this returns
-        await backend.waitForReady(60000);
-
-        const pane = (await backend.capture(mainId, 50)).trimEnd();
-        const paneLines = pane.split("\n");
-        let h = 0;
-        for (let i = paneLines.length - 1; i >= 0; i--) {
-          if (paneLines[i].trim()) h++;
-          else break;
-        }
-        promptHeight = Math.min(Math.max(1, h), 4);
-        const lastLine = paneLines[paneLines.length - 1].trim();
-        const sym = lastLine.match(/^\S+/);
-        if (sym) promptSymbol = sym[0];
-        hookInstalled = true;
+    async function ensureDefaultSession(): Promise<boolean> {
+      if (await sessions.hasSession(DEFAULT_SESSION)) {
+        rememberSession(DEFAULT_SESSION);
         return true;
       }
-
-      return false;
+      const created = await sessions.createSession(DEFAULT_SESSION, ctx.cwd);
+      if (created) rememberSession(DEFAULT_SESSION);
+      return created;
     }
 
-    // ── output extraction ──────────────────────────────────
-
-    function isPromptLine(line: string): boolean {
-      return line.trim().startsWith(promptSymbol);
+    function orderSessions(infos: TmuxSessionInfo[]): TmuxSessionInfo[] {
+      return [...infos].sort((a, b) => {
+        if (a.name === DEFAULT_SESSION) return -1;
+        if (b.name === DEFAULT_SESSION) return 1;
+        return a.name.localeCompare(b.name);
+      });
     }
 
-    function extractCommand(line: string): string {
-      let cmd = line.trim().slice(promptSymbol.length).trim();
-      cmd = cmd.replace(/\s*\[[\d:]+\]\s*$/, "").trim();
-      return cmd;
+    async function loadSessions(): Promise<TmuxSessionInfo[]> {
+      return orderSessions(await sessions.listSessions());
     }
 
-    function extractOutput(before: string, after: string): string {
-      const bLines = before.split("\n");
-      const aLines = after.split("\n");
-      let d = 0;
-      while (d < bLines.length && d < aLines.length && bLines[d] === aLines[d])
-        d++;
-      const lines = aLines.slice(d);
-
-      let lastCmdIdx = -1;
-      for (let i = 0; i < lines.length; i++) {
-        if (isPromptLine(lines[i]) && extractCommand(lines[i])) {
-          lastCmdIdx = i;
-        }
+    async function resolveSessionRef(ref: string): Promise<string | null> {
+      const infos = await loadSessions();
+      const idx = parseInt(ref, 10);
+      if (!isNaN(idx) && String(idx) === ref) {
+        if (idx < 1 || idx > infos.length) return null;
+        return infos[idx - 1]?.name ?? null;
       }
 
-      if (lastCmdIdx === -1) return lines.join("\n").trim();
-
-      const out: string[] = [];
-      for (let i = lastCmdIdx + 1; i < lines.length; i++) {
-        if (isPromptLine(lines[i])) break;
-        if (
-          i + promptHeight - 1 < lines.length &&
-          isPromptLine(lines[i + promptHeight - 1])
-        )
-          break;
-        out.push(lines[i]);
-      }
-      while (out.length && !out[out.length - 1].trim()) out.pop();
-
-      return out.join("\n");
+      const lower = ref.toLowerCase();
+      return (
+        infos.find((info) => info.name.toLowerCase() === lower)?.name ?? null
+      );
     }
 
-    async function formatActivity(
-      diff: string,
-      exitCode: number,
-    ): Promise<string | null> {
-      const lines = diff.split("\n");
-
-      let lastCmdIdx = -1;
-      let lastCmd = "";
-      for (let i = 0; i < lines.length; i++) {
-        if (isPromptLine(lines[i])) {
-          const cmd = extractCommand(lines[i]);
-          if (cmd) {
-            lastCmdIdx = i;
-            lastCmd = cmd;
-          }
-        }
-      }
-
-      if (lastCmdIdx === -1) return null;
-
-      const out: string[] = [];
-      for (let i = lastCmdIdx + 1; i < lines.length; i++) {
-        if (isPromptLine(lines[i])) break;
-        if (
-          i + promptHeight - 1 < lines.length &&
-          isPromptLine(lines[i + promptHeight - 1])
-        )
-          break;
-        out.push(lines[i]);
-      }
-      while (out.length && !out[out.length - 1].trim()) out.pop();
-
-      const cwd = await backend.getPaneCwd();
-      const home = process.env.HOME || "";
-      const shortCwd =
-        home && cwd.startsWith(home) ? "~" + cwd.slice(home.length) : cwd;
-
-      let result = `${shortCwd} $ ${lastCmd}`;
-      if (out.length) result += `\n${out.join("\n")}`;
-      result += `\n[exit code: ${exitCode}]`;
-      return result;
+    async function ensureActiveSessionExists(): Promise<boolean> {
+      if (await sessions.hasSession(activeSessionName)) return true;
+      activeSessionName = DEFAULT_SESSION;
+      return ensureDefaultSession();
     }
 
-    // ── run a command in the pane ──────────────────────────
-
-    async function resetAll(): Promise<void> {
-      hookInstalled = false;
-      activeTabName = null;
-      updateTabWidget();
-      await backend.resetState();
-    }
-
-    async function runCommand(
-      command: string,
-      cwd: string,
-      timeoutMs?: number,
-      signal?: AbortSignal,
-    ): Promise<{ output: string; exitCode: number }> {
-      if (!(await installHook())) {
-        return {
-          output:
-            "Failed to set up the shared terminal hook. The shell in the pane may not be ready.",
-          exitCode: 1,
-        };
-      }
-
-      const mainId = backend.mainTargetId;
-      const before = await backend.capture(mainId);
-      const { seq: seqBefore } = await backend.readRc();
-
-      const paneCwd = await backend.getPaneCwd();
-      const needsCd = paneCwd !== cwd;
-      let sendCmd = needsCd ? `cd ${sq(cwd)} && ${command}` : command;
-
-      if (sendCmd.includes("\n")) {
-        sendCmd = `{\n${sendCmd}\n}`;
-      }
-
-      await backend.sendText(mainId, ` ${sendCmd}`);
-      await backend.sendEnter(mainId);
-
-      const timeout = timeoutMs || 120_000;
-      const deadline = Date.now() + timeout;
-      let exitCode = 0;
-      let completed = false;
-
-      while (Date.now() < deadline) {
-        if (signal?.aborted) {
-          await backend.sendCtrlC(mainId);
-          return { output: "Cancelled", exitCode: 130 };
-        }
-
-        const remaining = Math.min(deadline - Date.now(), 5000);
-        if (remaining <= 0) break;
-
-        await backend.waitForAgentSignal(remaining);
-
-        const { seq, rc } = await backend.readRc();
-        if (seq > seqBefore) {
-          exitCode = rc;
-          completed = true;
-          break;
-        }
-
-        if (!(await backend.paneAlive())) {
-          await resetAll();
-          return {
-            output: "Terminal pane was closed during execution.",
-            exitCode: 1,
-          };
-        }
-      }
-
-      if (!completed) {
-        await backend.sendCtrlC(mainId);
-        await backend.waitForAgentSignal(5000);
-      }
-
-      const after = await backend.capture(mainId);
-      let output = extractOutput(before, after);
-
-      if (!completed) output += "\n[command timed out]";
-      return { output, exitCode: completed ? exitCode : 124 };
-    }
-
-    // ── user activity detection ────────────────────────────
-
-    function startActivityLoop() {
-      if (activityLoopRunning || !backend.isPaneReady()) return;
-      activityLoopRunning = true;
-      activityAbort = new AbortController();
-
-      (async () => {
-        const { signal } = activityAbort!;
-        let lastSeenSeq = (await backend.readRc()).seq;
-        const mainId = backend.mainTargetId;
-
-        while (!signal.aborted && backend.isPaneReady()) {
-          if (agentRunning) {
-            await sleep(250);
-            lastSeenSeq = (await backend.readRc()).seq;
-            continue;
-          }
-
-          // Block until a command completes (zero CPU for both backends)
-          const signaled = await backend.waitForPrompt(30000);
-          if (signal.aborted || !backend.isPaneReady()) break;
-          if (agentRunning) continue;
-          if (!signaled) {
-            if (!(await backend.paneAlive())) {
-              await resetAll();
-              break;
-            }
-            continue;
-          }
-
-          // Verify a new command actually completed (filters stale FIFO signals)
-          const { seq: currentSeq } = await backend.readRc();
-          if (currentSeq <= lastSeenSeq) continue;
-          lastSeenSeq = currentSeq;
-
-          if (agentRunning) continue;
-
-          try {
-            const current = (await backend.capture(mainId, 200)).trim();
-            if (current === lastSnapshot) continue;
-
-            const diff = diffSnapshots(lastSnapshot, current);
-            lastSnapshot = current;
-            if (diff.length < 5) continue;
-
-            const { rc } = await backend.readRc();
-            const message = await formatActivity(diff, rc);
-            if (!message) continue;
-
-            if (activeTabName !== null) {
-              tabsWithActivity.add("π - shell");
-              updateTabWidget();
-            }
-            pi.sendMessage(
-              {
-                customType: "term-activity",
-                content: `User activity in the shared terminal:\n\n${message}`,
-                display: false,
-              },
-              { deliverAs: "followUp", triggerTurn: false },
-            );
-
-            while (agentRunning && !signal.aborted) await sleep(500);
-            if (signal.aborted || !backend.isPaneReady()) break;
-
-            const postAgent = (await backend.capture(mainId, 200)).trim();
-            if (postAgent !== lastSnapshot) {
-              const postDiff = diffSnapshots(lastSnapshot, postAgent);
-
-              if (postDiff.length >= 5) {
-                const { rc: postRc } = await backend.readRc();
-                const postMsg = await formatActivity(postDiff, postRc);
-                if (postMsg) {
-                  if (activeTabName !== null) {
-                    tabsWithActivity.add("π - shell");
-                    updateTabWidget();
-                  }
-                  pi.sendMessage(
-                    {
-                      customType: "term-activity",
-                      content: `User activity in the shared terminal:\n\n${postMsg}`,
-                      display: false,
-                    },
-                    { deliverAs: "followUp", triggerTurn: false },
-                  );
-                }
-              }
-            }
-            lastSnapshot = (await backend.capture(mainId, 200)).trim();
-          } catch {}
-        }
-
-        activityLoopRunning = false;
-      })();
-    }
-
-    function stopActivityLoop() {
-      if (activityAbort) {
-        activityAbort.abort();
-        activityAbort = null;
-      }
-      backend.unblockWait().catch(() => {});
-    }
-
-    // ── process watch loop ─────────────────────────────────
-
-    function startWatchLoop() {
-      if (watchLoopRunning) return;
-      watchLoopRunning = true;
-      watchAbort = new AbortController();
-
-      watchLoopDone = (async () => {
-        const { signal } = watchAbort!;
-
-        while (!signal.aborted) {
-          await sleep(WATCH_INTERVAL_MS);
-          if (signal.aborted) break;
-
-          // Skip watch notifications while agent is running — followUp
-          // messages queue in pi and get delivered after the turn ends,
-          // potentially after the process has been stopped.
-          if (agentRunning) {
-            // Update snapshots so we don't send a huge accumulated diff later
-            for (const [, p] of processes) {
-              if (p.mode === "watch") {
-                try {
-                  p.lastSnapshot = (
-                    await backend.capture(p.targetId, 200)
-                  ).trim();
-                } catch {}
-              }
-            }
-            continue;
-          }
-
-          for (const [name, proc] of processes) {
-            if (signal.aborted) break;
-            if (stoppedProcesses.has(name)) continue;
-            // Check alive for all processes (watch + quiet)
-            const alive = await backend.isTabAlive(proc.targetId);
-            if (!alive) {
-              // If this was the active tab, recover the shell pane
-              if (activeTabName === name) {
-                activeTabName = null;
-                await backend.recoverShellToMirror();
-                updateTabWidget();
-              }
-
-              // Process died — report and remove
-              pi.sendMessage(
-                {
-                  customType: "term-activity",
-                  content: `Process "${name}" (${proc.command}) has exited.`,
-                  display: false,
-                },
-                { deliverAs: "followUp", triggerTurn: false },
-              );
-              processes.delete(name);
-              updateTabWidget();
-              continue;
-            }
-
-            // Only diff output for watch-mode processes
-            if (proc.mode !== "watch") continue;
-
-            const current = (await backend.capture(proc.targetId, 200)).trim();
-            if (current === proc.lastSnapshot) continue;
-
-            // Re-check: process may have been stopped during capture
-            if (!processes.has(name)) continue;
-
-            const diff = diffSnapshots(proc.lastSnapshot, current);
-            proc.lastSnapshot = current;
-            if (diff.length < 5) continue;
-
-            // Re-check: process may have been stopped during diff computation
-            if (!processes.has(name) || stoppedProcesses.has(name)) continue;
-
-            // Truncate very large diffs
-            const maxDiffLen = 2000;
-            const displayDiff =
-              diff.length > maxDiffLen
-                ? `[truncated: showing last ${maxDiffLen} chars of ${diff.length}]\n` +
-                  diff.slice(-maxDiffLen)
-                : diff;
-
-            // Final guard: skip if process was stopped after diff was computed
-            if (!processes.has(name) || stoppedProcesses.has(name)) continue;
-
-            if (activeTabName !== name) {
-              tabsWithActivity.add(name);
-              updateTabWidget();
-            }
-            pi.sendMessage(
-              {
-                customType: "term-activity",
-                content: `Output from process "${name}" (${proc.command}):\n\n${displayDiff}`,
-                display: false,
-              },
-              { deliverAs: "followUp", triggerTurn: false },
-            );
-          }
-        }
-
-        watchLoopRunning = false;
-      })();
-    }
-
-    let watchLoopDone: Promise<void> | null = null;
-
-    function stopWatchLoop() {
-      if (watchAbort) {
-        watchAbort.abort();
-        watchAbort = null;
-      }
-    }
-
-    /** Stop the watch loop and wait for the current iteration to finish. */
-    async function stopWatchLoopAndWait(): Promise<void> {
-      stopWatchLoop();
-      if (watchLoopDone) {
-        await watchLoopDone;
-        watchLoopDone = null;
-      }
-    }
-
-    // ── tab switching ──────────────────────────────────────
-
-    function updateTabWidget() {
-      const tabNames = ["π - shell", ...processes.keys()];
-      const hasTabs = processes.size > 0;
-      const visible = mirrorVisible;
+    async function updateStatus(): Promise<void> {
+      monitorVisible = await backend.isVisible();
+      const infos = await loadSessions();
       const theme = sessionUi.theme;
 
-      const parts = tabNames.map((name, idx) => {
-        const label = `[${idx}] ${name}`;
-        const isActive =
-          (name === "π - shell" && !activeTabName) || name === activeTabName;
-        if (isActive) return theme.fg("accent", theme.bold(label));
-        if (tabsWithActivity.has(name))
-          return theme.fg("warning", theme.bold(label));
-        return theme.fg("dim", label);
+      const parts = infos.map((info, idx) => {
+        const label = `[${idx + 1}] ${info.name}`;
+        const attached = info.attached > 0 ? theme.fg("warning", "*") : "";
+        const text = `${label}${attached}`;
+        return info.name === activeSessionName
+          ? theme.fg("accent", theme.bold(text))
+          : theme.fg("dim", text);
       });
 
-      // Update backend window titles to reflect current indices (kitty only)
-      tabNames.forEach((name, idx) => {
-        const title = `[${idx}] ${name}`;
-        if (name === "π - shell") {
-          backend.renameTab?.(backend.mainTargetId, title)?.catch(() => {});
-        } else {
-          const proc = processes.get(name);
-          if (proc) backend.renameTab?.(proc.targetId, title)?.catch(() => {});
-        }
-      });
-
-      const tabList = parts.join(theme.fg("dim", " / "));
-
-      const toggleHint = visible
+      const toggleHint = monitorVisible
         ? theme.fg("dim", "'t hide")
         : theme.fg("warning", "'t show");
-      const tabHint = hasTabs ? theme.fg("dim", "'h 'l") + "  " : "";
+      const navHint = infos.length > 1 ? theme.fg("dim", "'h 'l") + "  " : "";
       const sep = theme.fg("border", " │ ");
+      const body = parts.length ? parts.join(theme.fg("dim", " / ")) : "(none)";
 
       const status =
         " " +
         theme.fg("border", "[") +
         " " +
-        theme.fg("dim", "Processes: ") +
-        tabList +
+        theme.fg("dim", "Sessions: ") +
+        body +
         sep +
-        tabHint +
+        navHint +
         toggleHint +
         " " +
         theme.fg("border", "]") +
         " ";
 
-      sessionUi.setStatus("mirror-tabs", status);
+      sessionUi.setStatus("term-sessions", status);
     }
 
-    async function switchToTab(tabName: string | null): Promise<void> {
-      if (tabName === activeTabName) return;
-      tabsWithActivity.delete(tabName ?? "π - shell");
-
-      const fromId = activeTargetId();
-      const toId =
-        tabName === null ? null : (processes.get(tabName)?.targetId ?? null);
-
-      // Always call switchTab so the backend tracks the active window.
-      // The backend handles visibility internally (only does the visual
-      // swap when the bottom area is populated in pi's tab/window).
-      await backend.switchTab(fromId, toId);
-      activeTabName = tabName;
-      updateTabWidget();
-    }
-
-    async function cycleTab(direction: 1 | -1): Promise<void> {
-      const tabNames = ["π - shell", ...processes.keys()];
-      if (tabNames.length <= 1) return;
-      const currentName = activeTabName ?? "π - shell";
-      const currentIdx = tabNames.indexOf(currentName);
-      const nextIdx =
-        (currentIdx + direction + tabNames.length) % tabNames.length;
-      const nextName = tabNames[nextIdx];
-      await switchToTab(nextName === "π - shell" ? null : nextName);
-    }
-
-    /** Toggle the mirror pane visibility (hide/show the split). */
-    async function toggleMirror(): Promise<void> {
-      if (mirrorVisible) {
-        await backend.hide();
-        mirrorVisible = false;
-      } else {
-        await backend.show(allTabTargetIds());
-        mirrorVisible = true;
+    async function attachSession(name: string, reveal = true): Promise<boolean> {
+      if (!(await sessions.hasSession(name))) return false;
+      activeSessionName = name;
+      if (reveal) {
+        monitorVisible = await backend.show(name);
+      } else if (monitorVisible) {
+        monitorVisible = await backend.attachSession(name);
       }
-      updateTabWidget();
+      await updateStatus();
+      return true;
     }
 
-    // ── term event helpers ───────────────────────────────────
+    async function cycleSession(direction: 1 | -1): Promise<string | null> {
+      const infos = await loadSessions();
+      if (infos.length <= 1) return null;
 
-    /** Switch to the previous tab and notify. */
+      const names = infos.map((info) => info.name);
+      const currentName = names.includes(activeSessionName)
+        ? activeSessionName
+        : DEFAULT_SESSION;
+      const currentIdx = names.indexOf(currentName);
+      const nextIdx =
+        (currentIdx + direction + names.length) % names.length;
+      const nextName = names[nextIdx];
+
+      activeSessionName = nextName;
+      if (monitorVisible) {
+        monitorVisible = await backend.attachSession(nextName);
+      }
+      await updateStatus();
+      return nextName;
+    }
+
     async function termPrev(): Promise<void> {
-      await cycleTab(-1);
-      sessionUi.notify(`Switched to ${activeTabName ?? "π - shell"}`, "info");
+      const next = await cycleSession(-1);
+      if (!next) {
+        sessionUi.notify("No other sessions", "info");
+        return;
+      }
+      sessionUi.notify(`Switched to ${next}`, "info");
     }
 
-    /** Switch to the next tab and notify. */
     async function termNext(): Promise<void> {
-      await cycleTab(1);
-      sessionUi.notify(`Switched to ${activeTabName ?? "π - shell"}`, "info");
+      const next = await cycleSession(1);
+      if (!next) {
+        sessionUi.notify("No other sessions", "info");
+        return;
+      }
+      sessionUi.notify(`Switched to ${next}`, "info");
     }
 
-    /** Toggle the mirror pane and notify. */
+    async function showActiveSession(): Promise<boolean> {
+      if (!(await ensureActiveSessionExists())) {
+        sessionUi.notify("Failed to create the default tmux session", "error");
+        return false;
+      }
+      monitorVisible = await backend.show(activeSessionName);
+      if (!monitorVisible) {
+        await updateStatus();
+        sessionUi.notify("Failed to show the monitor pane", "error");
+        return false;
+      }
+      return true;
+    }
+
     async function termToggle(): Promise<void> {
-      await toggleMirror();
+      monitorVisible = await backend.isVisible();
+      if (monitorVisible) {
+        await backend.hide();
+        monitorVisible = false;
+      } else if (!(await showActiveSession())) {
+        return;
+      }
+      await updateStatus();
       sessionUi.notify(
-        mirrorVisible ? "Mirror pane shown" : "Mirror pane hidden",
+        monitorVisible ? "Monitor pane shown" : "Monitor pane hidden",
         "info",
       );
     }
 
-    /** Show (if hidden) and focus the mirror pane so the user can type. */
     async function termFocus(): Promise<void> {
-      if (!(await backend.ensurePane())) {
-        sessionUi.notify("Error: terminal pane not available", "error");
-        return;
+      if (!(await backend.isVisible())) {
+        if (!(await showActiveSession())) return;
+      } else {
+        monitorVisible = true;
       }
-      if (!mirrorVisible) {
-        await backend.show(allTabTargetIds());
-        mirrorVisible = true;
-        updateTabWidget();
-      }
-      await backend.focusPane(activeTargetId());
-      sessionUi.notify("Focused mirror pane", "info");
+      await backend.focus();
+      await updateStatus();
+      sessionUi.notify("Focused monitor pane", "info");
     }
 
-    /** Run a command in the primary pi-shell tab. */
-    async function termRun(cmd: string): Promise<void> {
-      if (!(await backend.ensurePane())) {
-        sessionUi.notify("Error: terminal pane not available", "error");
+    async function termAttach(name: string): Promise<void> {
+      if (!(await attachSession(name, true))) {
+        sessionUi.notify(`No session named \"${name}\"`, "error");
         return;
       }
-      if (!(await installHook())) {
-        sessionUi.notify("Error: failed to install shell hook", "error");
+      sessionUi.notify(`Attached monitor to ${name}`, "info");
+    }
+
+    async function termRun(command: string): Promise<void> {
+      if (!(await ensureActiveSessionExists())) {
+        sessionUi.notify("Failed to create the default tmux session", "error");
         return;
       }
-      // Switch to shell tab and show the mirror
-      if (activeTabName !== null) await switchToTab(null);
-      if (!mirrorVisible) {
-        await backend.show(allTabTargetIds());
-        mirrorVisible = true;
-        updateTabWidget();
+      if (!(await backend.isVisible()) && !(await showActiveSession())) {
+        return;
       }
-      const { exitCode } = await runCommand(cmd, ctx.cwd);
-      if (backend.isPaneReady()) {
-        lastSnapshot = (
-          await backend.capture(backend.mainTargetId, 200)
-        ).trim();
+      await sessions.sendCommand(activeSessionName, ctx.cwd, command);
+      await updateStatus();
+      sessionUi.notify(`Sent command to ${activeSessionName}`, "info");
+    }
+
+    async function termNew(name: string): Promise<void> {
+      const sessionName = sanitizeName(name);
+      if (await sessions.hasSession(sessionName)) {
+        sessionUi.notify(`Session \"${sessionName}\" already exists`, "error");
+        return;
       }
+      const created = await sessions.createSession(sessionName, ctx.cwd);
+      if (!created) {
+        sessionUi.notify(`Failed to create session \"${sessionName}\"`, "error");
+        return;
+      }
+      rememberSession(sessionName);
+      activeSessionName = sessionName;
+      monitorVisible = await backend.show(sessionName);
+      await updateStatus();
       sessionUi.notify(
-        exitCode === 0
-          ? `Command completed (exit 0)`
-          : `Command failed (exit ${exitCode})`,
-        exitCode === 0 ? "info" : "error",
+        monitorVisible
+          ? `Created session \"${sessionName}\"`
+          : `Created session \"${sessionName}\" (monitor not shown)`,
+        monitorVisible ? "info" : "warning",
       );
     }
 
-    /** Spawn a command in a new process tab. */
     async function termSpawn(command: string, title?: string): Promise<void> {
-      if (!(await backend.ensurePane())) {
-        sessionUi.notify("Error: terminal pane not available", "error");
-        return;
-      }
-
-      let name: string;
+      let sessionName: string;
       if (title) {
-        name = sanitizeName(title);
+        sessionName = sanitizeName(title);
       } else {
-        name = command.length > 16 ? command.slice(0, 16) + "\u2026" : command;
-        name = sanitizeName(name);
+        const raw = command.length > 16 ? `${command.slice(0, 16)}…` : command;
+        sessionName = sanitizeName(raw);
       }
 
-      // Check for name collision
-      if (processes.has(name)) {
-        const existing = processes.get(name)!;
-        if (await backend.isTabAlive(existing.targetId)) {
-          sessionUi.notify(
-            `Process "${name}" is already running (${existing.command}). Stop it first or use a different name.`,
-            "error",
-          );
-          return;
-        }
-        processes.delete(name);
-      }
-
-      const targetId = await backend.createTab(name);
-      if (!targetId) {
-        sessionUi.notify(`Failed to create tab for "${name}"`, "error");
+      if (await sessions.hasSession(sessionName)) {
+        sessionUi.notify(`Session \"${sessionName}\" already exists`, "error");
         return;
       }
 
-      await sleep(300);
-      const fullCmd = `cd ${sq(ctx.cwd)} && ${command}`;
-      await backend.sendText(targetId, fullCmd);
-      await backend.sendEnter(targetId);
-
-      await sleep(1000);
-      const snapshot = (await backend.capture(targetId, 200)).trim();
-
-      const proc: ManagedProcess = {
-        name,
-        command,
-        targetId,
-        mode: "watch",
-        lastSnapshot: snapshot,
-        startedAt: Date.now(),
-      };
-      processes.set(name, proc);
-      updateTabWidget();
-
-      if (!watchLoopRunning) startWatchLoop();
-
-      // Show mirror and switch to the new tab
-      if (!mirrorVisible) {
-        await backend.show(allTabTargetIds());
-        mirrorVisible = true;
+      const created = await sessions.createSession(sessionName, ctx.cwd, command);
+      if (!created) {
+        sessionUi.notify(`Failed to create session \"${sessionName}\"`, "error");
+        return;
       }
-      await switchToTab(name);
 
-      sessionUi.notify(`Spawned "${name}": ${command}`, "info");
+      rememberSession(sessionName, { command, mode: "watch" });
+      activeSessionName = sessionName;
+      monitorVisible = await backend.show(sessionName);
+      await updateStatus();
+      sessionUi.notify(
+        monitorVisible
+          ? `Spawned \"${sessionName}\": ${command}`
+          : `Spawned \"${sessionName}\" but failed to show the monitor`,
+        monitorVisible ? "info" : "warning",
+      );
     }
 
-    // ── event bus listeners (for cross-extension invocation) ─
+    async function termKill(name: string): Promise<void> {
+      if (name === DEFAULT_SESSION) {
+        sessionUi.notify("Refusing to kill the default shell session", "warning");
+        return;
+      }
+      if (!(await sessions.hasSession(name))) {
+        sessionUi.notify(`No session named \"${name}\"`, "error");
+        return;
+      }
+
+      await sessions.killSession(name);
+      sessionMeta.delete(name);
+
+      if (activeSessionName === name) {
+        await ensureDefaultSession();
+        activeSessionName = DEFAULT_SESSION;
+        if (monitorVisible) {
+          monitorVisible = await backend.show(DEFAULT_SESSION);
+          if (!monitorVisible) {
+            sessionUi.notify(
+              "Killed the active session, but failed to show the default shell monitor",
+              "warning",
+            );
+          }
+        }
+      }
+
+      await updateStatus();
+      sessionUi.notify(`Killed \"${name}\"`, "info");
+    }
+
+    async function showListNotification(): Promise<void> {
+      const infos = await loadSessions();
+      if (infos.length === 0) {
+        sessionUi.notify("No sessions", "info");
+        return;
+      }
+      const lines = infos.map((info, idx) => {
+        const marker = info.name === activeSessionName ? "*" : " ";
+        return `${marker} [${idx + 1}] ${info.name} (${info.windows}w/${info.attached}a)`;
+      });
+      sessionUi.notify(lines.join(" | "), "info");
+    }
+
+    // ── event bus listeners ──────────────────────────────
 
     const unsubTermPrev = pi.events.on("term:prev", () => {
-      termPrev();
+      void termPrev();
     });
 
     const unsubTermNext = pi.events.on("term:next", () => {
-      termNext();
+      void termNext();
     });
+
+    const unsubTermToggle = pi.events.on("term:toggle", () => {
+      void termToggle();
+    });
+
+    const unsubTermFocus = pi.events.on("term:focus", () => {
+      void termFocus();
+    });
+
+    const unsubTermAttach = pi.events.on(
+      "term:attach",
+      (data: { name: string }) => {
+        void termAttach(data.name);
+      },
+    );
 
     const unsubTermRun = pi.events.on(
       "term:run",
       (data: { command: string }) => {
-        termRun(data.command);
+        void termRun(data.command);
+      },
+    );
+
+    const unsubTermNew = pi.events.on(
+      "term:new",
+      (data: { name: string }) => {
+        void termNew(data.name);
       },
     );
 
     const unsubTermSpawn = pi.events.on(
       "term:spawn",
       (data: { command: string; title?: string }) => {
-        termSpawn(data.command, data.title);
+        void termSpawn(data.command, data.title);
       },
     );
 
-    const unsubTermToggle = pi.events.on("term:toggle", () => {
-      termToggle();
-    });
-
-    const unsubTermFocus = pi.events.on("term:focus", () => {
-      termFocus();
-    });
-
-    // ── register tools ─────────────────────────────────────
-
-    pi.registerTool({
-      name: "bash",
-      label: `Bash (${backend.label})`,
-      description:
-        "Execute a bash command in a shared terminal split. The terminal is " +
-        "shared with the user — they may also run commands there. Use " +
-        "read_terminal to see recent terminal activity including user commands.",
-      parameters: Type.Object({
-        command: Type.String({ description: "Bash command to execute" }),
-        timeout: Type.Optional(
-          Type.Number({ description: "Timeout in seconds (default: 120)" }),
-        ),
-      }),
-      async execute(_id, params, signal, onUpdate, ctx) {
-        try {
-          if (!(await backend.ensurePane())) {
-            const hint =
-              backend.label === "tmux"
-                ? "Are you inside tmux?"
-                : "Is SWAYSOCK set? Is foot available?";
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: `Error: could not create terminal pane. ${hint}`,
-                },
-              ],
-              details: { command: params.command, exitCode: 1, cwd: ctx.cwd },
-              isError: true,
-            };
-          }
-
-          // Auto-switch to shell tab (but don't auto-show the mirror)
-          if (activeTabName !== null) await switchToTab(null);
-
-          onUpdate?.({
-            content: [
-              {
-                type: "text",
-                text: `Running in ${backend.label} → ${backend.displayTarget()}…`,
-              },
-            ],
-          });
-
-          const ms = params.timeout ? params.timeout * 1000 : undefined;
-          const { output, exitCode } = await runCommand(
-            params.command,
-            ctx.cwd,
-            ms,
-            signal,
-          );
-
-          if (backend.isPaneReady()) {
-            lastSnapshot = (
-              await backend.capture(backend.mainTargetId, 200)
-            ).trim();
-          }
-
-          const t = truncateTail(output, {
-            maxLines: DEFAULT_MAX_LINES,
-            maxBytes: DEFAULT_MAX_BYTES,
-          });
-          let text = t.content;
-          if (t.truncated) {
-            text =
-              `[Truncated: last ${t.outputLines} of ${t.totalLines} lines ` +
-              `(${formatSize(t.outputBytes)} of ${formatSize(t.totalBytes)})]\n` +
-              text;
-          }
-          if (!text) text = "(no output)";
-
-          return {
-            content: [{ type: "text", text }],
-            details: { command: params.command, exitCode, cwd: ctx.cwd },
-            isError: exitCode !== 0,
-          };
-        } catch (err) {
-          await resetAll();
-          return {
-            content: [
-              {
-                type: "text",
-                text: `shell error: ${err instanceof Error ? err.message : String(err)}`,
-              },
-            ],
-            details: { command: params.command, exitCode: 1, cwd: ctx.cwd },
-            isError: true,
-          };
-        }
+    const unsubTermKill = pi.events.on(
+      "term:kill",
+      (data: { name: string }) => {
+        void termKill(data.name);
       },
-    });
+    );
 
-    pi.registerTool({
-      name: "read_terminal",
-      label: "Read Terminal",
-      description:
-        "Read recent content from the shared terminal split. Shows output " +
-        "from both agent and user commands.",
-      parameters: Type.Object({
-        lines: Type.Optional(
-          Type.Number({ description: "Lines of scrollback (default: 200)" }),
-        ),
-      }),
-      async execute(_id, params) {
-        if (!(await backend.ensurePane())) {
-          return {
-            content: [
-              { type: "text", text: "Error: terminal pane not available" },
-            ],
-            isError: true,
-          };
-        }
-        const text = (
-          await backend.capture(backend.mainTargetId, params.lines || 200)
-        ).trim();
-        return {
-          content: [{ type: "text", text: text || "(terminal is empty)" }],
-          details: {},
-        };
-      },
-    });
+    // ── tools ────────────────────────────────────────────
 
     pi.registerTool({
       name: "start_process",
-      label: "Start Process",
+      label: "Start tmux Session",
       description:
-        "Launch a long-running process in a named tab (e.g. dev server, test watcher, REPL). " +
-        "Returns immediately. Use read_process to check output, send_input to interact, " +
-        "stop_process to kill it.",
+        "Create a named tmux session in the term server and optionally run an initial command.",
       parameters: Type.Object({
         name: Type.String({
           description:
-            'Short name for this process (e.g. "server", "tests", "repl")',
+            'Short name for this process/session (e.g. "server", "tests", "repl")',
         }),
         command: Type.String({ description: "Command to run" }),
         mode: Type.Optional(
           Type.Union([Type.Literal("watch"), Type.Literal("quiet")], {
             description:
-              'Activity reporting mode: "watch" auto-injects output changes into conversation (default), "quiet" only reports on read_process',
+              'Compatibility flag retained for existing prompts. Auto-watch notifications are no longer emitted.',
             default: "watch",
           }),
         ),
       }),
-      async execute(_id, params, _signal, _onUpdate, ctx) {
+      async execute(_id, params, _signal, _onUpdate, toolCtx) {
         const name = sanitizeName(params.name);
-        const mode = params.mode || "watch";
-
-        // Check for name collision
-        if (processes.has(name)) {
-          const existing = processes.get(name)!;
-          if (await backend.isTabAlive(existing.targetId)) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: `Process "${name}" is already running (${existing.command}). Stop it first or use a different name.`,
-                },
-              ],
-              isError: true,
-            };
-          }
-          // Dead process with same name — clean up
-          processes.delete(name);
-        }
-
-        if (!(await backend.ensurePane())) {
-          return {
-            content: [
-              { type: "text", text: "Error: could not create terminal pane." },
-            ],
-            isError: true,
-          };
-        }
-
-        const targetId = await backend.createTab(name);
-        if (!targetId) {
+        if (await sessions.hasSession(name)) {
           return {
             content: [
               {
                 type: "text",
-                text: `Error: failed to create tab for "${name}".`,
+                text: `Session \"${name}\" already exists.`,
               },
             ],
             isError: true,
           };
         }
 
-        // Send the command.
-        // New tabs start in the home directory (not the agent's cwd), so we
-        // always prepend a `cd` to the correct working directory.
-        // We also sleep briefly after tab creation to let the shell in the
-        // new tab fully initialise — without this, tmux send-keys can hit a
-        // race where the first character is duplicated.
-        await sleep(300);
-        const fullCmd = `cd ${sq(ctx.cwd)} && ${params.command}`;
-
-        await backend.sendText(targetId, fullCmd);
-        await backend.sendEnter(targetId);
-
-        // Wait briefly for initial output
-        await sleep(1000);
-        const snapshot = (await backend.capture(targetId, 200)).trim();
-
-        const proc: ManagedProcess = {
-          name,
-          command: params.command,
-          targetId,
-          mode,
-          lastSnapshot: snapshot,
-          startedAt: Date.now(),
-        };
-        processes.set(name, proc);
-        updateTabWidget();
-
-        // Ensure watch loop is running if we have watch processes
-        if (mode === "watch" && !watchLoopRunning) {
-          startWatchLoop();
+        const created = await sessions.createSession(name, toolCtx.cwd, params.command);
+        if (!created) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Failed to create session \"${name}\".`,
+              },
+            ],
+            isError: true,
+          };
         }
+
+        rememberSession(name, { command: params.command, mode: params.mode || "watch" });
+        await updateStatus();
+        await sleep(300);
+        const snapshot = await sessions.captureSession(name, 80);
 
         return {
           content: [
             {
               type: "text",
-              text: `Started "${name}" in tab (mode: ${mode}).\n\n${snapshot || "(no output yet)"}`,
+              text:
+                `Started tmux session \"${name}\".` +
+                (snapshot ? `\n\n${snapshot}` : ""),
             },
           ],
-          details: { name, command: params.command, mode, targetId },
+          details: {
+            name,
+            command: params.command,
+            mode: params.mode || "watch",
+            socket: sessions.socketName,
+          },
         };
       },
     });
@@ -1050,58 +485,37 @@ export default function (pi: ExtensionAPI) {
     pi.registerTool({
       name: "send_input",
       label: "Send Input",
-      description:
-        "Send text input to a named running process (e.g. type into a REPL). " +
-        "Appends Enter by default.",
+      description: "Send text input to a managed tmux session.",
       parameters: Type.Object({
-        name: Type.String({ description: "Process name" }),
+        name: Type.String({ description: "Session name" }),
         text: Type.String({ description: "Text to send" }),
         enter: Type.Optional(
-          Type.Boolean({
-            description: "Send Enter after text (default: true)",
-          }),
+          Type.Boolean({ description: "Send Enter after text (default: true)" }),
         ),
       }),
       async execute(_id, params) {
-        const proc = processes.get(params.name);
-        if (!proc) {
+        if (!(await sessions.hasSession(params.name))) {
           return {
             content: [
               {
                 type: "text",
-                text: `No process named "${params.name}". Use list_processes to see active processes.`,
+                text: `No session named \"${params.name}\".`,
               },
             ],
             isError: true,
           };
         }
 
-        if (!(await backend.isTabAlive(proc.targetId))) {
-          processes.delete(params.name);
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Process "${params.name}" is no longer running.`,
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        await backend.sendText(proc.targetId, params.text);
+        await sessions.sendText(params.name, params.text);
         if (params.enter !== false) {
-          await backend.sendEnter(proc.targetId);
+          await sessions.sendEnter(params.name);
         }
-
-        // Wait briefly and capture output
-        await sleep(500);
-        const output = (await backend.capture(proc.targetId, 50)).trim();
-        proc.lastSnapshot = (await backend.capture(proc.targetId, 200)).trim();
+        await sleep(200);
+        const output = await sessions.captureSession(params.name, 60);
 
         return {
           content: [{ type: "text", text: output || "(no output)" }],
-          details: { name: params.name },
+          details: { name: params.name, socket: sessions.socketName },
         };
       },
     });
@@ -1109,59 +523,35 @@ export default function (pi: ExtensionAPI) {
     pi.registerTool({
       name: "read_process",
       label: "Read Process",
-      description: "Read recent output from a named running process.",
+      description: "Read recent output from a managed tmux session.",
       parameters: Type.Object({
-        name: Type.String({ description: "Process name" }),
+        name: Type.String({ description: "Session name" }),
         lines: Type.Optional(
           Type.Number({ description: "Lines of scrollback (default: 200)" }),
         ),
       }),
       async execute(_id, params) {
-        const proc = processes.get(params.name);
-        if (!proc) {
+        if (!(await sessions.hasSession(params.name))) {
           return {
             content: [
               {
                 type: "text",
-                text: `No process named "${params.name}". Use list_processes to see active processes.`,
+                text: `No session named \"${params.name}\".`,
               },
             ],
             isError: true,
           };
         }
 
-        const alive = await backend.isTabAlive(proc.targetId);
-        let output = "";
-        try {
-          output = (
-            await backend.capture(proc.targetId, params.lines || 200)
-          ).trim();
-        } catch {
-          // Target may be gone if the tab just died
-        }
-
-        const status = alive ? "running" : "exited";
-
-        if (!alive) {
-          // Clean up dead process
-          processes.delete(params.name);
-          updateTabWidget();
-          const hasWatch = [...processes.values()].some(
-            (p) => p.mode === "watch",
-          );
-          if (!hasWatch) stopWatchLoop();
-        } else {
-          proc.lastSnapshot = output;
-        }
-
+        const output = await sessions.captureSession(params.name, params.lines || 200);
         return {
           content: [
             {
               type: "text",
-              text: `[${proc.name}: ${status}]\n${output || "(no output)"}`,
+              text: `[${params.name}]\n${output || "(no output)"}`,
             },
           ],
-          details: { name: params.name, status },
+          details: { name: params.name, socket: sessions.socketName },
         };
       },
     });
@@ -1169,110 +559,104 @@ export default function (pi: ExtensionAPI) {
     pi.registerTool({
       name: "stop_process",
       label: "Stop Process",
-      description:
-        "Stop a named running process (sends Ctrl+C, then kills the tab).",
+      description: "Kill a managed tmux session.",
       parameters: Type.Object({
-        name: Type.String({ description: "Process name" }),
+        name: Type.String({ description: "Session name" }),
       }),
       async execute(_id, params) {
-        const proc = processes.get(params.name);
-        if (!proc) {
+        if (params.name === DEFAULT_SESSION) {
           return {
             content: [
-              { type: "text", text: `No process named "${params.name}".` },
+              {
+                type: "text",
+                text: "Refusing to kill the default shell session.",
+              },
+            ],
+            isError: true,
+          };
+        }
+        if (!(await sessions.hasSession(params.name))) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `No session named \"${params.name}\".`,
+              },
             ],
             isError: true,
           };
         }
 
-        // Mark as stopped immediately so the watch loop won't send any
-        // more notifications, even for already-computed diffs.
-        stoppedProcesses.add(params.name);
-        processes.delete(params.name);
-        updateTabWidget();
+        await sessions.killSession(params.name);
+        sessionMeta.delete(params.name);
 
-        // Switch to shell tab before closing (so mirror slot keeps the shell)
-        if (activeTabName === params.name) await switchToTab(null);
-
-        let finalOutput = "";
-        if (await backend.isTabAlive(proc.targetId)) {
-          await backend.sendCtrlC(proc.targetId);
-          await sleep(1000);
-          finalOutput = (await backend.capture(proc.targetId, 50)).trim();
-          await backend.closeTab(proc.targetId);
+        if (activeSessionName === params.name) {
+          await ensureDefaultSession();
+          activeSessionName = DEFAULT_SESSION;
+          if (await backend.isVisible()) {
+            monitorVisible = await backend.show(DEFAULT_SESSION);
+          }
         }
 
-        // Stop watch loop if no more watch processes, and wait for
-        // the current iteration to finish so no stale messages leak.
-        const hasWatch = [...processes.values()].some(
-          (p) => p.mode === "watch",
-        );
-        if (!hasWatch) await stopWatchLoopAndWait();
-
-        // Clean up stopped marker now that the watch loop has drained
-        stoppedProcesses.delete(params.name);
+        await updateStatus();
 
         return {
           content: [
             {
               type: "text",
-              text: `Stopped "${params.name}".${finalOutput ? "\n\n" + finalOutput : ""}`,
+              text: `Stopped session \"${params.name}\".`,
             },
           ],
-          details: { name: params.name },
+          details: { name: params.name, socket: sessions.socketName },
         };
       },
     });
 
     pi.registerTool({
       name: "list_processes",
-      label: "List Processes",
-      description: "List all managed background processes and their status.",
+      label: "List Sessions",
+      description: "List managed tmux sessions in the term server.",
       parameters: Type.Object({}),
       async execute() {
-        if (processes.size === 0) {
+        const infos = (await loadSessions()).filter(
+          (info) => info.name !== DEFAULT_SESSION,
+        );
+
+        if (infos.length === 0) {
           return {
-            content: [{ type: "text", text: "No managed processes running." }],
-            details: {},
+            content: [
+              {
+                type: "text",
+                text: "No managed sessions running.",
+              },
+            ],
+            details: { count: 0, socket: sessions.socketName },
           };
         }
 
-        const lines: string[] = [];
-        const dead: string[] = [];
-        for (const [name, proc] of processes) {
-          const alive = await backend.isTabAlive(proc.targetId);
-          const status = alive ? "running" : "exited";
-          const age = Math.round((Date.now() - proc.startedAt) / 1000);
-          lines.push(
-            `  ${name}: ${proc.command} [${status}, ${proc.mode}, ${age}s]`,
-          );
-          if (!alive) dead.push(name);
-        }
-
-        // Clean up dead processes
-        for (const name of dead) processes.delete(name);
-        if (dead.length > 0) {
-          updateTabWidget();
-          const hasWatch = [...processes.values()].some(
-            (p) => p.mode === "watch",
-          );
-          if (!hasWatch) stopWatchLoop();
-        }
+        const lines = infos.map((info) => {
+          const meta = sessionMeta.get(info.name);
+          const startedAt = meta?.startedAt || info.created * 1000;
+          const age = startedAt > 0 ? Math.round((Date.now() - startedAt) / 1000) : 0;
+          const desc = meta?.command || "(interactive shell)";
+          const mode = meta?.mode || "quiet";
+          return `  ${info.name}: ${desc} [${mode}, ${info.windows}w, ${info.attached}a, ${age}s]`;
+        });
 
         return {
           content: [
-            { type: "text", text: `Managed processes:\n${lines.join("\n")}` },
+            {
+              type: "text",
+              text: `Managed sessions:\n${lines.join("\n")}`,
+            },
           ],
-          details: { count: processes.size },
+          details: { count: infos.length, socket: sessions.socketName },
         };
       },
     });
 
+    // ── helpers: command parsing ─────────────────────────
 
-    // ── helpers: command parsing ────────────────────────────
-
-    /** Extract the first single- or double-quoted string from text.
-     *  Returns the unquoted value and the index of the opening quote. */
     function extractQuoted(
       text: string,
     ): { value: string; start: number } | null {
@@ -1300,13 +684,14 @@ export default function (pi: ExtensionAPI) {
       return { value: text.slice(start + 1, end), start };
     }
 
-    // ── register command ───────────────────────────────────
+    // ── slash command ────────────────────────────────────
 
     pi.registerCommand("term", {
       description:
-        'Control the shared terminal: toggle, focus, status, prev, next, <index>, kill <index|name>, run "<cmd>", spawn [title] "<cmd>"',
-      handler: async (args, ctx) => {
-        const arg = (args || "").trim().toLowerCase();
+        'Control tmux-backed terminal sessions: toggle, focus, status, list, prev, next, attach <name|index>, <index>, new <name>, kill <name|index>, run "<cmd>", spawn [title] "<cmd>"',
+      handler: async (args, commandCtx) => {
+        const raw = (args || "").trim();
+        const arg = raw.toLowerCase();
 
         if (!arg || arg === "toggle") {
           pi.events.emit("term:toggle");
@@ -1319,242 +704,146 @@ export default function (pi: ExtensionAPI) {
         }
 
         if (arg === "prev") {
-          await termPrev();
+          pi.events.emit("term:prev");
           return;
         }
 
         if (arg === "next") {
-          await termNext();
+          pi.events.emit("term:next");
+          return;
+        }
+
+        if (arg === "list") {
+          await showListNotification();
           return;
         }
 
         if (arg === "status") {
+          monitorVisible = await backend.isVisible();
+          const debug = await backend.getDebugInfo();
+          const infos = await loadSessions();
           const parts = [
             `backend=${backend.label}`,
+            `monitor=${monitorVisible ? "visible" : "hidden"}`,
+            `active=${activeSessionName}`,
+            `sessions=${infos.length}`,
             `target=${backend.displayTarget()}`,
-            `mirror=${mirrorVisible ? "visible" : "hidden"}`,
-            `active=${activeTabName ?? "π - shell"}`,
-            `processes=${processes.size}`,
           ];
-          const debug = await backend.getDebugInfo?.();
-          if (debug) {
-            for (const [k, v] of Object.entries(debug)) {
-              parts.push(`${k}=${String(v)}`);
-            }
+          for (const [k, v] of Object.entries(debug)) {
+            parts.push(`${k}=${String(v)}`);
           }
-          ctx.ui.notify(parts.join(" | "), "info");
+          commandCtx.ui.notify(parts.join(" | "), "info");
           return;
         }
 
-        // /term run "<cmd>" — run a command in the primary pi-shell
+        if (arg.startsWith("attach ")) {
+          const ref = raw.slice(7).trim();
+          const name = await resolveSessionRef(ref);
+          if (!name) {
+            commandCtx.ui.notify(`Unknown session: ${ref}`, "error");
+            return;
+          }
+          pi.events.emit("term:attach", { name });
+          return;
+        }
+
+        if (arg.startsWith("new ")) {
+          const name = raw.slice(4).trim();
+          if (!name) {
+            commandCtx.ui.notify("Usage: /term new <name>", "error");
+            return;
+          }
+          pi.events.emit("term:new", { name });
+          return;
+        }
+
         if (arg.startsWith("run ")) {
-          const runRest = (args || "").trim().slice(4).trim();
-          const runQuoted = extractQuoted(runRest);
-          if (!runQuoted || !runQuoted.value) {
-            ctx.ui.notify('Usage: /term run "<command>"', "error");
+          const rest = raw.slice(4).trim();
+          const quoted = extractQuoted(rest);
+          if (!quoted?.value) {
+            commandCtx.ui.notify('Usage: /term run "<command>"', "error");
             return;
           }
-          await termRun(runQuoted.value);
+          pi.events.emit("term:run", { command: quoted.value });
           return;
         }
 
-        // /term spawn [title] "<cmd>" — spawn a new shell pane
         if (arg.startsWith("spawn ")) {
-          const rest = (args || "").trim().slice(6).trim();
+          const rest = raw.slice(6).trim();
           if (!rest) {
-            ctx.ui.notify('Usage: /term spawn [title] "<command>"', "error");
+            commandCtx.ui.notify('Usage: /term spawn [title] "<command>"', "error");
             return;
           }
-
-          // Parse: optional unquoted title token, then quoted command
-          const spawnQuoted = extractQuoted(rest);
-          if (!spawnQuoted || !spawnQuoted.value) {
-            ctx.ui.notify('Usage: /term spawn [title] "<command>"', "error");
+          const quoted = extractQuoted(rest);
+          if (!quoted?.value) {
+            commandCtx.ui.notify('Usage: /term spawn [title] "<command>"', "error");
             return;
           }
-          const command = spawnQuoted.value;
-          const beforeQuote = rest.slice(0, spawnQuoted.start).trim();
-          let title: string | undefined;
-          if (beforeQuote && /^\S+$/.test(beforeQuote)) {
-            title = beforeQuote;
-          }
-          await termSpawn(command, title);
+          const beforeQuote = rest.slice(0, quoted.start).trim();
+          const title = beforeQuote && /^\S+$/.test(beforeQuote) ? beforeQuote : undefined;
+          pi.events.emit("term:spawn", { command: quoted.value, title });
           return;
         }
 
-        // /term kill <index|name> — kill a process tab
         if (arg.startsWith("kill ")) {
-          const killArg = (args || "").trim().slice(5).trim();
-          if (!killArg) {
-            ctx.ui.notify("Usage: /term kill <index|name>", "error");
+          const ref = raw.slice(5).trim();
+          if (!ref) {
+            commandCtx.ui.notify("Usage: /term kill <name|index>", "error");
             return;
           }
-
-          const tabNames = ["π - shell", ...processes.keys()];
-          let targetName: string | null = null;
-
-          const killIdx = parseInt(killArg, 10);
-          if (!isNaN(killIdx) && String(killIdx) === killArg) {
-            // Numeric argument — 0-based index
-            if (killIdx < 0 || killIdx >= tabNames.length) {
-              ctx.ui.notify(
-                `Invalid index ${killIdx}. Range: 0–${tabNames.length - 1}`,
-                "error",
-              );
-              return;
-            }
-            targetName = tabNames[killIdx];
-          } else {
-            // Alphabetic argument — match by name (case-insensitive)
-            targetName =
-              tabNames.find((n) => n.toLowerCase() === killArg.toLowerCase()) ??
-              null;
-            if (!targetName) {
-              ctx.ui.notify(
-                `No process named "${killArg}". Active: ${tabNames.join(", ")}`,
-                "error",
-              );
-              return;
-            }
-          }
-
-          if (targetName === "π - shell") {
-            ctx.ui.notify(
-              "Request to close primary shell session ignored",
-              "warning",
-            );
+          const name = await resolveSessionRef(ref);
+          if (!name) {
+            commandCtx.ui.notify(`Unknown session: ${ref}`, "error");
             return;
           }
-
-          const proc = processes.get(targetName);
-          if (!proc) {
-            ctx.ui.notify(`No process named "${targetName}".`, "error");
-            return;
-          }
-
-          // Same cleanup as stop_process
-          stoppedProcesses.add(targetName);
-          processes.delete(targetName);
-          updateTabWidget();
-
-          if (activeTabName === targetName) await switchToTab(null);
-
-          if (await backend.isTabAlive(proc.targetId)) {
-            await backend.sendCtrlC(proc.targetId);
-            await sleep(1000);
-            await backend.closeTab(proc.targetId);
-          }
-
-          const hasWatch = [...processes.values()].some(
-            (p) => p.mode === "watch",
-          );
-          if (!hasWatch) await stopWatchLoopAndWait();
-
-          stoppedProcesses.delete(targetName);
-
-          ctx.ui.notify(`Killed "${targetName}"`, "info");
+          pi.events.emit("term:kill", { name });
           return;
         }
 
-        // Numeric index (0-based): 0 = π - shell, 1+ = processes
-        const idx = parseInt(arg, 10);
-        if (!isNaN(idx)) {
-          const tabNames = ["π - shell", ...processes.keys()];
-          if (idx < 0 || idx >= tabNames.length) {
-            ctx.ui.notify(
-              `Invalid index ${idx}. Range: 0–${tabNames.length - 1}`,
-              "error",
-            );
-            return;
-          }
-          const target = tabNames[idx];
-          await switchToTab(target === "π - shell" ? null : target);
-          ctx.ui.notify(`Switched to [${idx}] ${target}`, "info");
+        const direct = await resolveSessionRef(raw);
+        if (direct) {
+          pi.events.emit("term:attach", { name: direct });
           return;
         }
 
-        ctx.ui.notify(
-          `Unknown argument: ${arg}. Usage: /term [toggle|focus|status|prev|next|<index>|kill <index|name>|run "<cmd>"|spawn [title] "<cmd>"]`,
+        commandCtx.ui.notify(
+          'Unknown argument. Usage: /term [toggle|focus|status|list|prev|next|attach <name|index>|<index>|new <name>|kill <name|index>|run "<cmd>"|spawn [title] "<cmd>"]',
           "error",
         );
       },
     });
 
-    // ── register event handlers ────────────────────────────
-
-    pi.on("agent_start", async () => {
-      agentRunning = true;
-      // Release any pending activity loop FIFO reader so runCommand
-      // is the sole reader. The await yields to the event loop,
-      // letting the activity loop see agentRunning=true and stop.
-      await backend.unblockWait();
-    });
-
-    pi.on("agent_end", () => {
-      agentRunning = false;
-    });
-
     pi.on("session_shutdown", async () => {
-      // Clean up event bus listeners
       unsubTermPrev();
       unsubTermNext();
-      unsubTermRun();
-      unsubTermSpawn();
       unsubTermToggle();
       unsubTermFocus();
-      // Clean up modal-editor keybinding listener
+      unsubTermAttach();
+      unsubTermRun();
+      unsubTermNew();
+      unsubTermSpawn();
+      unsubTermKill();
+
       if (cleanupKeybindings) {
         cleanupKeybindings();
         cleanupKeybindings = null;
       }
-      stopActivityLoop();
-      stopWatchLoop();
-      // Swap shell back to mirror slot before closing process tabs
-      if (activeTabName !== null) {
-        try {
-          await switchToTab(null);
-        } catch {}
-      }
-      // Close all managed process tabs
-      for (const [, proc] of processes) {
-        await backend.closeTab(proc.targetId).catch(() => {});
-      }
-      processes.clear();
-      await backend.killPane();
-      sessionUi.setStatus("mirror-tabs", undefined);
-      backend.cleanup();
+
+      sessionUi.setStatus("term-sessions", undefined);
+      await backend.cleanup();
+      await sessions.killServer();
     });
 
-    // ── activate: set up pane, hook, activity loop ─────────
-
-    const ok = await backend.ensurePane();
-    if (ok) {
-      // Install the shell hook in the background — don't block session
-      // startup on FIFO signaling which can take minutes if it fails.
-      // The hook will be installed lazily on first tool use if this
-      // background attempt doesn't complete in time.
-      installHook().then(async () => {
-        if (backend.isPaneReady()) {
-          lastSnapshot = (await backend.capture(backend.mainTargetId, 200)).trim();
-        }
-        startActivityLoop();
-      }).catch(() => {
-        // Hook failed — activity loop still starts so user commands are detected
-        startActivityLoop();
-      });
-
-      // Start with the mirror pane hidden
-      await backend.hide();
-      mirrorVisible = false;
-
-      updateTabWidget();
-      ctx.ui.notify(
-        `Shared ${backend.label} pane → ${backend.displayTarget()}`,
-        "info",
-      );
+    if (!(await ensureDefaultSession())) {
+      sessionUi.notify("Failed to create the default tmux session", "error");
+      return;
     }
 
-    // ── suggest keybindings to modal-editor ────────────────
+    await updateStatus();
+    sessionUi.notify(
+      `term ready (${backend.label} backend, tmux socket: ${sessions.socketName})`,
+      "info",
+    );
 
     cleanupKeybindings = suggestKeybindings(pi, EXT_NAME, {
       menus: {
@@ -1562,10 +851,10 @@ export default function (pi: ExtensionAPI) {
           label: "Term",
           key: "'",
           items: {
-            t: {label: "Show/hide", action: "term:toggle"},
+            t: { label: "Show/hide", action: "term:toggle" },
             f: { label: "Focus", action: "term:focus" },
-            h: { label: "Prev tab", action: "term:prev" },
-            l: { label: "Next tab", action: "term:next" },
+            h: { label: "Prev session", action: "term:prev" },
+            l: { label: "Next session", action: "term:next" },
           },
         },
       },

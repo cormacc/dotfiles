@@ -1,370 +1,152 @@
 # term
 
-A [pi](https://github.com/nichochar/pi-coding-agent) extension that redirects
-agent commands to a shared terminal split, giving both the agent and the user
-full bidirectional visibility of the same terminal.
+A [pi](https://github.com/nichochar/pi-coding-agent) extension that manages a
+small dedicated **tmux server** for interactive shell sessions and can show the
+currently selected session in a visible **monitor pane**.
 
-The extension **activates automatically** when it detects a supported
-environment (tmux or sway). Use `--no-mirror` to disable it.
+`term` no longer overrides pi's built-in `bash` tool. pi uses its normal bash
+execution path again; this extension is now focused on **session management and
+monitoring**.
 
-## Backends
+## Current status
 
-| Backend   | Detection          | Status                            |
-| --------- | ------------------ | --------------------------------- |
-| **kitty** | `$KITTY_WINDOW_ID` | Preferred, native remote control, no relay |
-| **sway**  | `$SWAYSOCK`        | Actively developed                |
-| tmux      | `$TMUX`            | Functional, less actively maintained |
+This refactor currently supports three monitor backends:
 
-**kitty** is the recommended backend. It uses kitty's native remote control
-protocol (`kitten @`) — no PTY relay or external terminal needed. The **sway**
-backend launches a foot terminal window alongside pi and is actively maintained.
-The tmux backend is functional but less actively maintained.
+- **kitty** — supported as a monitor-only backend
+- **sway** — supported as a monitor-only backend using `foot`
+- **tmux** — supported
 
-Detection order is kitty → sway → tmux. If running kitty under sway, the kitty
-backend takes precedence.
+Detection order is **kitty → sway → tmux**. If pi is running inside kitty under
+sway, the kitty backend takes precedence.
+
+## Architecture
+
+The extension now has two layers:
+
+1. **Dedicated tmux session server**
+   - `term` creates a private tmux server (`tmux -L <socket>`)
+   - each shell/process lives in its own named tmux session
+   - sessions can be listed, attached, read from, sent input, and killed
+
+2. **Monitor pane backend**
+   - the tmux backend creates/destroys a visible split pane on demand
+   - that pane runs:
+
+   ```bash
+   env -u TMUX tmux -L <socket> attach-session -t <session>
+   ```
+
+This keeps terminal session management in tmux and removes the old prompt-hook,
+PTY relay, and bash-tool interception logic.
 
 ## Features
 
-- **Shared terminal** — agent commands run in a visible split instead of a
-  hidden subprocess. The user sees every command as it executes.
-- **Bidirectional** — when the user types commands in the pane, the agent is
-  notified and can respond to the output.
-- **Process tabs** — long-running processes (dev servers, test watchers, REPLs)
-  run in named tabs with optional auto-reporting of output changes.
-- **Clean command display** — commands are sent to the shell directly (via
-  `tmux send-keys` or a PTY relay). No wrapper scripts or markers visible.
-- **Exit code tracking** — a shell hook captures exit codes after every command.
-- **Instant detection** — event-driven signaling (tmux `wait-for` / named pipe
-  FIFOs) with zero CPU while waiting.
-- **Pane recovery** — auto-recovers if the user closes the pane, reuses
-  existing panes across agent restarts.
+- **Default shell session** — creates a `shell` tmux session for ad-hoc work
+- **Named sessions** — create interactive sessions or spawn commands in new ones
+- **Visible monitor pane** — show/hide/focus a tmux-attached pane in the current tmux window
+- **Session switching** — cycle or attach by name/index
+- **Tool wrappers** — start/read/send/stop/list managed sessions via tmux
+- **No bash override** — pi's default bash tool is used unchanged
 
 ## CLI
 
 ```bash
-pi                # auto-activates in tmux or sway
-pi --no-mirror    # disable shared terminal
+pi                # activates when running inside kitty, sway, or tmux
+pi --no-mirror    # disable the term monitor/session extension for this run
 ```
 
-## Slash Command
+## Slash command
 
 ### `/term [subcommand]`
 
-| Subcommand              | Description                         |
-| ----------------------- | ----------------------------------- |
-| _(none)_ / `toggle`     | Toggle the mirror pane visibility   |
-| `focus`                 | Show (if hidden) and focus the pane |
-| `status`                | Show backend + ownership debug info |
-| `prev`                  | Switch to previous tab              |
-| `next`                  | Switch to next tab                  |
-| `<index>`               | Switch to tab by 1-based index      |
-| `kill <index\|name>`    | Kill a process tab by index or name |
-| `run "<cmd>"`           | Run a command in the primary shell  |
-| `spawn [title] "<cmd>"` | Spawn a new process tab             |
+| Subcommand                  | Description |
+| --------------------------- | ----------- |
+| _(none)_ / `toggle`         | Toggle the monitor pane |
+| `focus`                     | Show (if hidden) and focus the monitor pane |
+| `status`                    | Show backend/socket/debug info |
+| `list`                      | List sessions |
+| `prev`                      | Select the previous session |
+| `next`                      | Select the next session |
+| `attach <name\|index>`      | Attach the monitor to a session |
+| `<index>`                   | Attach the monitor to a session by 1-based index |
+| `new <name>`                | Create a new interactive session |
+| `kill <name\|index>`        | Kill a session |
+| `run "<cmd>"`              | Send a command to the active session |
+| `spawn [title] "<cmd>"`    | Create a new session and run a command |
 
 ## Keybindings
 
-Registered with `modal-editor` under `Space t` (terminal sub-menu):
+Registered with `modal-editor` under `Space t`:
 
-| Key         | Action        | Command        |
-| ----------- | ------------- | -------------- |
-| `Space t t` | Toggle mirror | `/term toggle` |
-| `Space t f` | Focus pane    | `/term focus`  |
-| `Space t h` | Prev tab      | `/term prev`   |
-| `Space t l` | Next tab      | `/term next`   |
+| Key         | Action         | Command |
+| ----------- | -------------- | ------- |
+| `Space t t` | Toggle monitor | `/term toggle` |
+| `Space t f` | Focus monitor  | `/term focus` |
+| `Space t h` | Previous session | `/term prev` |
+| `Space t l` | Next session | `/term next` |
 
 ## Tools
 
-### `bash` (overrides built-in)
-
-Executes a command in the shared terminal pane.
-
-| Parameter | Type     | Description                       |
-| --------- | -------- | --------------------------------- |
-| `command` | `string` | Bash command to execute           |
-| `timeout` | `number` | Timeout in seconds (default: 120) |
-
-### `read_terminal`
-
-Reads recent content from the shared terminal pane scrollback.
-
-| Parameter | Type     | Description                        |
-| --------- | -------- | ---------------------------------- |
-| `lines`   | `number` | Lines of scrollback (default: 200) |
-
 ### `start_process`
 
-Launch a long-running process in a named tab (e.g. dev server, test watcher,
-REPL). Returns immediately.
+Create a named tmux session and run an initial command.
 
-| Parameter | Type     | Description                                                               |
-| --------- | -------- | ------------------------------------------------------------------------- |
-| `name`    | `string` | Short name for this process (e.g. "server", "tests")                      |
-| `command` | `string` | Command to run                                                            |
-| `mode`    | `string` | `"watch"` (auto-injects output changes, default) or `"quiet"` (on demand) |
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `name`    | `string` | Session name |
+| `command` | `string` | Command to run |
+| `mode`    | `"watch" \| "quiet"` | Compatibility flag; auto-watch notifications are not emitted anymore |
 
 ### `send_input`
 
-Send text input to a named running process (e.g. type into a REPL).
+Send text input to a managed tmux session.
 
-| Parameter | Type      | Description                           |
-| --------- | --------- | ------------------------------------- |
-| `name`    | `string`  | Process name                          |
-| `text`    | `string`  | Text to send                          |
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `name`    | `string` | Session name |
+| `text`    | `string` | Text to send |
 | `enter`   | `boolean` | Send Enter after text (default: true) |
 
 ### `read_process`
 
-Read recent output from a named running process.
+Read recent scrollback from a managed tmux session.
 
-| Parameter | Type     | Description                        |
-| --------- | -------- | ---------------------------------- |
-| `name`    | `string` | Process name                       |
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `name`    | `string` | Session name |
 | `lines`   | `number` | Lines of scrollback (default: 200) |
 
 ### `stop_process`
 
-Stop a named running process (sends Ctrl+C, then kills the tab).
+Kill a managed tmux session.
 
-| Parameter | Type     | Description  |
-| --------- | -------- | ------------ |
-| `name`    | `string` | Process name |
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `name`    | `string` | Session name |
 
 ### `list_processes`
 
-List all managed background processes and their status.
-
-## Configuration
-
-| Environment Variable | Description                                     |
-| -------------------- | ----------------------------------------------- |
-| `TMUX_MIRROR_TARGET` | Explicit tmux pane target (default: auto-split) |
-| `KITTY_WINDOW_ID`    | Set automatically by kitty (used for detection) |
+List non-default sessions in the term tmux server.
 
 ## Requirements
 
-**tmux backend:**
+- pi must be running inside **kitty**, **tmux**, or under **sway**
+- `tmux` must be installed
+- the user's shell should be available inside tmux sessions
+- for the **sway** backend, `swaymsg` and `foot` must be available
+- for the **kitty** backend, kitty remote control must be enabled and `kitten`
+  must be available
 
-- Must run pi inside a tmux session.
-- The shell in the split pane must be zsh or bash.
+## Notes
 
-**sway backend:**
-
-- Must run pi under sway (detected via `$SWAYSOCK`).
-- `foot` terminal must be available.
-- Python 3 must be available (for the PTY relay script).
-- The shell must be zsh or bash.
-
-**kitty backend:**
-
-- Must run pi inside a kitty window.
-- `allow_remote_control` must be enabled in `kitty.conf` (or use
-  `remote_control_password`).
-- The `kitten` CLI must be available (bundled with kitty).
-- The `splits` layout is recommended for proper vertical splitting
-  (falls back to default layout placement otherwise).
-- The shell must be zsh or bash.
+- The default session is named **`shell`**.
+- Session indices shown by `/term list` and the status widget are **1-based**.
+- The dedicated tmux server is per pi session and is cleaned up on shutdown.
+- The sway backend creates/destroys a `foot` monitor window and attaches it to
+  the selected tmux session.
+- The kitty backend creates/destroys a kitty split window and attaches it to
+  the selected tmux session.
 
 ## Dependencies
 
 - `lib/pi-utils.ts` — `getExtensionName`, `suggestKeybindings`
-
----
-
-## Architecture
-
-### Shell Hook
-
-On startup the extension sends hook code inline to the pane's shell. The hook:
-
-1. Registers a `precmd` function (zsh) or `PROMPT_COMMAND` (bash).
-2. On every prompt: stores `<seq> <exit_code>`.
-   - **tmux:** in a tmux session env var (`PI_LAST_RC`) via `tmux set-environment`.
-   - **sway:** in a temp file (`/tmp/pi-mirror-rc-<session-uuid>`).
-3. Signals completion to wake any blocked waiters.
-   - **tmux:** `tmux wait-for -S pi-prompt`.
-   - **sway:** `echo > /tmp/pi-mirror-signal-<session-uuid> &` (writes to a
-     named pipe/FIFO; backgrounded so the shell doesn't block if no reader is
-     connected yet).
-
-### Prompt Detection
-
-After the hook is installed and the pane is cleared, the extension captures the
-rendered prompt and detects:
-
-- **`promptHeight`** — number of non-empty trailing lines (typically 2 for a
-  two-line prompt with info bar + input line).
-- **`promptSymbol`** — the first non-space token on the last line (e.g., `❯`,
-  `$`, `#`). Used to identify prompt lines in captured output.
-
-### Agent Commands (`bash` tool)
-
-1. Capture the pane state (`before`).
-2. Send the command text to the pane (via `tmux send-keys` or input FIFO).
-3. Block until precmd fires (via `tmux wait-for` or signal FIFO).
-4. Read exit code from the RC storage.
-5. Capture the pane state (`after`).
-6. Diff `before`/`after`, find the last prompt line with command text, collect
-   output lines until the next prompt block.
-
-### User Activity Detection
-
-A background async loop blocks on the prompt signal. When signaled (and the
-agent is idle):
-
-1. Capture the pane and diff against the last snapshot.
-2. Parse the diff using the same prompt-aware logic: find the last command,
-   collect output, read exit code.
-3. Format as `~/dir $ command\noutput\n[exit code: N]`.
-4. Inject into the conversation via `pi.sendMessage`.
-
-### Pane Recovery
-
-On every `bash` call, `ensurePane()` checks if the target pane is still alive.
-If the pane was closed:
-
-1. Reset all state (paneReady, hookInstalled, RC files).
-2. Wait 500ms for terminal resize to settle.
-3. Create a new split pane.
-4. Wait for a shell to start (polls `pane_current_command` for up to 10s).
-5. Reinstall the hook.
-
-The pane ID is saved persistently (tmux session env or sway window ID file) so
-it can be reused across agent restarts without creating duplicate panes.
-
-### Backend architecture
-
-**tmux:**
-
-```
-┌─────────────────────┐  ┌──────────────────────┐
-│  pi (agent pane)    │  │  shared pane (%N)     │
-│                     │  │                       │
-│  term ext            │──│  zsh/bash + hook      │
-│  ├─ bash tool       │  │  ├─ precmd writes RC  │
-│  ├─ read_terminal   │  │  └─ wait-for -S       │
-│  └─ activity loop   │  │                       │
-└─────────────────────┘  └──────────────────────┘
-         │                          │
-         └── tmux wait-for ─────────┘  (event-driven, zero CPU)
-```
-
-**sway:**
-
-```
-┌───────────────────────────────────────────────────┐
-│  Parent container (splitv visible, stacking hidden)│
-│                                                   │
-│  ┌─────────────────────┐  ┌─────────────────────┐ │
-│  │  pi (agent window)  │  │  Terminal area       │ │
-│  │                     │  │  (tabbed sub-cont.)  │ │
-│  │  term ext           │  │  ┌─────┬──────────┐  │ │
-│  │  ├─ bash tool       │──│  │shell│ proc tabs│  │ │
-│  │  ├─ read_terminal   │  │  │     │          │  │ │
-│  │  └─ activity loop   │  │  │relay│ relay    │  │ │
-│  └─────────────────────┘  │  └─────┴──────────┘  │ │
-│                           └─────────────────────┘ │
-└───────────────────────────────────────────────────┘
-         │                          │
-         ├── input FIFO ────────────┘  (text injection via relay)
-         ├── output log file            (capture via log)
-         └── cat signal FIFO (blocks)   (zero CPU, like tmux wait-for)
-```
-
-**kitty:**
-
-```
-┌───────────────────────────────────────────────────┐
-│  kitty OS window — single tab (splits layout)     │
-│                                                   │
-│  ┌───────────────────────────────────────────────┐│
-│  │  pi (KITTY_WINDOW_ID window)                  ││
-│  │  term ext                                     ││
-│  │  ├─ bash tool                                 ││
-│  │  ├─ read_terminal                             ││
-│  │  └─ activity loop                             ││
-│  ├───────────────────────────────────────────────┤│
-│  │  mirror window   ← kitten @ send-text         ││
-│  │  zsh/bash + hook ← kitten @ get-text          ││
-│  │                                               ││
-│  │  (process windows live here too, as hsplits;  ││
-│  │   only the active one is expanded, others     ││
-│  │   are minimized via resize --increment)       ││
-│  └───────────────────────────────────────────────┘│
-└───────────────────────────────────────────────────┘
-         │                          │
-         ├── kitten @ send-text ────┘  (text injection, native)
-         ├── kitten @ get-text          (capture, native)
-         └── cat signal FIFO (blocks)   (zero CPU, like sway)
-```
-
-Visibility is controlled by resizing windows within the splits layout:
-- **show** → expand the active bottom-area window (`resize-window --increment=10000`)
-- **hide** → minimize all bottom-area windows (`resize-window --increment=-10000`)
-
-Process windows are created as hsplits from the mirror window (same kitty tab
-as pi). Only one is visible at a time; switching tabs minimizes the old window
-and expands the new one.
-
-### State Storage
-
-**tmux** — all state in tmux session environment variables (no temp files):
-
-| Variable         | Purpose                                    |
-| ---------------- | ------------------------------------------ |
-| `PI_MIRROR_PANE` | Pane ID for cross-restart reuse            |
-| `PI_LAST_RC`     | `<seq> <exit_code>` written by precmd hook |
-
-**sway** — state in temp files (UUID-scoped per session):
-
-| File                                         | Purpose                                    |
-| -------------------------------------------- | ------------------------------------------ |
-| `/tmp/pi-mirror-log-<uuid>`                  | Output log from PTY relay                  |
-| `/tmp/pi-mirror-input-<uuid>`                | Input FIFO for text injection              |
-| `/tmp/pi-mirror-rc-<uuid>`                   | `<seq> <exit_code>` written by precmd hook |
-| `/tmp/pi-mirror-signal-<uuid>`               | Named pipe (FIFO) for activity signals     |
-| `/tmp/pi-mirror-agent-signal-<uuid>`         | Named pipe (FIFO) for agent signals        |
-| `/tmp/pi-mirror-ready-<uuid>`                | Named pipe (FIFO) for ready signals        |
-
-**kitty** — state in temp files (UUID-scoped per session):
-
-| File                                         | Purpose                                    |
-| -------------------------------------------- | ------------------------------------------ |
-| `/tmp/pi-mirror-rc-<uuid>`                   | `<seq> <exit_code>` written by precmd hook |
-| `/tmp/pi-mirror-signal-<uuid>`               | Named pipe (FIFO) for activity signals     |
-| `/tmp/pi-mirror-agent-signal-<uuid>`         | Named pipe (FIFO) for agent signals        |
-| `/tmp/pi-mirror-ready-<uuid>`                | Named pipe (FIFO) for ready signals        |
-
-Note: kitty uses `kitten @ send-text` and `kitten @ get-text` natively,
-so no input FIFO or output log file is needed (unlike sway's PTY relay).
-
-### Design Decisions
-
-**Why event-driven signaling instead of polling?**
-The original implementation polled every 300ms. This was replaced with blocking
-mechanisms (`tmux wait-for` / named pipe FIFOs) that use zero CPU while waiting
-and provide instant detection.
-
-**Why `capture-pane -J`?**
-Without `-J`, tmux wraps long lines at the pane width, producing multiple
-physical lines per logical line. `-J` joins wrapped lines back into logical
-lines, preventing duplicate prompt detection.
-
-**Why detect prompt from the pane instead of reading PS1?**
-`PS1`/`PROMPT` contain unexpanded escape sequences that are useless for matching
-rendered output. The extension captures the pane after `clear` and reads the
-actual rendered prompt.
-
-**Why save the pane ID in tmux session environment?**
-Pane titles are overwritten by shell prompt themes. A tmux session environment
-variable is scoped to the session, survives agent restarts, and doesn't leave
-temp files.
-
-**Why wrap multi-line commands in `{ ... }`?**
-When newlines are sent via `send-keys`, each triggers Enter and `precmd` fires
-after each line. Wrapping in `{ ... }` creates a compound command so `precmd`
-fires only once at the end.
-
-**Why report only the last command in user activity?**
-The exit code in the RC file only corresponds to the last command. Reporting
-all commands in a diff would show stale exit codes for earlier ones.

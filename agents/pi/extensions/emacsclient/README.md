@@ -54,7 +54,7 @@ export EMACSCLIENT_BINARY=/custom/path/to/emacsclient
 
 ## Tools
 
-### `read`
+### `emacs_read`
 
 Read the content and metadata of a file or Emacs buffer.
 
@@ -73,8 +73,8 @@ Read the content and metadata of a file or Emacs buffer.
 - `col` (optional): Column number (used with `line`)
 - `length` (optional): Maximum characters to read (default: 51200, the limit)
 - `lines` (optional): Maximum lines to read
-- `span` (optional): Narrow to a span ID (result of a previous read)
-- `move` (optional): leave point at end of what was read (so the next `read`
+- `span` (optional): Narrow to a span ID (result of a previous `emacs_read`)
+- `move` (optional): leave point at end of what was read (so the next `emacs_read`
   with no `pos` continues from there). Fefault: false (leave point where it was)
 - `temp` (optional): kill any newly-opened buffer after reading (default: false)
 
@@ -84,25 +84,25 @@ Read the content and metadata of a file or Emacs buffer.
 
 ```typescript
 // Read first 1000 characters of a file; move: true advances point to 1001
-read({ name: "./src/main.ts", pos: 1, length: 1000, move: true })
+emacs_read({ name: "./src/main.ts", pos: 1, length: 1000, move: true })
 // Read the NEXT 1000 characters — no pos needed, point was left at 1001
-read({ name: "./src/main.ts", length: 1000, move: true })
+emacs_read({ name: "./src/main.ts", length: 1000, move: true })
 
 // Read 50 lines starting from line 100; point remains unchanged
-read({ name: "./main.ts", line: 100, lines: 50 })
+emacs_read({ name: "./main.ts", line: 100, lines: 50 })
 
 // Peek at file contents, closing the buffer if it wasn't already open
-read({ name: "./config.json", pos: 1, temp: true })
+emacs_read({ name: "./config.json", pos: 1, temp: true })
 
 // Read within a span from a previous read
-read({ name: "./config.json", span: "span-id-from-previous-read" })
+emacs_read({ name: "./config.json", span: "span-id-from-previous-read" })
 ```
 
-After the first `read`, only changed metadata is returned (to save tokens);
+After the first `emacs_read`, only changed metadata is returned (to save tokens);
 *except* for `unsaved` (buffer is modified) and `outdated` (file on disk is
-modified), since those are important when mixing `read`/`write` with `bash`.
+modified), since those are important when mixing `emacs_read`/`emacs_write` with `bash`.
 
-### `write`
+### `emacs_write`
 
 Insert text into Emacs buffer at a specific position, and optionally type a key
 sequence. Can create new files/buffers, move point, insert content, type keys,
@@ -139,27 +139,27 @@ and save. Since writing is destructive, ambiguous/conflicting options give an
 
 ```typescript
 // Insert text at the beginning of a file and save
-write({ name: "./README.md", insert: "# Title\n\n", pos: 1 })
+emacs_write({ name: "./README.md", insert: "# Title\n\n", pos: 1 })
 
 // Append text to a buffer and save
-write({ name: "notes", insert: "\nNew note", pos: -1 })
+emacs_write({ name: "notes", insert: "\nNew note", pos: -1 })
 
 // Insert at current point without saving
-write({ name: "./src/main.ts", insert: "// TODO: review\n", point: true,
-        save: false })
+emacs_write({ name: "./src/main.ts", insert: "// TODO: review\n", point: true,
+              save: false })
 
 // Create or overwrite a file with given content
-write({ name: "./newfile.txt", insert: "Hello, world!", replace: true })
+emacs_write({ name: "./newfile.txt", insert: "Hello, world!", replace: true })
 
 // Replace entire buffer content (use *name* for a bare buffer with no
 // file association)
-write({ name: "*pi-scratch*", insert: "Fresh content", replace: true })
+emacs_write({ name: "*pi-scratch*", insert: "Fresh content", replace: true })
 
 // Insert without affecting Emacs state
-write({ name: "./config.json", insert: "new config", pos: 1, temp: true })
+emacs_write({ name: "./config.json", insert: "new config", pos: 1, temp: true })
 
 // Type a key sequence in the buffer
-write({ name: "main.py", type: "C-x C-s" })
+emacs_write({ name: "main.py", type: "C-x C-s" })
 ```
 
 ### `emacs_eval`

@@ -2,7 +2,8 @@
  * Emacsclient extension for pi.
  *
  * Provides tools for interacting with a running Emacs session:
- *   - read: Read files/buffers with comprehensive metadata and navigation
+ *   - emacs_read: Read files/buffers with comprehensive metadata and navigation
+ *   - emacs_write: Write to files/buffers via Emacs
  *   - emacs_eval: Evaluate arbitrary elisp
  *   - emacs_ts_query: Run tree-sitter queries against buffers
  *
@@ -142,7 +143,7 @@ export default function (pi: ExtensionAPI) {
     description:
       "Eval SMALL ELisp expression in the long-running Emacs session & " +
         "return result (put big exprs in buffers instead!). Combine with " +
-        "read/write to use search, EWW, eglot, etc.",
+        "emacs_read/emacs_write to use search, EWW, eglot, etc.",
     parameters: Type.Object({
       expression: Type.String({
         description: "Emacs Lisp expression to evaluate",
@@ -233,11 +234,11 @@ export default function (pi: ExtensionAPI) {
   });
 
   // ------------------------------------------------------------------
-  // Tool: read
+  // Tool: emacs_read
   // ------------------------------------------------------------------
   pi.registerTool({
-    name: "read",
-    label: "Read File/Buffer",
+    name: "emacs_read",
+    label: "Emacs Read File/Buffer",
     description:
       "Read content & state of an Emacs buffer (existing or new) up to a max " +
         "length (51200 chars). Can open paths (file/dir); can move point; " +
@@ -253,7 +254,7 @@ export default function (pi: ExtensionAPI) {
       span: Type.Optional(
         Type.String({
           description:
-            "Narrow to a span ID (result of a previous read)."
+            "Narrow to a span ID (result of a previous emacs_read)."
         })
       ),
       pos: Type.Optional(
@@ -296,7 +297,7 @@ export default function (pi: ExtensionAPI) {
         Type.Boolean({
           description:
             "When true, point moves to the end of what was read, so a " +
-              "subsequent read with no 'pos' can continue from there. " +
+              "subsequent emacs_read with no 'pos' can continue from there. " +
               "When false (default), point remains in its original " +
               "position.",
           default: false,
@@ -384,11 +385,11 @@ export default function (pi: ExtensionAPI) {
   });
 
   // ------------------------------------------------------------------
-  // Tool: write
+  // Tool: emacs_write
   // ------------------------------------------------------------------
   pi.registerTool({
-    name: "write",
-    label: "Write to File/Buffer",
+    name: "emacs_write",
+    label: "Emacs Write to File/Buffer",
     description:
       "Insert text into Emacs buffer at a specific position, and/or type a " +
         "key sequence. Can create new files/buffers, move point, insert " +

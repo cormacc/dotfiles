@@ -4,9 +4,9 @@
  * Detects `bb.edn` in the project root and registers a `/bb` slash command
  * with auto-completion for available babashka tasks.
  *
- * - Regular tasks run via `term:run` event.
- * - Tasks whose name starts with "watch" run in a dedicated process tab
- *   via `term:spawn` event.
+ * - Regular tasks run in term's active session via `term:run`.
+ * - Tasks whose name starts with "watch" run in their own tmux-backed term
+ *   session via `term:spawn`.
  */
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { AutocompleteItem } from "@mariozechner/pi-tui";
@@ -88,9 +88,14 @@ export default function (pi: ExtensionAPI) {
         const isWatch = taskName.startsWith("watch");
 
         if (isWatch) {
-          pi.events.emit("term:spawn", { command: `bb ${taskName}` });
+          pi.events.emit("term:spawn", {
+            command: `bb ${taskName}`,
+            title: taskName,
+          });
+          ctx.ui.notify(`Started watch task in session: ${taskName}`, "info");
         } else {
           pi.events.emit("term:run", { command: `bb ${taskName}` });
+          ctx.ui.notify(`Sent task to active term session: ${taskName}`, "info");
         }
       },
     });

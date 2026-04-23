@@ -12,7 +12,9 @@ import {
   buildEvalElisp,
   buildReadElisp,
   buildWriteElisp,
+  buildTransportElisp,
   parseEmacsclientOutput,
+  parseEmacsclientTransportOutput,
   parseEmacsclientError,
 } from "./elisp.ts";
 
@@ -101,6 +103,13 @@ test("buildEvalElisp - handles multi-expression", () => {
   assert(result.includes("progn"), "Should wrap in progn");
 });
 
+test("buildTransportElisp - wraps expression in base64 transport", () => {
+  const result = buildTransportElisp('(json-encode "hello")');
+  assert(result.includes('(progn (json-encode "hello"))'), "Should evaluate the original expression");
+  assert(result.includes("base64-encode-string"), "Should encode payload as base64");
+  assert(result.includes("json-encode payload"), "Should JSON-encode the transport payload");
+});
+
 // ---------------------------------------------------------------------------
 // parseEmacsclientOutput tests
 // ---------------------------------------------------------------------------
@@ -139,6 +148,40 @@ test("parseEmacsclientOutput - t result", () => {
 test("parseEmacsclientOutput - trims whitespace", () => {
   const result = parseEmacsclientOutput('  "42"  \n');
   assertEqual(result, 42);
+});
+
+// ---------------------------------------------------------------------------
+// parseEmacsclientTransportOutput tests
+// ---------------------------------------------------------------------------
+
+function transportRaw(payload: unknown): string {
+  return '"' + Buffer.from(JSON.stringify(payload), "utf8").toString("base64") + '"';
+}
+
+test("parseEmacsclientTransportOutput - decodes JSON string payload", () => {
+  const raw = transportRaw({
+    type: "string",
+    value: '{"content":"line1\\nline2"}',
+  });
+  const result = parseEmacsclientTransportOutput(raw);
+  assertDeepEqual(result, { content: "line1\nline2" });
+});
+
+test("parseEmacsclientTransportOutput - preserves plain strings", () => {
+  const raw = transportRaw({
+    type: "string",
+    value: "GNU Emacs 30.2",
+  });
+  const result = parseEmacsclientTransportOutput(raw);
+  assertEqual(result, "GNU Emacs 30.2");
+});
+
+test("parseEmacsclientTransportOutput - decodes booleans and null", () => {
+  assertEqual(
+    parseEmacsclientTransportOutput(transportRaw({ type: "boolean", value: false })),
+    false
+  );
+  assertEqual(parseEmacsclientTransportOutput(transportRaw({ type: "null" })), null);
 });
 
 test("parseEmacsclientOutput - nested JSON with newlines", () => {
