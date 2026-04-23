@@ -5,6 +5,7 @@ import { TmuxSessionManager, type TmuxSessionInfo } from "./tmux-sessions.js";
 import { TmuxBackend } from "./tmux.js";
 import { SwayBackend } from "./sway.js";
 import { KittyBackend } from "./kitty.js";
+import { GhosttyBackend } from "./ghostty.js";
 import type { MonitorBackend } from "./types.js";
 import { sanitizeName, sleep } from "./types.js";
 import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.js";
@@ -31,10 +32,13 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     if (pi.getFlag("no-mirror")) return;
 
+    const inGhostty = (process.env.TERM_PROGRAM || "").toLowerCase() === "ghostty";
+
     if (
       !process.env.KITTY_WINDOW_ID &&
       !process.env.SWAYSOCK &&
-      !process.env.TMUX
+      !process.env.TMUX &&
+      !inGhostty
     ) {
       return;
     }
@@ -42,12 +46,15 @@ export default function (pi: ExtensionAPI) {
     const exec = pi.exec.bind(pi);
     const sessions = new TmuxSessionManager(exec);
     let backend: MonitorBackend;
-    if (process.env.KITTY_WINDOW_ID) {
-      backend = new KittyBackend(exec, sessions);
-    } else if (process.env.SWAYSOCK) {
-      backend = new SwayBackend(exec, sessions);
-    } else {
+    // Backend preference order: tmux → kitty → ghostty → sway.
+    if (process.env.TMUX) {
       backend = new TmuxBackend(exec, sessions);
+    } else if (process.env.KITTY_WINDOW_ID) {
+      backend = new KittyBackend(exec, sessions);
+    } else if (inGhostty) {
+      backend = new GhosttyBackend(exec, sessions);
+    } else {
+      backend = new SwayBackend(exec, sessions);
     }
     const sessionUi = ctx.ui;
     const sessionMeta = new Map<string, SessionMeta>();
