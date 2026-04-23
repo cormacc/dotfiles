@@ -10,14 +10,20 @@ monitoring**.
 
 ## Current status
 
-This refactor currently supports three monitor backends:
+This refactor currently supports four monitor backends:
 
 - **kitty** — supported as a monitor-only backend
 - **sway** — supported as a monitor-only backend using `foot`
 - **tmux** — supported
+- **ghostty** — in-place split on macOS via AppleScript; dedicated monitor window on Linux
 
-Detection order is **kitty → sway → tmux**. If pi is running inside kitty under
-sway, the kitty backend takes precedence.
+Detection order is **tmux → kitty → ghostty → sway**. First match wins:
+
+- pi inside plain tmux (any outer terminal) → tmux
+- pi inside kitty, no outer tmux → kitty
+- pi inside Ghostty, no outer tmux or kitty → ghostty (macOS: in-place
+  AppleScript split; Linux: dedicated monitor window)
+- pi under sway with none of the above → sway (spawns a `foot` monitor)
 
 ## Architecture
 
@@ -39,11 +45,21 @@ The extension now has two layers:
 This keeps terminal session management in tmux and removes the old prompt-hook,
 PTY relay, and bash-tool interception logic.
 
+The Ghostty backend behaves differently by platform:
+
+- **macOS** — uses Ghostty's AppleScript scripting dictionary
+  (`split terminal direction down with configuration {command:...}`) to create
+  an in-place split inside pi's own window, then refocuses pi. `hide`,
+  `focus`, and session reattach all drive the split via AppleScript.
+- **Linux** — falls back to launching a separate Ghostty monitor window,
+  tracking its PID for show/hide. There is no remote-control API on GTK
+  Ghostty that lets us split pi's own window from outside.
+
 ## Features
 
 - **Default shell session** — creates a `shell` tmux session for ad-hoc work
 - **Named sessions** — create interactive sessions or spawn commands in new ones
-- **Visible monitor pane** — show/hide/focus a tmux-attached pane in the current tmux window
+- **Visible monitor pane/window** — show/hide/focus a tmux-attached monitor surface via the active backend
 - **Session switching** — cycle or attach by name/index
 - **Tool wrappers** — start/read/send/stop/list managed sessions via tmux
 - **No bash override** — pi's default bash tool is used unchanged
@@ -51,7 +67,7 @@ PTY relay, and bash-tool interception logic.
 ## CLI
 
 ```bash
-pi                # activates when running inside kitty, sway, or tmux
+pi                # activates when running inside kitty, ghostty, sway, or tmux
 pi --no-mirror    # disable the term monitor/session extension for this run
 ```
 
@@ -130,12 +146,13 @@ List non-default sessions in the term tmux server.
 
 ## Requirements
 
-- pi must be running inside **kitty**, **tmux**, or under **sway**
+- pi must be running inside **kitty**, **ghostty**, **tmux**, or under **sway**
 - `tmux` must be installed
 - the user's shell should be available inside tmux sessions
 - for the **sway** backend, `swaymsg` and `foot` must be available
 - for the **kitty** backend, kitty remote control must be enabled and `kitten`
   must be available
+- for the **ghostty** backend, `ghostty` must be available on `$PATH`
 
 ## Notes
 
@@ -146,6 +163,13 @@ List non-default sessions in the term tmux server.
   the selected tmux session.
 - The kitty backend creates/destroys a kitty split window and attaches it to
   the selected tmux session.
+- On macOS the Ghostty backend performs an in-place split inside pi's Ghostty
+  window via AppleScript and attaches the new terminal to the selected tmux
+  session. `osascript` and Ghostty's AppleScript scripting must be available
+  (they are by default on a standard Ghostty.app install).
+- On Linux the Ghostty backend instead spawns a dedicated Ghostty monitor
+  window attached to the selected tmux session, since GTK Ghostty has no
+  equivalent remote-control API.
 
 ## Dependencies
 
