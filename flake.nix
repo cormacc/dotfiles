@@ -13,6 +13,8 @@
       # url = "github:nix-community/nixGL";
       # FIXME: Awaiting merge of nvidia version parsing fix to nixgl master...
       #        See https://github.com/nix-community/nixGL/pull/187
+      # TODO: Switch back to github: URL once PR #187 merges (tarball URL is not
+      #       content-addressed like a commit-locked github: input).
       url = "https://github.com/phirsch/nixGL/archive/fix-versionMatch.tar.gz";
       inputs.nixpkgs.follows = "nixpkgs";
     };
@@ -29,7 +31,9 @@
       url = "github:numtide/llm-agents.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # Proxy for claude subscriptions
+    # Meridian: reverse-proxy/relay that lets Claude Code and claude-desktop
+    # use a shared Claude subscription rather than requiring individual API keys.
+    # See https://github.com/rynfar/meridian
     meridian = {
       url = "github:rynfar/meridian";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -51,6 +55,9 @@
   };
 
   nixConfig = {
+    # NOTE: trusted-users here only applies when the flake is evaluated by an
+    # already-trusted user. For a fresh NixOS install, also set trusted-users
+    # in your NixOS module (e.g. nix.settings.trusted-users in nixos-base.nix).
     trusted-users = ["root" "@wheel" "cormacc"];
     extra-substituters = [
       "https://cache.nixos.org"
@@ -95,6 +102,7 @@
     in {
       nixosConfigurations = {
         # This configuration consolidates system and home directory setup...
+        # TODO: Migrate to standalone home-manager (see xps15 for the preferred pattern).
         t470p = nixpkgs.lib.nixosSystem {
           system = "${system}";
           specialArgs = { hostName = "t470p"; };
@@ -204,7 +212,7 @@
           modules = [
             ./home-linux.nix
           ];
-          extraSpecialArgs = { cfgName = "minimal"; inherit inputs; };
+          extraSpecialArgs = { cfgName = "minimal"; inherit inputs system nixgl; };
         };
       };
 
