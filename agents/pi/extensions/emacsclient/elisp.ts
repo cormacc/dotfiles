@@ -105,6 +105,36 @@ export function buildEvalElisp(expression: string): string {
       (t (format "%S" result)))))`;
 }
 
+/**
+ * Wrap an elisp expression in a robust transport envelope.
+ *
+ * `emacsclient --eval` prints the Lisp result using Emacs string syntax, which
+ * is awkward to parse reliably across platforms/builds when the payload itself
+ * contains newlines or other control characters. To avoid that, we:
+ *
+ *   1. Evaluate the original elisp expression.
+ *   2. Tag the result with a simple type descriptor.
+ *   3. JSON-encode that tagged payload.
+ *   4. UTF-8 encode it and base64 the bytes.
+ *
+ * The final `emacsclient` stdout is then just a quoted base64 ASCII string,
+ * which is safe to parse on every platform.
+ */
+export function buildTransportElisp(elisp: string): string {
+  return `(let* ((result (progn ${elisp}))
+         (payload
+          (cond
+            ((stringp result) (list (cons "type" "string") (cons "value" result)))
+            ((null result) (list (cons "type" "null")))
+            ((eq result t) (list (cons "type" "boolean") (cons "value" t)))
+            ((eq result :json-false) (list (cons "type" "boolean") (cons "value" :json-false)))
+            ((numberp result) (list (cons "type" "number") (cons "value" result)))
+            (t (list (cons "type" "printed") (cons "value" (format "%S" result)))))))
+    (base64-encode-string
+      (encode-coding-string (json-encode payload) 'utf-8)
+      t))`;
+}
+
 // ---------------------------------------------------------------------------
 // Result parsing
 // ---------------------------------------------------------------------------
@@ -168,6 +198,45 @@ export function parseEmacsclientOutput(raw: string): unknown {
 
   // Last resort: return raw string
   return trimmed;
+}
+
+interface EmacsclientTransportPayload {
+  type: "string" | "number" | "boolean" | "null" | "printed";
+  value?: string | number | boolean;
+}
+
+/**
+ * Parse the base64 transport output produced by `buildTransportElisp()`.
+ */
+export function parseEmacsclientTransportOutput(raw: string): unknown {
+  const trimmed = raw.trim();
+
+  // Fall back to the legacy parser if we weren't given a quoted string.
+  if (!trimmed.startsWith('"') || !trimmed.endsWith('"')) {
+    return parseEmacsclientOutput(trimmed);
+  }
+
+  const base64 = trimmed.slice(1, -1);
+  const payloadJson = Buffer.from(base64, "base64").toString("utf8");
+  const payload = JSON.parse(payloadJson) as EmacsclientTransportPayload;
+
+  switch (payload.type) {
+    case "null":
+      return null;
+    case "number":
+    case "boolean":
+      return payload.value;
+    case "printed":
+      return payload.value ?? "";
+    case "string": {
+      const text = typeof payload.value === "string" ? payload.value : "";
+      try {
+        return JSON.parse(text);
+      } catch {
+        return text;
+      }
+    }
+  }
 }
 
 /**

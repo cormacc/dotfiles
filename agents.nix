@@ -18,6 +18,7 @@ in
     #Pi + deps
     pkgs.llm-agents.pi
     pkgs.prettier
+    pkgs.typescript-language-server
     #Claude code + deps
     pkgs.llm-agents.claude-code
     pkgs.meridian

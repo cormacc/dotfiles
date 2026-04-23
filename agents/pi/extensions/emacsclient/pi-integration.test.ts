@@ -55,8 +55,12 @@ function waitForResponse(events: any[], timeout = 15000): Promise<any> {
 // Create a fake emacsclient that returns canned responses
 // ---------------------------------------------------------------------------
 
+function transportValue(payload: unknown): string {
+  return '"' + Buffer.from(JSON.stringify(payload), "utf8").toString("base64") + '"';
+}
+
 function createFakeEmacsclient(dir: string, responses: Record<string, string>): string {
-  // responses is a map from elisp substring → raw stdout output
+  // responses is a map from elisp substring → emacsclient stdout output
   const script = join(dir, "emacsclient");
   const jsScript = join(dir, "emacsclient.js");
   const responsesJson = JSON.stringify(responses);
@@ -82,8 +86,8 @@ for (const [key, value] of Object.entries(responses)) {
     process.exit(0);
   }
 }
-// Default: return empty JSON array
-process.stdout.write('"[]"');
+// Default: return an empty JSON array payload
+process.stdout.write(${JSON.stringify(transportValue({ type: "string", value: "[]" }))});
 process.exit(0);
 `,
     "utf-8"
@@ -288,7 +292,7 @@ async function runTest(name: string, testFn: (tempDir: string) => Promise<boolea
 (async function () {
   await runTest("pi calls emacs_eval and gets result", async (tempDir) => {
     const fakeDir = createFakeEmacsclient(tempDir, {
-      "progn": '"42"',
+      "progn": transportValue({ type: "number", value: 42 }),
     });
 
     const llm = createDummyLLM(tempDir, {
@@ -399,9 +403,12 @@ process.exit(1);
 
   await runTest("all emacsclient tools are registered", async (tempDir) => {
     const fakeDir = createFakeEmacsclient(tempDir, {
-      "with-current-buffer": '"{\\"buffer\\":\\"test\\",\\"filepath\\":\\"/tmp/test.txt\\",\\"content\\":\\"test content\\",\\"length\\":12,\\"lineCount\\":1,\\"majorMode\\":\\"fundamental-mode\\",\\"modified\\":false,\\"point\\":1,\\"pointLine\\":1,\\"pointColumn\\":0}"',
-      "progn": '"42"',
-      "treesit-query-capture": '"[]"',
+      "with-current-buffer": transportValue({
+        type: "string",
+        value: '{"buffer":"test","filepath":"/tmp/test.txt","content":"test content","length":12,"lineCount":1,"majorMode":"fundamental-mode","modified":false,"point":1,"pointLine":1,"pointColumn":0}',
+      }),
+      "progn": transportValue({ type: "number", value: 42 }),
+      "treesit-query-capture": transportValue({ type: "string", value: "[]" }),
     });
 
     const llm = createDummyLLM(tempDir, {
@@ -412,12 +419,12 @@ process.exit(1);
       },
       "read file content": {
         text: "Testing read.",
-        tool: "read",
+        tool: "emacs_read",
         args: { name: "/tmp/test.txt" },
       },
       "write content to file": {
         text: "Testing write.",
-        tool: "write",
+        tool: "emacs_write",
         args: { name: "/tmp/test.txt", insert: "new content" },
       },
       "query code with tree-sitter": {
@@ -446,8 +453,8 @@ process.exit(1);
       // Test each tool by triggering it with its corresponding prompt key
       const toolPrompts = [
         { key: "evaluate arithmetic expression", tool: "emacs_eval" },
-        { key: "read file content", tool: "read" },
-        { key: "write content to file", tool: "write" },
+        { key: "read file content", tool: "emacs_read" },
+        { key: "write content to file", tool: "emacs_write" },
         { key: "query code with tree-sitter", tool: "emacs_ts_query" },
       ];
 

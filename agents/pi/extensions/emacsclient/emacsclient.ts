@@ -2,7 +2,11 @@
  * Emacsclient invocation. Runs emacsclient with --eval and returns the result.
  */
 
-import { parseEmacsclientOutput, parseEmacsclientError } from "./elisp.ts";
+import {
+  buildTransportElisp,
+  parseEmacsclientTransportOutput,
+  parseEmacsclientError,
+} from "./elisp.ts";
 
 export interface EmacsclientOptions {
   /** Path to emacsclient binary. Default: "emacsclient" */
@@ -37,7 +41,7 @@ export async function emacsEval(
   const binary = options.binary ?? "emacsclient";
   const timeout = options.timeout ?? 10000;
 
-  const args: string[] = ["--eval", elisp];
+  const args: string[] = ["--eval", buildTransportElisp(elisp)];
 
   // Add socket if specified
   const socket = options.socketName ?? process.env.EMACS_SOCKET_NAME;
@@ -58,7 +62,7 @@ export async function emacsEval(
       };
     }
 
-    const parsed = parseEmacsclientOutput(result.stdout);
+    const parsed = parseEmacsclientTransportOutput(result.stdout);
     return { success: true, data: parsed };
   } catch (err) {
     return {

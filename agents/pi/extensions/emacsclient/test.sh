@@ -18,7 +18,7 @@ if ! grep -q "pi.registerTool" index.ts; then
 fi
 
 # Verify all our tools are registered
-for tool in emacs_eval emacs_ts_query read write; do
+for tool in emacs_eval emacs_ts_query emacs_read emacs_write; do
   if ! grep -q "name: \"$tool\"" index.ts; then
     echo "not ok - Missing tool: $tool"
     exit 1
@@ -28,6 +28,8 @@ done
 CODE=0
 echo "# Running unit tests..."
 tsx ./unit_test.test.ts || CODE=1
+echo "# Running transport regression tests..."
+tsx ./emacsclient-regression.test.ts || CODE=1
 echo "# Running read tool unit tests..."
 tsx ./read-tool.test.ts || CODE=1
 echo "# Running write tool unit tests..."
