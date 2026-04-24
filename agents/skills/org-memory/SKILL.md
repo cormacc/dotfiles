@@ -31,7 +31,9 @@ without pi.
 :END:
 ```
 
-- The `:PLAN:` value is a path relative to the org file that declares it.
+- The `:PLAN:` value may be either a bare relative path or an org file link
+  (for example `[[file:design/log/2026-04-24-short-feature-name.org]]`). In
+  either form it resolves relative to the org file that declares it.
 - A linked plan file is itself a parseable org task tree using the same TODO
   heading syntax.
 - In the pi tasks extension, linked plan tasks are injected as children of the
@@ -71,11 +73,18 @@ YYYY-MM-DD-short-task-name.org
 
 3. Prefer storing plans under a project design/log or planning directory when
    present, e.g. `design/log/`.
-4. Add the relative path to the parent task's properties drawer:
+4. Add the relative path to the parent task's properties drawer. Either of
+   these forms is acceptable:
 
 ```org
 :PROPERTIES:
 :PLAN: design/log/YYYY-MM-DD-short-task-name.org
+:END:
+```
+
+```org
+:PROPERTIES:
+:PLAN: [[file:design/log/YYYY-MM-DD-short-task-name.org]]
 :END:
 ```
 
@@ -88,8 +97,9 @@ YYYY-MM-DD-short-task-name.org
 - Mark it `DONE` only when the requested change is implemented and verified.
 - Add a brief note under the task when the result or rationale will matter later.
 - If blocked, mark `WAITING` and record the dependency or question.
-- `DONE` and `CANCELLED` are closed states. If the surrounding workflow tracks
-  `CLOSED:` timestamps, preserve them when closing tasks.
+- `DONE` and `CANCELLED` are closed states. Use Emacs-style `CLOSED:`
+  timestamps when the workflow supports them, and preserve existing stamps
+  when closing or editing tasks.
 - If new work is discovered, add it as a new TODO rather than hiding it in prose.
 
 ## Using the pi tasks extension
@@ -103,9 +113,11 @@ If the pi tasks extension is available:
 - The selected task and linked plan tasks appear in a pinned top overlay.
 - Status changes in the overlay update the underlying org file immediately.
 - The pinned overlay also refreshes when `TASKS.org` or any linked plan file is modified on disk, so edits made via `e` (or any other external editor) appear without reopening `/tasks`.
-- `e` opens the selected task's source file/line in Emacs.
-- `A` archives the top-level selected workstream when its status is `DONE` or
-  `CANCELLED`.
+- `e` opens the current task's source file/line in Emacs.
+- `p` opens the current task's linked plan in Emacs, or proposes/scaffolds a
+  new linked plan and attaches `:PLAN:` first.
+- `A` archives the top-level task containing the current cursor task when its
+  status is `DONE` or `CANCELLED`.
 
 Do not rely on the extension being present. Always keep the org files correct.
 

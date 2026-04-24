@@ -86,10 +86,12 @@ Notes on key implementation decisions or subtleties.
 - What should happen if X?
 ```
 
-The tasks extension parser ignores non-TODO top-level headings
+The tasks extension parser ignores non-task top-level headings
 (`Context`, `Plan`, `Implementation`, `Open questions`) and does not
-attribute their bodies to preceding tasks. Only TODO/STARTED/WAITING/DONE
-headings inside `* Plan` become linked plan tasks in the overlay.
+attribute their bodies to preceding tasks. For predictable results, keep
+actionable headings under `* Plan`; that is the intended convention for linked
+plans. Task headings may use any supported state (`TODO`, `STARTED`,
+`WAITING`, `DONE`, `CANCELLED`).
 
 ## Creating a plan for TASKS.org
 
@@ -103,13 +105,23 @@ YYYY-MM-DD-short-task-name.org
 ```
 
 3. Prefer an existing planning directory such as `design/log/` if present.
-4. Add the property drawer to the parent task:
+4. Add the property drawer to the parent task. Either a bare relative path or
+   an org file link is acceptable:
 
 ```org
 :PROPERTIES:
 :PLAN: design/log/YYYY-MM-DD-short-task-name.org
 :END:
 ```
+
+```org
+:PROPERTIES:
+:PLAN: [[file:design/log/YYYY-MM-DD-short-task-name.org]]
+:END:
+```
+
+   The tasks extension's `p` keybinding currently writes the `[[file:...]]`
+   form so the property is clickable in Emacs by default.
 
 5. Create the linked plan file with org TODO headings.
 6. Keep the linked plan parseable by the tasks extension.
