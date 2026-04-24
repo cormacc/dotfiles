@@ -20,12 +20,14 @@ its subtasks. The overlay:
 
 - Appears on startup if the file already contains a `:selected:` tag.
 - Updates immediately while the `/tasks` overlay is open when status or selection changes.
+- Refreshes automatically when `TASKS.org` or any linked plan file is modified on disk (for example after saving from Emacs via the `e` keybinding). No need to reopen `/tasks`.
 - Does not take keyboard focus, so normal input keeps working.
 - Shows at most 12 lines. When truncating, completed subtasks are elided first as `… N completed subtasks`, so the selected task and next pending subtasks stay visible.
 
 ### Status colors
 
-Status tokens use a fixed palette across the main tasks overlay and the pinned selection overlay:
+Status and metadata tokens use a fixed palette across the main tasks overlay and the pinned selection overlay.
+Tags are styled separately from task titles.
 
 | Status    | Color  |
 | --------- | ------ |
@@ -33,6 +35,13 @@ Status tokens use a fixed palette across the main tasks overlay and the pinned s
 | `WAITING` | orange |
 | `STARTED` | blue   |
 | `DONE`    | green  |
+
+| Priority | Meaning  | Color  |
+| -------- | -------- | ------ |
+| `[#A]`   | Critical | orange |
+| `[#B]`   | High     | yellow |
+| `[#C]`   | Medium   | green  |
+| `[#D]`   | Low      | blue   |
 
 ### Overlay Controls
 

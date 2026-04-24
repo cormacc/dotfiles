@@ -25,6 +25,11 @@ export interface Task {
   planPath: string | null;
   /** Parsed plan tasks, injected at render time as children of this task. */
   planChildren?: Task[];
+  /**
+   * Org CLOSED timestamp body (without brackets), e.g. `2026-04-24 Fri 14:30`.
+   * Present when the task has been closed, matching Emacs behaviour.
+   */
+  closed: string | null;
   /** Absolute path of the source org file this task came from. */
   sourcePath?: string;
   /** Root task tree for sourcePath, used to save linked plan files. */
@@ -42,6 +47,22 @@ const HEADING_RE =
 const PROPERTIES_START_RE = /^\s*:PROPERTIES:\s*$/i;
 const PROPERTIES_END_RE = /^\s*:END:\s*$/i;
 const PLAN_PROPERTY_RE = /^\s*:PLAN:\s*(.*?)\s*$/i;
+/** Matches an org CLOSED timestamp line, e.g. `CLOSED: [2026-04-24 Fri 14:30]`. */
+const CLOSED_RE = /^\s*CLOSED:\s*\[([^\]]+)\]\s*$/;
+
+const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+/** Format a Date as an inactive org timestamp body, e.g. `2026-04-24 Fri 14:30`. */
+export function formatOrgTimestamp(d: Date = new Date()): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const y = d.getFullYear();
+  const mo = pad(d.getMonth() + 1);
+  const da = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const mm = pad(d.getMinutes());
+  const dow = DAY_ABBR[d.getDay()]!;
+  return `${y}-${mo}-${da} ${dow} ${hh}:${mm}`;
+}
 
 /**
  * Parse a single heading line into its components.
@@ -124,6 +145,7 @@ export function parseTasks(
         children: [],
         propertyLines: [],
         planPath: null,
+        closed: null,
         sourcePath: options.sourcePath,
         lineNumber: i + 1,
       };
@@ -146,6 +168,11 @@ export function parseTasks(
 
       stack.push({ task, level: heading.level });
       currentTask = task;
+    } else if (currentTask && CLOSED_RE.test(line)) {
+      // Emacs writes `CLOSED: [...]` immediately after a heading transitions
+      // to a done state. Capture it as metadata rather than description.
+      const m = CLOSED_RE.exec(line)!;
+      currentTask.closed = m[1]!.trim();
     } else if (currentTask && PROPERTIES_START_RE.test(line)) {
       // Org properties drawer immediately below a heading. Currently we
       // consume only :PLAN:, but skip the whole drawer so it doesn't become
@@ -209,6 +236,9 @@ export function serializeTasks(tasks: Task[]): string {
       const prio = t.priority ? ` [#${t.priority}]` : "";
       const tags = t.tags.length > 0 ? ` :${t.tags.join(":")}:` : "";
       lines.push(`${stars} ${t.status}${prio} ${t.summary}${tags}`);
+      if (t.closed) {
+        lines.push(`CLOSED: [${t.closed}]`);
+      }
       const propertyLines = [...t.propertyLines];
       if (t.planPath) propertyLines.push(`:PLAN: ${t.planPath}`);
       if (propertyLines.length > 0) {
