@@ -71,18 +71,16 @@ CLOSED: [2026-04-24 Fri 18:43]
   live inside * Plan at level 2 so they remain parseable by the tasks
   extension.
 
-** TODO [#A] Add a keyboard shortcut to edit the linked plan :ui:emacs:
-  Update the main tasks overlay with a shortcut to edit the plan for the
-  task under the cursor.
-
-  Expected behaviour:
-  - If the task has a :PLAN: property, open that file in Emacs.
-  - If no plan exists, suggest a new plan file name for edit/approval.
-  - Suggested names should follow YYYY-MM-DD-short-task-name.org.
-  - After approval, add the :PLAN: property, create the file if needed, and
-    open it in Emacs.
-  - If no Emacs server is detected, launch a new server before opening the
-    file.
+** DONE [#A] Add a keyboard shortcut to edit the linked plan :ui:emacs:
+  CLOSED: [2026-04-24 Fri 15:00]
+  Added the `p` keybinding in the main /tasks overlay:
+  - Existing :PLAN: → open that file in Emacs at line 1.
+  - No plan → suggest `YYYY-MM-DD-<slug>.org` under `design/log/`, `plans/`,
+    or alongside the source org file. User approves/edits via `ctx.ui.input`.
+  - On approval: scaffold the file with the plan skill's required structure
+    (#+TITLE, * Context, * Plan), attach `:PLAN:` to the task, save the
+    source file, then open the new plan in Emacs.
+  - Auto-starts `emacs --daemon` via `pi.exec` when no server is reachable.
 
 ** TODO [#B] Investigate PLAN as an Emacs hyperlink :org:emacs:
   Determine whether the :PLAN: property can remain parseable by the tasks
@@ -106,3 +104,8 @@ CLOSED: [2026-04-24 Fri 18:43]
   - Store archived tasks in order of COMPLETED timestamp.
   - Add an ARCHIVED property to each archived top-level task.
   - Avoid archiving incomplete active work by accident.
+
+
+** TODO [#B] Update the :selected: property to move with the task focus
+ The selected marker should move down through subtasks.
+ The top of the selected tree should be the top level parent in tasks.org.

@@ -52,6 +52,7 @@ export class TasksOverlay {
     done: (value: undefined) => void,
     private onEdit?: (task: Task) => void,
     private onTasksChanged?: (tasks: Task[]) => void,
+    private onEditPlan?: (task: Task) => void,
   ) {
     this.theme = theme;
     this.done = done;
@@ -156,6 +157,17 @@ export class TasksOverlay {
     }
 
     // Open in Emacs at the task under the cursor
+    // Edit the linked plan (if any) for the task under the cursor.
+    // Delegates creation/approval of a new plan file to the command handler.
+    if (matchesKey(data, "p")) {
+      const row = this.rows[this.cursor];
+      if (row && this.onEditPlan) {
+        this.onEditPlan(row.task);
+        this.done(undefined);
+      }
+      return;
+    }
+
     if (matchesKey(data, "e")) {
       const row = this.rows[this.cursor];
       if (row && this.onEdit) {
@@ -577,7 +589,7 @@ export class TasksOverlay {
     lines.push(th.fg("border", `├${hBar(leftW)}┴${hBar(rightW)}┤`));
     const helpText = th.fg(
       "dim",
-      " ↑↓/jk nav • ←→/hl status • Enter toggle • s select • e edit • Ctrl-d/u scroll • q close",
+      " ↑↓/jk nav • ←→/hl status • Enter toggle • s select • e edit • p plan • Ctrl-d/u scroll • q close",
     );
     const helpInnerW = leftW + rightW + 1; // +1 for removed divider
     lines.push(
