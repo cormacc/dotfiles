@@ -29,11 +29,11 @@ import {
   type TUI,
 } from "@mariozechner/pi-tui";
 import { watch, type FSWatcher } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.ts";
 import { TasksOverlay } from "./overlay.ts";
-import { parseTasks, type Task } from "./parser.ts";
+import { formatOrgTimestamp, parseTasks, serializeTasks, type Task } from "./parser.ts";
 import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
 
 const EXT_NAME = getExtensionName(import.meta.url);
@@ -461,6 +461,13 @@ export default function (pi: ExtensionAPI) {
         void syncPinnedOverlay(ctx, updatedTasks, false);
       };
 
+      // The overlay closes immediately after `p`; we capture the target
+      // task here and run the plan-edit flow once control returns.
+      let planEditRequest: Task | null = null;
+      const onEditPlan = (task: Task) => {
+        planEditRequest = task;
+      };
+
       await ctx.ui.custom<undefined>(
         (_tui, theme, _kb, done) =>
           new TasksOverlay(
@@ -470,6 +477,7 @@ export default function (pi: ExtensionAPI) {
             done,
             onEdit,
             onTasksChanged,
+            onEditPlan,
           ),
         {
           overlay: true,
@@ -481,8 +489,169 @@ export default function (pi: ExtensionAPI) {
         },
       );
 
+      if (planEditRequest) {
+        await handlePlanEdit(pi, ctx, planEditRequest);
+      }
+
       // Re-read from disk after close to converge with the saved file state.
       await refreshPinnedOverlay(ctx, ctx.cwd);
     },
   });
+}
+
+// ── Plan-edit flow ────────────────────────────────────────────────────
+
+/** Lowercase ASCII slug: letters/digits/hyphens, collapsed, trimmed, ≤ 40 chars. */
+function slugify(summary: string): string {
+  return summary
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/, "") || "plan";
+}
+
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Suggest a plan path for a task that has no :PLAN: yet.
+ * Prefers existing directories in this order:
+ *   1. `design/log/` under cwd
+ *   2. `plans/` under cwd
+ *   3. directory containing the task's source file
+ */
+async function suggestPlanPath(task: Task, cwd: string): Promise<string> {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const slug = slugify(task.summary);
+  const filename = `${today}-${slug}.org`;
+
+  const designLog = join(cwd, "design", "log");
+  if (await pathExists(designLog)) return join("design", "log", filename);
+
+  const plans = join(cwd, "plans");
+  if (await pathExists(plans)) return join("plans", filename);
+
+  const srcDir = task.sourcePath ? dirname(task.sourcePath) : cwd;
+  const rel = relative(cwd, srcDir) || ".";
+  return join(rel, filename);
+}
+
+/** Scaffold a minimal plan file body consistent with the plan skill. */
+function scaffoldPlan(task: Task): string {
+  return [
+    `#+TITLE: ${task.summary}`,
+    `#+DATE: ${formatOrgTimestamp()}`,
+    "",
+    "* Context",
+    "",
+    "* Plan",
+    "",
+    "",
+  ].join("\n");
+}
+
+/**
+ * Ensure an Emacs server is reachable. If `emacsclient -e t` fails, start
+ * `emacs --daemon` in the background and poll until reachable (or give up).
+ * Returns true on success.
+ */
+async function ensureEmacsServer(pi: ExtensionAPI): Promise<boolean> {
+  const probe = async () => {
+    try {
+      const r = await pi.exec("emacsclient", ["-e", "t"], { timeout: 2000 });
+      return r.code === 0;
+    } catch {
+      return false;
+    }
+  };
+  if (await probe()) return true;
+
+  try {
+    // Fire and forget: emacs --daemon detaches.
+    await pi.exec("emacs", ["--daemon"], { timeout: 15000 });
+  } catch {
+    return false;
+  }
+
+  for (let i = 0; i < 10; i++) {
+    await new Promise((r) => setTimeout(r, 300));
+    if (await probe()) return true;
+  }
+  return false;
+}
+
+/**
+ * Resolve or create a plan for the given task, then open it in Emacs.
+ *
+ * If the task has a `:PLAN:` property: open that file.
+ * Otherwise: prompt for a filename (seeded from the task summary and today's
+ * date), scaffold the file, attach `:PLAN:` to the task, save the source
+ * org file, then open the new plan.
+ */
+async function handlePlanEdit(
+  pi: ExtensionAPI,
+  ctx: ExtensionContext,
+  task: Task,
+): Promise<void> {
+  const sourcePath = task.sourcePath ?? join(ctx.cwd, TASKS_FILE);
+  const sourceDir = dirname(sourcePath);
+
+  // ── Open existing plan ──
+  if (task.planPath) {
+    const absPlan = isAbsolute(task.planPath)
+      ? task.planPath
+      : resolve(sourceDir, task.planPath);
+    if (!(await ensureEmacsServer(pi))) {
+      ctx.ui.notify("Could not reach or start Emacs server", "error");
+      return;
+    }
+    pi.events.emit("emacs:open", { file: absPlan, line: 1 });
+    return;
+  }
+
+  // ── Create new plan ──
+  const suggested = await suggestPlanPath(task, ctx.cwd);
+  const approved = await ctx.ui.input(
+    `New plan for: ${task.summary}`,
+    suggested,
+  );
+  if (!approved) return;
+  const relPath = approved.trim();
+  if (!relPath) return;
+
+  const absPlan = isAbsolute(relPath) ? relPath : resolve(ctx.cwd, relPath);
+  const planRelToSource = relative(sourceDir, absPlan);
+
+  try {
+    await mkdir(dirname(absPlan), { recursive: true });
+    if (!(await pathExists(absPlan))) {
+      await writeFile(absPlan, scaffoldPlan(task), "utf-8");
+    }
+
+    // Attach :PLAN: to the in-memory task and save its source file.
+    task.planPath = planRelToSource;
+    const root = task.sourceRoot;
+    if (root) {
+      await writeFile(sourcePath, serializeTasks(root), "utf-8");
+    }
+  } catch (err) {
+    ctx.ui.notify(
+      `Failed to create plan: ${(err as Error).message}`,
+      "error",
+    );
+    return;
+  }
+
+  if (!(await ensureEmacsServer(pi))) {
+    ctx.ui.notify("Plan created but could not reach Emacs server", "warning");
+    return;
+  }
+  pi.events.emit("emacs:open", { file: absPlan, line: 1 });
 }
