@@ -32,6 +32,7 @@ import { watch, type FSWatcher } from "node:fs";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.ts";
+import { ensureEmacsServer } from "../emacsclient/emacsclient.ts";
 import { TasksOverlay } from "./overlay.ts";
 import { formatOrgTimestamp, parseTasks, serializeTasks, type Task } from "./parser.ts";
 import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
@@ -477,8 +478,13 @@ export default function (pi: ExtensionAPI) {
       // keeping it below the modal in pi's overlay stack.
       await syncPinnedOverlay(ctx, tasks, true);
 
-      const onEdit = (task: Task) => {
+      const onEdit = async (task: Task) => {
         const filePath = task.sourcePath ?? join(ctx.cwd, TASKS_FILE);
+        const ok = await ensureEmacsServer(getEmacsOptions(pi));
+        if (!ok) {
+          ctx.ui.notify("Could not reach or start Emacs server", "error");
+          return;
+        }
         pi.events.emit("emacs:open", { file: filePath, line: task.lineNumber });
       };
 
@@ -549,6 +555,21 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
+function getEmacsOptions(pi: ExtensionAPI) {
+  const env = (globalThis as { [key: string]: unknown })["process"] as
+    | { env?: Record<string, string | undefined> }
+    | undefined;
+  return {
+    binary: env?.env?.EMACSCLIENT_BINARY || "emacsclient",
+    daemonBinary: env?.env?.EMACS_BINARY || "emacs",
+    exec: (cmd: string, args: string[], opts?: { signal?: AbortSignal; timeout?: number }) =>
+      pi.exec(cmd, args, {
+        signal: opts?.signal,
+        timeout: opts?.timeout,
+      }),
+  };
+}
+
 /**
  * Suggest a plan path for a task that has no :PLAN: yet.
  * Prefers existing directories in this order:
@@ -587,36 +608,6 @@ function scaffoldPlan(task: Task): string {
 }
 
 /**
- * Ensure an Emacs server is reachable. If `emacsclient -e t` fails, start
- * `emacs --daemon` in the background and poll until reachable (or give up).
- * Returns true on success.
- */
-async function ensureEmacsServer(pi: ExtensionAPI): Promise<boolean> {
-  const probe = async () => {
-    try {
-      const r = await pi.exec("emacsclient", ["-e", "t"], { timeout: 2000 });
-      return r.code === 0;
-    } catch {
-      return false;
-    }
-  };
-  if (await probe()) return true;
-
-  try {
-    // Fire and forget: emacs --daemon detaches.
-    await pi.exec("emacs", ["--daemon"], { timeout: 15000 });
-  } catch {
-    return false;
-  }
-
-  for (let i = 0; i < 10; i++) {
-    await new Promise((r) => setTimeout(r, 300));
-    if (await probe()) return true;
-  }
-  return false;
-}
-
-/**
  * Resolve or create a plan for the given task, then open it in Emacs.
  *
  * If the task has a `:PLAN:` property: open that file.
@@ -637,7 +628,7 @@ async function handlePlanEdit(
     const absPlan = isAbsolute(task.planPath)
       ? task.planPath
       : resolve(sourceDir, task.planPath);
-    if (!(await ensureEmacsServer(pi))) {
+    if (!(await ensureEmacsServer(getEmacsOptions(pi)))) {
       ctx.ui.notify("Could not reach or start Emacs server", "error");
       return;
     }
@@ -682,7 +673,7 @@ async function handlePlanEdit(
     return;
   }
 
-  if (!(await ensureEmacsServer(pi))) {
+  if (!(await ensureEmacsServer(getEmacsOptions(pi)))) {
     ctx.ui.notify("Plan created but could not reach Emacs server", "warning");
     return;
   }
@@ -719,19 +710,40 @@ function flattenForArchive(task: Task, depth: number): Task {
   };
 }
 
+const ARCHIVED_PROPERTY_RE = /^\s*:ARCHIVED:\s*\[([^\]]+)\]\s*$/i;
+
+function archiveSortTimestamp(task: Task): string {
+  if (task.closed) return task.closed;
+  for (const line of task.propertyLines) {
+    const match = ARCHIVED_PROPERTY_RE.exec(line);
+    if (match) return match[1]!.trim();
+  }
+  return "9999-12-31 Zzz 23:59";
+}
+
+function sortArchivedTasks(tasks: Task[]): Task[] {
+  return tasks
+    .map((task, index) => ({ task, index }))
+    .sort((a, b) => {
+      const aStamp = archiveSortTimestamp(a.task);
+      const bStamp = archiveSortTimestamp(b.task);
+      return aStamp.localeCompare(bStamp) || a.index - b.index;
+    })
+    .map(({ task }) => task);
+}
+
 /**
  * Archive a top-level TASKS.org task to TASKS.ARCHIVE.org.
  *
  * Rules (per the plan):
- *   - Only DONE top-level tasks can be archived. Other statuses are refused
- *     with a notification to avoid accidentally archiving active work.
+ *   - Only CLOSED-state (`DONE`/`CANCELLED`) top-level tasks can be archived.
+ *     Other statuses are refused to avoid accidentally archiving active work.
  *   - Confirmation dialog via ctx.ui.confirm.
  *   - The whole subtree is archived. Linked plan children are inlined so the
  *     archive is self-contained.
  *   - An :ARCHIVED: [timestamp] property is added to the top-level heading.
- *   - Archived entries are appended to TASKS.ARCHIVE.org in archive-date
- *     order (which matches CLOSED order in normal use: you typically archive
- *     tasks soon after completing them).
+ *   - Archived entries are sorted by CLOSED time, falling back to ARCHIVED
+ *     time when CLOSED is absent.
  *
  * Returns true if the task was archived and the in-memory tree mutated.
  */
@@ -776,10 +788,12 @@ async function archiveTopLevel(
     const existing = (await pathExists(archivePath))
       ? await readFile(archivePath, "utf-8")
       : "";
-    const base = existing === "" ? "" : existing.endsWith("\n") ? existing : existing + "\n";
-    const separator = base.trim() === "" ? "" : "\n";
-    const appended = base + separator + serializeTasks([archiveCopy]);
-    await writeFile(archivePath, appended, "utf-8");
+    const archivedTasks = existing.trim() === ""
+      ? []
+      : parseTasks(existing, { sourcePath: archivePath });
+    archivedTasks.push(archiveCopy);
+    const sortedArchive = sortArchivedTasks(archivedTasks);
+    await writeFile(archivePath, serializeTasks(sortedArchive), "utf-8");
     await writeFile(tasksPath, serializeTasks(tasks), "utf-8");
   } catch (err) {
     // Roll back in-memory change so the overlay stays consistent with disk.

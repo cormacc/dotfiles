@@ -191,8 +191,8 @@ export class TasksOverlay {
     }
 
     // Archive the top-level task containing the cursor's task.
-    // Only DONE top-level tasks are archivable. Uses shift+A so it's harder
-    // to hit by accident than lowercase 'a'.
+    // Only closed top-level tasks (DONE/CANCELLED) are archivable. Uses
+    // shift+A so it's harder to hit by accident than lowercase 'a'.
     if (matchesKey(data, "A")) {
       void this.archive();
       return;

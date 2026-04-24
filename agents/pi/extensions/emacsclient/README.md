@@ -24,8 +24,9 @@ powerful ways; e.g. binding a hotkey which sends Pi a message like
 
 ## Requirements
 
-- A running Emacs server (Emacs 29+ recommended for Tree-sitter support)
+- For the full toolset, an Emacs server is still required (Emacs 29+ recommended for Tree-sitter support)
 - `emacsclient` binary in your PATH
+- `emacs` binary in your PATH if you want `emacs:open` to auto-start a daemon when no server is running
 
 To start an Emacs server:
 
@@ -237,8 +238,9 @@ interact with Emacs without importing emacsclient internals.
 
 ### `emacs:open`
 
-Open a file in the running Emacs session, optionally positioning point at a
-specific line and column. Raises the Emacs frame.
+Open a file in Emacs, optionally positioning point at a specific line and
+column. Raises the Emacs frame. If no Emacs server is reachable, this event
+will first try to start `emacs --daemon`.
 
 **Payload:** `{ file: string; line?: number; col?: number }`
 

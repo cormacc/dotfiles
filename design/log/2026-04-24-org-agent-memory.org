@@ -157,30 +157,43 @@
   - The pinned overlay now shows the top-level root as its header while the
     `★` marker follows the actual selected descendant inside that tree.
 
-* Housekeeping
-  Follow-up patch list from the final skills/extension review. Hold these for
-  explicit approval before implementation.
+* DONE Housekeeping
+  CLOSED: [2026-04-24 Fri 21:45]
+  Follow-up patch list from the final skills/extension review. Decisions below
+  were approved and implemented.
 
-** TODO [#C] Unify Emacs bootstrap behavior for `e` and `p` :emacs:
-   The `p` flow ensures an Emacs server is reachable before opening a plan,
-   but `e` currently delegates directly to `emacs:open`. Decide whether the
-   tasks extension should bootstrap Emacs consistently for both actions, or
-   whether that guarantee belongs entirely in the emacsclient extension.
+** DONE [#C] Unify Emacs bootstrap behavior for `e` and `p` :emacs:
+   CLOSED: [2026-04-24 Fri 21:45]
+   The `emacs:open` event in the emacsclient extension now bootstraps
+   `emacs --daemon` when no server is reachable, and the tasks extension uses
+   the same server-check path before `e` and `p` open files.
 
-** TODO [#C] Decide whether linked-plan task parsing should be constrained to `* Plan` :parser:skills:
-   The `plan` skill treats `* Plan` as the intended home for actionable TODO
-   headings, but the parser currently accepts task headings anywhere in the
-   linked file. Either:
-   - enforce `* Plan` as the only task-bearing section for linked plans, or
-   - keep the parser permissive and treat `* Plan` as a documented convention.
+*** Decision
+The emacs tools should bootstrap consistently -- open should launch emacs if no server instance is available.
 
-** TODO [#D] Preserve archive ordering by closed/archive timestamp :archive:
-   The archive flow currently appends to `TASKS.ARCHIVE.org`, which usually
-   matches completion order but is really archive-time order. If stable
-   historical ordering matters, load/sort/rewrite the archive file using
-   `CLOSED:` / `:ARCHIVED:` timestamps.
 
-** TODO [#D] Refresh stale inline extension comments to match current semantics :maintenance:
-   A few code comments still refer to older behaviour (for example archive
-   logic phrased as DONE-only before CANCELLED support). Sweep the task
-   extension comments so internal documentation matches the current model.
+** DONE [#C] Decide whether linked-plan task parsing should be constrained to `* Plan` :parser:skills:
+   CLOSED: [2026-04-24 Fri 21:45]
+   Kept the parser permissive. Updated the tasks README to state that `* Plan`
+   is a recommended convention for readability, not a parser requirement.
+*** Decision
+Keep the parser permissive -- the Plan format should match that of TASKS with flexible heirarchy -- any TODO without an ancestor TODO is a top-level todo, and so on.
+The `* Plan` section is a convention / best practice but not required.
+
+
+** DONE [#D] Preserve archive ordering by closed/archive timestamp :archive:
+   CLOSED: [2026-04-24 Fri 21:45]
+   The archive flow now reloads `TASKS.ARCHIVE.org`, inserts the new archived
+   task, sorts top-level archive entries by `CLOSED:` timestamp (falling back
+   to `:ARCHIVED:`), and rewrites the archive file.
+
+*** Decision
+The archive flow should sort by CLOSED time on archive. Archiving is expected to be a manual operation / episodic -- so issues may be archived in review rather than completion order.
+
+** DONE [#D] Refresh stale inline extension comments to match current semantics :maintenance:
+   CLOSED: [2026-04-24 Fri 21:45]
+   Updated stale comments and extension docs to reflect current semantics for
+   Emacs bootstrap, permissive linked-plan parsing, and archive behavior.
+
+*** Decision
+Correct this
