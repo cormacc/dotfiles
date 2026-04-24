@@ -1,0 +1,90 @@
+* DONE [#A] Establish TASKS.org as the project task source :tasks:org:
+  Added and iterated on the tasks extension so project tasks can be represented
+  with org-mode TODO headings in TASKS.org.
+
+* DONE [#A] Parse and serialize org TODO task trees :parser:
+  Implemented org heading parsing for TODO, STARTED, WAITING, and DONE states,
+  optional priorities, trailing tags, nested subtasks, descriptions, and
+  round-trip serialization.
+
+* DONE [#B] Clean up parser and overlay issues found during review :maintenance:
+  Removed dead overlay state, removed unused render locals, improved top-level
+  task serialization readability, and prevented non-task headings from being
+  swallowed into the previous task description.
+
+* DONE [#A] Add task selection using a :selected: tag :selection:
+  Added single-selection support to the main tasks overlay. Selecting a task
+  writes :selected: to TASKS.org, clears prior selections, focuses the selected
+  subtree, and collapses unrelated branches.
+
+* DONE [#B] Improve selection highlighting in the main overlay :ui:
+  Differentiated selected tasks and descendants from non-selected context by
+  dimming unrelated rows and applying clearer markers and accent styling to the
+  selected subtree.
+
+* DONE [#A] Add a persistent selected-task view :ui:overlay:
+  Added a non-capturing top-pinned overlay that shows the selected task and its
+  subtasks without stealing focus from the editor.
+
+* DONE [#B] Apply a consistent task status colour scheme :ui:
+  Added shared status colouring so TODO is yellow, WAITING is orange, STARTED
+  is blue, and DONE is green in both the main overlay and the pinned overlay.
+
+* DONE [#A] Update the pinned selected-task overlay immediately :ui:
+  Changed status and selection updates in the main overlay to refresh the
+  pinned overlay immediately, instead of waiting for the main overlay to close.
+
+* DONE [#A] Support linked plan files via a PLAN property :plan:parser:
+  Updated the parser to read :PLAN: from org properties drawers, load linked
+  org plan files, parse them using the same task syntax, and inject their tasks
+  as children of the parent task in the tasks UI.
+
+* DONE [#B] Preserve source locations for linked plan tasks :emacs:
+  Tracked task source paths and line numbers so editing a task injected from a
+  linked plan opens the correct plan file and line in Emacs.
+
+* TODO [#A] Draft org-memory skill documentation :skills:memory:
+  Create ./agents/skills/org-memory/SKILL.md describing how to use the org task
+  memory system with or without the pi-specific tasks extension.
+
+  The skill should cover:
+  - Maintaining TASKS.org as the project memory index.
+  - Using :PLAN: properties to link detailed plans.
+  - Keeping plan files parseable as org TODO task trees.
+  - Updating task status as work proceeds.
+  - How to continue a workstream by loading the selected task and linked plan.
+
+* TODO [#A] Add a keyboard shortcut to edit the linked plan :ui:emacs:
+  Update the main tasks overlay with a shortcut to edit the plan for the task
+  under the cursor.
+
+  Expected behaviour:
+  - If the task has a :PLAN: property, open that file in Emacs.
+  - If no plan exists, suggest a new plan file name for edit/approval.
+  - Suggested names should follow YYYY-MM-DD-short-task-name.org.
+  - After approval, add the :PLAN: property, create the file if needed, and open
+    it in Emacs.
+  - If no Emacs server is detected, launch a new server before opening the file.
+
+* TODO [#B] Investigate PLAN as an Emacs hyperlink :org:emacs:
+  Determine whether the :PLAN: property can remain parseable by the tasks
+  extension while also functioning inside Emacs as a clickable link to the plan
+  file.
+
+  Investigate options such as:
+  - Plain property value: :PLAN: design/log/example.org
+  - Org file link value: :PLAN: [[file:design/log/example.org][Plan]]
+  - Custom org link type or property helper.
+  - Compatibility with parser simplicity and serialization.
+
+* TODO [#A] Add archive shortcut for completed top-level tasks :archive:
+  Update the main overlay with a shortcut to archive completed or cancelled
+  top-level tasks.
+
+  Expected behaviour:
+  - Archive only top-level task entries, including all subtasks and content.
+  - Store archived entries in TASKS.ARCHIVE.org.
+  - Preserve linear order by archive date.
+  - Store archived tasks in order of COMPLETED timestamp.
+  - Add an ARCHIVED property to each archived top-level task.
+  - Avoid archiving incomplete active work by accident.

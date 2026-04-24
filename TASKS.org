@@ -1,31 +1,7 @@
-The tasks in this file are currently nonsense -- just used to develop
-the task extension.
+** WAITING [#C] Update nixGL flake URL :nix:
+Waiting on an upstream fix for an nvidia-open issue
 
-* This is a heading
-
-** And a subheading
-
-*** TODO This should be a top-level task
-Although level 3 in heirarchy, itt has no task ancestors....
-
-* TODO [#A] Consolidate shell configuration :shell:nix:
-  Unify fish/zsh/bash config paths and reduce duplication in shell.nix.
-** TODO Extract common aliases to shared module
-** STARTED Migrate remaining zsh config to fish
-About half of the aliases have been ported.
-*** TODO a third level down...
-** DONE Remove legacy bash profile references
-* TODO [#B] Improve Wayland compositor setup :wayland:
-  Standardise sway and hyprland configs.
-** TODO Add shared keybinding module
-** WAITING Hyprland screen-sharing support :pipewire:
-   Waiting on xdg-desktop-portal-hyprland fix upstream.
-* STARTED [#A] Update flake inputs :nix:
-  Running nix flake update and fixing breakages.
-* DONE [#C] Set up pi coding agent :agents:
-  Installed pi and configured extensions.
-** DONE Create modal-editor extension
-** DONE Add custom keybindings
-
-* Tasks
-Tasks created by the extension should be inserted under this heading...
+** TODO [#A] Implement an org-based memory system for pi-agent :agents:selected:
+:PROPERTIES:
+:PLAN: design/log/2026-04-24-org-agent-memory.org
+:END:

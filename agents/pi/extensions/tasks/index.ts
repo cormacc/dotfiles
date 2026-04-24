@@ -28,7 +28,7 @@ import {
   type TUI,
 } from "@mariozechner/pi-tui";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.ts";
 import { TasksOverlay } from "./overlay.ts";
 import { parseTasks, type Task } from "./parser.ts";
@@ -49,18 +49,56 @@ let pinnedOverlayComponent: PinnedTasksOverlay | null = null;
 let pinnedOverlayTui: TUI | null = null;
 
 async function loadTasks(cwd: string): Promise<Task[]> {
+  const sourcePath = join(cwd, TASKS_FILE);
   try {
-    const content = await readFile(join(cwd, TASKS_FILE), "utf-8");
-    return parseTasks(content);
+    const content = await readFile(sourcePath, "utf-8");
+    const tasks = parseTasks(content, { sourcePath });
+    await loadLinkedPlans(tasks, sourcePath);
+    return tasks;
   } catch {
     return [];
   }
 }
 
+async function loadLinkedPlans(
+  tasks: Task[],
+  sourcePath: string,
+  cache = new Map<string, Task[]>(),
+): Promise<void> {
+  const sourceDir = dirname(sourcePath);
+  for (const task of tasks) {
+    if (task.planPath) {
+      const planPath = isAbsolute(task.planPath)
+        ? task.planPath
+        : resolve(sourceDir, task.planPath);
+      const cached = cache.get(planPath);
+      if (cached) {
+        task.planChildren = cached;
+      } else {
+        try {
+          const content = await readFile(planPath, "utf-8");
+          const planTasks = parseTasks(content, { sourcePath: planPath });
+          cache.set(planPath, planTasks);
+          await loadLinkedPlans(planTasks, planPath, cache);
+          task.planChildren = planTasks;
+        } catch {
+          task.planChildren = [];
+          cache.set(planPath, task.planChildren);
+        }
+      }
+    }
+    await loadLinkedPlans(task.children, sourcePath, cache);
+  }
+}
+
+function taskChildren(task: Task): Task[] {
+  return [...task.children, ...(task.planChildren ?? [])];
+}
+
 function findSelectedTask(tasks: Task[]): Task | null {
   for (const t of tasks) {
     if (t.tags.includes(SELECTED_TAG)) return t;
-    const child = findSelectedTask(t.children);
+    const child = findSelectedTask(taskChildren(t));
     if (child) return child;
   }
   return null;
@@ -70,7 +108,7 @@ function countAll(tasks: Task[]): number {
   let n = 0;
   for (const t of tasks) {
     n++;
-    n += countAll(t.children);
+    n += countAll(taskChildren(t));
   }
   return n;
 }
@@ -96,13 +134,13 @@ function buildPinnedLines(tasks: Task[], theme: Theme): string[] | undefined {
     for (const c of children) {
       if (lines.length >= MAX_PINNED_LINES) return;
       lines.push(formatTaskLine(c, "  ".repeat(depth), false));
-      walk(c.children, depth + 1);
+      walk(taskChildren(c), depth + 1);
       if (lines.length >= MAX_PINNED_LINES) return;
     }
   };
-  walk(selected.children, 1);
+  walk(taskChildren(selected), 1);
 
-  const total = countAll(selected.children);
+  const total = countAll(taskChildren(selected));
   const shown = lines.length - 2; // minus header rule + selected-task line
   if (shown < total) {
     const more = theme.fg("dim", `  … ${total - shown} more subtask(s)`);
@@ -270,9 +308,9 @@ export default function (pi: ExtensionAPI) {
       // keeping it below the modal in pi's overlay stack.
       await syncPinnedOverlay(ctx, tasks, true);
 
-      const onEdit = (lineNumber: number) => {
-        const filePath = join(ctx.cwd, TASKS_FILE);
-        pi.events.emit("emacs:open", { file: filePath, line: lineNumber });
+      const onEdit = (task: Task) => {
+        const filePath = task.sourcePath ?? join(ctx.cwd, TASKS_FILE);
+        pi.events.emit("emacs:open", { file: filePath, line: task.lineNumber });
       };
 
       const onTasksChanged = (updatedTasks: Task[]) => {
