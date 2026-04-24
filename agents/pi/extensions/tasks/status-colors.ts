@@ -14,6 +14,7 @@ const GREEN = "\x1b[32m";
 const YELLOW = "\x1b[33m";
 const BLUE = "\x1b[34m";
 const MAGENTA = "\x1b[35m";
+const RED = "\x1b[31m";
 const ORANGE = "\x1b[38;5;208m";
 
 export const STATUS_ANSI: Record<string, string> = {
@@ -21,6 +22,7 @@ export const STATUS_ANSI: Record<string, string> = {
   WAITING: ORANGE,
   STARTED: BLUE,
   DONE: GREEN,
+  CANCELLED: RED,
 };
 
 export const PRIORITY_ANSI: Record<string, string> = {
@@ -36,11 +38,11 @@ function color(open: string | undefined, text: string): string {
 }
 
 /**
- * Return a status token (padded to 7 chars) wrapped in its canonical color.
+ * Return a status token wrapped in its canonical color.
  * Pass `text` to color arbitrary content with the same hue.
  */
 export function colorStatus(status: string, text?: string): string {
-  return color(STATUS_ANSI[status], text ?? status.padEnd(7));
+  return color(STATUS_ANSI[status], text ?? status.padEnd(9));
 }
 
 /** Return an org priority token wrapped in its canonical color. */

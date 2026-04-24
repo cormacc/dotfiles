@@ -38,7 +38,9 @@ import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
 
 const EXT_NAME = getExtensionName(import.meta.url);
 const TASKS_FILE = "TASKS.org";
+const TASKS_ARCHIVE_FILE = "TASKS.ARCHIVE.org";
 const SELECTED_TAG = "selected";
+const CLOSED_STATUSES = new Set<string>(["DONE", "CANCELLED"]);
 /** Hard cap so the pinned overlay never dominates the screen. */
 const MAX_PINNED_LINES = 12;
 
@@ -181,16 +183,23 @@ function findSelectedTask(tasks: Task[]): Task | null {
   return null;
 }
 
+function findTopLevelRoot(tasks: Task[], target: Task): Task | null {
+  const contains = (task: Task): boolean => {
+    if (task === target) return true;
+    return taskChildren(task).some(contains);
+  };
+  return tasks.find(contains) ?? null;
+}
+
 function formatTaskLine(
   t: Task,
   indent: string,
-  isHead: boolean,
+  marker: string,
   width: number,
 ): string {
   const priority = colorPriority(t.priority);
   const visibleTags = t.tags.filter((tg) => tg !== SELECTED_TAG);
   const tags = colorTags(visibleTags);
-  const marker = isHead ? "★ " : "• ";
   const left = `${indent}${marker}${colorStatus(t.status)} ${priority ? `${priority} ` : ""}${t.summary}`;
   if (!tags) return truncateToWidth(left, width);
 
@@ -225,14 +234,23 @@ function buildPinnedLines(
 ): string[] | undefined {
   const selected = findSelectedTask(tasks);
   if (!selected) return undefined;
+  const selectionRoot = findTopLevelRoot(tasks, selected) ?? selected;
 
-  const hasLinkedPlan = !!selected.planPath && (selected.planChildren?.length ?? 0) > 0;
+  const hasLinkedPlan = !!selectionRoot.planPath &&
+    (selectionRoot.planChildren?.length ?? 0) > 0;
   const headerLines = [
     theme.fg("accent", theme.bold("── Selected task ──")),
-    formatTaskLine(selected, "", true, width),
+    formatTaskLine(
+      selectionRoot,
+      "",
+      selectionRoot === selected ? "★ " : "• ",
+      width,
+    ),
   ];
   if (hasLinkedPlan) {
-    headerLines.push(centeredBorder(basename(selected.planPath!), width, theme));
+    headerLines.push(
+      centeredBorder(basename(selectionRoot.planPath!), width, theme),
+    );
   }
   const maxSubtaskLines = Math.max(
     0,
@@ -246,7 +264,7 @@ function buildPinnedLines(
       walk(taskChildren(child), depth + 1);
     }
   };
-  walk(taskChildren(selected), 1);
+  walk(taskChildren(selectionRoot), 1);
 
   const visible = [...flattened];
   let hiddenCompleted = 0;
@@ -257,7 +275,7 @@ function buildPinnedLines(
   while (
     visible.length + (hiddenCompleted > 0 ? 1 : 0) > maxSubtaskLines
   ) {
-    const doneIdx = visible.findIndex((row) => row.task.status === "DONE");
+    const doneIdx = visible.findIndex((row) => CLOSED_STATUSES.has(row.task.status));
     if (doneIdx === -1) break;
     visible.splice(doneIdx, 1);
     hiddenCompleted++;
@@ -280,7 +298,14 @@ function buildPinnedLines(
   }
 
   for (const row of visible) {
-    lines.push(formatTaskLine(row.task, "  ".repeat(row.depth), false, width));
+    lines.push(
+      formatTaskLine(
+        row.task,
+        "  ".repeat(row.depth),
+        row.task === selected ? "★ " : "• ",
+        width,
+      ),
+    );
   }
 
   if (hiddenMore > 0) {
@@ -468,6 +493,9 @@ export default function (pi: ExtensionAPI) {
         planEditRequest = task;
       };
 
+      const onArchive = (topLevel: Task) =>
+        archiveTopLevel(ctx, tasks, topLevel);
+
       await ctx.ui.custom<undefined>(
         (_tui, theme, _kb, done) =>
           new TasksOverlay(
@@ -478,6 +506,7 @@ export default function (pi: ExtensionAPI) {
             onEdit,
             onTasksChanged,
             onEditPlan,
+            onArchive,
           ),
         {
           overlay: true,
@@ -636,7 +665,11 @@ async function handlePlanEdit(
     }
 
     // Attach :PLAN: to the in-memory task and save its source file.
+    // Write the link form so the property is clickable in Emacs (C-c C-o)
+    // while remaining parseable by the extension. The parser preserves this
+    // raw value on round-trip.
     task.planPath = planRelToSource;
+    task.planRaw = `[[file:${planRelToSource}]]`;
     const root = task.sourceRoot;
     if (root) {
       await writeFile(sourcePath, serializeTasks(root), "utf-8");
@@ -654,4 +687,108 @@ async function handlePlanEdit(
     return;
   }
   pi.events.emit("emacs:open", { file: absPlan, line: 1 });
+}
+
+// ── Archive flow ───────────────────────────────────────────────────────
+
+/**
+ * Produce a self-contained deep clone of `task` suitable for the archive.
+ * Linked plan children are inlined so the archive file doesn't depend on
+ * external plan files that may later move or be cleaned up. Heading levels
+ * are recomputed from the archive root down.
+ */
+function flattenForArchive(task: Task, depth: number): Task {
+  const children: Task[] = [];
+  for (const c of task.children) children.push(flattenForArchive(c, depth + 1));
+  for (const c of task.planChildren ?? [])
+    children.push(flattenForArchive(c, depth + 1));
+  return {
+    level: depth,
+    status: task.status,
+    priority: task.priority,
+    summary: task.summary,
+    tags: [...task.tags],
+    description: task.description,
+    children,
+    propertyLines: [...task.propertyLines],
+    planPath: null,
+    planChildren: undefined,
+    closed: task.closed,
+    sourcePath: task.sourcePath,
+    lineNumber: task.lineNumber,
+  };
+}
+
+/**
+ * Archive a top-level TASKS.org task to TASKS.ARCHIVE.org.
+ *
+ * Rules (per the plan):
+ *   - Only DONE top-level tasks can be archived. Other statuses are refused
+ *     with a notification to avoid accidentally archiving active work.
+ *   - Confirmation dialog via ctx.ui.confirm.
+ *   - The whole subtree is archived. Linked plan children are inlined so the
+ *     archive is self-contained.
+ *   - An :ARCHIVED: [timestamp] property is added to the top-level heading.
+ *   - Archived entries are appended to TASKS.ARCHIVE.org in archive-date
+ *     order (which matches CLOSED order in normal use: you typically archive
+ *     tasks soon after completing them).
+ *
+ * Returns true if the task was archived and the in-memory tree mutated.
+ */
+async function archiveTopLevel(
+  ctx: ExtensionContext,
+  tasks: Task[],
+  topLevel: Task,
+): Promise<boolean> {
+  if (!CLOSED_STATUSES.has(topLevel.status)) {
+    ctx.ui.notify(
+      `Cannot archive '${topLevel.summary}': status is ${topLevel.status}, not DONE/CANCELLED.`,
+      "warning",
+    );
+    return false;
+  }
+
+  const ok = await ctx.ui.confirm(
+    "Archive task?",
+    `Move '${topLevel.summary}' and all subtasks to ${TASKS_ARCHIVE_FILE}.`,
+  );
+  if (!ok) return false;
+
+  const idx = tasks.indexOf(topLevel);
+  if (idx === -1) {
+    ctx.ui.notify("Task is not a top-level entry; cannot archive.", "error");
+    return false;
+  }
+
+  // Build the archive copy: flatten plan children inline, strip :selected:,
+  // stamp :ARCHIVED:. Uses CLOSED timestamp if present (fallback: now).
+  const archiveCopy = flattenForArchive(topLevel, 1);
+  archiveCopy.tags = archiveCopy.tags.filter((t) => t !== SELECTED_TAG);
+  const stamp = topLevel.closed ?? formatOrgTimestamp();
+  archiveCopy.propertyLines.push(`:ARCHIVED: [${stamp}]`);
+
+  // Mutate the live task tree: remove from top-level.
+  tasks.splice(idx, 1);
+
+  const archivePath = join(ctx.cwd, TASKS_ARCHIVE_FILE);
+  const tasksPath = join(ctx.cwd, TASKS_FILE);
+  try {
+    const existing = (await pathExists(archivePath))
+      ? await readFile(archivePath, "utf-8")
+      : "";
+    const base = existing === "" ? "" : existing.endsWith("\n") ? existing : existing + "\n";
+    const separator = base.trim() === "" ? "" : "\n";
+    const appended = base + separator + serializeTasks([archiveCopy]);
+    await writeFile(archivePath, appended, "utf-8");
+    await writeFile(tasksPath, serializeTasks(tasks), "utf-8");
+  } catch (err) {
+    // Roll back in-memory change so the overlay stays consistent with disk.
+    tasks.splice(idx, 0, topLevel);
+    ctx.ui.notify(`Archive failed: ${(err as Error).message}`, "error");
+    return false;
+  }
+
+  ctx.ui.notify(`Archived: ${topLevel.summary}`, "info");
+  await refreshPinnedOverlay(ctx, ctx.cwd);
+  return true;
 }

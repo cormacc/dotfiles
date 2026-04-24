@@ -15,7 +15,14 @@ import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const STATUS_CYCLE = ["TODO", "STARTED", "WAITING", "DONE"] as const;
+const STATUS_CYCLE = [
+  "TODO",
+  "STARTED",
+  "WAITING",
+  "DONE",
+  "CANCELLED",
+] as const;
+const CLOSED_STATUSES = new Set<string>(["DONE", "CANCELLED"]);
 
 /** Reserved tag used to mark the currently-selected task. */
 const SELECTED_TAG = "selected";
@@ -28,7 +35,7 @@ interface FlatRow {
   hasChildren: boolean;
   /** True when this task carries the :selected: tag. */
   isSelectedTask: boolean;
-  /** True when this task is the selected task or one of its descendants. */
+  /** True when this task is inside the selected top-level task tree. */
   inSelection: boolean;
 }
 
@@ -53,6 +60,11 @@ export class TasksOverlay {
     private onEdit?: (task: Task) => void,
     private onTasksChanged?: (tasks: Task[]) => void,
     private onEditPlan?: (task: Task) => void,
+    /**
+     * Archive the top-level task containing `task`.
+     * Returns true if archived (caller mutated `this.tasks` in place).
+     */
+    private onArchive?: (task: Task) => Promise<boolean>,
   ) {
     this.theme = theme;
     this.done = done;
@@ -67,13 +79,14 @@ export class TasksOverlay {
   private rebuildRows(): void {
     this.rows = [];
     const selected = this.findSelectedTask();
+    const selectionRoot = selected ? this.findTopLevelRoot(selected) : null;
     const inSelection = new WeakSet<Task>();
-    if (selected) {
+    if (selectionRoot) {
       const mark = (t: Task) => {
         inSelection.add(t);
         for (const c of this.taskChildren(t)) mark(c);
       };
-      mark(selected);
+      mark(selectionRoot);
     }
 
     const walk = (tasks: Task[], depth: number) => {
@@ -177,6 +190,14 @@ export class TasksOverlay {
       return;
     }
 
+    // Archive the top-level task containing the cursor's task.
+    // Only DONE top-level tasks are archivable. Uses shift+A so it's harder
+    // to hit by accident than lowercase 'a'.
+    if (matchesKey(data, "A")) {
+      void this.archive();
+      return;
+    }
+
     // Toggle :selected: on the task under the cursor
     if (matchesKey(data, "s")) {
       this.toggleSelect();
@@ -206,17 +227,20 @@ export class TasksOverlay {
   private cycleStatus(direction: 1 | -1): void {
     const row = this.rows[this.cursor];
     if (!row) return;
-    const idx = STATUS_CYCLE.indexOf(
-      row.task.status as (typeof STATUS_CYCLE)[number],
-    );
+    const currentStatus = row.task.status as (typeof STATUS_CYCLE)[number];
+    const idx = STATUS_CYCLE.indexOf(currentStatus);
     if (idx === -1) return;
     const next = (idx + direction + STATUS_CYCLE.length) % STATUS_CYCLE.length;
     const nextStatus = STATUS_CYCLE[next];
     row.task.status = nextStatus;
-    // Mirror Emacs: stamp CLOSED on entry into DONE, clear on exit.
-    if (nextStatus === "DONE") {
+    // Mirror Emacs done-state semantics: stamp CLOSED on entry into any
+    // terminal state (DONE/CANCELLED), preserve it when moving between done
+    // states, and clear it again when re-opening the task.
+    const wasClosed = CLOSED_STATUSES.has(currentStatus);
+    const isClosed = CLOSED_STATUSES.has(nextStatus);
+    if (isClosed) {
       if (!row.task.closed) row.task.closed = formatOrgTimestamp();
-    } else {
+    } else if (wasClosed) {
       row.task.closed = null;
     }
     this.persistChange();
@@ -224,6 +248,35 @@ export class TasksOverlay {
   }
 
   // ── Selection (:selected: tag) ──────────────────────────────────────
+
+  /**
+   * Find the top-level TASKS.org task that contains `task`, walking through
+   * regular children and injected plan children alike. Returns null when the
+   * task isn't part of the current TASKS.org tree (e.g. stale reference).
+   */
+  private findTopLevelRoot(task: Task): Task | null {
+    const contains = (t: Task): boolean => {
+      if (t === task) return true;
+      for (const c of this.taskChildren(t)) {
+        if (contains(c)) return true;
+      }
+      return false;
+    };
+    return this.tasks.find(contains) ?? null;
+  }
+
+  private async archive(): Promise<void> {
+    const row = this.rows[this.cursor];
+    if (!row || !this.onArchive) return;
+    const topLevel = this.findTopLevelRoot(row.task);
+    if (!topLevel) return;
+    const archived = await this.onArchive(topLevel);
+    if (archived) {
+      // `this.tasks` was mutated in place by the handler.
+      this.rebuildRows();
+      this.invalidate();
+    }
+  }
 
   private findSelectedTask(tasks: Task[] = this.tasks): Task | null {
     for (const t of tasks) {
@@ -265,39 +318,25 @@ export class TasksOverlay {
   }
 
   /**
-   * When a task is selected, collapse every task that is not either the
-   * selected task itself, one of its ancestors, or one of its descendants.
+   * When a task is selected, keep the entire top-level TASKS.org task that
+   * contains it expanded. This lets the :selected: marker move down into
+   * subtasks while preserving the larger workstream as the visible tree.
    * When nothing is selected, drop all auto-collapses.
    */
   private applySelectionView(): void {
     this.collapsedSet = new WeakSet<Task>();
     const selected = this.findSelectedTask();
-    if (!selected) return;
+    const selectionRoot = selected ? this.findTopLevelRoot(selected) : null;
+    if (!selectionRoot) return;
 
     const keepExpanded = new WeakSet<Task>();
-
-    // Mark ancestors + selected along the discovered path.
-    const markPath = (tasks: Task[], path: Task[]): boolean => {
-      for (const t of tasks) {
-        const next = [...path, t];
-        if (t === selected) {
-          for (const p of next) keepExpanded.add(p);
-          return true;
-        }
-        if (markPath(this.taskChildren(t), next)) return true;
-      }
-      return false;
-    };
-    markPath(this.tasks, []);
-
-    // Mark descendants.
     const markSubtree = (t: Task) => {
       keepExpanded.add(t);
       for (const c of this.taskChildren(t)) markSubtree(c);
     };
-    markSubtree(selected);
+    markSubtree(selectionRoot);
 
-    // Collapse anything outside that set with children.
+    // Collapse anything outside that top-level tree.
     const collapseOthers = (tasks: Task[]) => {
       for (const t of tasks) {
         const children = this.taskChildren(t);
@@ -393,6 +432,9 @@ export class TasksOverlay {
         counts.DONE > 0
           ? colorStatus("DONE", `DONE:${counts.DONE}`)
           : null,
+        counts.CANCELLED > 0
+          ? colorStatus("CANCELLED", `CANCELLED:${counts.CANCELLED}`)
+          : null,
       ]
         .filter(Boolean)
         .join(th.fg("dim", " │ "));
@@ -435,7 +477,7 @@ export class TasksOverlay {
           // Everything on this row is dimmed — background material.
           indentStr = indent;
           treeStr = th.fg("dim", treeMark);
-          statusStr = th.fg("dim", r.task.status.padEnd(7));
+          statusStr = th.fg("dim", r.task.status.padEnd(9));
           prioStr = r.task.priority
             ? th.fg("dim", `[#${r.task.priority}]`) + " "
             : "";
@@ -589,7 +631,7 @@ export class TasksOverlay {
     lines.push(th.fg("border", `├${hBar(leftW)}┴${hBar(rightW)}┤`));
     const helpText = th.fg(
       "dim",
-      " ↑↓/jk nav • ←→/hl status • Enter toggle • s select • e edit • p plan • Ctrl-d/u scroll • q close",
+      " ↑↓/jk nav • ←→/hl status • Enter toggle • s select • e edit • p plan • A archive • Ctrl-d/u scroll • q close",
     );
     const helpInnerW = leftW + rightW + 1; // +1 for removed divider
     lines.push(
@@ -631,6 +673,7 @@ export class TasksOverlay {
       STARTED: 0,
       WAITING: 0,
       DONE: 0,
+      CANCELLED: 0,
     };
     const walk = (ts: Task[]) => {
       for (const t of ts) {
