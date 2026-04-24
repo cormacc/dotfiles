@@ -57,6 +57,7 @@ The overlay is a split pane — task tree on the left, description of the select
 | `Enter` / `Space` / `Tab` | Toggle collapse                    |
 | `s`                       | Toggle selection on current task   |
 | `e`                       | Edit in Emacs at task              |
+| `p`                       | Edit the task's linked plan in Emacs (or create one) |
 | `Esc` / `q`               | Close                              |
 
 ### Selection
