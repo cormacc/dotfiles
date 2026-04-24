@@ -7,7 +7,8 @@
  *   - emacs_eval: Evaluate arbitrary elisp
  *   - emacs_ts_query: Run tree-sitter queries against buffers
  *
- * Requires an Emacs server running (emacs --daemon or M-x server-start).
+ * Most tools require an Emacs server running (emacs --daemon or M-x server-start).
+ * The `emacs:open` event will auto-start `emacs --daemon` if needed.
  * Set EMACS_SOCKET_NAME to specify a non-default socket.
  */
 
@@ -20,7 +21,7 @@ import {
   buildWriteElisp,
   escapeElispString,
 } from "./elisp.ts";
-import { emacsEval } from "./emacsclient.ts";
+import { emacsEval, ensureEmacsServer } from "./emacsclient.ts";
 import type { EmacsclientOptions } from "./emacsclient.ts";
 import { focusWindow } from "../lib/wm.ts";
 
@@ -28,12 +29,15 @@ export default function (pi: ExtensionAPI) {
   // ------------------------------------------------------------------
   // Event: emacs:open — open a file in Emacs at a specific position
   // ------------------------------------------------------------------
-  // Other extensions can emit this to open a file in the running Emacs:
+  // Other extensions can emit this to open a file in Emacs:
   //   pi.events.emit("emacs:open", { file: "/path/to/file", line: 42 })
+  // If no Emacs server is reachable, bootstrap one first.
   pi.events.on(
     "emacs:open",
     async (data: { file: string; line?: number; col?: number }) => {
       const opts = getOptions();
+      if (!(await ensureEmacsServer(opts))) return;
+
       const file = data.file;
       const gotoLine =
         data.line != null
@@ -122,9 +126,13 @@ export default function (pi: ExtensionAPI) {
 
   // Build shared emacsclient options using pi.exec
   function getOptions(signal?: AbortSignal): EmacsclientOptions {
+    const env = (globalThis as { [key: string]: unknown })["process"] as
+      | { env?: Record<string, string | undefined> }
+      | undefined;
     return {
-      // Allow tests to override emacsclient binary via environment variable
-      binary: process.env.EMACSCLIENT_BINARY || "emacsclient",
+      // Allow tests to override emacsclient/emacs binaries via environment variables
+      binary: env?.env?.EMACSCLIENT_BINARY || "emacsclient",
+      daemonBinary: env?.env?.EMACS_BINARY || "emacs",
       exec: (cmd, args, opts) =>
         pi.exec(cmd, args, {
           signal: opts?.signal,

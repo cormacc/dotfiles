@@ -11,6 +11,8 @@ import {
 export interface EmacsclientOptions {
   /** Path to emacsclient binary. Default: "emacsclient" */
   binary?: string;
+  /** Path to emacs binary used for daemon startup. Default: "emacs" */
+  daemonBinary?: string;
   /** Socket name or path for the Emacs server. Default: from EMACS_SOCKET_NAME env. */
   socketName?: string;
   /** Timeout in milliseconds. Default: 10000 */
@@ -31,6 +33,56 @@ export interface EmacsclientResult {
   error?: string;
 }
 
+function socketArgs(options: EmacsclientOptions): string[] {
+  const env = (globalThis as { [key: string]: unknown })["process"] as
+    | { env?: Record<string, string | undefined> }
+    | undefined;
+  const socket = options.socketName ?? env?.env?.EMACS_SOCKET_NAME;
+  return socket ? ["--socket-name", socket] : [];
+}
+
+/**
+ * Ensure an Emacs server is reachable. If probing via emacsclient fails,
+ * start `emacs --daemon` and poll until the server answers.
+ */
+export async function ensureEmacsServer(
+  options: EmacsclientOptions
+): Promise<boolean> {
+  const binary = options.binary ?? "emacsclient";
+  const daemonBinary = options.daemonBinary ?? "emacs";
+  const timeout = options.timeout ?? 10000;
+  const probeArgs = [...socketArgs(options), "-e", "t"];
+
+  const probe = async () => {
+    try {
+      const result = await options.exec(binary, probeArgs, {
+        signal: options.signal,
+        timeout: Math.min(timeout, 2000),
+      });
+      return result.code === 0;
+    } catch {
+      return false;
+    }
+  };
+
+  if (await probe()) return true;
+
+  try {
+    await options.exec(daemonBinary, ["--daemon"], {
+      signal: options.signal,
+      timeout: Math.max(timeout, 15000),
+    });
+  } catch {
+    return false;
+  }
+
+  for (let i = 0; i < 10; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    if (await probe()) return true;
+  }
+  return false;
+}
+
 /**
  * Evaluate an elisp expression via emacsclient and return the parsed result.
  */
@@ -41,13 +93,7 @@ export async function emacsEval(
   const binary = options.binary ?? "emacsclient";
   const timeout = options.timeout ?? 10000;
 
-  const args: string[] = ["--eval", buildTransportElisp(elisp)];
-
-  // Add socket if specified
-  const socket = options.socketName ?? process.env.EMACS_SOCKET_NAME;
-  if (socket) {
-    args.unshift("--socket-name", socket);
-  }
+  const args: string[] = [...socketArgs(options), "--eval", buildTransportElisp(elisp)];
 
   try {
     const result = await options.exec(binary, args, {

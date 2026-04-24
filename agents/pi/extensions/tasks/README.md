@@ -81,7 +81,7 @@ Pressing `A` (shift-a) archives the top-level task containing the cursor's task.
 - Prompts for confirmation before writing anything.
 - Removes the task (and all its subtasks and content) from `TASKS.org`.
 - Inlines any linked plan children into the archived copy so the archive file is self-contained.
-- Appends the archived task to `TASKS.ARCHIVE.org` in archive-date order (which matches CLOSED order in normal use).
+- Re-sorts `TASKS.ARCHIVE.org` by `CLOSED:` time on each archive operation, falling back to `:ARCHIVED:` time when a task has no `CLOSED:` stamp.
 - Adds an `:ARCHIVED: [timestamp]` property to the archived heading. The timestamp uses the task's `CLOSED` value when present, otherwise the current time.
 - Strips `:selected:` from the archived copy so reloading `TASKS.org` doesn't flip the pinned overlay onto a no-longer-present task.
 
@@ -132,6 +132,8 @@ A task can link to a detailed plan using an org properties drawer immediately be
 ```
 
 The `PLAN` path is resolved relative to the org file that contains the property. The linked file is parsed with the same TODO heading syntax as `TASKS.org`; its tasks are injected into the overlay as children of the parent task. Status changes made to injected plan tasks are saved back to the linked plan file, not copied into `TASKS.org`.
+
+The parser is intentionally permissive: actionable task headings may appear anywhere in the linked file. Using a dedicated `* Plan` section is recommended as a convention for readability, but it is not required by the extension.
 
 #### Org-link syntax
 
