@@ -1,18 +1,18 @@
 /**
- * Modal Editor Extension for pi — Vim-style modal editing
+ * Keybindings Extension for pi — leader menus + optional vim modal editing
  *
- * Usage: pi --extension ~/dotfiles/agents/pi/extensions/modal-editor.ts
+ * Usage: pi --extension ~/dotfiles/agents/pi/extensions/keybindings/index.ts
  *
- * Modes: Insert (default), Normal, Visual, Visual-Line
+ * Primary role: which-key-style leader menu discovery and dispatch.
+ * Modal (vim-style) editing is opt-in via user settings. In insert mode
+ * the leader menu is reached with the `alt+m` prefix; in normal mode
+ * (modal on) it is reached with the bare leader key.
  *
- * Implements the full vim grammar:
- *   - Operators (d, c, y, >, <) compose with motions and text objects
- *   - Numeric prefixes (e.g. 3dw, 5x)
- *   - Text objects (iw, aw, i", a", i(, a(, etc.)
- *   - Visual mode (v, V) with operator application
- *   - Dot-repeat for last change
- *   - Internal yank register + system clipboard integration
- *   - Leader key (Space) for pi-specific actions
+ * Modes: Insert (default), Normal, Visual, Visual-Line (normal/visual
+ * only reachable when modal editing is enabled).
+ *
+ * Settings file: ~/.pi/agent/keybindings-ext.json
+ * Defaults file: <ext dir>/defaults.json
  */
 
 import { CustomEditor, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -24,12 +24,38 @@ import {
   type TUI,
 } from "@mariozechner/pi-tui";
 import type { KeybindingsManager } from "@mariozechner/pi-coding-agent";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { homedir } from "node:os";
 import { ansiPad } from "../lib/pi-utils.js";
 
 const EXT_DIR = dirname(fileURLToPath(import.meta.url));
+const USER_SETTINGS_PATH = join(homedir(), ".pi", "agent", "keybindings-ext.json");
+
+interface UserSettings {
+  modal: boolean;
+}
+
+function loadUserSettings(): UserSettings {
+  try {
+    if (existsSync(USER_SETTINGS_PATH)) {
+      const parsed = JSON.parse(readFileSync(USER_SETTINGS_PATH, "utf-8"));
+      return { modal: !!parsed?.modal };
+    }
+  } catch {}
+  return { modal: false };
+}
+
+function saveUserSettings(settings: UserSettings): void {
+  try {
+    mkdirSync(dirname(USER_SETTINGS_PATH), { recursive: true });
+    writeFileSync(
+      USER_SETTINGS_PATH,
+      JSON.stringify(settings, null, 2) + "\n",
+    );
+  } catch {}
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -88,7 +114,7 @@ interface KeybindingsConfig {
   menus?: Record<string, MenuConfig>;
 }
 
-/** Payload for the modal-editor:suggest-keybindings event. */
+/** Payload for the keybindings:suggest event. */
 interface KeybindingSuggestion extends KeybindingsConfig {
   /** Name of the extension suggesting these bindings (used in notifications). */
   source?: string;
@@ -139,7 +165,7 @@ function warnClashingLeaderKeys(
       const label = node.label ?? triggerKey;
       const displayKey = triggerKey === " " ? "SPC" : triggerKey;
       notify(
-        `modal-editor: leader key "${displayKey}" ("${label}" from ${source}) ` +
+        `keybindings: leader key "${displayKey}" ("${label}" from ${source}) ` +
           `clashes with a normal-mode vim binding and will not work`,
         "warning",
       );
@@ -148,7 +174,7 @@ function warnClashingLeaderKeys(
 }
 
 function loadKeybindingsConfig(): KeybindingsConfig {
-  const configPath = join(EXT_DIR, "keybindings.json");
+  const configPath = join(EXT_DIR, "defaults.json");
   if (!existsSync(configPath)) return {};
   try {
     return JSON.parse(readFileSync(configPath, "utf-8"));
@@ -249,6 +275,12 @@ function maxPos(a: Pos, b: Pos): Pos {
 
 class VimEditor extends CustomEditor {
   private mode: Mode = "insert";
+  /** When false (default), the editor behaves like pi's standard editor —
+   *  no Normal/Visual modes, no escape-to-normal, leader menus reached
+   *  only via the `alt+m` prefix in insert mode. */
+  private modalEnabled: boolean = false;
+  /** Waiting for the leader root key after `alt+m` in insert mode. */
+  private insertLeaderRootPending: boolean = false;
   private _tui: TUI;
   private _theme: EditorTheme;
   events?: ExtensionAPI["events"];
@@ -305,6 +337,27 @@ class VimEditor extends CustomEditor {
 
   setLeaderOverlayDelay(ms: number) {
     this.leaderOverlayDelay = ms;
+  }
+
+  /** Toggle modal (vim-style) editing. Default false. */
+  setModalEnabled(enabled: boolean): void {
+    this.modalEnabled = enabled;
+    if (!enabled && this.mode !== "insert") {
+      this.mode = "insert";
+      this.pendingOperator = null;
+      this.countStr = "";
+      this.pendingFind = null;
+      this.pendingReplace = false;
+      this.leaderPending = false;
+      this.leaderPath = [];
+      this.activeLeaderMenu = null;
+      this.clearLeaderOverlay();
+    }
+    this.invalidate();
+  }
+
+  isModalEnabled(): boolean {
+    return this.modalEnabled;
   }
 
   /** Set a width constraint (in columns) to reserve space for side panels */
@@ -1100,6 +1153,8 @@ class VimEditor extends CustomEditor {
   // ─── Mode switching ──────────────────────────────────────────────────
 
   private switchMode(newMode: Mode): void {
+    // When modal editing is disabled the editor stays in insert mode.
+    if (!this.modalEnabled && newMode !== "insert") return;
     const oldMode = this.mode;
     this.mode = newMode;
 
@@ -1156,6 +1211,15 @@ class VimEditor extends CustomEditor {
   // ─── Main input handler ──────────────────────────────────────────────
 
   handleInput(data: string): void {
+    // When modal editing is enabled, alt+escape replaces bare escape as
+    // the abort/interrupt key (bare escape switches to Normal / clears
+    // pending state). When modal is disabled, bare escape falls through
+    // to pi's default handling.
+    if (this.modalEnabled && matchesKey(data, "alt+escape")) {
+      super.handleInput("\x1b");
+      return;
+    }
+
     // Always pass through control sequences that pi needs
     if (this.shouldPassthrough(data)) {
       super.handleInput(data);
@@ -1198,7 +1262,37 @@ class VimEditor extends CustomEditor {
   // ─── Insert mode ─────────────────────────────────────────────────────
 
   private handleInsertMode(data: string): void {
-    if (matchesKey(data, "escape")) {
+    // Continue an active leader chain first (entered via alt+m)
+    if (this.leaderPending) {
+      this.handleLeader(data);
+      return;
+    }
+
+    // Awaiting the leader root key after `alt+m`
+    if (this.insertLeaderRootPending) {
+      this.insertLeaderRootPending = false;
+      this.clearLeaderOverlay();
+      if (matchesKey(data, "escape")) return;
+      if (this.leaderMenus.has(data)) {
+        this.leaderPending = true;
+        this.activeLeaderMenu = this.leaderMenus.get(data)!;
+        this.leaderPath = [];
+        this.scheduleLeaderOverlay();
+      }
+      return;
+    }
+
+    // Start insert-mode leader prefix
+    if (matchesKey(data, "alt+m")) {
+      this.insertLeaderRootPending = true;
+      this.invalidate();
+      return;
+    }
+
+    // Escape switches to normal only when modal editing is enabled.
+    // Otherwise escape falls through to pi (via shouldPassthrough + the
+    // base editor) so that app.interrupt still works.
+    if (this.modalEnabled && matchesKey(data, "escape")) {
       this.switchMode("normal");
       // Move cursor back one (vim behavior)
       if (this.st.cursorCol > 0) {
@@ -1217,7 +1311,8 @@ class VimEditor extends CustomEditor {
   // ─── Normal mode ─────────────────────────────────────────────────────
 
   private handleNormalMode(data: string): void {
-    // Handle Escape: pass to pi (abort agent, etc.)
+    // Escape: clear pending state and stay in Normal mode (does not abort).
+    // Use alt+escape to abort (see handleInput).
     if (matchesKey(data, "escape")) {
       this.pendingOperator = null;
       this.countStr = "";
@@ -1227,7 +1322,7 @@ class VimEditor extends CustomEditor {
       this.leaderPath = [];
       this.activeLeaderMenu = null;
       this.clearLeaderOverlay();
-      super.handleInput(data);
+      this.invalidate();
       return;
     }
 
@@ -2004,13 +2099,13 @@ class VimEditor extends CustomEditor {
     super.handleInput(seq);
   }
 
-  /** Load menus from keybindings.json */
+  /** Load menus from defaults.json */
   loadKeybindings(
     notify?: (msg: string, level: "info" | "warning" | "error") => void,
   ): void {
     const config = loadKeybindingsConfig();
     this.leaderMenus = buildMenuTree(config, this, this.events);
-    warnClashingLeaderKeys(this.leaderMenus, "keybindings.json", notify);
+    warnClashingLeaderKeys(this.leaderMenus, "defaults.json", notify);
   }
 
   /** Resolve the current leader node from leaderPath */
@@ -2235,7 +2330,7 @@ export default function (pi: ExtensionAPI) {
       }
     }
 
-    warn(`modal-editor: applied keybindings for ${source}`, "info");
+    warn(`keybindings: applied for ${source}`, "info");
   }
 
   /**
@@ -2273,7 +2368,7 @@ export default function (pi: ExtensionAPI) {
       } else {
         // Clash: existing leaf vs incoming, or type mismatch — skip
         warn(
-          `modal-editor: ignoring suggested binding [${keyPath}] ` +
+          `keybindings: ignoring suggested binding [${keyPath}] ` +
             `("${child.label}" from ${source}) — ` +
             `clashes with existing binding "${existingChild.label}"`,
           "warning",
@@ -2303,17 +2398,18 @@ export default function (pi: ExtensionAPI) {
         editor.events = pi.events;
         editor.setContext(ctx);
         editor.loadKeybindings(sessionNotify ?? undefined);
+        editor.setModalEnabled(loadUserSettings().modal);
         activeEditor = editor;
 
         // Clear pending suggestions — the ready event below will cause
         // all extensions to re-emit their suggestions (they subscribed to
-        // modal-editor:ready when they called suggestKeybindings()).
+        // keybindings:ready when they called suggestKeybindings()).
         // Draining pendingSuggestions AND emitting ready would double-apply
         // for extensions whose session_start fired before ours.
         pendingSuggestions.length = 0;
 
         // Signal that the editor is ready and accepting suggestions
-        pi.events.emit("modal-editor:ready", {});
+        pi.events.emit("keybindings:ready", {});
 
         return editor;
       },
@@ -2337,7 +2433,7 @@ export default function (pi: ExtensionAPI) {
    * Data should be a KeybindingsConfig object in the same JSON format as
    * keybindings.json. For example:
    *
-   *   pi.events.emit("modal-editor:suggest-keybindings", {
+   *   pi.events.emit("keybindings:suggest", {
    *     source: "my-extension",
    *     menus: {
    *       "term": {
@@ -2361,7 +2457,7 @@ export default function (pi: ExtensionAPI) {
    */
   eventCleanups.push(
     pi.events.on(
-      "modal-editor:suggest-keybindings",
+      "keybindings:suggest",
       (data: KeybindingSuggestion) => {
         if (activeEditor && sessionNotify) {
           applySuggestions(activeEditor, data, sessionNotify);
@@ -2372,36 +2468,68 @@ export default function (pi: ExtensionAPI) {
     ),
   );
 
-  // ── /modal command ──────────────────────────────────────────────────
+  // ── Mode toggling ──────────────────────────────────────────────────
 
-  pi.registerCommand("editor", {
-    description: "Modal editor utilities (e.g. /editor bindings)",
+  function setMode(mode: "emacs" | "vim"): void {
+    const modal = mode === "vim";
+    if (activeEditor) {
+      activeEditor.setModalEnabled(modal);
+    }
+    saveUserSettings({ modal });
+    sessionNotify?.(`Editor: ${modal ? "Vim" : "Emacs"} mode`, "info");
+  }
+
+  eventCleanups.push(
+    pi.events.on("keybindings:set-mode-vim", () => setMode("vim")),
+  );
+  eventCleanups.push(
+    pi.events.on("keybindings:set-mode-emacs", () => setMode("emacs")),
+  );
+
+  // ── /kb command ─────────────────────────────────────────────────────
+
+  pi.registerCommand("kb", {
+    description: "Keybindings utilities: /kb bindings | /kb mode emacs|vim",
     handler: async (args, ctx) => {
-      const sub = (args ?? "").trim();
-      if (sub !== "bindings") {
-        ctx.ui.notify("Usage: /editor bindings", "info");
-        return;
-      }
-      if (!ctx.hasUI) {
-        ctx.ui.notify("/editor bindings requires interactive mode", "error");
-        return;
-      }
-      if (!activeEditor) {
-        ctx.ui.notify("No modal editor active", "error");
+      const trimmed = (args ?? "").trim();
+      const parts = trimmed.split(/\s+/).filter(Boolean);
+      const sub = parts[0] ?? "";
+
+      if (sub === "bindings") {
+        if (!ctx.hasUI) {
+          ctx.ui.notify("/kb bindings requires interactive mode", "error");
+          return;
+        }
+        if (!activeEditor) {
+          ctx.ui.notify("Editor not ready", "error");
+          return;
+        }
+
+        const menus = (activeEditor as any).leaderMenus as Map<
+          string,
+          LeaderNode
+        >;
+
+        await ctx.ui.custom<undefined>(
+          (_tui, theme, _kb, done) => {
+            return new BindingsOverlay(menus, theme, () => done(undefined));
+          },
+          { overlay: true },
+        );
         return;
       }
 
-      const menus = (activeEditor as any).leaderMenus as Map<
-        string,
-        LeaderNode
-      >;
+      if (sub === "mode") {
+        const arg = parts[1];
+        if (arg !== "emacs" && arg !== "vim") {
+          ctx.ui.notify("Usage: /kb mode emacs|vim", "error");
+          return;
+        }
+        setMode(arg);
+        return;
+      }
 
-      await ctx.ui.custom<undefined>(
-        (_tui, theme, _kb, done) => {
-          return new BindingsOverlay(menus, theme, () => done(undefined));
-        },
-        { overlay: true },
-      );
+      ctx.ui.notify("Usage: /kb bindings | /kb mode emacs|vim", "info");
     },
   });
 }
