@@ -15,8 +15,8 @@ Displays project tasks from a `TASKS.org` file in the project root using org-mod
 ### Persistent selection overlay
 
 When a task is marked `:selected:` in `TASKS.org`, a non-capturing overlay
-is pinned to the top of the visible terminal viewport and shows that task and
-its subtasks. The overlay:
+is pinned to the top of the visible terminal viewport and shows the containing
+top-level task tree, with the selected task highlighted inside it. The overlay:
 
 - Appears on startup if the file already contains a `:selected:` tag.
 - Updates immediately while the `/tasks` overlay is open when status or selection changes.
@@ -31,10 +31,11 @@ Tags are styled separately from task titles.
 
 | Status    | Color  |
 | --------- | ------ |
-| `TODO`    | yellow |
-| `WAITING` | orange |
-| `STARTED` | blue   |
-| `DONE`    | green  |
+| `TODO`      | yellow |
+| `WAITING`   | orange |
+| `STARTED`   | blue   |
+| `DONE`      | green  |
+| `CANCELLED` | red    |
 
 | Priority | Meaning  | Color  |
 | -------- | -------- | ------ |

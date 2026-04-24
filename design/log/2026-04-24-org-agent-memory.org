@@ -156,3 +156,31 @@
     instead of only the selected leaf's ancestor chain + descendants.
   - The pinned overlay now shows the top-level root as its header while the
     `★` marker follows the actual selected descendant inside that tree.
+
+* Housekeeping
+  Follow-up patch list from the final skills/extension review. Hold these for
+  explicit approval before implementation.
+
+** TODO [#C] Unify Emacs bootstrap behavior for `e` and `p` :emacs:
+   The `p` flow ensures an Emacs server is reachable before opening a plan,
+   but `e` currently delegates directly to `emacs:open`. Decide whether the
+   tasks extension should bootstrap Emacs consistently for both actions, or
+   whether that guarantee belongs entirely in the emacsclient extension.
+
+** TODO [#C] Decide whether linked-plan task parsing should be constrained to `* Plan` :parser:skills:
+   The `plan` skill treats `* Plan` as the intended home for actionable TODO
+   headings, but the parser currently accepts task headings anywhere in the
+   linked file. Either:
+   - enforce `* Plan` as the only task-bearing section for linked plans, or
+   - keep the parser permissive and treat `* Plan` as a documented convention.
+
+** TODO [#D] Preserve archive ordering by closed/archive timestamp :archive:
+   The archive flow currently appends to `TASKS.ARCHIVE.org`, which usually
+   matches completion order but is really archive-time order. If stable
+   historical ordering matters, load/sort/rewrite the archive file using
+   `CLOSED:` / `:ARCHIVED:` timestamps.
+
+** TODO [#D] Refresh stale inline extension comments to match current semantics :maintenance:
+   A few code comments still refer to older behaviour (for example archive
+   logic phrased as DONE-only before CANCELLED support). Sweep the task
+   extension comments so internal documentation matches the current model.
