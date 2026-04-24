@@ -11,10 +11,14 @@ import {
 } from "@mariozechner/pi-tui";
 import type { Task } from "./parser.ts";
 import { serializeTasks } from "./parser.ts";
+import { colorStatus } from "./status-colors.ts";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const STATUS_CYCLE = ["TODO", "STARTED", "WAITING", "DONE"] as const;
+
+/** Reserved tag used to mark the currently-selected task. */
+const SELECTED_TAG = "selected";
 
 /** A flattened row for display & navigation. */
 interface FlatRow {
@@ -22,19 +26,24 @@ interface FlatRow {
   depth: number;
   collapsed: boolean;
   hasChildren: boolean;
+  /** True when this task carries the :selected: tag. */
+  isSelectedTask: boolean;
+  /** True when this task is the selected task or one of its descendants. */
+  inSelection: boolean;
 }
 
 export class TasksOverlay {
   private theme: Theme;
   private done: (value: undefined) => void;
   private rows: FlatRow[] = [];
-  private selected = 0;
+  /** Cursor index into `rows` — the user's current navigation position. */
+  private cursor = 0;
   private scrollOffset = 0;
   private descScrollOffset = 0;
   private cachedWidth?: number;
   private cachedLines?: string[];
 
-  private dirty = false;
+  private collapsedSet = new WeakSet<Task>();
 
   constructor(
     private tasks: Task[],
@@ -42,18 +51,30 @@ export class TasksOverlay {
     theme: Theme,
     done: (value: undefined) => void,
     private onEdit?: (lineNumber: number) => void,
+    private onTasksChanged?: (tasks: Task[]) => void,
   ) {
     this.theme = theme;
     this.done = done;
+    // If the file already marks a selected task, reflect that view on open.
+    this.applySelectionView();
     this.rebuildRows();
+    this.focusSelectedTask();
   }
 
   // ── Flatten visible rows ────────────────────────────────────────────
 
-  private collapsedSet = new WeakSet<Task>();
-
   private rebuildRows(): void {
     this.rows = [];
+    const selected = this.findSelectedTask();
+    const inSelection = new WeakSet<Task>();
+    if (selected) {
+      const mark = (t: Task) => {
+        inSelection.add(t);
+        for (const c of t.children) mark(c);
+      };
+      mark(selected);
+    }
+
     const walk = (tasks: Task[], depth: number) => {
       for (const t of tasks) {
         const collapsed = this.collapsedSet.has(t);
@@ -62,14 +83,22 @@ export class TasksOverlay {
           depth,
           collapsed,
           hasChildren: t.children.length > 0,
+          isSelectedTask: t === selected,
+          inSelection: inSelection.has(t),
         });
         if (!collapsed) walk(t.children, depth + 1);
       }
     };
     walk(this.tasks, 0);
-    if (this.selected >= this.rows.length) {
-      this.selected = Math.max(0, this.rows.length - 1);
+    if (this.cursor >= this.rows.length) {
+      this.cursor = Math.max(0, this.rows.length - 1);
     }
+  }
+
+  /** Move the cursor onto the selected task, if any is visible. */
+  private focusSelectedTask(): void {
+    const idx = this.rows.findIndex((r) => r.isSelectedTask);
+    if (idx >= 0) this.cursor = idx;
   }
 
   // ── Input ───────────────────────────────────────────────────────────
@@ -81,8 +110,8 @@ export class TasksOverlay {
     }
 
     if (matchesKey(data, "up") || matchesKey(data, "k")) {
-      if (this.selected > 0) {
-        this.selected--;
+      if (this.cursor > 0) {
+        this.cursor--;
         this.descScrollOffset = 0;
         this.invalidate();
       }
@@ -90,8 +119,8 @@ export class TasksOverlay {
     }
 
     if (matchesKey(data, "down") || matchesKey(data, "j")) {
-      if (this.selected < this.rows.length - 1) {
-        this.selected++;
+      if (this.cursor < this.rows.length - 1) {
+        this.cursor++;
         this.descScrollOffset = 0;
         this.invalidate();
       }
@@ -122,13 +151,19 @@ export class TasksOverlay {
       return;
     }
 
-    // Open in Emacs at selected task
+    // Open in Emacs at the task under the cursor
     if (matchesKey(data, "e")) {
-      const row = this.rows[this.selected];
+      const row = this.rows[this.cursor];
       if (row && this.onEdit) {
         this.onEdit(row.task.lineNumber);
         this.done(undefined);
       }
+      return;
+    }
+
+    // Toggle :selected: on the task under the cursor
+    if (matchesKey(data, "s")) {
+      this.toggleSelect();
       return;
     }
 
@@ -138,7 +173,7 @@ export class TasksOverlay {
       matchesKey(data, "space") ||
       matchesKey(data, "tab")
     ) {
-      const row = this.rows[this.selected];
+      const row = this.rows[this.cursor];
       if (row && row.hasChildren) {
         if (this.collapsedSet.has(row.task)) {
           this.collapsedSet.delete(row.task);
@@ -153,7 +188,7 @@ export class TasksOverlay {
   }
 
   private cycleStatus(direction: 1 | -1): void {
-    const row = this.rows[this.selected];
+    const row = this.rows[this.cursor];
     if (!row) return;
     const idx = STATUS_CYCLE.indexOf(
       row.task.status as (typeof STATUS_CYCLE)[number],
@@ -161,9 +196,99 @@ export class TasksOverlay {
     if (idx === -1) return;
     const next = (idx + direction + STATUS_CYCLE.length) % STATUS_CYCLE.length;
     row.task.status = STATUS_CYCLE[next];
-    this.dirty = true;
-    this.save();
+    this.persistChange();
     this.invalidate();
+  }
+
+  // ── Selection (:selected: tag) ──────────────────────────────────────
+
+  private findSelectedTask(tasks: Task[] = this.tasks): Task | null {
+    for (const t of tasks) {
+      if (t.tags.includes(SELECTED_TAG)) return t;
+      const child = this.findSelectedTask(t.children);
+      if (child) return child;
+    }
+    return null;
+  }
+
+  private clearSelectedTags(tasks: Task[] = this.tasks): void {
+    for (const t of tasks) {
+      if (t.tags.includes(SELECTED_TAG)) {
+        t.tags = t.tags.filter((tag) => tag !== SELECTED_TAG);
+      }
+      this.clearSelectedTags(t.children);
+    }
+  }
+
+  private toggleSelect(): void {
+    const row = this.rows[this.cursor];
+    if (!row) return;
+    const target = row.task;
+    const wasSelected = target.tags.includes(SELECTED_TAG);
+
+    // Enforce single-selection: clear any existing :selected: first.
+    this.clearSelectedTags();
+    if (!wasSelected) {
+      target.tags.push(SELECTED_TAG);
+    }
+
+    this.applySelectionView();
+    this.rebuildRows();
+    // Keep the cursor on the task the user just toggled, if still visible.
+    const newIdx = this.rows.findIndex((r) => r.task === target);
+    if (newIdx >= 0) this.cursor = newIdx;
+    this.persistChange();
+    this.invalidate();
+  }
+
+  /**
+   * When a task is selected, collapse every task that is not either the
+   * selected task itself, one of its ancestors, or one of its descendants.
+   * When nothing is selected, drop all auto-collapses.
+   */
+  private applySelectionView(): void {
+    this.collapsedSet = new WeakSet<Task>();
+    const selected = this.findSelectedTask();
+    if (!selected) return;
+
+    const keepExpanded = new WeakSet<Task>();
+
+    // Mark ancestors + selected along the discovered path.
+    const markPath = (tasks: Task[], path: Task[]): boolean => {
+      for (const t of tasks) {
+        const next = [...path, t];
+        if (t === selected) {
+          for (const p of next) keepExpanded.add(p);
+          return true;
+        }
+        if (markPath(t.children, next)) return true;
+      }
+      return false;
+    };
+    markPath(this.tasks, []);
+
+    // Mark descendants.
+    const markSubtree = (t: Task) => {
+      keepExpanded.add(t);
+      for (const c of t.children) markSubtree(c);
+    };
+    markSubtree(selected);
+
+    // Collapse anything outside that set with children.
+    const collapseOthers = (tasks: Task[]) => {
+      for (const t of tasks) {
+        if (!keepExpanded.has(t) && t.children.length > 0) {
+          this.collapsedSet.add(t);
+        }
+        collapseOthers(t.children);
+      }
+    };
+    collapseOthers(this.tasks);
+  }
+
+  private persistChange(): void {
+    void this.save();
+    this.onTasksChanged?.(this.tasks);
   }
 
   private async save(): Promise<void> {
@@ -215,12 +340,18 @@ export class TasksOverlay {
       // Summary counts
       const counts = this.countStatuses(this.tasks);
       const summary = [
-        counts.TODO > 0 ? th.fg("warning", `TODO:${counts.TODO}`) : null,
-        counts.STARTED > 0
-          ? th.fg("accent", `STARTED:${counts.STARTED}`)
+        counts.TODO > 0
+          ? colorStatus("TODO", `TODO:${counts.TODO}`)
           : null,
-        counts.WAITING > 0 ? th.fg("error", `WAITING:${counts.WAITING}`) : null,
-        counts.DONE > 0 ? th.fg("success", `DONE:${counts.DONE}`) : null,
+        counts.STARTED > 0
+          ? colorStatus("STARTED", `STARTED:${counts.STARTED}`)
+          : null,
+        counts.WAITING > 0
+          ? colorStatus("WAITING", `WAITING:${counts.WAITING}`)
+          : null,
+        counts.DONE > 0
+          ? colorStatus("DONE", `DONE:${counts.DONE}`)
+          : null,
       ]
         .filter(Boolean)
         .join(th.fg("dim", " │ "));
@@ -234,27 +365,74 @@ export class TasksOverlay {
         this.scrollOffset + maxVisible,
       );
 
+      // When anything is selected, non-selection rows are dimmed so the
+      // selected subtree dominates the view.
+      const hasSelection = this.rows.some((r) => r.isSelectedTask);
+
       for (let i = 0; i < visibleRows.length; i++) {
         const r = visibleRows[i]!;
         const globalIdx = this.scrollOffset + i;
-        const isSelected = globalIdx === this.selected;
+        const isCursor = globalIdx === this.cursor;
+        const dimmed = hasSelection && !r.inSelection;
 
         const indent = "  ".repeat(r.depth);
         const treeMark = r.hasChildren ? (r.collapsed ? "▶ " : "▼ ") : "• ";
-        const statusStr = this.renderStatus(r.task.status, th);
-        const prioStr = r.task.priority
-          ? th.fg("warning", `[#${r.task.priority}]`) + " "
-          : "";
-        const tagsStr =
-          r.task.tags.length > 0
-            ? " " + th.fg("dim", `:${r.task.tags.join(":")}:`)
-            : "";
-        const summaryStr = isSelected
-          ? th.fg("accent", r.task.summary)
-          : th.fg("text", r.task.summary);
 
-        const content = `${indent}${treeMark}${statusStr} ${prioStr}${summaryStr}${tagsStr}`;
-        const pointer = isSelected ? th.fg("accent", "▌") : " ";
+        // Hide the :selected: tag from the tag list — it's conveyed by the
+        // star marker and highlight instead.
+        const visibleTags = r.task.tags.filter((t) => t !== SELECTED_TAG);
+        const rawTags =
+          visibleTags.length > 0 ? ` :${visibleTags.join(":")}:` : "";
+
+        let statusStr: string;
+        let prioStr: string;
+        let selectMark: string;
+        let summaryStr: string;
+        let tagsStr: string;
+        let indentStr: string;
+        let treeStr: string;
+
+        if (dimmed) {
+          // Everything on this row is dimmed — background material.
+          indentStr = indent;
+          treeStr = th.fg("dim", treeMark);
+          statusStr = th.fg("dim", r.task.status.padEnd(7));
+          prioStr = r.task.priority
+            ? th.fg("dim", `[#${r.task.priority}]`) + " "
+            : "";
+          selectMark = "";
+          summaryStr = th.fg("dim", r.task.summary);
+          tagsStr = rawTags ? th.fg("dim", rawTags) : "";
+        } else {
+          indentStr = indent;
+          treeStr = treeMark;
+          statusStr = this.renderStatus(r.task.status, th);
+          prioStr = r.task.priority
+            ? th.fg("warning", `[#${r.task.priority}]`) + " "
+            : "";
+          selectMark = r.isSelectedTask ? th.fg("accent", "★ ") : "";
+          tagsStr = rawTags ? th.fg("dim", rawTags) : "";
+
+          // Cursor > selected task > in-selection > plain.
+          if (isCursor) {
+            summaryStr = th.fg("accent", th.bold(r.task.summary));
+          } else if (r.isSelectedTask) {
+            summaryStr = th.fg("accent", th.bold(r.task.summary));
+          } else if (r.inSelection) {
+            summaryStr = th.fg("accent", r.task.summary);
+          } else {
+            summaryStr = th.fg("text", r.task.summary);
+          }
+        }
+
+        const content = `${indentStr}${treeStr}${statusStr} ${prioStr}${selectMark}${summaryStr}${tagsStr}`;
+        const pointer = isCursor
+          ? th.fg("accent", "▌")
+          : r.isSelectedTask
+            ? th.fg("accent", "┃")
+            : r.inSelection
+              ? th.fg("accent", "│")
+              : " ";
         leftLines.push(truncateToWidth(pointer + content, leftW));
       }
 
@@ -275,14 +453,14 @@ export class TasksOverlay {
 
     // ── Build right pane lines ──
     const rightLines: string[] = [];
-    const selectedRow = this.rows[this.selected];
+    const cursorRow = this.rows[this.cursor];
 
     // Right pane header
     rightLines.push(th.fg("accent", th.bold(" Description")));
     rightLines.push("");
 
-    if (selectedRow) {
-      const desc = selectedRow.task.description.trim();
+    if (cursorRow) {
+      const desc = cursorRow.task.description.trim();
       if (desc) {
         // Word-wrap the description to fit the right pane
         const wrapWidth = Math.max(10, rightW - 2);
@@ -329,7 +507,6 @@ export class TasksOverlay {
 
     // ── Compose split pane ──
     // Calculate body height: max of both panes, capped
-    const footerLines = 2; // help + bottom border
     const bodyHeight = Math.max(
       leftLines.length,
       rightLines.length,
@@ -360,7 +537,7 @@ export class TasksOverlay {
     lines.push(th.fg("border", `├${hBar(leftW)}┴${hBar(rightW)}┤`));
     const helpText = th.fg(
       "dim",
-      " ↑↓/jk navigate • ←→/hl status • Enter toggle • e edit in Emacs • Ctrl-d/u scroll • Esc/q close",
+      " ↑↓/jk nav • ←→/hl status • Enter toggle • s select • e edit • Ctrl-d/u scroll • q close",
     );
     const helpInnerW = leftW + rightW + 1; // +1 for removed divider
     lines.push(
@@ -385,26 +562,15 @@ export class TasksOverlay {
   // ── Helpers ─────────────────────────────────────────────────────────
 
   private adjustScroll(maxVisible: number): void {
-    if (this.selected < this.scrollOffset) {
-      this.scrollOffset = this.selected;
-    } else if (this.selected >= this.scrollOffset + maxVisible) {
-      this.scrollOffset = this.selected - maxVisible + 1;
+    if (this.cursor < this.scrollOffset) {
+      this.scrollOffset = this.cursor;
+    } else if (this.cursor >= this.scrollOffset + maxVisible) {
+      this.scrollOffset = this.cursor - maxVisible + 1;
     }
   }
 
-  private renderStatus(status: string, th: Theme): string {
-    switch (status) {
-      case "TODO":
-        return th.fg("warning", "TODO   ");
-      case "STARTED":
-        return th.fg("accent", "STARTED");
-      case "WAITING":
-        return th.fg("error", "WAITING");
-      case "DONE":
-        return th.fg("success", "DONE   ");
-      default:
-        return th.fg("dim", status.padEnd(7));
-    }
+  private renderStatus(status: string, _th: Theme): string {
+    return colorStatus(status);
   }
 
   private countStatuses(tasks: Task[]): Record<string, number> {

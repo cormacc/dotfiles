@@ -23,7 +23,8 @@ export interface Task {
   lineNumber: number;
 }
 
-const VALID_STATUSES = new Set(["TODO", "STARTED", "WAITING", "DONE"]);
+/** Matches any org heading: `* ...`, `** ...`, etc. */
+const ANY_HEADING_RE = /^(\*+)\s+(.*)$/;
 
 const HEADING_RE =
   /^(\*+)\s+(TODO|STARTED|WAITING|DONE)\s+(?:\[#([A-Z])\]\s+)?(.+)$/;
@@ -120,9 +121,14 @@ export function parseTasks(content: string): Task[] {
 
       stack.push({ task, level: heading.level });
       currentTask = task;
+    } else if (ANY_HEADING_RE.test(line)) {
+      // Non-task heading (e.g. `* Notes`) — flush the current task's
+      // description and stop attributing subsequent lines to it, so
+      // unrelated content below isn't swallowed into the previous task.
+      flushDescription();
+      currentTask = null;
     } else {
       // Non-heading line: accumulate as description for current task
-      // Skip lines that are org headings without a valid status (non-task headings)
       if (currentTask) {
         descriptionLines.push(line);
       }
@@ -137,12 +143,19 @@ export function parseTasks(content: string): Task[] {
 
 /**
  * Serialize a task tree back to org-mode text.
+ *
+ * Top-level tasks are separated by a blank line for readability.
+ * Descriptions are emitted verbatim (preserving indentation/blanks the
+ * parser stripped from the edges is acceptable: the parser trims only
+ * leading and trailing blank lines).
  */
 export function serializeTasks(tasks: Task[]): string {
   const lines: string[] = [];
 
-  const write = (taskList: Task[]) => {
-    for (const t of taskList) {
+  const write = (taskList: Task[], topLevel: boolean) => {
+    for (let i = 0; i < taskList.length; i++) {
+      const t = taskList[i]!;
+      if (topLevel && i > 0) lines.push("");
       const stars = "*".repeat(t.level);
       const prio = t.priority ? ` [#${t.priority}]` : "";
       const tags = t.tags.length > 0 ? ` :${t.tags.join(":")}:` : "";
@@ -150,10 +163,10 @@ export function serializeTasks(tasks: Task[]): string {
       if (t.description) {
         lines.push(t.description);
       }
-      write(t.children);
+      write(t.children, false);
     }
   };
 
-  write(tasks);
+  write(tasks, true);
   return lines.join("\n") + "\n";
 }
