@@ -4,7 +4,7 @@
  * Parses headings of the form:
  *   * STATUS [#PRIORITY] Summary text :tag1:tag2:
  *
- * Valid status tokens: TODO, STARTED, WAITING, DONE
+ * Valid status tokens: TODO, STARTED, WAITING, DONE, CANCELLED
  * Priority is optional, e.g. [#A], [#B], [#C]
  * Tags are optional, colon-delimited at end of heading
  * Body text between headings becomes the task description.
@@ -23,6 +23,13 @@ export interface Task {
   propertyLines: string[];
   /** Optional relative path to an org file containing a detailed plan. */
   planPath: string | null;
+  /**
+   * Raw `:PLAN:` property value, preserved for round-trip serialization.
+   * When the user writes an org-link form (e.g. `[[file:plans/foo.org][Plan]]`)
+   * it's preserved verbatim so Emacs keeps treating it as a clickable link
+   * while the extension still follows the extracted path.
+   */
+  planRaw?: string | null;
   /** Parsed plan tasks, injected at render time as children of this task. */
   planChildren?: Task[];
   /**
@@ -42,11 +49,19 @@ export interface Task {
 const ANY_HEADING_RE = /^(\*+)\s+(.*)$/;
 
 const HEADING_RE =
-  /^(\*+)\s+(TODO|STARTED|WAITING|DONE)\s+(?:\[#([A-Z])\]\s+)?(.+)$/;
+  /^(\*+)\s+(TODO|STARTED|WAITING|DONE|CANCELLED)\s+(?:\[#([A-Z])\]\s+)?(.+)$/;
 
 const PROPERTIES_START_RE = /^\s*:PROPERTIES:\s*$/i;
 const PROPERTIES_END_RE = /^\s*:END:\s*$/i;
 const PLAN_PROPERTY_RE = /^\s*:PLAN:\s*(.*?)\s*$/i;
+/**
+ * Extract the target path from an org link expression:
+ *   [[file:path]]                  → path
+ *   [[file:path][description]]     → path
+ *   [[path]]                       → path
+ * Returns null when the value isn't an org link.
+ */
+const ORG_LINK_RE = /^\[\[(?:file:)?([^\]]+?)\](?:\[[^\]]*\])?\]$/;
 /** Matches an org CLOSED timestamp line, e.g. `CLOSED: [2026-04-24 Fri 14:30]`. */
 const CLOSED_RE = /^\s*CLOSED:\s*\[([^\]]+)\]\s*$/;
 
@@ -145,6 +160,7 @@ export function parseTasks(
         children: [],
         propertyLines: [],
         planPath: null,
+        planRaw: null,
         closed: null,
         sourcePath: options.sourcePath,
         lineNumber: i + 1,
@@ -182,7 +198,17 @@ export function parseTasks(
         if (PROPERTIES_END_RE.test(propLine)) break;
         const plan = PLAN_PROPERTY_RE.exec(propLine);
         if (plan) {
-          currentTask.planPath = plan[1]!.trim() || null;
+          const raw = plan[1]!.trim();
+          if (raw) {
+            const link = ORG_LINK_RE.exec(raw);
+            currentTask.planPath = link ? link[1]!.trim() : raw;
+            // Only keep the raw form when it differs from the bare path, so
+            // plain-text entries round-trip cleanly without extra state.
+            currentTask.planRaw = link ? raw : null;
+          } else {
+            currentTask.planPath = null;
+            currentTask.planRaw = null;
+          }
         } else {
           currentTask.propertyLines.push(propLine);
         }
@@ -240,7 +266,11 @@ export function serializeTasks(tasks: Task[]): string {
         lines.push(`CLOSED: [${t.closed}]`);
       }
       const propertyLines = [...t.propertyLines];
-      if (t.planPath) propertyLines.push(`:PLAN: ${t.planPath}`);
+      if (t.planRaw) {
+        propertyLines.push(`:PLAN: ${t.planRaw}`);
+      } else if (t.planPath) {
+        propertyLines.push(`:PLAN: ${t.planPath}`);
+      }
       if (propertyLines.length > 0) {
         lines.push(":PROPERTIES:");
         lines.push(...propertyLines);

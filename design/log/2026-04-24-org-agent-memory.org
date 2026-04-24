@@ -59,11 +59,23 @@
     plans, with explicit cross-reference back to org-memory for persisted
     task memory.
 *** DONE [#C] Validate skill trigger behaviour after reload :skills:
-CLOSED: [2026-04-24 Fri 18:43]
-    After reloading pi, confirm the new org-memory and plan skills are
-    discovered, that their descriptions trigger appropriately, and that
-    cross-references are clear enough when only one skill is loaded
-    initially.
+    CLOSED: [2026-04-24 Fri 20:30]
+    Static validation performed:
+    - `agents/skills/org-memory/SKILL.md` — frontmatter name matches
+      directory; description covers task memory, PLAN properties, status
+      updates, and pi tasks extension compatibility.
+    - `agents/skills/plan/SKILL.md` — frontmatter name matches directory;
+      description covers drafting, reviewing, and executing plans with
+      link back to org-memory.
+    - Cross-references resolve: org-memory→plan uses `../plan/SKILL.md`
+      and plan→org-memory uses `../org-memory/SKILL.md` — both valid
+      relative paths from each skill directory.
+
+    Remaining as manual verification after the next `/reload`:
+    - Both skills appear in the system prompt resource list.
+    - Prompts like "draft a plan" or "update TASKS.org" trigger the
+      relevant skill without needing `/skill:plan` or `/skill:org-memory`
+      explicitly.
 
 ** DONE [#B] Define a required plan-file structure :skills:plan:
   Extended the plan skill to specify plan file structure: title, Context,
@@ -82,30 +94,65 @@ CLOSED: [2026-04-24 Fri 18:43]
     source file, then open the new plan in Emacs.
   - Auto-starts `emacs --daemon` via `pi.exec` when no server is reachable.
 
-** TODO [#B] Investigate PLAN as an Emacs hyperlink :org:emacs:
-  Determine whether the :PLAN: property can remain parseable by the tasks
-  extension while also functioning inside Emacs as a clickable link to the
-  plan file.
+** DONE [#B] Investigate PLAN as an Emacs hyperlink :org:emacs:
+  CLOSED: [2026-04-24 Fri 20:30]
+  Findings:
+  - Emacs org-mode follows `[[file:...]]` / `[[file:...][desc]]` links in
+    property drawer values via `C-c C-o` (`org-open-at-point`). No custom
+    link type is required.
+  - Extended the parser to detect org-link syntax in the `:PLAN:` value and
+    extract the target path, while storing the raw value (`planRaw`) so
+    the original form round-trips byte-for-byte.
+  - Supported forms:
+      :PLAN: plans/foo.org
+      :PLAN: [[plans/foo.org]]
+      :PLAN: [[file:plans/foo.org]]
+      :PLAN: [[file:plans/foo.org][Description]]
+  - When the `p` keybinding creates a new plan, it now writes the link form
+    (`[[file:...]]`) by default so the resulting property is clickable in
+    Emacs without any user action.
+  - Verified via the `.agents/tmp/verify-plan-link.ts` smoke test that all
+    four forms round-trip cleanly and produce the same extracted path.
 
-  Investigate options such as:
-  - Plain property value: :PLAN: design/log/example.org
-  - Org file link value: :PLAN: [[file:design/log/example.org][Plan]]
-  - Custom org link type or property helper.
-  - Compatibility with parser simplicity and serialization.
+** DONE [#A] Add archive shortcut for completed top-level tasks :archive:
+  CLOSED: [2026-04-24 Fri 20:10]
+  Added the `A` (shift-a) keybinding in the main /tasks overlay:
+  - Resolves the top-level TASKS.org ancestor of the cursor's task (walking
+    through both regular children and injected plan children).
+  - Confirms via `ctx.ui.confirm` (nested overlay on top of /tasks).
+  - Inlines linked plan children into the archived copy so
+    `TASKS.ARCHIVE.org` is self-contained and not coupled to plan files
+    that may later move.
+  - Appends to `TASKS.ARCHIVE.org` in archive-date order. Because we
+    typically archive just after completion, this matches CLOSED order in
+    normal use.
+  - Stamps `:ARCHIVED: [timestamp]` on the archived heading, reusing the
+    task's CLOSED timestamp when present (fallback: now).
+  - Strips `:selected:` from the archived copy.
+  - Rolls back the in-memory tree on write failure.
+  - Now accepts top-level tasks in either `DONE` or `CANCELLED`.
 
-** TODO [#A] Add archive shortcut for completed top-level tasks :archive:
-  Update the main overlay with a shortcut to archive completed or cancelled
-  top-level tasks.
+*** DONE [#C] Add CANCELLED to the status cycle :status:
+    CLOSED: [2026-04-24 Fri 21:05]
+    Implemented follow-up requested by the archive task:
+    - Parser heading regex now accepts `CANCELLED`.
+    - Overlay status cycle now includes `CANCELLED`.
+    - `DONE` and `CANCELLED` are both treated as closed states for
+      `CLOSED:` timestamp semantics: entering either stamps if missing,
+      moving between them preserves the stamp, and moving back to an open
+      state clears it.
+    - Status colour palette adds `CANCELLED` in red.
+    - Archive flow now allows either `DONE` or `CANCELLED` top-level tasks.
+    - README and org-memory skill docs updated to mention the new status.
 
-  Expected behaviour:
-  - Archive only top-level task entries, including all subtasks and content.
-  - Store archived entries in TASKS.ARCHIVE.org.
-  - Preserve linear order by archive date.
-  - Store archived tasks in order of COMPLETED timestamp.
-  - Add an ARCHIVED property to each archived top-level task.
-  - Avoid archiving incomplete active work by accident.
-
-
-** TODO [#B] Update the :selected: property to move with the task focus
- The selected marker should move down through subtasks.
- The top of the selected tree should be the top level parent in tasks.org.
+** DONE [#B] Update the :selected: property to move with the task focus
+  CLOSED: [2026-04-24 Fri 21:05]
+  Updated selection semantics:
+  - The `:selected:` marker still lives on the exact focused task, so it can
+    move down through subtasks.
+  - The selected *tree* is now rooted at the containing top-level TASKS.org
+    task, both in the main overlay and in the pinned overlay.
+  - The main overlay dims/collapses everything outside that top-level tree
+    instead of only the selected leaf's ancestor chain + descendants.
+  - The pinned overlay now shows the top-level root as its header while the
+    `★` marker follows the actual selected descendant inside that tree.
