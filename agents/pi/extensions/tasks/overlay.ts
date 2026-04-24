@@ -37,6 +37,8 @@ interface FlatRow {
   isSelectedTask: boolean;
   /** True when this task is inside the selected top-level task tree. */
   inSelection: boolean;
+  /** Parent task, or null for top-level rows. */
+  parent: Task | null;
 }
 
 export class TasksOverlay {
@@ -65,6 +67,14 @@ export class TasksOverlay {
      * Returns true if archived (caller mutated `this.tasks` in place).
      */
     private onArchive?: (task: Task) => Promise<boolean>,
+    /**
+     * Create a new task. `parent` null = top-level. `insertAfter` null =
+     * append. Returns the created Task on success, null on cancel/error.
+     */
+    private onNewTask?: (
+      parent: Task | null,
+      insertAfter: Task | null,
+    ) => Promise<Task | null>,
   ) {
     this.theme = theme;
     this.done = done;
@@ -89,7 +99,7 @@ export class TasksOverlay {
       mark(selectionRoot);
     }
 
-    const walk = (tasks: Task[], depth: number) => {
+    const walk = (tasks: Task[], depth: number, parent: Task | null) => {
       for (const t of tasks) {
         const collapsed = this.collapsedSet.has(t);
         this.rows.push({
@@ -99,11 +109,12 @@ export class TasksOverlay {
           hasChildren: this.taskChildren(t).length > 0,
           isSelectedTask: t === selected,
           inSelection: inSelection.has(t),
+          parent,
         });
-        if (!collapsed) walk(this.taskChildren(t), depth + 1);
+        if (!collapsed) walk(this.taskChildren(t), depth + 1, t);
       }
     };
-    walk(this.tasks, 0);
+    walk(this.tasks, 0, null);
     if (this.cursor >= this.rows.length) {
       this.cursor = Math.max(0, this.rows.length - 1);
     }
@@ -198,6 +209,18 @@ export class TasksOverlay {
       return;
     }
 
+    // New sibling task at the cursor's hierarchy level.
+    if (matchesKey(data, "n")) {
+      void this.createNewTask(false);
+      return;
+    }
+
+    // New child (subtask) under the task at the cursor.
+    if (matchesKey(data, "N")) {
+      void this.createNewTask(true);
+      return;
+    }
+
     // Toggle :selected: on the task under the cursor
     if (matchesKey(data, "s")) {
       this.toggleSelect();
@@ -263,6 +286,29 @@ export class TasksOverlay {
       return false;
     };
     return this.tasks.find(contains) ?? null;
+  }
+
+  private async createNewTask(asChild: boolean): Promise<void> {
+    if (!this.onNewTask) return;
+    const row = this.rows[this.cursor];
+    let parent: Task | null;
+    let insertAfter: Task | null;
+    if (asChild) {
+      // Child: nest under the current task.
+      parent = row?.task ?? null;
+      insertAfter = null;
+    } else {
+      // Sibling: same parent, insert immediately after current task.
+      parent = row?.parent ?? null;
+      insertAfter = row?.task ?? null;
+    }
+    const newTask = await this.onNewTask(parent, insertAfter);
+    if (newTask) {
+      this.rebuildRows();
+      const idx = this.rows.findIndex((r) => r.task === newTask);
+      if (idx >= 0) this.cursor = idx;
+      this.invalidate();
+    }
   }
 
   private async archive(): Promise<void> {
@@ -631,7 +677,7 @@ export class TasksOverlay {
     lines.push(th.fg("border", `├${hBar(leftW)}┴${hBar(rightW)}┤`));
     const helpText = th.fg(
       "dim",
-      " ↑↓/jk nav • ←→/hl status • Enter toggle • s select • e edit • p plan • A archive • Ctrl-d/u scroll • q close",
+      " ↑↓/jk nav • ←→/hl status • Enter toggle • s select • e edit • p plan • n new • N subtask • A archive • Ctrl-d/u scroll • q close",
     );
     const helpInnerW = leftW + rightW + 1; // +1 for removed divider
     lines.push(

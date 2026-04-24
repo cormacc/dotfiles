@@ -443,6 +443,7 @@ export default function (pi: ExtensionAPI) {
               label: "+tasks",
               items: {
                 t: { label: "Show tasks", action: "command:/tasks" },
+                n: { label: "New task", action: "command:/tasks new" },
               },
             },
           },
@@ -465,9 +466,20 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerCommand("tasks", {
     description: "Show project tasks from TASKS.org",
-    handler: async (_args, ctx) => {
+    handler: async (args, ctx) => {
       if (!ctx.hasUI) {
         ctx.ui.notify("/tasks requires interactive mode", "error");
+        return;
+      }
+
+      // `/tasks new` — create a new top-level task without opening the overlay.
+      if (args?.trim() === "new") {
+        const tasks = await loadTasks(ctx.cwd);
+        const created = await createTask(ctx, tasks, ctx.cwd, null, null);
+        if (created) {
+          await syncPinnedOverlay(ctx, tasks);
+          updateFileWatchers(collectWatchPaths(tasks, ctx.cwd));
+        }
         return;
       }
 
@@ -502,6 +514,11 @@ export default function (pi: ExtensionAPI) {
       const onArchive = (topLevel: Task) =>
         archiveTopLevel(ctx, tasks, topLevel);
 
+      const onNewTask = (
+        parent: Task | null,
+        insertAfter: Task | null,
+      ) => createTask(ctx, tasks, ctx.cwd, parent, insertAfter);
+
       await ctx.ui.custom<undefined>(
         (_tui, theme, _kb, done) =>
           new TasksOverlay(
@@ -513,6 +530,7 @@ export default function (pi: ExtensionAPI) {
             onTasksChanged,
             onEditPlan,
             onArchive,
+            onNewTask,
           ),
         {
           overlay: true,
@@ -678,6 +696,74 @@ async function handlePlanEdit(
     return;
   }
   pi.events.emit("emacs:open", { file: absPlan, line: 1 });
+}
+
+// ── Create task flow ─────────────────────────────────────────────────────
+
+/**
+ * Prompt for a title and insert a new task into the live tree, then save.
+ *
+ * @param parentTask  null → insert at the top level of `tasks`.
+ * @param insertAfterTask  null → append; otherwise insert immediately after
+ *                         this task within its container (parent's children
+ *                         or the top-level array).
+ */
+async function createTask(
+  ctx: ExtensionContext,
+  tasks: Task[],
+  cwd: string,
+  parentTask: Task | null,
+  insertAfterTask: Task | null,
+): Promise<Task | null> {
+  const prompt = parentTask
+    ? `Subtask of "${parentTask.summary}"`
+    : "New task title";
+  const title = await ctx.ui.input(prompt, "");
+  if (!title?.trim()) return null;
+
+  const level = parentTask ? parentTask.level + 1 : 1;
+  const newTask: Task = {
+    level,
+    status: "TODO",
+    priority: null,
+    summary: title.trim(),
+    tags: [],
+    description: "",
+    children: [],
+    propertyLines: [],
+    planPath: null,
+    planRaw: null,
+    planChildren: undefined,
+    closed: null,
+    sourcePath: join(cwd, TASKS_FILE),
+    sourceRoot: tasks,
+    lineNumber: 0,
+  };
+
+  const container: Task[] = parentTask ? parentTask.children : tasks;
+  if (insertAfterTask) {
+    const idx = container.indexOf(insertAfterTask);
+    if (idx >= 0) {
+      container.splice(idx + 1, 0, newTask);
+    } else {
+      container.push(newTask);
+    }
+  } else {
+    container.push(newTask);
+  }
+
+  const tasksPath = join(cwd, TASKS_FILE);
+  try {
+    await writeFile(tasksPath, serializeTasks(tasks), "utf-8");
+  } catch (err) {
+    ctx.ui.notify(`Failed to save: ${(err as Error).message}`, "error");
+    const rollback = container.indexOf(newTask);
+    if (rollback >= 0) container.splice(rollback, 1);
+    return null;
+  }
+
+  ctx.ui.notify(`Created: ${newTask.summary}`, "info");
+  return newTask;
 }
 
 // ── Archive flow ───────────────────────────────────────────────────────
