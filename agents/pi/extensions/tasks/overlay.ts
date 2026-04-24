@@ -10,8 +10,8 @@ import {
   wrapTextWithAnsi,
 } from "@mariozechner/pi-tui";
 import type { Task } from "./parser.ts";
-import { serializeTasks } from "./parser.ts";
-import { colorStatus } from "./status-colors.ts";
+import { formatOrgTimestamp, serializeTasks } from "./parser.ts";
+import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -199,7 +199,14 @@ export class TasksOverlay {
     );
     if (idx === -1) return;
     const next = (idx + direction + STATUS_CYCLE.length) % STATUS_CYCLE.length;
-    row.task.status = STATUS_CYCLE[next];
+    const nextStatus = STATUS_CYCLE[next];
+    row.task.status = nextStatus;
+    // Mirror Emacs: stamp CLOSED on entry into DONE, clear on exit.
+    if (nextStatus === "DONE") {
+      if (!row.task.closed) row.task.closed = formatOrgTimestamp();
+    } else {
+      row.task.closed = null;
+    }
     this.persistChange();
     this.invalidate();
   }
@@ -403,8 +410,6 @@ export class TasksOverlay {
         // Hide the :selected: tag from the tag list — it's conveyed by the
         // star marker and highlight instead.
         const visibleTags = r.task.tags.filter((t) => t !== SELECTED_TAG);
-        const rawTags =
-          visibleTags.length > 0 ? ` :${visibleTags.join(":")}:` : "";
 
         let statusStr: string;
         let prioStr: string;
@@ -424,16 +429,16 @@ export class TasksOverlay {
             : "";
           selectMark = "";
           summaryStr = th.fg("dim", r.task.summary);
-          tagsStr = rawTags ? th.fg("dim", rawTags) : "";
+          tagsStr = visibleTags.length > 0
+            ? " " + th.fg("dim", colorTags(visibleTags))
+            : "";
         } else {
           indentStr = indent;
           treeStr = treeMark;
           statusStr = this.renderStatus(r.task.status, th);
-          prioStr = r.task.priority
-            ? th.fg("warning", `[#${r.task.priority}]`) + " "
-            : "";
+          prioStr = r.task.priority ? colorPriority(r.task.priority) + " " : "";
           selectMark = r.isSelectedTask ? th.fg("accent", "★ ") : "";
-          tagsStr = rawTags ? th.fg("dim", rawTags) : "";
+          tagsStr = visibleTags.length > 0 ? " " + colorTags(visibleTags) : "";
 
           // Cursor > selected task > in-selection > plain.
           if (isCursor) {
@@ -447,7 +452,7 @@ export class TasksOverlay {
           }
         }
 
-        const content = `${indentStr}${treeStr}${statusStr} ${prioStr}${selectMark}${summaryStr}${tagsStr}`;
+        const body = `${indentStr}${treeStr}${statusStr} ${prioStr}${selectMark}${summaryStr}`;
         const pointer = isCursor
           ? th.fg("accent", "▌")
           : r.isSelectedTask
@@ -455,6 +460,19 @@ export class TasksOverlay {
             : r.inSelection
               ? th.fg("accent", "│")
               : " ";
+        const contentWidth = Math.max(0, leftW - visibleWidth(pointer));
+        const content = tagsStr
+          ? (() => {
+              const tagWidth = visibleWidth(tagsStr);
+              const bodyWidth = Math.max(0, contentWidth - tagWidth - 1);
+              const clippedBody = truncateToWidth(body, bodyWidth);
+              const gap = Math.max(
+                1,
+                contentWidth - visibleWidth(clippedBody) - tagWidth,
+              );
+              return `${clippedBody}${" ".repeat(gap)}${tagsStr}`;
+            })()
+          : body;
         leftLines.push(truncateToWidth(pointer + content, leftW));
       }
 

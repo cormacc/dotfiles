@@ -23,16 +23,18 @@ import type {
 } from "@mariozechner/pi-coding-agent";
 import {
   truncateToWidth,
+  visibleWidth,
   type Component,
   type OverlayHandle,
   type TUI,
 } from "@mariozechner/pi-tui";
+import { watch, type FSWatcher } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.ts";
 import { TasksOverlay } from "./overlay.ts";
 import { parseTasks, type Task } from "./parser.ts";
-import { colorStatus } from "./status-colors.ts";
+import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
 
 const EXT_NAME = getExtensionName(import.meta.url);
 const TASKS_FILE = "TASKS.org";
@@ -47,6 +49,81 @@ let cleanupKb: (() => void) | null = null;
 let pinnedOverlayHandle: OverlayHandle | null = null;
 let pinnedOverlayComponent: PinnedTasksOverlay | null = null;
 let pinnedOverlayTui: TUI | null = null;
+
+/**
+ * File-watcher state. The pinned overlay refreshes on external edits
+ * (e.g. saving TASKS.org or a linked plan file in Emacs) without requiring
+ * the /tasks modal to be reopened.
+ */
+const fileWatchers = new Map<string, FSWatcher>();
+let watchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let activeCtx: ExtensionContext | null = null;
+
+/** Collect every path whose changes should trigger a pinned-overlay refresh. */
+function collectWatchPaths(tasks: Task[], cwd: string): Set<string> {
+  const paths = new Set<string>();
+  paths.add(join(cwd, TASKS_FILE));
+  const walk = (ts: Task[]) => {
+    for (const t of ts) {
+      if (t.sourcePath) paths.add(t.sourcePath);
+      walk(t.children);
+      if (t.planChildren) walk(t.planChildren);
+    }
+  };
+  walk(tasks);
+  return paths;
+}
+
+function attachFileWatcher(path: string): void {
+  if (fileWatchers.has(path)) return;
+  try {
+    const watcher = watch(path, (eventType) => {
+      scheduleRefresh();
+      // Editors that atomically rename-replace the file invalidate this
+      // watcher after the first event. Close now and let the next refresh
+      // re-attach against the new inode.
+      if (eventType === "rename") {
+        fileWatchers.get(path)?.close();
+        fileWatchers.delete(path);
+      }
+    });
+    watcher.on("error", () => {
+      fileWatchers.delete(path);
+    });
+    fileWatchers.set(path, watcher);
+  } catch {
+    // File may not exist yet; next refresh will retry.
+  }
+}
+
+function updateFileWatchers(paths: Set<string>): void {
+  for (const [p, w] of fileWatchers) {
+    if (!paths.has(p)) {
+      w.close();
+      fileWatchers.delete(p);
+    }
+  }
+  for (const p of paths) attachFileWatcher(p);
+}
+
+function closeAllFileWatchers(): void {
+  for (const w of fileWatchers.values()) w.close();
+  fileWatchers.clear();
+  if (watchDebounceTimer) {
+    clearTimeout(watchDebounceTimer);
+    watchDebounceTimer = null;
+  }
+}
+
+function scheduleRefresh(): void {
+  if (!activeCtx) return;
+  if (watchDebounceTimer) clearTimeout(watchDebounceTimer);
+  watchDebounceTimer = setTimeout(() => {
+    watchDebounceTimer = null;
+    const ctx = activeCtx;
+    if (ctx) void refreshPinnedOverlay(ctx, ctx.cwd);
+  }, 150);
+}
 
 async function loadTasks(cwd: string): Promise<Task[]> {
   const sourcePath = join(cwd, TASKS_FILE);
@@ -104,24 +181,63 @@ function findSelectedTask(tasks: Task[]): Task | null {
   return null;
 }
 
-function formatTaskLine(t: Task, indent: string, isHead: boolean): string {
-  const prio = t.priority ? `[#${t.priority}] ` : "";
+function formatTaskLine(
+  t: Task,
+  indent: string,
+  isHead: boolean,
+  width: number,
+): string {
+  const priority = colorPriority(t.priority);
   const visibleTags = t.tags.filter((tg) => tg !== SELECTED_TAG);
-  const tags = visibleTags.length > 0 ? ` :${visibleTags.join(":")}:` : "";
+  const tags = colorTags(visibleTags);
   const marker = isHead ? "★ " : "• ";
-  return `${indent}${marker}${colorStatus(t.status)} ${prio}${t.summary}${tags}`;
+  const left = `${indent}${marker}${colorStatus(t.status)} ${priority ? `${priority} ` : ""}${t.summary}`;
+  if (!tags) return truncateToWidth(left, width);
+
+  const tagText = ` ${tags}`;
+  const tagWidth = visibleWidth(tagText);
+  const leftWidth = Math.max(0, width - tagWidth - 1);
+  const clippedLeft = truncateToWidth(left, leftWidth);
+  const gap = Math.max(1, width - visibleWidth(clippedLeft) - tagWidth);
+  return truncateToWidth(`${clippedLeft}${" ".repeat(gap)}${tagText}`, width);
+}
+
+function border(width: number, theme: Theme, fill = "─"): string {
+  return theme.fg("border", fill.repeat(Math.max(0, width)));
+}
+
+function centeredBorder(label: string, width: number, theme: Theme): string {
+  const text = ` ${label} `;
+  const remaining = Math.max(0, width - visibleWidth(text));
+  const left = Math.floor(remaining / 2);
+  const right = remaining - left;
+  return theme.fg(
+    "borderMuted",
+    `${"─".repeat(left)}${text}${"─".repeat(right)}`,
+  );
 }
 
 /** Build the pinned overlay's pre-styled lines, or undefined if nothing is selected. */
-function buildPinnedLines(tasks: Task[], theme: Theme): string[] | undefined {
+function buildPinnedLines(
+  tasks: Task[],
+  theme: Theme,
+  width: number,
+): string[] | undefined {
   const selected = findSelectedTask(tasks);
   if (!selected) return undefined;
 
+  const hasLinkedPlan = !!selected.planPath && (selected.planChildren?.length ?? 0) > 0;
   const headerLines = [
     theme.fg("accent", theme.bold("── Selected task ──")),
-    formatTaskLine(selected, "", true),
+    formatTaskLine(selected, "", true, width),
   ];
-  const maxSubtaskLines = Math.max(0, MAX_PINNED_LINES - headerLines.length);
+  if (hasLinkedPlan) {
+    headerLines.push(centeredBorder(basename(selected.planPath!), width, theme));
+  }
+  const maxSubtaskLines = Math.max(
+    0,
+    MAX_PINNED_LINES - headerLines.length - 1,
+  );
 
   const flattened: { task: Task; depth: number }[] = [];
   const walk = (children: Task[], depth: number) => {
@@ -164,13 +280,15 @@ function buildPinnedLines(tasks: Task[], theme: Theme): string[] | undefined {
   }
 
   for (const row of visible) {
-    lines.push(formatTaskLine(row.task, "  ".repeat(row.depth), false));
+    lines.push(formatTaskLine(row.task, "  ".repeat(row.depth), false, width));
   }
 
   if (hiddenMore > 0) {
     const label = hiddenMore === 1 ? "subtask" : "subtasks";
     lines.push(theme.fg("dim", `  … ${hiddenMore} more ${label}`));
   }
+
+  lines.push(border(width, theme));
 
   return lines;
 }
@@ -186,7 +304,7 @@ class PinnedTasksOverlay implements Component {
   }
 
   render(width: number): string[] {
-    const lines = buildPinnedLines(this.tasks, this.theme) ?? [];
+    const lines = buildPinnedLines(this.tasks, this.theme, width) ?? [];
     return lines.map((l) => truncateToWidth(l, width));
   }
 
@@ -256,7 +374,7 @@ async function syncPinnedOverlay(
           overlayOptions: {
             anchor: "top-center",
             width: "100%",
-            maxHeight: MAX_PINNED_LINES,
+            maxHeight: MAX_PINNED_LINES + 2,
             margin: 0,
             offsetY: 0,
             nonCapturing: true,
@@ -279,7 +397,10 @@ async function refreshPinnedOverlay(
   ctx: ExtensionContext,
   cwd: string,
 ): Promise<void> {
-  await syncPinnedOverlay(ctx, await loadTasks(cwd));
+  activeCtx = ctx;
+  const tasks = await loadTasks(cwd);
+  await syncPinnedOverlay(ctx, tasks);
+  updateFileWatchers(collectWatchPaths(tasks, cwd));
 }
 
 export default function (pi: ExtensionAPI) {
@@ -309,6 +430,8 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_shutdown", async () => {
     cleanupKb?.();
     cleanupKb = null;
+    closeAllFileWatchers();
+    activeCtx = null;
     clearPinnedOverlay();
   });
 
