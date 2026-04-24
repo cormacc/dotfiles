@@ -1,7 +1,8 @@
 ** WAITING [#C] Update nixGL flake URL :nix:
 Waiting on an upstream fix for an nvidia-open issue
 
-** TODO [#A] Implement an org-based memory system for pi-agent :agents:selected:
+** DONE [#A] Implement an org-based memory system for pi-agent :agents:
+CLOSED: [2026-04-24 Fri 23:53]
 :PROPERTIES:
 :PLAN: design/log/2026-04-24-org-agent-memory.org
 :END:

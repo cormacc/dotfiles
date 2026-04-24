@@ -59,7 +59,7 @@
     plans, with explicit cross-reference back to org-memory for persisted
     task memory.
 *** DONE [#C] Validate skill trigger behaviour after reload :skills:
-    CLOSED: [2026-04-24 Fri 20:30]
+CLOSED: [2026-04-24 Fri 20:30]
     Static validation performed:
     - `agents/skills/org-memory/SKILL.md` — frontmatter name matches
       directory; description covers task memory, PLAN properties, status
@@ -84,7 +84,7 @@
   extension.
 
 ** DONE [#A] Add a keyboard shortcut to edit the linked plan :ui:emacs:
-  CLOSED: [2026-04-24 Fri 15:00]
+CLOSED: [2026-04-24 Fri 15:00]
   Added the `p` keybinding in the main /tasks overlay:
   - Existing :PLAN: → open that file in Emacs at line 1.
   - No plan → suggest `YYYY-MM-DD-<slug>.org` under `design/log/`, `plans/`,
@@ -95,7 +95,7 @@
   - Auto-starts `emacs --daemon` via `pi.exec` when no server is reachable.
 
 ** DONE [#B] Investigate PLAN as an Emacs hyperlink :org:emacs:
-  CLOSED: [2026-04-24 Fri 20:30]
+CLOSED: [2026-04-24 Fri 20:30]
   Findings:
   - Emacs org-mode follows `[[file:...]]` / `[[file:...][desc]]` links in
     property drawer values via `C-c C-o` (`org-open-at-point`). No custom
@@ -115,7 +115,7 @@
     four forms round-trip cleanly and produce the same extracted path.
 
 ** DONE [#A] Add archive shortcut for completed top-level tasks :archive:
-  CLOSED: [2026-04-24 Fri 20:10]
+CLOSED: [2026-04-24 Fri 20:10]
   Added the `A` (shift-a) keybinding in the main /tasks overlay:
   - Resolves the top-level TASKS.org ancestor of the cursor's task (walking
     through both regular children and injected plan children).
@@ -131,9 +131,8 @@
   - Strips `:selected:` from the archived copy.
   - Rolls back the in-memory tree on write failure.
   - Now accepts top-level tasks in either `DONE` or `CANCELLED`.
-
 *** DONE [#C] Add CANCELLED to the status cycle :status:
-    CLOSED: [2026-04-24 Fri 21:05]
+CLOSED: [2026-04-24 Fri 21:05]
     Implemented follow-up requested by the archive task:
     - Parser heading regex now accepts `CANCELLED`.
     - Overlay status cycle now includes `CANCELLED`.
@@ -146,7 +145,7 @@
     - README and org-memory skill docs updated to mention the new status.
 
 ** DONE [#B] Update the :selected: property to move with the task focus
-  CLOSED: [2026-04-24 Fri 21:05]
+CLOSED: [2026-04-24 Fri 21:05]
   Updated selection semantics:
   - The `:selected:` marker still lives on the exact focused task, so it can
     move down through subtasks.
@@ -158,42 +157,24 @@
     `★` marker follows the actual selected descendant inside that tree.
 
 * DONE Housekeeping
-  CLOSED: [2026-04-24 Fri 21:45]
+CLOSED: [2026-04-24 Fri 21:45]
   Follow-up patch list from the final skills/extension review. Decisions below
   were approved and implemented.
-
 ** DONE [#C] Unify Emacs bootstrap behavior for `e` and `p` :emacs:
-   CLOSED: [2026-04-24 Fri 21:45]
+CLOSED: [2026-04-24 Fri 21:45]
    The `emacs:open` event in the emacsclient extension now bootstraps
    `emacs --daemon` when no server is reachable, and the tasks extension uses
    the same server-check path before `e` and `p` open files.
-
-*** Decision
-The emacs tools should bootstrap consistently -- open should launch emacs if no server instance is available.
-
-
 ** DONE [#C] Decide whether linked-plan task parsing should be constrained to `* Plan` :parser:skills:
-   CLOSED: [2026-04-24 Fri 21:45]
+CLOSED: [2026-04-24 Fri 21:45]
    Kept the parser permissive. Updated the tasks README to state that `* Plan`
    is a recommended convention for readability, not a parser requirement.
-*** Decision
-Keep the parser permissive -- the Plan format should match that of TASKS with flexible heirarchy -- any TODO without an ancestor TODO is a top-level todo, and so on.
-The `* Plan` section is a convention / best practice but not required.
-
-
 ** DONE [#D] Preserve archive ordering by closed/archive timestamp :archive:
-   CLOSED: [2026-04-24 Fri 21:45]
+CLOSED: [2026-04-24 Fri 21:45]
    The archive flow now reloads `TASKS.ARCHIVE.org`, inserts the new archived
    task, sorts top-level archive entries by `CLOSED:` timestamp (falling back
    to `:ARCHIVED:`), and rewrites the archive file.
-
-*** Decision
-The archive flow should sort by CLOSED time on archive. Archiving is expected to be a manual operation / episodic -- so issues may be archived in review rather than completion order.
-
 ** DONE [#D] Refresh stale inline extension comments to match current semantics :maintenance:
-   CLOSED: [2026-04-24 Fri 21:45]
+CLOSED: [2026-04-24 Fri 21:45]
    Updated stale comments and extension docs to reflect current semantics for
    Emacs bootstrap, permissive linked-plan parsing, and archive behavior.
-
-*** Decision
-Correct this
