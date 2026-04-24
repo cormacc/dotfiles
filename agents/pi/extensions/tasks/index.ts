@@ -104,15 +104,6 @@ function findSelectedTask(tasks: Task[]): Task | null {
   return null;
 }
 
-function countAll(tasks: Task[]): number {
-  let n = 0;
-  for (const t of tasks) {
-    n++;
-    n += countAll(taskChildren(t));
-  }
-  return n;
-}
-
 function formatTaskLine(t: Task, indent: string, isHead: boolean): string {
   const prio = t.priority ? `[#${t.priority}] ` : "";
   const visibleTags = t.tags.filter((tg) => tg !== SELECTED_TAG);
@@ -126,29 +117,59 @@ function buildPinnedLines(tasks: Task[], theme: Theme): string[] | undefined {
   const selected = findSelectedTask(tasks);
   if (!selected) return undefined;
 
-  const lines: string[] = [];
-  lines.push(theme.fg("accent", theme.bold("── Selected task ──")));
-  lines.push(formatTaskLine(selected, "", true));
+  const headerLines = [
+    theme.fg("accent", theme.bold("── Selected task ──")),
+    formatTaskLine(selected, "", true),
+  ];
+  const maxSubtaskLines = Math.max(0, MAX_PINNED_LINES - headerLines.length);
 
+  const flattened: { task: Task; depth: number }[] = [];
   const walk = (children: Task[], depth: number) => {
-    for (const c of children) {
-      if (lines.length >= MAX_PINNED_LINES) return;
-      lines.push(formatTaskLine(c, "  ".repeat(depth), false));
-      walk(taskChildren(c), depth + 1);
-      if (lines.length >= MAX_PINNED_LINES) return;
+    for (const child of children) {
+      flattened.push({ task: child, depth });
+      walk(taskChildren(child), depth + 1);
     }
   };
   walk(taskChildren(selected), 1);
 
-  const total = countAll(taskChildren(selected));
-  const shown = lines.length - 2; // minus header rule + selected-task line
-  if (shown < total) {
-    const more = theme.fg("dim", `  … ${total - shown} more subtask(s)`);
-    if (lines.length >= MAX_PINNED_LINES) {
-      lines[MAX_PINNED_LINES - 1] = more;
-    } else {
-      lines.push(more);
-    }
+  const visible = [...flattened];
+  let hiddenCompleted = 0;
+
+  // If truncation is needed, reclaim space from completed subtasks first,
+  // scanning from the head so the pinned view favours the selected task's
+  // next pending work over old completed history.
+  while (
+    visible.length + (hiddenCompleted > 0 ? 1 : 0) > maxSubtaskLines
+  ) {
+    const doneIdx = visible.findIndex((row) => row.task.status === "DONE");
+    if (doneIdx === -1) break;
+    visible.splice(doneIdx, 1);
+    hiddenCompleted++;
+  }
+
+  let hiddenMore = 0;
+  const completedSummaryLines = hiddenCompleted > 0 ? 1 : 0;
+  if (visible.length + completedSummaryLines > maxSubtaskLines) {
+    const maxVisibleTasks = Math.max(0, maxSubtaskLines - completedSummaryLines - 1);
+    hiddenMore = visible.length - maxVisibleTasks;
+    visible.splice(maxVisibleTasks);
+  }
+
+  const lines = [...headerLines];
+  if (hiddenCompleted > 0) {
+    const label = hiddenCompleted === 1 ? "subtask" : "subtasks";
+    lines.push(
+      theme.fg("dim", `  … ${hiddenCompleted} completed ${label}`),
+    );
+  }
+
+  for (const row of visible) {
+    lines.push(formatTaskLine(row.task, "  ".repeat(row.depth), false));
+  }
+
+  if (hiddenMore > 0) {
+    const label = hiddenMore === 1 ? "subtask" : "subtasks";
+    lines.push(theme.fg("dim", `  … ${hiddenMore} more ${label}`));
   }
 
   return lines;

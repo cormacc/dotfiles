@@ -21,7 +21,7 @@ its subtasks. The overlay:
 - Appears on startup if the file already contains a `:selected:` tag.
 - Updates immediately while the `/tasks` overlay is open when status or selection changes.
 - Does not take keyboard focus, so normal input keeps working.
-- Shows at most 12 lines; deeper subtrees collapse into a `… N more` line.
+- Shows at most 12 lines. When truncating, completed subtasks are elided first as `… N completed subtasks`, so the selected task and next pending subtasks stay visible.
 
 ### Status colors
 
