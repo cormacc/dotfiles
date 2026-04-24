@@ -35,7 +35,7 @@ worktree is clean.
 
 ## Suggested Keybindings
 
-Registered with `modal-editor` under `Space g` (git sub-menu):
+Registered with the `keybindings` extension under `Space g` (git sub-menu):
 
 | Key         | Action              | Command             |
 | ----------- | ------------------- | ------------------- |
@@ -83,4 +83,4 @@ When the diff panel is focused (via `/diff focus` or `Space g f`):
 
 - `@mariozechner/pi-coding-agent` — `ExtensionAPI`, `Theme`
 - `@mariozechner/pi-tui` — `OverlayHandle`, `TUI`, `matchesKey`, `truncateToWidth`, `visibleWidth`
-- `modal-editor` — for `editor:width-constraint` event and `suggestKeybindings` integration
+- `keybindings` — for `editor:width-constraint` event and `suggestKeybindings` integration

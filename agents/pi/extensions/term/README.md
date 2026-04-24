@@ -92,7 +92,7 @@ pi --no-mirror    # disable the term monitor/session extension for this run
 
 ## Keybindings
 
-Registered with `modal-editor` under `Space t`:
+Registered with the `keybindings` extension under `Space t`:
 
 | Key         | Action         | Command |
 | ----------- | -------------- | ------- |

@@ -32,7 +32,7 @@ export function getExtensionName(importMetaUrl: string): string {
 // ── Modal-editor keybinding suggestions ─────────────────────────────────────
 
 /**
- * Menu item in a keybinding suggestion (matches modal-editor's JSON format).
+ * Menu item in a keybinding suggestion (matches the keybindings extension's JSON format).
  */
 export interface KeybindingMenuItem {
   label: string;
@@ -50,7 +50,7 @@ export interface KeybindingMenu {
 }
 
 /**
- * Payload accepted by `modal-editor:suggest-keybindings`.
+ * Payload accepted by `keybindings:suggest`.
  */
 export interface KeybindingSuggestion {
   source?: string;
@@ -64,11 +64,11 @@ export interface KeybindingSuggestion {
 const activeKeybindingSubs = new Map<string, () => void>();
 
 /**
- * Register keybinding suggestions with the modal-editor extension.
+ * Register keybinding suggestions with the keybindings extension.
  *
  * Handles the full lifecycle:
- *  - Emits suggestions immediately (in case modal-editor is already loaded).
- *  - Subscribes to `modal-editor:ready` so suggestions are re-sent when the
+ *  - Emits suggestions immediately (in case the keybindings extension is already loaded).
+ *  - Subscribes to `keybindings:ready` so suggestions are re-sent when the
  *    editor (re)initialises.
  *  - Automatically unsubscribes any prior listener for the same extension
  *    name, preventing duplicate callbacks on extension reload.
@@ -110,10 +110,10 @@ export function suggestKeybindings(
   const payload = { ...keybindings, source: extensionName };
 
   const suggest = () => {
-    pi.events.emit("modal-editor:suggest-keybindings", payload);
+    pi.events.emit("keybindings:suggest", payload);
   };
 
-  const unsub = pi.events.on("modal-editor:ready", suggest);
+  const unsub = pi.events.on("keybindings:ready", suggest);
   suggest();
 
   const cleanup = () => {

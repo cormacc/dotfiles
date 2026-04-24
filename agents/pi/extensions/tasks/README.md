@@ -8,7 +8,7 @@ Displays project tasks from a `TASKS.org` file in the project root using org-mod
 
 - `/tasks` — Open the tasks overlay
 
-### Keybindings (modal-editor)
+### Keybindings
 
 - `<leader> t t` — Open the tasks overlay
 

@@ -6,7 +6,7 @@
  * Commands:
  *   /tasks  — open the tasks overlay
  *
- * Keybindings (via modal-editor):
+ * Keybindings (via the keybindings extension):
  *   <leader> t t — open the tasks overlay
  */
 

@@ -29,7 +29,7 @@ Paths are in the system prompt under "Additional docs" and "Examples".
 
 ## Guidelines
 
-- **Shared utilities** :: check `extensions/lib/pi-utils.ts` for reusable helpers
+- **Shared utilities** :: check `extensions/lib/*.ts` for reusable helpers
   (e.g. `getExtensionName`, `suggestKeybindings`) before writing new code.
 - **Extension structure** :: single-file extensions go in `extensions/foo.ts`;
   multi-file extensions go in `extensions/foo/index.ts` with supporting modules.
@@ -51,9 +51,9 @@ common prefix (e.g. `term:toggle`, `term:prev`). Three layers wire them up:
 1. **Event listeners** — implement the action, registered with `pi.events.on`.
 2. **Slash command** — parses subcommands and dispatches via
    `pi.events.emit("ext:action")`. This is the user-facing entry point.
-3. **Keybinding suggestions** — registered with `modal-editor` via
+3. **Keybinding suggestions** — registered with the `keybindings` extension via
    `suggestKeybindings`. Each binding uses the event name as its `action`
-   (e.g. `action: "foo:toggle"`). The `modal-editor` treats any action
+   (e.g. `action: "foo:toggle"`). The `keybindings` extension treats any action
    without a `command:` or `passthrough:` prefix as an event and emits it
    directly.
 
@@ -109,7 +109,7 @@ export default function (pi: ExtensionAPI) {
     });
 
     // ── 4. Keybinding suggestions ────────────────────────
-    //   Bare event names — modal-editor treats any action without a
+    //   Bare event names — the keybindings extension treats any action without a
     //   `command:` or `passthrough:` prefix as an event.
 
     cleanupKb = suggestKeybindings(pi, EXT_NAME, {
@@ -139,7 +139,7 @@ export default function (pi: ExtensionAPI) {
 ### Key rules
 
 - **Do NOT bind keys explicitly** — use `suggestKeybindings` from
-  `extensions/lib/pi-utils.ts` to register bindings with `modal-editor`.
+  `extensions/lib/pi-utils.ts` to register bindings with the `keybindings` extension.
 - Call `suggestKeybindings` inside `session_start` (not at the top level of the
   default function) and store the cleanup handle at **module level** so it
   survives reloads.
@@ -150,3 +150,4 @@ export default function (pi: ExtensionAPI) {
   key passthrough respectively — everything else is emitted as an event.
   The legacy `"event:"` prefix is still accepted for backward compatibility
   but is not required.
+- After concluding an extension edit, generate a unified keybindings map at `extensions/keybindings.org` -- this should begin with the global keybindings defined by the keybinding extension itself, and include sections for each additional extension calling `suggestKeybindings`

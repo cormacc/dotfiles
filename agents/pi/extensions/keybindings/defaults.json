@@ -15,7 +15,25 @@
         "c": { "label": "Compact", "action": "command:/compact" },
         "y": { "label": "Copy last response", "action": "command:/copy" },
         "s": { "label": "Settings", "action": "command:/settings" },
-        "r": {"label": "Reload extensions", "action": "command:/reload"}
+        "R": { "label": "Reload extensions", "action": "command:/reload" }
+      }
+    },
+    "space": {
+      "label": "Leader",
+      "key": " ",
+      "items": {
+        "t": {
+          "label": "+toggle",
+          "items": {
+            "E": {
+              "label": "+editor",
+              "items": {
+                "e": { "label": "Emacs mode", "action": "keybindings:set-mode-emacs" },
+                "v": { "label": "Vim mode", "action": "keybindings:set-mode-vim" }
+              }
+            }
+          }
+        }
       }
     }
   }
