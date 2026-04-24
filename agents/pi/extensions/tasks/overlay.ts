@@ -50,7 +50,7 @@ export class TasksOverlay {
     private cwd: string,
     theme: Theme,
     done: (value: undefined) => void,
-    private onEdit?: (lineNumber: number) => void,
+    private onEdit?: (task: Task) => void,
     private onTasksChanged?: (tasks: Task[]) => void,
   ) {
     this.theme = theme;
@@ -70,7 +70,7 @@ export class TasksOverlay {
     if (selected) {
       const mark = (t: Task) => {
         inSelection.add(t);
-        for (const c of t.children) mark(c);
+        for (const c of this.taskChildren(t)) mark(c);
       };
       mark(selected);
     }
@@ -82,11 +82,11 @@ export class TasksOverlay {
           task: t,
           depth,
           collapsed,
-          hasChildren: t.children.length > 0,
+          hasChildren: this.taskChildren(t).length > 0,
           isSelectedTask: t === selected,
           inSelection: inSelection.has(t),
         });
-        if (!collapsed) walk(t.children, depth + 1);
+        if (!collapsed) walk(this.taskChildren(t), depth + 1);
       }
     };
     walk(this.tasks, 0);
@@ -99,6 +99,10 @@ export class TasksOverlay {
   private focusSelectedTask(): void {
     const idx = this.rows.findIndex((r) => r.isSelectedTask);
     if (idx >= 0) this.cursor = idx;
+  }
+
+  private taskChildren(task: Task): Task[] {
+    return [...task.children, ...(task.planChildren ?? [])];
   }
 
   // ── Input ───────────────────────────────────────────────────────────
@@ -155,7 +159,7 @@ export class TasksOverlay {
     if (matchesKey(data, "e")) {
       const row = this.rows[this.cursor];
       if (row && this.onEdit) {
-        this.onEdit(row.task.lineNumber);
+        this.onEdit(row.task);
         this.done(undefined);
       }
       return;
@@ -205,7 +209,7 @@ export class TasksOverlay {
   private findSelectedTask(tasks: Task[] = this.tasks): Task | null {
     for (const t of tasks) {
       if (t.tags.includes(SELECTED_TAG)) return t;
-      const child = this.findSelectedTask(t.children);
+      const child = this.findSelectedTask(this.taskChildren(t));
       if (child) return child;
     }
     return null;
@@ -216,7 +220,7 @@ export class TasksOverlay {
       if (t.tags.includes(SELECTED_TAG)) {
         t.tags = t.tags.filter((tag) => tag !== SELECTED_TAG);
       }
-      this.clearSelectedTags(t.children);
+      this.clearSelectedTags(this.taskChildren(t));
     }
   }
 
@@ -261,7 +265,7 @@ export class TasksOverlay {
           for (const p of next) keepExpanded.add(p);
           return true;
         }
-        if (markPath(t.children, next)) return true;
+        if (markPath(this.taskChildren(t), next)) return true;
       }
       return false;
     };
@@ -270,17 +274,18 @@ export class TasksOverlay {
     // Mark descendants.
     const markSubtree = (t: Task) => {
       keepExpanded.add(t);
-      for (const c of t.children) markSubtree(c);
+      for (const c of this.taskChildren(t)) markSubtree(c);
     };
     markSubtree(selected);
 
     // Collapse anything outside that set with children.
     const collapseOthers = (tasks: Task[]) => {
       for (const t of tasks) {
-        if (!keepExpanded.has(t) && t.children.length > 0) {
+        const children = this.taskChildren(t);
+        if (!keepExpanded.has(t) && children.length > 0) {
           this.collapsedSet.add(t);
         }
-        collapseOthers(t.children);
+        collapseOthers(children);
       }
     };
     collapseOthers(this.tasks);
@@ -293,8 +298,25 @@ export class TasksOverlay {
 
   private async save(): Promise<void> {
     try {
-      const content = serializeTasks(this.tasks);
-      await writeFile(join(this.cwd, "TASKS.org"), content, "utf-8");
+      const roots = new Map<string, Task[]>();
+      roots.set(join(this.cwd, "TASKS.org"), this.tasks);
+
+      const collect = (tasks: Task[]) => {
+        for (const task of tasks) {
+          if (task.sourcePath && task.sourceRoot) {
+            roots.set(task.sourcePath, task.sourceRoot);
+          }
+          collect(task.children);
+          if (task.planChildren) collect(task.planChildren);
+        }
+      };
+      collect(this.tasks);
+
+      await Promise.all(
+        [...roots.entries()].map(([path, tasks]) =>
+          writeFile(path, serializeTasks(tasks), "utf-8"),
+        ),
+      );
     } catch {
       // Best-effort save; overlay stays usable
     }
@@ -583,7 +605,7 @@ export class TasksOverlay {
     const walk = (ts: Task[]) => {
       for (const t of ts) {
         counts[t.status] = (counts[t.status] ?? 0) + 1;
-        walk(t.children);
+        walk(this.taskChildren(t));
       }
     };
     walk(tasks);

@@ -66,6 +66,9 @@ The file uses org-mode heading syntax:
 
 ```org
 * TODO [#A] Implement authentication :backend:security:
+:PROPERTIES:
+:PLAN: plans/auth.org
+:END:
   Design and implement user auth.
 ** TODO Create user model
 ** STARTED Implement login endpoint
@@ -86,9 +89,24 @@ The file uses org-mode heading syntax:
 - **Priority** — optional, e.g. `[#A]`, `[#B]`, `[#C]`
 - **Summary** — the task title
 - **Tags** — optional, colon-delimited at end of line
-- **Description** — any non-heading text below a heading
+- **PLAN property** — optional org properties drawer value pointing to a relative org file with a detailed task plan
+- **Description** — any non-heading text below a heading, excluding the properties drawer
 
 Subtasks nest arbitrarily deep — any TODO heading under another becomes its child.
+
+### Linked plans
+
+A task can link to a detailed plan using an org properties drawer immediately below the heading:
+
+```org
+* TODO [#A] Implement authentication :backend:security:
+:PROPERTIES:
+:PLAN: plans/auth.org
+:END:
+  Parent task description.
+```
+
+The `PLAN` path is resolved relative to the org file that contains the property. The linked file is parsed with the same TODO heading syntax as `TASKS.org`; its tasks are injected into the overlay as children of the parent task. Status changes made to injected plan tasks are saved back to the linked plan file, not copied into `TASKS.org`.
 
 ## Dependencies
 

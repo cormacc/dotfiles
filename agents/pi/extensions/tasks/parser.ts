@@ -19,6 +19,16 @@ export interface Task {
   tags: string[];
   description: string;
   children: Task[];
+  /** Non-PLAN org property drawer lines, preserved on save. */
+  propertyLines: string[];
+  /** Optional relative path to an org file containing a detailed plan. */
+  planPath: string | null;
+  /** Parsed plan tasks, injected at render time as children of this task. */
+  planChildren?: Task[];
+  /** Absolute path of the source org file this task came from. */
+  sourcePath?: string;
+  /** Root task tree for sourcePath, used to save linked plan files. */
+  sourceRoot?: Task[];
   /** 1-indexed line number of the heading in the source file. */
   lineNumber: number;
 }
@@ -28,6 +38,10 @@ const ANY_HEADING_RE = /^(\*+)\s+(.*)$/;
 
 const HEADING_RE =
   /^(\*+)\s+(TODO|STARTED|WAITING|DONE)\s+(?:\[#([A-Z])\]\s+)?(.+)$/;
+
+const PROPERTIES_START_RE = /^\s*:PROPERTIES:\s*$/i;
+const PROPERTIES_END_RE = /^\s*:END:\s*$/i;
+const PLAN_PROPERTY_RE = /^\s*:PLAN:\s*(.*?)\s*$/i;
 
 /**
  * Parse a single heading line into its components.
@@ -60,10 +74,18 @@ function parseHeading(line: string): {
   return { level, status, priority: m[3] ?? null, summary, tags };
 }
 
+export interface ParseTasksOptions {
+  /** Absolute path of the file being parsed. */
+  sourcePath?: string;
+}
+
 /**
  * Parse the full content of a TASKS.org file into a task tree.
  */
-export function parseTasks(content: string): Task[] {
+export function parseTasks(
+  content: string,
+  options: ParseTasksOptions = {},
+): Task[] {
   const lines = content.split("\n");
   const root: Task[] = [];
 
@@ -100,6 +122,9 @@ export function parseTasks(content: string): Task[] {
         tags: heading.tags,
         description: "",
         children: [],
+        propertyLines: [],
+        planPath: null,
+        sourcePath: options.sourcePath,
         lineNumber: i + 1,
       };
 
@@ -121,6 +146,20 @@ export function parseTasks(content: string): Task[] {
 
       stack.push({ task, level: heading.level });
       currentTask = task;
+    } else if (currentTask && PROPERTIES_START_RE.test(line)) {
+      // Org properties drawer immediately below a heading. Currently we
+      // consume only :PLAN:, but skip the whole drawer so it doesn't become
+      // part of the task description.
+      for (i = i + 1; i < lines.length; i++) {
+        const propLine = lines[i]!;
+        if (PROPERTIES_END_RE.test(propLine)) break;
+        const plan = PLAN_PROPERTY_RE.exec(propLine);
+        if (plan) {
+          currentTask.planPath = plan[1]!.trim() || null;
+        } else {
+          currentTask.propertyLines.push(propLine);
+        }
+      }
     } else if (ANY_HEADING_RE.test(line)) {
       // Non-task heading (e.g. `* Notes`) — flush the current task's
       // description and stop attributing subsequent lines to it, so
@@ -137,6 +176,16 @@ export function parseTasks(content: string): Task[] {
 
   // Flush description for the last task
   flushDescription();
+
+  const attachSourceRoot = (tasks: Task[]) => {
+    for (const task of tasks) {
+      if (options.sourcePath) {
+        task.sourceRoot = root;
+      }
+      attachSourceRoot(task.children);
+    }
+  };
+  attachSourceRoot(root);
 
   return root;
 }
@@ -160,6 +209,13 @@ export function serializeTasks(tasks: Task[]): string {
       const prio = t.priority ? ` [#${t.priority}]` : "";
       const tags = t.tags.length > 0 ? ` :${t.tags.join(":")}:` : "";
       lines.push(`${stars} ${t.status}${prio} ${t.summary}${tags}`);
+      const propertyLines = [...t.propertyLines];
+      if (t.planPath) propertyLines.push(`:PLAN: ${t.planPath}`);
+      if (propertyLines.length > 0) {
+        lines.push(":PROPERTIES:");
+        lines.push(...propertyLines);
+        lines.push(":END:");
+      }
       if (t.description) {
         lines.push(t.description);
       }
