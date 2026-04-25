@@ -515,7 +515,7 @@ export default function (pi: ExtensionAPI) {
             overlay: true,
             overlayOptions: {
               width: "100%",
-              anchor: "bottom-center",
+              anchor: "center",
             },
           },
         );
