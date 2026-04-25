@@ -32,6 +32,7 @@
 (defconst org-user-packages
   '(
     (org-archive-subtree-hierarchical :location local)
+    (tasks-org :location local)
     org
     org-web-tools
     org-sidebar
@@ -160,6 +161,23 @@ Each entry is either:
 
 (defun org-user/init-org-archive-subtree-hierarchical ()
   (use-package org-archive-subtree-hierarchical))
+
+(defun org-user/init-tasks-org ()
+  (use-package tasks-org
+    :commands (tasks-org-mode
+               tasks-org-toggle-selected
+               tasks-org-ensure-id
+               tasks-org-backfill-ids-in-buffer
+               tasks-org-open-plan
+               tasks-org-jump-to-tasks)
+    :init
+    (spacemacs/declare-prefix-for-mode 'org-mode "mp" "tasks-org")
+    (spacemacs/set-leader-keys-for-major-mode 'org-mode
+      "ps" 'tasks-org-toggle-selected
+      "pi" 'tasks-org-ensure-id
+      "pI" 'tasks-org-backfill-ids-in-buffer
+      "pp" 'tasks-org-open-plan
+      "pt" 'tasks-org-jump-to-tasks)))
 
 (defun org-user/post-init-org-archive-subtree-hierarchical ()
   (setq org-archive-default-command 'org-archive-subtree-hierarchical))
