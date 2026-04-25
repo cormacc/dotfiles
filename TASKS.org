@@ -32,6 +32,7 @@ Some introductory text
 * Table of Contents                                         :TOC_2_gh:noexport:
 - [[#improvements][Improvements]]
   - [[#implement-an-org-based-memory-system-for-pi-agent][Implement an org-based memory system for pi-agent]]
+  - [[#refine-org-memoryplan-protocol][Refine org-memory/plan protocol]]
   - [[#add-some-sort-of-jira-integration-for-the-tasks-extension][Add some sort of Jira integration for the tasks extension]]
 - [[#housekeeping][Housekeeping]]
   - [[#waiting-c-update-nixgl-flake-url][WAITING [#C] Update nixGL flake URL]]
@@ -42,6 +43,12 @@ Some introductory text
 CLOSED: [2026-04-24 Fri 23:53]
 :PROPERTIES:
 :PLAN: design/log/2026-04-24-org-agent-memory.org
+:END:
+
+** TODO [#B] Refine org-memory/plan protocol :agents:selected:
+:PROPERTIES:
+:ID: 7a48756f-95b2-440c-9810-09a9ae60e452
+:PLAN: [[file:design/log/2026-04-25-refine-org-memory-plan-protocol.org]]
 :END:
 
 ** TODO [#C] Add some sort of Jira integration for the tasks extension
