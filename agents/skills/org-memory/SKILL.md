@@ -259,6 +259,10 @@ If `TASKS.org` does not exist and the user wants persistent task memory:
   when closing or editing tasks.
 - If a parent task's subtasks change state, update the parent status manually;
   do not assume tooling will propagate status automatically.
+- **Exception — pi tasks extension**: when a plan subtask's status is set to
+  `STARTED` through the extension UI, the extension automatically advances the
+  top-level `TASKS.org` ancestor from `TODO` to `STARTED`. Agents should still
+  update parent statuses explicitly when editing files directly.
 
 ## Using the pi tasks extension
 

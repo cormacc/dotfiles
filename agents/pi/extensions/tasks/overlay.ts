@@ -65,24 +65,18 @@ export class TasksOverlay {
     private onEdit?: (task: Task) => void,
     private onTasksChanged?: (tasks: Task[]) => void,
     private onEditPlan?: (task: Task) => void,
-    /**
-     * Archive the top-level task containing `task`.
-     * Returns true if archived (caller mutated `this.tasks` in place).
-     */
-    private onArchive?: (task: Task) => Promise<boolean>,
-    /**
-     * Create a new task. `parent` null = top-level. `insertAfter` null =
-     * append. Returns the created Task on success, null on cancel/error.
-     */
+    /** Request archiving after the expanded overlay closes so confirmation is visible. */
+    private onArchive?: (task: Task) => void,
+    /** Request task creation after the expanded overlay closes so input is visible. */
     private onNewTask?: (
       parent: Task | null,
       insertAfter: Task | null,
-    ) => Promise<Task | null>,
+    ) => void,
   ) {
     this.theme = theme;
     this.done = done;
-    // If the file already marks a selected task, reflect that view on open.
-    this.applySelectionView();
+    // If the file already marks a selected task, reflect that focused view on open.
+    this.applyDefaultCollapseView();
     this.rebuildRows();
     this.focusSelectedTask();
   }
@@ -208,19 +202,19 @@ export class TasksOverlay {
     // Only closed top-level tasks (DONE/CANCELLED) are archivable. Uses
     // shift+A so it's harder to hit by accident than lowercase 'a'.
     if (matchesKey(data, "A")) {
-      void this.archive();
+      this.archive();
       return;
     }
 
     // New sibling task at the cursor's hierarchy level.
     if (matchesKey(data, "n")) {
-      void this.createNewTask(false);
+      this.createNewTask(false);
       return;
     }
 
     // New child (subtask) under the task at the cursor.
     if (matchesKey(data, "N")) {
-      void this.createNewTask(true);
+      this.createNewTask(true);
       return;
     }
 
@@ -269,6 +263,15 @@ export class TasksOverlay {
     } else if (wasClosed) {
       row.task.closed = null;
     }
+    // When a subtask transitions to STARTED, auto-promote the top-level
+    // TASKS.org ancestor from TODO → STARTED so the parent reflects active
+    // work without requiring a manual status bump.
+    if (nextStatus === "STARTED") {
+      const root = this.findTopLevelRoot(row.task);
+      if (root && root !== row.task && root.status === "TODO") {
+        root.status = "STARTED";
+      }
+    }
     this.persistChange();
     this.invalidate();
   }
@@ -291,7 +294,7 @@ export class TasksOverlay {
     return this.tasks.find(contains) ?? null;
   }
 
-  private async createNewTask(asChild: boolean): Promise<void> {
+  private createNewTask(asChild: boolean): void {
     if (!this.onNewTask) return;
     const row = this.rows[this.cursor];
     let parent: Task | null;
@@ -305,26 +308,17 @@ export class TasksOverlay {
       parent = row?.parent ?? null;
       insertAfter = row?.task ?? null;
     }
-    const newTask = await this.onNewTask(parent, insertAfter);
-    if (newTask) {
-      this.rebuildRows();
-      const idx = this.rows.findIndex((r) => r.task === newTask);
-      if (idx >= 0) this.cursor = idx;
-      this.invalidate();
-    }
+    this.onNewTask(parent, insertAfter);
+    this.done(undefined);
   }
 
-  private async archive(): Promise<void> {
+  private archive(): void {
     const row = this.rows[this.cursor];
     if (!row || !this.onArchive) return;
     const topLevel = this.findTopLevelRoot(row.task);
     if (!topLevel) return;
-    const archived = await this.onArchive(topLevel);
-    if (archived) {
-      // `this.tasks` was mutated in place by the handler.
-      this.rebuildRows();
-      this.invalidate();
-    }
+    this.onArchive(topLevel);
+    this.done(undefined);
   }
 
   private findSelectedTask(tasks: Task[] = this.tasks): Task | null {
@@ -357,7 +351,7 @@ export class TasksOverlay {
       target.tags.push(SELECTED_TAG);
     }
 
-    this.applySelectionView();
+    this.applyDefaultCollapseView();
     this.rebuildRows();
     // Keep the cursor on the task the user just toggled, if still visible.
     const newIdx = this.rows.findIndex((r) => r.task === target);
@@ -366,36 +360,47 @@ export class TasksOverlay {
     this.invalidate();
   }
 
+  private pathToTask(target: Task): Task[] {
+    const search = (tasks: Task[], path: Task[]): Task[] | null => {
+      for (const task of tasks) {
+        const next = [...path, task];
+        if (task === target) return next;
+        const found = search(this.taskChildren(task), next);
+        if (found) return found;
+      }
+      return null;
+    };
+    return search(this.tasks, []) ?? [];
+  }
+
   /**
-   * When a task is selected, keep the entire top-level TASKS.org task that
-   * contains it expanded. This lets the :selected: marker move down into
-   * subtasks while preserving the larger workstream as the visible tree.
-   * When nothing is selected, drop all auto-collapses.
+   * Default collapse rules:
+   * - no selection: show top-level tasks only;
+   * - with selection: keep the selected path visible, collapse sibling subtrees;
+   * - completed subtrees are collapsed unless they are required to reveal the selection.
    */
-  private applySelectionView(): void {
+  private applyDefaultCollapseView(): void {
     this.collapsedSet = new WeakSet<Task>();
     const selected = this.findSelectedTask();
-    const selectionRoot = selected ? this.findTopLevelRoot(selected) : null;
-    if (!selectionRoot) return;
+    const selectedPath = selected ? this.pathToTask(selected) : [];
+    const keepVisible = new WeakSet<Task>(selectedPath);
 
-    const keepExpanded = new WeakSet<Task>();
-    const markSubtree = (t: Task) => {
-      keepExpanded.add(t);
-      for (const c of this.taskChildren(t)) markSubtree(c);
-    };
-    markSubtree(selectionRoot);
-
-    // Collapse anything outside that top-level tree.
-    const collapseOthers = (tasks: Task[]) => {
-      for (const t of tasks) {
-        const children = this.taskChildren(t);
-        if (!keepExpanded.has(t) && children.length > 0) {
-          this.collapsedSet.add(t);
+    const walk = (tasks: Task[]) => {
+      for (const task of tasks) {
+        const children = this.taskChildren(task);
+        if (children.length > 0) {
+          if (!selected) {
+            this.collapsedSet.add(task);
+          } else if (!keepVisible.has(task)) {
+            this.collapsedSet.add(task);
+          } else if (CLOSED_STATUSES.has(task.status) && task !== selected) {
+            this.collapsedSet.add(task);
+          }
         }
-        collapseOthers(children);
+        walk(children);
       }
     };
-    collapseOthers(this.tasks);
+    walk(this.tasks);
   }
 
   private persistChange(): void {
@@ -606,10 +611,30 @@ export class TasksOverlay {
     rightLines.push("");
 
     if (cursorRow) {
-      const desc = cursorRow.task.description.trim();
+      const task = cursorRow.task;
+      const wrapWidth = Math.max(10, rightW - 2);
+      const planLabel = task.planRaw ?? task.planPath;
+      if (planLabel) {
+        rightLines.push(th.fg("accent", " Plan"));
+        for (const l of wrapTextWithAnsi(` ${planLabel}`, wrapWidth)) {
+          rightLines.push(th.fg("text", l));
+        }
+        if (task.planError) {
+          rightLines.push(th.fg("warning", ` Missing/unreadable: ${task.planError}`));
+        } else {
+          const n = task.planChildren?.length ?? 0;
+          const label = n === 1 ? "task" : "tasks";
+          rightLines.push(th.fg("dim", ` ${n} linked plan ${label} loaded`));
+        }
+        rightLines.push("");
+      } else {
+        rightLines.push(th.fg("dim", " Plan: none — press p to create"));
+        rightLines.push("");
+      }
+
+      const desc = task.description.trim();
       if (desc) {
         // Word-wrap the description to fit the right pane
-        const wrapWidth = Math.max(10, rightW - 2);
         const rawLines = desc.split("\n");
         const wrapped: string[] = [];
         for (const raw of rawLines) {
@@ -622,25 +647,27 @@ export class TasksOverlay {
         }
 
         // Clamp desc scroll
-        const maxDescScroll = Math.max(0, wrapped.length - maxVisible);
+        const metadataLines = rightLines.length - 2;
+        const descWindow = Math.max(5, maxVisible - metadataLines);
+        const maxDescScroll = Math.max(0, wrapped.length - descWindow);
         if (this.descScrollOffset > maxDescScroll) {
           this.descScrollOffset = maxDescScroll;
         }
 
         const visibleDesc = wrapped.slice(
           this.descScrollOffset,
-          this.descScrollOffset + maxVisible,
+          this.descScrollOffset + descWindow,
         );
         for (const l of visibleDesc) {
           rightLines.push(" " + th.fg("text", l));
         }
 
-        if (wrapped.length > maxVisible) {
+        if (wrapped.length > descWindow) {
           rightLines.push("");
           rightLines.push(
             th.fg(
               "dim",
-              ` Ctrl-d/u scroll (${this.descScrollOffset + 1}-${Math.min(this.descScrollOffset + maxVisible, wrapped.length)}/${wrapped.length})`,
+              ` Ctrl-d/u scroll (${this.descScrollOffset + 1}-${Math.min(this.descScrollOffset + descWindow, wrapped.length)}/${wrapped.length})`,
             ),
           );
         }

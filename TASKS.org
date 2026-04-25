@@ -30,51 +30,27 @@
 
 Some introductory text
 
-* Table of Contents                                         :TOC_2_gh:noexport:
+* Table of Contents                                         :TOC_1_gh:noexport:
 - [[#improvements][Improvements]]
-  - [[#implement-an-org-based-memory-system-for-pi-agent][Implement an org-based memory system for pi-agent]]
-  - [[#refine-org-memoryplan-protocol][Refine org-memory/plan protocol]]
-  - [[#add-some-sort-of-jira-integration-for-the-tasks-extension][Add some sort of Jira integration for the tasks extension]]
 - [[#housekeeping][Housekeeping]]
-  - [[#waiting-c-update-nixgl-flake-url][WAITING [#C] Update nixGL flake URL]]
 
 * Improvements
-
-** DONE [#A] Implement an org-based memory system for pi-agent      :agents:
-CLOSED: [2026-04-24 Fri 23:53]
-:PROPERTIES:
-:ID: 9ae2bf39-c61c-4a2d-8fa5-882a5ce3eca7
-:PLAN: design/log/2026-04-24-org-agent-memory.org
-:END:
-
-** DONE [#B] Refine org-memory/plan protocol :agents:selected:
-CLOSED: [2026-04-25 Sat 13:03]
-:PROPERTIES:
-:ID: 7a48756f-95b2-440c-9810-09a9ae60e452
-:PLAN: [[file:design/log/2026-04-25-refine-org-memory-plan-protocol.org]]
-:END:
-[2026-04-25 Sat] Implemented skill protocol refinements, task extension round-trip preservation, and ID backfill.
-
 ** TODO [#C] Add some sort of Jira integration for the tasks extension
 :PROPERTIES:
 :ID: 0276a6c7-0ca8-4c39-a90a-05587ad64698
 :END:
-
-*** TODO [#B] Setup Jira infrastructure
+*** TODO [#C] Setup Jira infrastructure
 :PROPERTIES:
 :ID: d618bcc1-9481-4431-a572-8a1f17612e4f
 :END:
 Setup appropriate tools and docs around Jira connection.
 - Login (?Oauth?)
 - List projects, issues etc. Maybe piggyback on JQL support provided by ?various vendors?.
-
 *** TODO [#C] Claim Jira tasks
 :PROPERTIES:
 :ID: edbea049-3a56-40ad-9aa5-660843364524
 :END:
-
 Ideally we'd be able to pull an item from Jira and create a task here...
-
 *** TODO [#C] Reference jira tasks
 :PROPERTIES:
 :ID: 097a6e4f-6752-4f97-8b41-f416f8b47384
@@ -82,8 +58,34 @@ Ideally we'd be able to pull an item from Jira and create a task here...
 Update the tasks extension and related skills to allow us to reference jira issue types.
 The most ergonomic approach from a user perspective would be to just include issue IDS -- but where -- in properties?
 And maybe embed a Jira URL in TASKS.org header metadata....
-
-
+** TODO [#C] Add emacs-side tooling for tasks extension
+:PROPERTIES:
+:ID: 2b87d48c-d158-44ff-8fea-87c99b570144
+:END:
+A couple of ideas for minor QOL improvements on the editor side...
+- Auto-populate expected properties fields when creating tasks in emacs
+- Add keybindings to toggle selection of a given issue
+- Bi-directional sync/refresh on edit
+** STARTED [#A] Refine tasks extension :selected:
+:PROPERTIES:
+:ID: f92b7b2f-c7fc-4933-9e27-20c0e411cbe4
+:PLAN: [[file:design/log/2026-04-25-refine-tasks-extension.org]]
+:END:
+UX and persistence refinements for the pi tasks extension. See linked plan
+for the full breakdown. Scope:
+- Auto-insert missing org IDs on load.
+- Merge the modal selection/edit overlay with the persistent selected-task
+  status display into a single expand/collapse UI owner.
+- Fix creation, archiving, and plan prompts that are currently masked by
+  the overlay.
+- Collapse subtrees by default on overlay open.
+- Surface linked-plan metadata in the details pane.
+- Place the compact selected-task UI so it doesn't mask conversation
+  scrollback.
+[2026-04-25 Sat] Implemented the first pass in the linked plan: ID backfill,
+compact above-editor widget, expanded UI prompt handoff, default collapse,
+plan metadata display, README updates, and generated keybindings map. Final
+interactive `/reload` and UI smoke tests remain to close validation.
 * Housekeeping
 
 ** WAITING [#C] Update nixGL flake URL :nix:

@@ -1,19 +1,19 @@
 /**
  * Tasks Extension — track project tasks using org-mode TODO syntax.
  *
- * Reads TASKS.org from the project root and displays tasks in a tree overlay.
+ * Reads TASKS.org from the project root and displays tasks in an expandable tree UI.
  *
  * Commands:
- *   /tasks — open the tasks overlay
+ *   /tasks — expand the tasks UI
+ *   /tasks new — create a new top-level task
  *
  * Keybindings (via the keybindings extension):
- *   <leader> t t — open the tasks overlay
+ *   <leader> t t — expand the tasks UI
  *
  * Persistent UI:
- *   When a task is marked :selected: in TASKS.org, a non-capturing overlay is
- *   pinned to the top of the terminal viewport and shows that task plus its
- *   subtasks. It is refreshed on startup and immediately as the /tasks overlay
- *   mutates task status/selection.
+ *   When a task is marked :selected: in TASKS.org, a compact widget above the
+ *   editor shows that task plus a few subtasks. It is refreshed on startup and
+ *   immediately as the expanded /tasks UI mutates task status/selection.
  */
 
 import type {
@@ -25,13 +25,12 @@ import {
   truncateToWidth,
   visibleWidth,
   type Component,
-  type OverlayHandle,
   type TUI,
 } from "@mariozechner/pi-tui";
 import { watch, type FSWatcher } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.ts";
 import { ensureEmacsServer } from "../emacsclient/emacsclient.ts";
 import { TasksOverlay } from "./overlay.ts";
@@ -40,6 +39,7 @@ import {
   parseTasks,
   serializeTasks,
   serializeTasksPreservingFile,
+  taskHasId,
   type Task,
 } from "./parser.ts";
 import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
@@ -49,19 +49,19 @@ const TASKS_FILE = "TASKS.org";
 const TASKS_ARCHIVE_FILE = "TASKS.ARCHIVE.org";
 const SELECTED_TAG = "selected";
 const CLOSED_STATUSES = new Set<string>(["DONE", "CANCELLED"]);
-/** Hard cap so the pinned overlay never dominates the screen. */
-const MAX_PINNED_LINES = 12;
+/** Hard cap so the compact selected-task widget never dominates the screen. */
+const MAX_COMPACT_LINES = 6;
+const COMPACT_WIDGET_ID = "tasks:selected";
 
 /** Cleanup handle for keybinding suggestions. */
 let cleanupKb: (() => void) | null = null;
 
-/** Persistent top-pinned overlay state. */
-let pinnedOverlayHandle: OverlayHandle | null = null;
-let pinnedOverlayComponent: PinnedTasksOverlay | null = null;
-let pinnedOverlayTui: TUI | null = null;
+/** Compact selected-task widget state. */
+let compactWidgetComponent: CompactTasksWidget | null = null;
+let compactWidgetTui: TUI | null = null;
 
 /**
- * File-watcher state. The pinned overlay refreshes on external edits
+ * File-watcher state. The compact selected-task widget refreshes on external edits
  * (e.g. saving TASKS.org or a linked plan file in Emacs) without requiring
  * the /tasks modal to be reopened.
  */
@@ -69,7 +69,7 @@ const fileWatchers = new Map<string, FSWatcher>();
 let watchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let activeCtx: ExtensionContext | null = null;
 
-/** Collect every path whose changes should trigger a pinned-overlay refresh. */
+/** Collect every path whose changes should trigger a compact-widget refresh. */
 function collectWatchPaths(tasks: Task[], cwd: string): Set<string> {
   const paths = new Set<string>();
   paths.add(join(cwd, TASKS_FILE));
@@ -131,7 +131,7 @@ function scheduleRefresh(): void {
   watchDebounceTimer = setTimeout(() => {
     watchDebounceTimer = null;
     const ctx = activeCtx;
-    if (ctx) void refreshPinnedOverlay(ctx, ctx.cwd);
+    if (ctx) void refreshTaskUi(ctx, ctx.cwd);
   }, 150);
 }
 
@@ -141,6 +141,11 @@ async function loadTasks(cwd: string): Promise<Task[]> {
     const content = await readFile(sourcePath, "utf-8");
     const tasks = parseTasks(content, { sourcePath });
     await loadLinkedPlans(tasks, sourcePath);
+    try {
+      await backfillMissingIds(cwd, tasks);
+    } catch {
+      // Keep the UI usable even if the automatic ID backfill cannot write.
+    }
     return tasks;
   } catch {
     return [];
@@ -150,7 +155,7 @@ async function loadTasks(cwd: string): Promise<Task[]> {
 async function loadLinkedPlans(
   tasks: Task[],
   sourcePath: string,
-  cache = new Map<string, Task[]>(),
+  cache = new Map<string, { tasks: Task[]; error: string | null }>(),
 ): Promise<void> {
   const sourceDir = dirname(sourcePath);
   for (const task of tasks) {
@@ -160,22 +165,49 @@ async function loadLinkedPlans(
         : resolve(sourceDir, task.planPath);
       const cached = cache.get(planPath);
       if (cached) {
-        task.planChildren = cached;
+        task.planChildren = cached.tasks;
+        task.planError = cached.error;
       } else {
         try {
           const content = await readFile(planPath, "utf-8");
           const planTasks = parseTasks(content, { sourcePath: planPath });
-          cache.set(planPath, planTasks);
+          const entry = { tasks: planTasks, error: null };
+          cache.set(planPath, entry);
           await loadLinkedPlans(planTasks, planPath, cache);
           task.planChildren = planTasks;
-        } catch {
+          task.planError = null;
+        } catch (err) {
+          const error = (err as Error).message;
           task.planChildren = [];
-          cache.set(planPath, task.planChildren);
+          task.planError = error;
+          cache.set(planPath, { tasks: task.planChildren, error });
         }
       }
     }
     await loadLinkedPlans(task.children, sourcePath, cache);
   }
+}
+
+async function backfillMissingIds(cwd: string, tasks: Task[]): Promise<void> {
+  const changedRoots = new Map<string, Task[]>();
+  const visit = (taskList: Task[]) => {
+    for (const task of taskList) {
+      if (!taskHasId(task)) {
+        task.propertyLines.unshift(`:ID: ${randomUUID()}`);
+        const sourcePath = task.sourcePath ?? join(cwd, TASKS_FILE);
+        changedRoots.set(sourcePath, task.sourceRoot ?? tasks);
+      }
+      visit(task.children);
+      if (task.planChildren) visit(task.planChildren);
+    }
+  };
+  visit(tasks);
+
+  await Promise.all(
+    [...changedRoots.entries()].map(([path, root]) =>
+      writeTaskFilePreserving(path, root),
+    ),
+  );
 }
 
 function taskChildren(task: Task): Task[] {
@@ -223,19 +255,13 @@ function border(width: number, theme: Theme, fill = "─"): string {
   return theme.fg("border", fill.repeat(Math.max(0, width)));
 }
 
-function centeredBorder(label: string, width: number, theme: Theme): string {
-  const text = ` ${label} `;
-  const remaining = Math.max(0, width - visibleWidth(text));
-  const left = Math.floor(remaining / 2);
-  const right = remaining - left;
-  return theme.fg(
-    "borderMuted",
-    `${"─".repeat(left)}${text}${"─".repeat(right)}`,
-  );
+function formatPlanLabel(planPath: string): string {
+  if (isAbsolute(planPath) || planPath.startsWith(".")) return planPath;
+  return `./${planPath}`;
 }
 
-/** Build the pinned overlay's pre-styled lines, or undefined if nothing is selected. */
-function buildPinnedLines(
+/** Build the compact selected-task widget's pre-styled lines, or undefined if nothing is selected. */
+function buildCompactLines(
   tasks: Task[],
   theme: Theme,
   width: number,
@@ -247,7 +273,7 @@ function buildPinnedLines(
   const hasLinkedPlan = !!selectionRoot.planPath &&
     (selectionRoot.planChildren?.length ?? 0) > 0;
   const headerLines = [
-    theme.fg("accent", theme.bold("── Selected task ──")),
+    border(width, theme),
     formatTaskLine(
       selectionRoot,
       "",
@@ -257,12 +283,15 @@ function buildPinnedLines(
   ];
   if (hasLinkedPlan) {
     headerLines.push(
-      centeredBorder(basename(selectionRoot.planPath!), width, theme),
+      truncateToWidth(
+        theme.fg("borderMuted", `  ${formatPlanLabel(selectionRoot.planPath!)}`),
+        width,
+      ),
     );
   }
   const maxSubtaskLines = Math.max(
     0,
-    MAX_PINNED_LINES - headerLines.length - 1,
+    MAX_COMPACT_LINES - headerLines.length,
   );
 
   const flattened: { task: Task; depth: number }[] = [];
@@ -278,7 +307,7 @@ function buildPinnedLines(
   let hiddenCompleted = 0;
 
   // If truncation is needed, reclaim space from completed subtasks first,
-  // scanning from the head so the pinned view favours the selected task's
+  // scanning from the head so the compact view favours the selected task's
   // next pending work over old completed history.
   while (
     visible.length + (hiddenCompleted > 0 ? 1 : 0) > maxSubtaskLines
@@ -321,12 +350,10 @@ function buildPinnedLines(
     lines.push(theme.fg("dim", `  … ${hiddenMore} more ${label}`));
   }
 
-  lines.push(border(width, theme));
-
   return lines;
 }
 
-class PinnedTasksOverlay implements Component {
+class CompactTasksWidget implements Component {
   constructor(
     private tasks: Task[],
     private readonly theme: Theme,
@@ -337,107 +364,57 @@ class PinnedTasksOverlay implements Component {
   }
 
   render(width: number): string[] {
-    const lines = buildPinnedLines(this.tasks, this.theme, width) ?? [];
+    const lines = buildCompactLines(this.tasks, this.theme, width) ?? [];
     return lines.map((l) => truncateToWidth(l, width));
   }
 
   invalidate(): void {}
 }
 
-function clearPinnedOverlay(): void {
-  pinnedOverlayHandle?.hide();
-  pinnedOverlayHandle = null;
-  pinnedOverlayComponent = null;
-  pinnedOverlayTui = null;
+function clearCompactWidget(ctx?: ExtensionContext): void {
+  if (ctx?.hasUI) ctx.ui.setWidget(COMPACT_WIDGET_ID, undefined);
+  compactWidgetComponent = null;
+  compactWidgetTui = null;
 }
 
-/**
- * Sync the persistent top-pinned selection overlay with a task tree.
- *
- * This intentionally uses a non-capturing overlay instead of ctx.ui.setHeader().
- * pi renders the header as part of the scrollback buffer, so it scrolls out of
- * the visible viewport in active sessions. An overlay is composited against the
- * current terminal viewport and can therefore stay pinned to row 0.
- *
- * If `createWhenUnselected` is true, a hidden overlay is created even with no
- * current selection. The /tasks command uses that before opening its modal
- * overlay so a later `s` key can reveal/update the pinned overlay immediately
- * without adding a newer overlay above the modal (which would confuse pi's
- * topmost-overlay close behavior).
- */
-async function syncPinnedOverlay(
+function syncCompactWidget(
   ctx: ExtensionContext,
   tasks: Task[],
-  createWhenUnselected = false,
-): Promise<void> {
+  hidden = false,
+): void {
   if (!ctx.hasUI) return;
-
   const hasSelectedTask = findSelectedTask(tasks) !== null;
-  if (!hasSelectedTask && !createWhenUnselected && !pinnedOverlayHandle) {
+  if (hidden || !hasSelectedTask) {
+    clearCompactWidget(ctx);
     return;
   }
 
-  if (pinnedOverlayComponent && pinnedOverlayHandle) {
-    pinnedOverlayComponent.setTasks(tasks);
-    pinnedOverlayHandle.setHidden(!hasSelectedTask);
-    pinnedOverlayTui?.requestRender();
+  if (compactWidgetComponent) {
+    compactWidgetComponent.setTasks(tasks);
+    compactWidgetTui?.requestRender();
     return;
   }
 
-  if (!hasSelectedTask && !createWhenUnselected) return;
-
-  await new Promise<void>((resolve) => {
-    let resolved = false;
-    const finish = () => {
-      if (!resolved) {
-        resolved = true;
-        resolve();
-      }
-    };
-
-    void ctx.ui
-      .custom<undefined>(
-        (tui, theme) => {
-          pinnedOverlayTui = tui;
-          pinnedOverlayComponent = new PinnedTasksOverlay(tasks, theme);
-          return pinnedOverlayComponent;
-        },
-        {
-          overlay: true,
-          overlayOptions: {
-            anchor: "top-center",
-            width: "100%",
-            maxHeight: MAX_PINNED_LINES + 2,
-            margin: 0,
-            offsetY: 0,
-            nonCapturing: true,
-          },
-          onHandle: (handle) => {
-            pinnedOverlayHandle = handle;
-            pinnedOverlayHandle.setHidden(!hasSelectedTask);
-            finish();
-          },
-        },
-      )
-      .catch(() => {
-        clearPinnedOverlay();
-        finish();
-      });
+  ctx.ui.setWidget(COMPACT_WIDGET_ID, (tui, theme) => {
+    compactWidgetTui = tui;
+    compactWidgetComponent = new CompactTasksWidget(tasks, theme);
+    return compactWidgetComponent;
   });
 }
 
-async function refreshPinnedOverlay(
+async function refreshTaskUi(
   ctx: ExtensionContext,
   cwd: string,
-): Promise<void> {
+): Promise<Task[]> {
   activeCtx = ctx;
   const tasks = await loadTasks(cwd);
-  await syncPinnedOverlay(ctx, tasks);
+  syncCompactWidget(ctx, tasks);
   updateFileWatchers(collectWatchPaths(tasks, cwd));
+  return tasks;
 }
 
 export default function (pi: ExtensionAPI) {
-  // ── Keybinding suggestions + startup pinned overlay restore ─────────
+  // ── Keybinding suggestions + startup compact widget restore ─────────
 
   pi.on("session_start", async (_ev, ctx) => {
     cleanupKb = suggestKeybindings(pi, EXT_NAME, {
@@ -458,15 +435,15 @@ export default function (pi: ExtensionAPI) {
       },
     });
 
-    await refreshPinnedOverlay(ctx, ctx.cwd);
+    await refreshTaskUi(ctx, ctx.cwd);
   });
 
   pi.on("session_shutdown", async () => {
     cleanupKb?.();
     cleanupKb = null;
     closeAllFileWatchers();
+    clearCompactWidget(activeCtx ?? undefined);
     activeCtx = null;
-    clearPinnedOverlay();
   });
 
   // ── /tasks command ──────────────────────────────────────────────────
@@ -484,82 +461,109 @@ export default function (pi: ExtensionAPI) {
         const tasks = await loadTasks(ctx.cwd);
         const created = await createTask(ctx, tasks, ctx.cwd, null, null);
         if (created) {
-          await syncPinnedOverlay(ctx, tasks);
-          updateFileWatchers(collectWatchPaths(tasks, ctx.cwd));
+          await refreshTaskUi(ctx, ctx.cwd);
         }
         return;
       }
 
-      const tasks = await loadTasks(ctx.cwd);
+      type WorkflowRequest =
+        | { type: "archive"; task: Task }
+        | { type: "create"; parent: Task | null; insertAfter: Task | null }
+        | { type: "edit"; task: Task }
+        | { type: "plan"; task: Task };
 
-      // Ensure the pinned overlay exists before the modal /tasks overlay is
-      // pushed. That lets status/selection changes update it immediately while
-      // keeping it below the modal in pi's overlay stack.
-      await syncPinnedOverlay(ctx, tasks, true);
+      let reopen = true;
+      let tasks = await loadTasks(ctx.cwd);
+      while (reopen) {
+        clearCompactWidget(ctx);
+        const workflow: { request: WorkflowRequest | null } = { request: null };
 
-      const onEdit = async (task: Task) => {
-        const filePath = task.sourcePath ?? join(ctx.cwd, TASKS_FILE);
-        const ok = await ensureEmacsServer(getEmacsOptions(pi));
-        if (!ok) {
-          ctx.ui.notify("Could not reach or start Emacs server", "error");
-          return;
-        }
-        pi.events.emit("emacs:open", { file: filePath, line: task.lineNumber });
-      };
+        const onEdit = (task: Task) => {
+          workflow.request = { type: "edit", task };
+        };
 
-      const onTasksChanged = (updatedTasks: Task[]) => {
-        void syncPinnedOverlay(ctx, updatedTasks, false);
-      };
+        const onTasksChanged = (_updatedTasks: Task[]) => {
+          // Compact state is intentionally hidden while expanded; refresh after close.
+        };
 
-      // The overlay closes immediately after `p`; we capture the target
-      // task here and run the plan-edit flow once control returns.
-      let planEditRequest: Task | null = null;
-      const onEditPlan = (task: Task) => {
-        planEditRequest = task;
-      };
+        const onEditPlan = (task: Task) => {
+          workflow.request = { type: "plan", task };
+        };
 
-      const onArchive = (topLevel: Task) =>
-        archiveTopLevel(ctx, tasks, topLevel);
+        const onArchive = (topLevel: Task) => {
+          workflow.request = { type: "archive", task: topLevel };
+        };
 
-      const onNewTask = (
-        parent: Task | null,
-        insertAfter: Task | null,
-      ) => createTask(ctx, tasks, ctx.cwd, parent, insertAfter);
+        const onNewTask = (parent: Task | null, insertAfter: Task | null) => {
+          workflow.request = { type: "create", parent, insertAfter };
+        };
 
-      await ctx.ui.custom<undefined>(
-        (_tui, theme, _kb, done) =>
-          new TasksOverlay(
-            tasks,
-            ctx.cwd,
-            theme,
-            done,
-            onEdit,
-            onTasksChanged,
-            onEditPlan,
-            onArchive,
-            onNewTask,
-          ),
-        {
-          overlay: true,
-          overlayOptions: {
-            width: "90%",
-            minWidth: 80,
-            anchor: "center",
+        await ctx.ui.custom(
+          (_tui, theme, _kb, done) =>
+            new TasksOverlay(
+              tasks,
+              ctx.cwd,
+              theme,
+              done,
+              onEdit,
+              onTasksChanged,
+              onEditPlan,
+              onArchive,
+              onNewTask,
+            ),
+          {
+            overlay: true,
+            overlayOptions: {
+              width: "100%",
+              anchor: "bottom-center",
+            },
           },
-        },
-      );
+        );
 
-      if (planEditRequest) {
-        await handlePlanEdit(pi, ctx, planEditRequest);
+        const request = workflow.request as WorkflowRequest | null;
+        if (!request) {
+          reopen = false;
+          continue;
+        }
+
+        if (request.type === "edit") {
+          await openTaskInEmacs(pi, ctx, request.task);
+          reopen = false;
+        } else if (request.type === "plan") {
+          await handlePlanEdit(pi, ctx, request.task);
+          reopen = false;
+        } else if (request.type === "archive") {
+          await archiveTopLevel(ctx, tasks, request.task);
+          tasks = await loadTasks(ctx.cwd);
+          reopen = true;
+        } else if (request.type === "create") {
+          await createTask(ctx, tasks, ctx.cwd, request.parent, request.insertAfter);
+          tasks = await loadTasks(ctx.cwd);
+          reopen = true;
+        }
       }
 
       // Re-read from disk after close to converge with the saved file state.
-      await refreshPinnedOverlay(ctx, ctx.cwd);
+      await refreshTaskUi(ctx, ctx.cwd);
     },
   });
 }
 
-// ── Plan-edit flow ────────────────────────────────────────────────────
+// ── Emacs / plan-edit flows ───────────────────────────────────────────
+
+async function openTaskInEmacs(
+  pi: ExtensionAPI,
+  ctx: ExtensionContext,
+  task: Task,
+): Promise<void> {
+  const filePath = task.sourcePath ?? join(ctx.cwd, TASKS_FILE);
+  const ok = await ensureEmacsServer(getEmacsOptions(pi));
+  if (!ok) {
+    ctx.ui.notify("Could not reach or start Emacs server", "error");
+    return;
+  }
+  pi.events.emit("emacs:open", { file: filePath, line: task.lineNumber });
+}
 
 /** Lowercase ASCII slug: letters/digits/hyphens, collapsed, trimmed, ≤ 40 chars. */
 function slugify(summary: string): string {
@@ -912,6 +916,6 @@ async function archiveTopLevel(
   }
 
   ctx.ui.notify(`Archived: ${topLevel.summary}`, "info");
-  await refreshPinnedOverlay(ctx, ctx.cwd);
+  await refreshTaskUi(ctx, ctx.cwd);
   return true;
 }

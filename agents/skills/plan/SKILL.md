@@ -190,7 +190,10 @@ Before starting implementation:
 3. If using org-memory/task tooling, respect the current `:selected:` marker as
    the active task signal. Agents should not write or clear `:selected:`
    directly unless explicitly asked or acting through a task-selection tool.
-4. Mark the task `STARTED` if beginning work now.
+4. Mark the task `STARTED` if beginning work now. When using the pi tasks
+   extension, setting a plan subtask to `STARTED` automatically advances the
+   top-level `TASKS.org` ancestor from `TODO` to `STARTED` if it has not yet
+   begun. Update the parent manually when editing files directly.
 5. Implement the smallest change that satisfies the task.
 6. Verify the change.
 7. Mark the task `DONE` and add a short result note if useful.
