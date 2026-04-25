@@ -466,9 +466,6 @@ export class TasksOverlay {
     // ── Build left pane lines ──
     const leftLines: string[] = [];
 
-    // Header
-    leftLines.push(th.fg("accent", th.bold(" Tasks")));
-    leftLines.push("");
 
     if (this.rows.length === 0) {
       leftLines.push(th.fg("dim", " No tasks found."));
@@ -606,13 +603,14 @@ export class TasksOverlay {
     const rightLines: string[] = [];
     const cursorRow = this.rows[this.cursor];
 
-    // Right pane header
-    rightLines.push(th.fg("accent", th.bold(" Description")));
-    rightLines.push("");
-
     if (cursorRow) {
       const task = cursorRow.task;
       const wrapWidth = Math.max(10, rightW - 2);
+
+      // Task title and status
+      rightLines.push(` ${colorStatus(task.status)} ${th.fg("accent", th.bold(task.summary))}`);
+      rightLines.push("");
+
       const planLabel = task.planRaw ?? task.planPath;
       if (planLabel) {
         rightLines.push(th.fg("accent", " Plan"));
@@ -707,6 +705,7 @@ export class TasksOverlay {
       " ↑↓/jk nav • ←→/hl status • Enter toggle • s select • e edit • p plan • n new • N subtask • A archive • Ctrl-d/u scroll • q close",
     );
     lines.push(truncateToWidth(pad(helpText, width), width));
+    lines.push(th.fg("border", hBar(width)));
 
     this.cachedWidth = width;
     this.cachedLines = lines;

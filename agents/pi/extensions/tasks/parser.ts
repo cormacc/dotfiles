@@ -69,6 +69,13 @@ const ID_PROPERTY_RE = /^\s*:ID:\s*(\S+)\s*$/i;
  * Returns null when the value isn't an org link.
  */
 const ORG_LINK_RE = /^\[\[(?:file:)?([^\]]+?)\](?:\[[^\]]*\])?\]$/;
+
+/** Extract a target path from an org link expression, or null for non-link text. */
+export function extractOrgLinkTarget(value: string): string | null {
+  const match = ORG_LINK_RE.exec(value.trim());
+  return match?.[1]?.trim() || null;
+}
+
 /** Matches an org CLOSED timestamp line, e.g. `CLOSED: [2026-04-24 Fri 14:30]`. */
 const CLOSED_RE = /^\s*CLOSED:\s*\[([^\]]+)\]\s*$/;
 
@@ -228,11 +235,11 @@ export function parseTasks(
         if (plan) {
           const raw = plan[1]!.trim();
           if (raw) {
-            const link = ORG_LINK_RE.exec(raw);
-            currentTask.planPath = link ? link[1]!.trim() : raw;
+            const linkTarget = extractOrgLinkTarget(raw);
+            currentTask.planPath = linkTarget ?? raw;
             // Only keep the raw form when it differs from the bare path, so
             // plain-text entries round-trip cleanly without extra state.
-            currentTask.planRaw = link ? raw : null;
+            currentTask.planRaw = linkTarget ? raw : null;
           } else {
             currentTask.planPath = null;
             currentTask.planRaw = null;

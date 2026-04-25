@@ -1,3 +1,27 @@
+#+TITLE: Org Agent Memory and Tasks Extension
+#+DATE: 2026-04-24 Fri
+#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
+
+* Context
+This retrospective plan records the first implementation of plain-org project
+memory in this repository: `TASKS.org` as the durable task index, linked org plan
+files via `:PLAN:`, and the pi tasks extension as an optional UI over those
+files. The work established parser/serializer support, task selection, linked
+plans, archive handling, and the initial `org-memory` and `plan` skills.
+
+** Design decisions
+- Plain org files are the source of truth; pi provides UI but must not be
+  required to read or maintain task memory.
+- `TASKS.org` stays high-level, while detailed workstreams can live in linked
+  plan files.
+- `:selected:` is a reserved operational tag managed by task-selection tooling.
+- `:PLAN:` values should prefer clickable org file links while preserving older
+  bare-path forms.
+- `org-memory` owns the durable file protocol; `plan` owns implementation-plan
+  structure and execution workflow.
+
+* Plan
+
 ** DONE [#A] Establish TASKS.org as the project task source :tasks:org:
 :PROPERTIES:
 :ID: 85f5b5e1-2b74-4b8a-98c8-469926ea9dd6
@@ -197,14 +221,14 @@ CLOSED: [2026-04-24 Fri 21:05]
     instead of only the selected leaf's ancestor chain + descendants.
   - The pinned overlay now shows the top-level root as its header while the
     `★` marker follows the actual selected descendant inside that tree.
-* DONE Housekeeping
+** DONE [#B] Housekeeping
 CLOSED: [2026-04-24 Fri 21:45]
 :PROPERTIES:
 :ID: 43715d7a-38bf-45df-bbb1-bb5c6d1df881
 :END:
   Follow-up patch list from the final skills/extension review. Decisions below
   were approved and implemented.
-** DONE [#C] Unify Emacs bootstrap behavior for `e` and `p` :emacs:
+*** DONE [#C] Unify Emacs bootstrap behavior for `e` and `p` :emacs:
 CLOSED: [2026-04-24 Fri 21:45]
 :PROPERTIES:
 :ID: 2f7230df-03dc-40af-b756-9303c5b5a0ce
@@ -212,14 +236,14 @@ CLOSED: [2026-04-24 Fri 21:45]
    The `emacs:open` event in the emacsclient extension now bootstraps
    `emacs --daemon` when no server is reachable, and the tasks extension uses
    the same server-check path before `e` and `p` open files.
-** DONE [#C] Decide whether linked-plan task parsing should be constrained to `* Plan` :parser:skills:
+*** DONE [#C] Decide whether linked-plan task parsing should be constrained to `* Plan` :parser:skills:
 CLOSED: [2026-04-24 Fri 21:45]
 :PROPERTIES:
 :ID: 0c7c7023-6ec0-4928-8523-bba0aa685e21
 :END:
    Kept the parser permissive. Updated the tasks README to state that `* Plan`
    is a recommended convention for readability, not a parser requirement.
-** DONE [#D] Preserve archive ordering by closed/archive timestamp :archive:
+*** DONE [#D] Preserve archive ordering by closed/archive timestamp :archive:
 CLOSED: [2026-04-24 Fri 21:45]
 :PROPERTIES:
 :ID: 390bd896-e7c9-4faf-9bad-cb94a2a5e7cb
@@ -227,7 +251,7 @@ CLOSED: [2026-04-24 Fri 21:45]
    The archive flow now reloads `TASKS.ARCHIVE.org`, inserts the new archived
    task, sorts top-level archive entries by `CLOSED:` timestamp (falling back
    to `:ARCHIVED:`), and rewrites the archive file.
-** DONE [#D] Refresh stale inline extension comments to match current semantics :maintenance:
+*** DONE [#D] Refresh stale inline extension comments to match current semantics :maintenance:
 CLOSED: [2026-04-24 Fri 21:45]
 :PROPERTIES:
 :ID: 86a19f11-58b4-483c-8a86-da9c6dfed703

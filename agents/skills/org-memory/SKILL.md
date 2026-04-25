@@ -39,10 +39,12 @@ current implementation before relying on extension-specific UI details.
 
 - `TASKS.org` is the project memory index.
 - `TASKS.org` and newly scaffolded plan files should declare the supported TODO
-  states explicitly near the top of the file:
+  states explicitly near the top of the file. `TASKS.org` may also declare the
+  default directory for new linked plans using org-link syntax:
 
 ```org
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
+#+PLANS: [[file:./design/log]]
 ```
 
 - Each actionable task is an org heading with a TODO status:
@@ -73,6 +75,8 @@ current implementation before relying on extension-specific UI details.
   is clickable in Emacs. Bare relative paths and labelled org links are accepted
   for compatibility and should be preserved when already present.
 - The `:PLAN:` value resolves relative to the org file that declares it.
+- New plan-file suggestions should use the top-level `#+PLANS: [[file:...]]`
+  directory from `TASKS.org`; when absent, default to `[[file:./design/log]]`.
 - A linked plan file is itself a parseable org task tree using the same TODO
   heading syntax.
 - In the pi tasks extension, linked plan tasks are injected as children of the
@@ -83,6 +87,7 @@ current implementation before relying on extension-specific UI details.
 ```org
 #+TITLE: Project Tasks
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
+#+PLANS: [[file:./design/log]]
 
 * Improvements
 
@@ -146,8 +151,9 @@ When the user asks to resume or continue:
 4. Follow the selected task's `:PLAN:` link if present.
 5. In the linked plan, resume the first `STARTED` task. If none exists, choose
    the first actionable `TODO` task.
-6. Read nearby task notes and relevant `* Context` / `* Implementation` sections
-   before editing code.
+6. Read nearby task notes plus the plan's self-contained `* Context` summary
+   (including optional `** Design decisions`) and relevant `* Implementation`
+   sections before editing code.
 7. Update task status and notes as work proceeds.
 
 ## When creating or updating tasks
@@ -210,8 +216,8 @@ When unblocked, move the task back to `TODO` or `STARTED` and either remove
 YYYY-MM-DD-short-task-name.org
 ```
 
-3. Prefer storing plans under a project design/log or planning directory when
-   present, e.g. `design/log/`.
+3. Prefer the top-level `#+PLANS: [[file:...]]` directory from `TASKS.org`.
+   If unspecified, use `[[file:./design/log]]`.
 4. Add the plan path to the parent task's properties drawer using the clickable
    org link form for new plans:
 
@@ -231,8 +237,11 @@ YYYY-MM-DD-short-task-name.org
 
 6. Include the same `#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d)
    CANCELLED(c)` declaration in newly scaffolded plan files.
-7. Draft the plan as org TODO headings under a `* Plan` section; include enough
-   retrospective context to resume later.
+7. Use the plan skill's file structure: a self-contained `* Context` summary,
+   optional `** Design decisions`, and org TODO headings under `* Plan`.
+   If the parent task already has subtasks, move those subtask trees into the
+   plan and leave a plain-text bullet summary on the parent task in `TASKS.org`.
+   Include enough retrospective context to resume later.
 
 ## Bootstrap protocol
 
@@ -242,11 +251,12 @@ If `TASKS.org` does not exist and the user wants persistent task memory:
 2. Add a `#+TITLE:` line.
 3. Add `#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)` so
    org-mode users get the same state cycle as agents and tooling.
-4. Add a high-level semantic section such as `* Improvements` or `* Tasks`.
-5. Add the first actionable TODO task with an `:ID:` property.
-6. If the task needs implementation detail, create a linked plan file under an
-   existing planning directory such as `design/log/`, or create that directory
-   if appropriate for the project.
+4. Add `#+PLANS: [[file:./design/log]]` so agents and the tasks extension have
+   a default directory for newly created linked plans.
+5. Add a high-level semantic section such as `* Improvements` or `* Tasks`.
+6. Add the first actionable TODO task with an `:ID:` property.
+7. If the task needs implementation detail, create a linked plan file under the
+   `#+PLANS` directory, creating that directory if appropriate for the project.
 
 ## Status discipline
 

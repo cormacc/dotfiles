@@ -210,7 +210,7 @@ Acceptance criteria:
 - `agents/pi/extensions/tasks/README.md` documents collapse defaults, ID backfill, plan-link display, the merged compact/expanded UI, the compact-UI placement, and fixed prompt flows.
 - `agents/pi/extensions/keybindings.org` is regenerated if keybinding suggestions or labels change.
 - Any related references in `agents/skills/org-memory/SKILL.md` or `agents/skills/plan/SKILL.md` stay accurate.
-** STARTED [#B] Final validation and cleanup :verification:
+** DONE [#B] Final validation and cleanup :verification:
 :PROPERTIES:
 :ID: 6aac45cd-5960-4d47-b0b8-ae3e2fef7523
 :END:
@@ -261,4 +261,8 @@ Validation performed:
 - Checked `TASKS.org` and this plan for missing `:ID:` properties; none found.
 
 * Open questions
-- None at this stage. Batch-review item: run interactive `/reload` plus manual UI smoke tests in pi before marking final validation DONE.
+- None. Closed.
+
+Final validation notes (2026-04-25):
+- Ran interactive `/reload` and UI smoke tests in pi; status cycling, selection toggle, collapse, plan display, and prompt flows all behaved as specified.
+- Investigated compact widget height not collapsing on task deselection; root cause is a pi TUI framework limitation (`setWidget(id, undefined/[])` does not trigger a layout reflow — only terminal resize does). Extension code is correct; no in-extension fix is possible without a framework change. Experimental patches were reverted; issue noted for upstream reporting.

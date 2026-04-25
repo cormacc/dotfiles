@@ -5,6 +5,7 @@
 #+COPYRIGHT: Neuromod Devices Ltd. 2026
 #+DATE: 2026-04-25
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
+#+PLANS: [[file:./design/log]]
 
 
 # EXPORT SETUP
@@ -66,26 +67,6 @@ A couple of ideas for minor QOL improvements on the editor side...
 - Auto-populate expected properties fields when creating tasks in emacs
 - Add keybindings to toggle selection of a given issue
 - Bi-directional sync/refresh on edit
-** DONE [#A] Refine tasks extension
-:PROPERTIES:
-:ID: f92b7b2f-c7fc-4933-9e27-20c0e411cbe4
-:PLAN: [[file:design/log/2026-04-25-refine-tasks-extension.org]]
-:END:
-UX and persistence refinements for the pi tasks extension. See linked plan
-for the full breakdown. Scope:
-- Auto-insert missing org IDs on load.
-- Merge the modal selection/edit overlay with the persistent selected-task
-  status display into a single expand/collapse UI owner.
-- Fix creation, archiving, and plan prompts that are currently masked by
-  the overlay.
-- Collapse subtrees by default on overlay open.
-- Surface linked-plan metadata in the details pane.
-- Place the compact selected-task UI so it doesn't mask conversation
-  scrollback.
-[2026-04-25 Sat] Implemented the first pass in the linked plan: ID backfill,
-compact above-editor widget, expanded UI prompt handoff, default collapse,
-plan metadata display, README updates, and generated keybindings map. Final
-interactive `/reload` and UI smoke tests remain to close validation.
 * Housekeeping
 
 ** WAITING [#C] Update nixGL flake URL :nix:
