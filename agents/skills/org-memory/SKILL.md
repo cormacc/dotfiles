@@ -38,6 +38,13 @@ current implementation before relying on extension-specific UI details.
 ## Core model
 
 - `TASKS.org` is the project memory index.
+- `TASKS.org` and newly scaffolded plan files should declare the supported TODO
+  states explicitly near the top of the file:
+
+```org
+#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
+```
+
 - Each actionable task is an org heading with a TODO status:
   - `TODO`, `STARTED`, `WAITING`, `DONE`, `CANCELLED`
 - Optional priority appears after status:
@@ -75,6 +82,7 @@ current implementation before relying on extension-specific UI details.
 
 ```org
 #+TITLE: Project Tasks
+#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 
 * Improvements
 
@@ -221,7 +229,9 @@ YYYY-MM-DD-short-task-name.org
 :PLAN: [[file:design/log/YYYY-MM-DD-short-task-name.org][Plan]]
 ```
 
-6. Draft the plan as org TODO headings under a `* Plan` section; include enough
+6. Include the same `#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d)
+   CANCELLED(c)` declaration in newly scaffolded plan files.
+7. Draft the plan as org TODO headings under a `* Plan` section; include enough
    retrospective context to resume later.
 
 ## Bootstrap protocol
@@ -230,9 +240,11 @@ If `TASKS.org` does not exist and the user wants persistent task memory:
 
 1. Create `TASKS.org` in the project root.
 2. Add a `#+TITLE:` line.
-3. Add a high-level semantic section such as `* Improvements` or `* Tasks`.
-4. Add the first actionable TODO task with an `:ID:` property.
-5. If the task needs implementation detail, create a linked plan file under an
+3. Add `#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)` so
+   org-mode users get the same state cycle as agents and tooling.
+4. Add a high-level semantic section such as `* Improvements` or `* Tasks`.
+5. Add the first actionable TODO task with an `:ID:` property.
+6. If the task needs implementation detail, create a linked plan file under an
    existing planning directory such as `design/log/`, or create that directory
    if appropriate for the project.
 

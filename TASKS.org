@@ -4,6 +4,7 @@
 #+LANGUAGE: en
 #+COPYRIGHT: Neuromod Devices Ltd. 2026
 #+DATE: 2026-04-25
+#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 
 
 # EXPORT SETUP

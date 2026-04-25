@@ -91,9 +91,12 @@ Pressing `A` (shift-a) archives the top-level task containing the cursor's task.
 
 ## TASKS.org Format
 
-The file uses org-mode heading syntax:
+The file uses org-mode heading syntax. A `#+TODO:` declaration is recommended so Emacs users get the same state cycle as the extension:
 
 ```org
+#+TITLE: Project Tasks
+#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
+
 * TODO [#A] Implement authentication :backend:security:
 :PROPERTIES:
 :ID: 01234567-89ab-4def-8123-456789abcdef
@@ -148,13 +151,13 @@ A task can link to a detailed plan using an org properties drawer immediately be
   Parent task description.
 ```
 
-The `PLAN` path is resolved relative to the org file that contains the property. The linked file is parsed with the same TODO heading syntax as `TASKS.org`; its tasks are injected into the overlay as children of the parent task. Status changes made to injected plan tasks are saved back to the linked plan file, not copied into `TASKS.org`. Saves preserve non-task org content such as file metadata, category headings, `* Context`, `* Plan`, `* Implementation`, and `* Open questions` sections.
+The `PLAN` path is resolved relative to the org file that contains the property. The linked file is parsed with the same TODO heading syntax as `TASKS.org`; its tasks are injected into the overlay as children of the parent task. New plan files scaffolded by the extension include `#+TITLE`, `#+DATE`, and `#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)` declarations. Status changes made to injected plan tasks are saved back to the linked plan file, not copied into `TASKS.org`. Saves preserve non-task org content such as file metadata, category headings, `* Context`, optional `** Design decisions`, `* Plan`, `* Implementation`, and `* Open questions` sections.
 
 The parser is intentionally permissive: actionable task headings may appear anywhere in the linked file. Using a dedicated `* Plan` section is recommended as a convention for readability, but it is not required by the extension.
 
 ### Round-trip preservation
 
-The extension preserves non-task org content when saving status or selection changes. In `TASKS.org`, metadata/preamble text and non-task category headings remain in place. In linked plan files, sections such as `#+TITLE`, `* Context`, `* Plan`, `* Implementation`, and `* Open questions` remain in place; only parsed task subtrees are rewritten.
+The extension preserves non-task org content when saving status or selection changes. In `TASKS.org`, metadata/preamble text and non-task category headings remain in place. In linked plan files, sections such as `#+TITLE`, `#+TODO`, `* Context`, optional `** Design decisions`, `* Plan`, `* Implementation`, and `* Open questions` remain in place; only parsed task subtrees are rewritten.
 
 #### Org-link syntax
 
