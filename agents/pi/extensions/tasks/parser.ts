@@ -39,10 +39,14 @@ export interface Task {
   closed: string | null;
   /** Absolute path of the source org file this task came from. */
   sourcePath?: string;
+  /** Original source content of sourcePath, used for preserving non-task org content on save. */
+  sourceContent?: string;
   /** Root task tree for sourcePath, used to save linked plan files. */
   sourceRoot?: Task[];
   /** 1-indexed line number of the heading in the source file. */
   lineNumber: number;
+  /** 1-indexed exclusive line number where this task subtree ended when parsed. */
+  endLine: number;
 }
 
 /** Matches any org heading: `* ...`, `** ...`, etc. */
@@ -113,6 +117,8 @@ function parseHeading(line: string): {
 export interface ParseTasksOptions {
   /** Absolute path of the file being parsed. */
   sourcePath?: string;
+  /** Original source content. Defaults to the parsed content. */
+  sourceContent?: string;
 }
 
 /**
@@ -124,6 +130,7 @@ export function parseTasks(
 ): Task[] {
   const lines = content.split("\n");
   const root: Task[] = [];
+  const sourceContent = options.sourceContent ?? content;
 
   // Stack tracks the current nesting path.
   // Each entry: { task, level } — the task and its heading level.
@@ -142,13 +149,22 @@ export function parseTasks(
     descriptionLines.length = 0;
   };
 
+  const closeTasksAtOrAbove = (level: number, endLineExclusive: number) => {
+    while (stack.length > 0 && stack[stack.length - 1]!.level >= level) {
+      const closed = stack.pop()!.task;
+      closed.endLine = endLineExclusive;
+    }
+  };
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
     const heading = parseHeading(line);
+    const anyHeading = ANY_HEADING_RE.exec(line);
 
     if (heading) {
       // Flush any accumulated description for the previous task
       flushDescription();
+      closeTasksAtOrAbove(heading.level, i + 1);
 
       const task: Task = {
         level: heading.level,
@@ -163,16 +179,10 @@ export function parseTasks(
         planRaw: null,
         closed: null,
         sourcePath: options.sourcePath,
+        sourceContent,
         lineNumber: i + 1,
+        endLine: lines.length + 1,
       };
-
-      // Pop stack until we find a parent with a lower level
-      while (
-        stack.length > 0 &&
-        stack[stack.length - 1]!.level >= heading.level
-      ) {
-        stack.pop();
-      }
 
       if (stack.length === 0) {
         // Top-level task
@@ -213,11 +223,12 @@ export function parseTasks(
           currentTask.propertyLines.push(propLine);
         }
       }
-    } else if (ANY_HEADING_RE.test(line)) {
+    } else if (anyHeading) {
       // Non-task heading (e.g. `* Notes`) — flush the current task's
       // description and stop attributing subsequent lines to it, so
       // unrelated content below isn't swallowed into the previous task.
       flushDescription();
+      closeTasksAtOrAbove(anyHeading[1]!.length, i + 1);
       currentTask = null;
     } else {
       // Non-heading line: accumulate as description for current task
@@ -227,13 +238,15 @@ export function parseTasks(
     }
   }
 
-  // Flush description for the last task
+  // Flush description for the last task and close any open task ranges.
   flushDescription();
+  closeTasksAtOrAbove(1, lines.length + 1);
 
   const attachSourceRoot = (tasks: Task[]) => {
     for (const task of tasks) {
       if (options.sourcePath) {
         task.sourceRoot = root;
+        task.sourceContent = sourceContent;
       }
       attachSourceRoot(task.children);
     }
@@ -285,4 +298,69 @@ export function serializeTasks(tasks: Task[]): string {
 
   write(tasks, true);
   return lines.join("\n") + "\n";
+}
+
+/** Serialize a single task subtree without forcing a trailing newline. */
+function serializeTaskBlock(task: Task): string[] {
+  return serializeTasks([task]).replace(/\n$/, "").split("\n");
+}
+
+/** Original line range occupied by a parsed task subtree. */
+function taskRange(task: Task): { start: number; end: number } {
+  const start = Math.max(0, task.lineNumber - 1);
+  const end = Math.max(start + 1, task.endLine - 1);
+  return { start, end };
+}
+
+/**
+ * Serialize root tasks back into their original org file while preserving
+ * content outside task subtrees: metadata/preamble, category headings, plan
+ * sections, prose notes, and other non-task org content.
+ *
+ * Existing root tasks are replaced in-place by their original line number.
+ * Existing root tasks omitted from `tasks` are removed (used by archiving).
+ * New root tasks with no parsed line number are appended to the end of the file.
+ */
+export function serializeTasksPreservingFile(
+  originalContent: string,
+  tasks: Task[],
+): string {
+  const lines = originalContent.split("\n");
+  const originalRoots = parseTasks(originalContent);
+  const suppliedByLine = new Map<number, Task>();
+  const newRoots: Task[] = [];
+
+  for (const task of tasks) {
+    if (task.lineNumber > 0) {
+      suppliedByLine.set(task.lineNumber, task);
+    } else {
+      newRoots.push(task);
+    }
+  }
+
+  const edits: { start: number; end: number; replacement: string[] }[] = [];
+
+  for (const original of originalRoots) {
+    const supplied = suppliedByLine.get(original.lineNumber);
+    const range = taskRange(original);
+    edits.push({
+      ...range,
+      replacement: supplied ? serializeTaskBlock(supplied) : [],
+    });
+  }
+
+  // Apply from the bottom up so earlier line ranges remain stable.
+  edits
+    .sort((a, b) => b.start - a.start)
+    .forEach(({ start, end, replacement }) => {
+      lines.splice(start, end - start, ...replacement);
+    });
+
+  for (const task of newRoots) {
+    while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+    if (lines.length > 0) lines.push("");
+    lines.push(...serializeTaskBlock(task));
+  }
+
+  return lines.join("\n").replace(/\n*$/, "\n");
 }

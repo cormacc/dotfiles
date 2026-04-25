@@ -32,145 +32,156 @@ Key design decisions:
 
 * Plan
 
-** TODO [#A] Verify and fix tasks extension round-trip preservation :agents:
+** DONE [#A] Verify and fix tasks extension round-trip preservation :agents:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: a2a08773-4523-4c68-a16a-29df7e0cbbfc
 :END:
-Ensure task tooling never rewrites org files into task-only content.
-Acceptance criteria:
-- TASKS.org metadata/preamble is preserved.
-- Non-task top-level sections are preserved.
-- Linked plan files preserve #+TITLE, * Context, * Plan, * Implementation, and
-  * Open questions sections.
-- Updating status or selection does not discard non-task content.
-- Regression coverage or a manual verification note documents the behaviour.
+Implemented source-preserving serialization in the tasks extension. Task saves now
+replace parsed task subtrees in-place instead of rewriting files as task-only
+content. Verified with temporary round-trip checks for both TASKS.org and this
+linked plan file.
 
-** TODO [#A] Clarify skill/extension responsibility boundary :agents:
+** DONE [#A] Clarify skill/extension responsibility boundary :agents:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: 5a1ab014-0439-4430-91ef-323a74a25b28
 :END:
-Document the division explicitly.
-Skills own: file format, agent behaviour, status discipline, ID protocol,
-notes/blockers/archive semantics, resume/bootstrap workflow.
-Tasks extension owns: UI, keybindings, visual display, selection mechanics,
-safe file round-tripping, status/selection writes, archive command implementation.
+Documented the boundary in org-memory and referenced the org-memory protocol from
+the tasks extension README.
 
-** TODO [#A] Add TASKS.org structural example to org-memory :agents:
+** DONE [#A] Add TASKS.org structural example to org-memory :agents:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: b93f03db-4bf6-4a1f-a39c-895144302ccd
 :END:
-Show a minimal but realistic TASKS.org: #+TITLE, a category heading, a task with
-priority/tags/:ID:/:PLAN: property, and a subtask. Gives agents and humans a
-concrete bootstrap reference.
+Added a complete minimal TASKS.org example with metadata, category headings,
+priority, tags, :ID:, :PLAN:, a subtask, and WAITING/:BLOCKED_BY: usage.
 
-** TODO [#A] Clarify :selected: tag semantics and reserved tag protocol :agents:
+** DONE [#A] Clarify :selected: tag semantics and reserved tag protocol :agents:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: 17012494-4682-47b4-9c42-2d00f6d39d21
 :END:
-Document that :selected: is the single reserved operational tag used by task
-selection tooling. Agents preserve/respect it and do not create, move, or clear
-it unless explicitly asked or acting through a task-selection tool. All other
-tags should be semantic categories.
+Documented :selected: as the single reserved operational tag, normally managed by
+task-selection tooling. Agents preserve and respect it rather than moving it by
+hand unless explicitly asked or acting through a selection tool.
 
-** TODO [#A] Add :ID: UUID protocol to both skills :agents:
+** DONE [#A] Add :ID: UUID protocol to both skills :agents:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: 57f300c5-bdb1-4494-9837-9474722c3182
 :END:
-Specify: every task and subtask in TASKS.org and linked plan files carries an
-:ID: property with a UUID v4 value. Agents assign a new ID when creating a task.
-On loading project task memory, agents add IDs to loaded tasks/subtasks that lack
-one before making further edits. Preserve existing formatting and properties. Do
-not mutate arbitrary org files outside the loaded task-memory graph.
+Added :ID: UUID requirements to org-memory and plan. Backfilled IDs for loaded
+TASKS.org tasks/subtasks that lacked them. Updated extension-created tasks to
+start with an :ID: property.
 
-** TODO [#A] Specify note format in org-memory :agents:
+** DONE [#A] Specify note format in org-memory :agents:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: 61c78ab6-eb52-4d44-91b4-6edc529470c4
 :END:
-Define: plain text indented under the task heading, optionally prefixed with an
-inactive timestamp [YYYY-MM-DD Day]. No :LOGBOOK: drawers required. Consistent
-across agent sessions; human-readable without tooling.
+Documented plain text task notes with optional inactive timestamps, without
+requiring :LOGBOOK: drawers.
 
-** TODO [#A] Specify preferred :PLAN: path form :agents:
+** DONE [#A] Specify preferred :PLAN: path form :agents:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: 42564249-766a-41ac-8082-830e1401106e
 :END:
-Recommend [[file:...]] form for newly created plans because it is clickable in
-Emacs and written by the pi p keybinding. State bare paths and labelled file
-links are accepted for compatibility and should be preserved on existing tasks.
+Specified [[file:...]] as the preferred new :PLAN: form while preserving existing
+bare paths or labelled file links.
 
-** TODO [#B] Define WAITING/:BLOCKED_BY: protocol in org-memory :agents:
+** DONE [#B] Define WAITING/:BLOCKED_BY: protocol in org-memory :agents:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: 7ef55c0e-22f8-41f7-9992-57264b3a5483
 :END:
-When marking WAITING: set the TODO keyword and add :BLOCKED_BY: in the properties
-drawer. Include examples:
-- :BLOCKED_BY: human: confirm desired archive behaviour
-- :BLOCKED_BY: task:57f300c5-bdb1-4494-9837-9474722c3182
-- :BLOCKED_BY: url:https://github.com/example/project/pull/123
-- :BLOCKED_BY: jira:ABC-123
-When unblocked, remove :BLOCKED_BY: or move the old blocker into a note.
+Documented WAITING plus :BLOCKED_BY: semantics, examples for human/task/url/jira
+blockers, and unblocking behavior.
 
-** TODO [#B] Add "Resuming interrupted work" section to org-memory :agents:
+** DONE [#B] Add "Resuming interrupted work" section to org-memory :agents:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: 9c451d26-4e0b-4f34-88a7-25aaf1ff7051
 :END:
-Explicit numbered protocol: (1) read TASKS.org, (2) find :selected: task or first
-STARTED task, (3) read :PLAN: if present, (4) find first STARTED/TODO subtask in
-plan, (5) resume from there. Makes the resume path unambiguous for new sessions.
+Added an explicit resume protocol based on TASKS.org, :selected:, STARTED tasks,
+linked plans, and nearby context/implementation notes.
 
-** TODO [#B] Add bootstrap protocol to org-memory :agents:
+** DONE [#B] Add bootstrap protocol to org-memory :agents:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: 5c138b4b-8456-47a5-a252-c31363cdcf8f
 :END:
-What to do when TASKS.org doesn't exist: create with #+TITLE:, add first task
-with :ID:, note that a planning directory (design/log/ or similar) should be
-created alongside for plan files.
+Added initial TASKS.org creation guidance including title, semantic section, first
+TODO with :ID:, and linked plan directory conventions.
 
-** TODO [#B] Trim extension section in org-memory, reference README instead :agents:
+** DONE [#B] Trim extension section in org-memory, reference README instead :agents:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: 75c83dde-3a5c-4ddb-a683-6768b2470877
 :END:
-Replace the "Using the pi tasks extension" keybinding list with a short paragraph
-referencing the extension README. Keep only what the skill needs to say about the
-file format contract: what :selected: means in the file, and what TASKS.ARCHIVE.org
-contains. Extension UI details should not require skill updates when keybindings change.
+Replaced detailed keybinding/UI duplication with a short explanation and pointer
+to agents/pi/extensions/tasks/README.md.
 
-** TODO [#C] Update plan skill: :selected: awareness and nesting clarification :agents:
+** DONE [#C] Update plan skill: :selected: awareness and nesting clarification :agents:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: ee903cdf-575b-48c4-8007-d00997f50a1d
 :END:
-Two changes to plan skill:
-1. Execution protocol: note that :selected: identifies the active task when using
-   org-memory/task tooling; agents should respect but not write it directly.
-2. Clarify that deeper nested TODO headings are parsed by the extension, but
-   status is not auto-propagated to parent tasks; agents must update parent
-   status manually.
+Updated execution guidance to respect :selected: without writing it directly.
+Clarified that deeper nested TODO headings are parsed but parent status is not
+automatically propagated.
 
-** TODO [#C] Define tag conventions in org-memory :agents:
+** DONE [#C] Define tag conventions in org-memory :agents:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: c459c449-3436-45d2-84e6-f8e10977517a
 :END:
-Tags are semantic categories only (e.g. :agents:, :nix:, :backend:).
-:selected: is the single reserved operational tag. Encourage project-relevant
-area tags; discourage operational tags beyond :selected:.
+Documented semantic tag usage and discouraged operational tags beyond the reserved
+:selected: tag.
 
-** TODO [#D] Add archiving guidance for non-pi workflow :agents:
+** DONE [#D] Add archiving guidance for non-pi workflow :agents:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: 488c78fe-4025-46f0-8d33-6c40bbac6d4b
 :END:
-Reference TASKS.ARCHIVE.org as the archive destination, matching the extension.
-Without pi, only archive DONE or CANCELLED top-level tasks. Preserve heading,
-content, and :ID:. Strip :selected:. Add :ARCHIVED: timestamp. Preserve or inline
-linked plan context. Do not delete history.
+Added non-pi archiving rules: DONE/CANCELLED only, move to TASKS.ARCHIVE.org,
+preserve :ID:, strip :selected:, add :ARCHIVED:, and preserve/inline context.
 
 * Implementation
 
-Files expected to change during implementation:
+Files changed during implementation:
 
 - agents/skills/org-memory/SKILL.md
 - agents/skills/plan/SKILL.md
-- agents/pi/extensions/tasks/README.md and/or implementation/tests if the
-  round-trip preservation issue is confirmed.
+- agents/pi/extensions/tasks/parser.ts
+- agents/pi/extensions/tasks/index.ts
+- agents/pi/extensions/tasks/overlay.ts
+- agents/pi/extensions/tasks/README.md
+- TASKS.org
+
+Extension implementation notes:
+
+- Parser now tracks each parsed task subtree's original line range and source
+  content.
+- `serializeTasksPreservingFile` replaces existing root task subtrees in-place,
+  removes omitted root tasks for archiving, and appends new root tasks while
+  keeping non-task org content intact.
+- Overlay saves, plan attachment, task creation, and archiving now use preserved
+  serialization for TASKS.org/plan files.
+- Extension-created tasks now include an :ID: UUID property.
+
+Verification performed:
+
+- `node --experimental-strip-types .agents/tmp/test-tasks-parser.mjs`
+- `node --experimental-strip-types .agents/tmp/verify-roundtrip.mjs`
+- `node --experimental-strip-types --check agents/pi/extensions/tasks/parser.ts`
+- `node --experimental-strip-types --check agents/pi/extensions/tasks/index.ts`
+- `node --experimental-strip-types --check agents/pi/extensions/tasks/overlay.ts`
+- LSP diagnostics for parser are clean. LSP diagnostics for index/overlay still
+  report pre-existing unresolved external module/type declarations in this
+  extension environment.
 
 UUID v4 format: 8-4-4-4-12 lowercase hex digits, e.g.
 7a48756f-95b2-440c-9810-09a9ae60e452.
@@ -178,7 +189,7 @@ UUID v4 format: 8-4-4-4-12 lowercase hex digits, e.g.
 The :ID: property is compatible with Emacs org-id.el, which uses the same
 property and format. Agents and Emacs can both manage IDs without conflict.
 
-* Open questions
+* Questions for batch review
 
 - Should TASKS.org carry #+TODO: declarations to make the keyword set explicit
   for Emacs users not loading a global org config?

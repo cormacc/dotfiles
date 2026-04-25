@@ -42,27 +42,42 @@ Some introductory text
 ** DONE [#A] Implement an org-based memory system for pi-agent      :agents:
 CLOSED: [2026-04-24 Fri 23:53]
 :PROPERTIES:
+:ID: 9ae2bf39-c61c-4a2d-8fa5-882a5ce3eca7
 :PLAN: design/log/2026-04-24-org-agent-memory.org
 :END:
 
-** TODO [#B] Refine org-memory/plan protocol :agents:selected:
+** DONE [#B] Refine org-memory/plan protocol :agents:selected:
+CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: 7a48756f-95b2-440c-9810-09a9ae60e452
 :PLAN: [[file:design/log/2026-04-25-refine-org-memory-plan-protocol.org]]
 :END:
+[2026-04-25 Sat] Implemented skill protocol refinements, task extension round-trip preservation, and ID backfill.
 
 ** TODO [#C] Add some sort of Jira integration for the tasks extension
+:PROPERTIES:
+:ID: 0276a6c7-0ca8-4c39-a90a-05587ad64698
+:END:
 
 *** TODO [#B] Setup Jira infrastructure
+:PROPERTIES:
+:ID: d618bcc1-9481-4431-a572-8a1f17612e4f
+:END:
 Setup appropriate tools and docs around Jira connection.
 - Login (?Oauth?)
 - List projects, issues etc. Maybe piggyback on JQL support provided by ?various vendors?.
 
 *** TODO [#C] Claim Jira tasks
+:PROPERTIES:
+:ID: edbea049-3a56-40ad-9aa5-660843364524
+:END:
 
 Ideally we'd be able to pull an item from Jira and create a task here...
 
 *** TODO [#C] Reference jira tasks
+:PROPERTIES:
+:ID: 097a6e4f-6752-4f97-8b41-f416f8b47384
+:END:
 Update the tasks extension and related skills to allow us to reference jira issue types.
 The most ergonomic approach from a user perspective would be to just include issue IDS -- but where -- in properties?
 And maybe embed a Jira URL in TASKS.org header metadata....
@@ -71,4 +86,8 @@ And maybe embed a Jira URL in TASKS.org header metadata....
 * Housekeeping
 
 ** WAITING [#C] Update nixGL flake URL :nix:
+:PROPERTIES:
+:ID: 862e9ecf-6992-40e9-b2e2-597edee1ccfa
+:BLOCKED_BY: upstream: nvidia-open issue
+:END:
 Waiting on an upstream fix for an nvidia-open issue

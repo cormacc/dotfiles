@@ -1,6 +1,10 @@
 # Tasks Extension
 
 Displays project tasks from a `TASKS.org` file in the project root using org-mode TODO syntax.
+The extension is a UI over the plain-org task-memory protocol documented in
+`agents/skills/org-memory/SKILL.md`; that skill defines the durable file-format
+contract, while this extension owns commands, rendering, selection, status writes,
+and archive mechanics.
 
 ## Usage
 
@@ -92,13 +96,24 @@ The file uses org-mode heading syntax:
 ```org
 * TODO [#A] Implement authentication :backend:security:
 :PROPERTIES:
-:PLAN: plans/auth.org
+:ID: 01234567-89ab-4def-8123-456789abcdef
+:PLAN: [[file:plans/auth.org]]
 :END:
   Design and implement user auth.
 ** TODO Create user model
+:PROPERTIES:
+:ID: 89abcdef-0123-4567-89ab-cdef01234567
+:END:
 ** STARTED Implement login endpoint
+:PROPERTIES:
+:ID: fedcba98-7654-4321-8fed-cba987654321
+:END:
    Working on JWT token generation.
 ** WAITING Add OAuth support :oauth:
+:PROPERTIES:
+:ID: 11111111-2222-4333-8444-555555555555
+:BLOCKED_BY: human: provider credentials
+:END:
    Waiting on provider credentials.
 * DONE [#B] Set up CI pipeline :devops:
 ```
@@ -113,11 +128,13 @@ The file uses org-mode heading syntax:
 - **Status** — one of `TODO`, `STARTED`, `WAITING`, `DONE`, `CANCELLED`
 - **Priority** — optional, e.g. `[#A]`, `[#B]`, `[#C]`
 - **Summary** — the task title
-- **Tags** — optional, colon-delimited at end of line
+- **Tags** — optional, colon-delimited at end of line; `:selected:` is reserved for the current task selection and hidden in the overlay tag list
+- **ID property** — recommended `:ID:` UUID in the properties drawer, compatible with org-id.el and the org-memory skill protocol
 - **PLAN property** — optional org properties drawer value pointing to a relative org file with a detailed task plan
+- **BLOCKED_BY property** — optional property recording why a `WAITING` task is blocked
 - **Description** — any non-heading text below a heading, excluding the properties drawer
 
-Subtasks nest arbitrarily deep — any TODO heading under another becomes its child.
+Subtasks nest arbitrarily deep — any TODO heading under another becomes its child. Parent statuses are not automatically inferred from child statuses.
 
 ### Linked plans
 
@@ -131,9 +148,13 @@ A task can link to a detailed plan using an org properties drawer immediately be
   Parent task description.
 ```
 
-The `PLAN` path is resolved relative to the org file that contains the property. The linked file is parsed with the same TODO heading syntax as `TASKS.org`; its tasks are injected into the overlay as children of the parent task. Status changes made to injected plan tasks are saved back to the linked plan file, not copied into `TASKS.org`.
+The `PLAN` path is resolved relative to the org file that contains the property. The linked file is parsed with the same TODO heading syntax as `TASKS.org`; its tasks are injected into the overlay as children of the parent task. Status changes made to injected plan tasks are saved back to the linked plan file, not copied into `TASKS.org`. Saves preserve non-task org content such as file metadata, category headings, `* Context`, `* Plan`, `* Implementation`, and `* Open questions` sections.
 
 The parser is intentionally permissive: actionable task headings may appear anywhere in the linked file. Using a dedicated `* Plan` section is recommended as a convention for readability, but it is not required by the extension.
+
+### Round-trip preservation
+
+The extension preserves non-task org content when saving status or selection changes. In `TASKS.org`, metadata/preamble text and non-task category headings remain in place. In linked plan files, sections such as `#+TITLE`, `* Context`, `* Plan`, `* Implementation`, and `* Open questions` remain in place; only parsed task subtrees are rewritten.
 
 #### Org-link syntax
 
