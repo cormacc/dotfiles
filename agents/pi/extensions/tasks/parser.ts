@@ -32,6 +32,8 @@ export interface Task {
   planRaw?: string | null;
   /** Parsed plan tasks, injected at render time as children of this task. */
   planChildren?: Task[];
+  /** Error encountered while loading `planPath`, if any. */
+  planError?: string | null;
   /**
    * Org CLOSED timestamp body (without brackets), e.g. `2026-04-24 Fri 14:30`.
    * Present when the task has been closed, matching Emacs behaviour.
@@ -58,6 +60,7 @@ const HEADING_RE =
 const PROPERTIES_START_RE = /^\s*:PROPERTIES:\s*$/i;
 const PROPERTIES_END_RE = /^\s*:END:\s*$/i;
 const PLAN_PROPERTY_RE = /^\s*:PLAN:\s*(.*?)\s*$/i;
+const ID_PROPERTY_RE = /^\s*:ID:\s*(\S+)\s*$/i;
 /**
  * Extract the target path from an org link expression:
  *   [[file:path]]                  → path
@@ -121,6 +124,20 @@ export interface ParseTasksOptions {
   sourceContent?: string;
 }
 
+/** Return the org `:ID:` property value for a task, if present. */
+export function getTaskId(task: Task): string | null {
+  for (const line of task.propertyLines) {
+    const match = ID_PROPERTY_RE.exec(line);
+    if (match) return match[1]!.trim();
+  }
+  return null;
+}
+
+/** True when a task already has an org `:ID:` property. */
+export function taskHasId(task: Task): boolean {
+  return getTaskId(task) !== null;
+}
+
 /**
  * Parse the full content of a TASKS.org file into a task tree.
  */
@@ -177,6 +194,7 @@ export function parseTasks(
         propertyLines: [],
         planPath: null,
         planRaw: null,
+        planError: null,
         closed: null,
         sourcePath: options.sourcePath,
         sourceContent,

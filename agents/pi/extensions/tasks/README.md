@@ -10,27 +10,31 @@ and archive mechanics.
 
 ### Commands
 
-- `/tasks` — Open the tasks overlay
+- `/tasks` — Expand the tasks UI
+- `/tasks new` — Create a new top-level task without opening the expanded UI
 
 ### Keybindings
 
-- `<leader> t t` — Open the tasks overlay
+- `<leader> t t` — Expand the tasks UI
 
-### Persistent selection overlay
+### Compact selected-task widget
 
-When a task is marked `:selected:` in `TASKS.org`, a non-capturing overlay
-is pinned to the top of the visible terminal viewport and shows the containing
-top-level task tree, with the selected task highlighted inside it. The overlay:
+When a task is marked `:selected:` in `TASKS.org`, a compact widget is reserved
+above the editor. It shows the containing top-level task tree, with the selected
+task highlighted inside it. The widget:
 
 - Appears on startup if the file already contains a `:selected:` tag.
-- Updates immediately while the `/tasks` overlay is open when status or selection changes.
+- Hides while the tasks UI is expanded, then returns after the expanded UI closes.
 - Refreshes automatically when `TASKS.org` or any linked plan file is modified on disk (for example after saving from Emacs via the `e` keybinding). No need to reopen `/tasks`.
 - Does not take keyboard focus, so normal input keeps working.
-- Shows at most 12 lines. When truncating, completed subtasks are elided first as `… N completed subtasks`, so the selected task and next pending subtasks stay visible.
+- Reserves layout space instead of covering conversation scrollback.
+- Shows at most 6 lines, with a single full-width divider at the top and no bottom divider.
+- When truncating, completed subtasks are elided first as `… N completed subtasks`, so the selected task and next pending subtasks stay visible.
+- Labels linked plan sections as `PLAN: ./relative/path/to/plan.org` before the injected plan tasks.
 
 ### Status colors
 
-Status and metadata tokens use a fixed palette across the main tasks overlay and the pinned selection overlay.
+Status and metadata tokens use a fixed palette across the expanded tasks UI and the compact selected-task widget.
 Tags are styled separately from task titles.
 
 | Status    | Color  |
@@ -48,9 +52,9 @@ Tags are styled separately from task titles.
 | `[#C]`   | Medium   | green  |
 | `[#D]`   | Low      | blue   |
 
-### Overlay Controls
+### Expanded UI controls
 
-The overlay is a split pane — task tree on the left, description of the selected task on the right.
+The expanded UI is a split pane — task tree on the left, details for the selected task on the right.
 
 | Key                       | Action                             |
 | ------------------------- | ---------------------------------- |
@@ -63,6 +67,8 @@ The overlay is a split pane — task tree on the left, description of the select
 | `s`                       | Toggle selection on current task   |
 | `e`                       | Edit in Emacs at task              |
 | `p`                       | Edit the task's linked plan in Emacs (or create one) |
+| `n`                       | Create a new sibling task          |
+| `N`                       | Create a new child task            |
 | `A` (shift-a)             | Archive the top-level task (must be `DONE` or `CANCELLED`) |
 | `Esc` / `q`               | Close                              |
 
@@ -71,11 +77,22 @@ The overlay is a split pane — task tree on the left, description of the select
 Pressing `s` marks the task under the cursor as the *selected* task. This:
 
 - Writes a `:selected:` tag on that heading in `TASKS.org` (single-select — any prior selection is cleared).
-- Lets the selected marker move down into subtasks while keeping the *top-level parent task* as the visible selected tree root.
-- Auto-collapses every task outside that top-level root, so the view focuses on the current workstream rather than only the selected leaf.
+- Lets the selected marker move down into subtasks while keeping the selected path visible.
+- Auto-collapses sibling subtrees by default, so the view focuses on the current workstream rather than only the selected leaf.
 - Highlights the selected task with a `★` marker and renders the selected top-level tree with a side bar.
 
-Press `s` again on the selected task to clear the selection and drop the auto-collapse. The `:selected:` tag is hidden from the tag list in the overlay — it's conveyed by the marker and highlight instead.
+Press `s` again on the selected task to clear the selection and return to the default top-level collapsed view. The `:selected:` tag is hidden from the tag list in the UI — it's conveyed by the marker and highlight instead.
+
+### Default collapse behaviour
+
+On open, the expanded UI starts compact:
+
+- With no selected task, top-level tasks are shown and task subtrees are collapsed.
+- With a selected task, the path to the selected task is expanded so the selected row is visible.
+- Sibling subtrees are collapsed by default.
+- Completed (`DONE`/`CANCELLED`) subtrees are collapsed unless they must be expanded to reveal the selected task.
+
+Manual expand/collapse using Enter, Space, or Tab applies for the lifetime of the expanded UI session.
 
 ### Archiving
 
@@ -87,7 +104,9 @@ Pressing `A` (shift-a) archives the top-level task containing the cursor's task.
 - Inlines any linked plan children into the archived copy so the archive file is self-contained.
 - Re-sorts `TASKS.ARCHIVE.org` by `CLOSED:` time on each archive operation, falling back to `:ARCHIVED:` time when a task has no `CLOSED:` stamp.
 - Adds an `:ARCHIVED: [timestamp]` property to the archived heading. The timestamp uses the task's `CLOSED` value when present, otherwise the current time.
-- Strips `:selected:` from the archived copy so reloading `TASKS.org` doesn't flip the pinned overlay onto a no-longer-present task.
+- Strips `:selected:` from the archived copy so reloading `TASKS.org` doesn't flip the compact widget onto a no-longer-present task.
+
+Task creation, plan creation, and archive confirmation prompts temporarily close the expanded UI so the built-in input/confirmation dialogs remain visible. After create/archive flows complete or are cancelled, the expanded UI reopens with a refreshed task tree.
 
 ## TASKS.org Format
 
@@ -131,8 +150,8 @@ The file uses org-mode heading syntax. A `#+TODO:` declaration is recommended so
 - **Status** — one of `TODO`, `STARTED`, `WAITING`, `DONE`, `CANCELLED`
 - **Priority** — optional, e.g. `[#A]`, `[#B]`, `[#C]`
 - **Summary** — the task title
-- **Tags** — optional, colon-delimited at end of line; `:selected:` is reserved for the current task selection and hidden in the overlay tag list
-- **ID property** — recommended `:ID:` UUID in the properties drawer, compatible with org-id.el and the org-memory skill protocol
+- **Tags** — optional, colon-delimited at end of line; `:selected:` is reserved for the current task selection and hidden in the task UI tag list
+- **ID property** — UUID in the properties drawer, compatible with org-id.el and the org-memory skill protocol. Missing IDs in `TASKS.org` and loaded linked plans are inserted automatically on load.
 - **PLAN property** — optional org properties drawer value pointing to a relative org file with a detailed task plan
 - **BLOCKED_BY property** — optional property recording why a `WAITING` task is blocked
 - **Description** — any non-heading text below a heading, excluding the properties drawer
@@ -151,7 +170,7 @@ A task can link to a detailed plan using an org properties drawer immediately be
   Parent task description.
 ```
 
-The `PLAN` path is resolved relative to the org file that contains the property. The linked file is parsed with the same TODO heading syntax as `TASKS.org`; its tasks are injected into the overlay as children of the parent task. New plan files scaffolded by the extension include `#+TITLE`, `#+DATE`, and `#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)` declarations. Status changes made to injected plan tasks are saved back to the linked plan file, not copied into `TASKS.org`. Saves preserve non-task org content such as file metadata, category headings, `* Context`, optional `** Design decisions`, `* Plan`, `* Implementation`, and `* Open questions` sections.
+The `PLAN` path is resolved relative to the org file that contains the property. The linked file is parsed with the same TODO heading syntax as `TASKS.org`; its tasks are injected into the expanded UI as children of the parent task. The details pane shows the plan target, loaded plan-task count, or a missing/unreadable-plan warning. New plan files scaffolded by the extension include `#+TITLE`, `#+DATE`, and `#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)` declarations. Status changes made to injected plan tasks are saved back to the linked plan file, not copied into `TASKS.org`. Saves preserve non-task org content such as file metadata, category headings, `* Context`, optional `** Design decisions`, `* Plan`, `* Implementation`, and `* Open questions` sections.
 
 The parser is intentionally permissive: actionable task headings may appear anywhere in the linked file. Using a dedicated `* Plan` section is recommended as a convention for readability, but it is not required by the extension.
 
