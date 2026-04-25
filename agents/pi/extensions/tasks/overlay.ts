@@ -448,8 +448,8 @@ export class TasksOverlay {
     const lines: string[] = [];
 
     // Split: left pane ~55%, right pane gets the rest
-    // Subtract 3 for outer borders + divider
-    const usable = width - 3;
+    // Subtract 1 for the inner column divider (no outer borders)
+    const usable = width - 1;
     const leftW = Math.max(30, Math.floor(usable * 0.55));
     const rightW = Math.max(20, usable - leftW);
 
@@ -690,37 +690,23 @@ export class TasksOverlay {
     while (leftLines.length < bodyHeight) leftLines.push("");
     while (rightLines.length < bodyHeight) rightLines.push("");
 
-    // Top border: ╭──...──┬──...──╮
-    lines.push(th.fg("border", `╭${hBar(leftW)}┬${hBar(rightW)}╮`));
+    // Top divider — matches compact widget style, no outer box border
+    lines.push(th.fg("border", hBar(width)));
 
-    // Body rows: │ left │ right │
+    // Body rows: left │ right (no outer borders)
     for (let i = 0; i < bodyHeight; i++) {
       const l = truncateToWidth(pad(leftLines[i] ?? "", leftW), leftW);
       const r = truncateToWidth(pad(rightLines[i] ?? "", rightW), rightW);
-      lines.push(
-        th.fg("border", "│") +
-          l +
-          th.fg("border", "│") +
-          r +
-          th.fg("border", "│"),
-      );
+      lines.push(l + th.fg("border", "│") + r);
     }
 
-    // Help row: ├──...──┴──...──┤  then help text row
-    lines.push(th.fg("border", `├${hBar(leftW)}┴${hBar(rightW)}┤`));
+    // Help separator + help text (no outer borders)
+    lines.push(th.fg("borderMuted", hBar(width)));
     const helpText = th.fg(
       "dim",
       " ↑↓/jk nav • ←→/hl status • Enter toggle • s select • e edit • p plan • n new • N subtask • A archive • Ctrl-d/u scroll • q close",
     );
-    const helpInnerW = leftW + rightW + 1; // +1 for removed divider
-    lines.push(
-      th.fg("border", "│") +
-        truncateToWidth(pad(helpText, helpInnerW), helpInnerW) +
-        th.fg("border", "│"),
-    );
-
-    // Bottom border: ╰──...──╯
-    lines.push(th.fg("border", `╰${hBar(leftW + rightW + 1)}╯`));
+    lines.push(truncateToWidth(pad(helpText, width), width));
 
     this.cachedWidth = width;
     this.cachedLines = lines;
