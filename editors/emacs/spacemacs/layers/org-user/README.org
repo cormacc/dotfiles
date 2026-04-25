@@ -6,29 +6,109 @@
 # TOC links should be GitHub style anchors.
 * Table of Contents                                        :TOC_4_gh:noexport:
 - [[#description][Description]]
-  - [[#features][Features:]]
+  - [[#features][Features]]
 - [[#install][Install]]
+- [[#tasks-org][tasks-org: plain-org task memory helpers]]
+  - [[#activation][Activation]]
+  - [[#commands--key-bindings][Commands & key bindings]]
+  - [[#protocol-conventions][Protocol conventions]]
+  - [[#relationship-to-the-pi-tasks-extension][Relationship to the pi tasks extension]]
 - [[#key-bindings][Key bindings]]
 
 * Description
-This layer adds support for something.
+Personal additions on top of Spacemacs' built-in =+lang/org= layer:
+custom org-mode tweaks, archive helper, web tools, =org-roam= setup,
+and the =tasks-org= local package for the plain-org task-memory
+protocol.
 
-** Features:
-  - Autocomplete
-  - Lint
-  - Refactor
-  - ...
+** Features
+  - Hierarchical archive (=org-archive-subtree-hierarchical=)
+  - org-web-tools for web capture
+  - org-roam (with custom capture templates)
+  - =tasks-org= local package (see below)
 
 * Install
 To use this configuration layer, add it to your =~/.spacemacs=. You will need to
 add =org-user= to the existing =dotspacemacs-configuration-layers= list in this
 file.
 
+* tasks-org: plain-org task memory helpers
+
+Local package providing Emacs-side helpers for the plain-org
+task-memory protocol used by the =pi= tasks extension.
+
+Files remain plain org. Pi (when present) reloads via its file
+watchers; there is no live IPC. The package is useful even without pi
+because it just maintains conventions on top of standard org.
+
+** Activation
+
+=tasks-org-mode= auto-enables on buffers visiting:
+
+- =TASKS.org= (project root)
+- any =*.org= under a =design/log/= directory
+
+Manual activation: =M-x tasks-org-mode=.
+
+Patterns are configurable via =tasks-org-auto-enable-paths=. Project
+root is resolved via =projectile-project-root= when projectile is
+loaded, falling back to the buffer's directory otherwise.
+
+** Commands & key bindings
+
+All bindings are registered under the org local-leader prefix =, p=
+(=SPC m p= in Spacemacs):
+
+| Key       | Command                              | Description                                                  |
+|-----------+--------------------------------------+--------------------------------------------------------------|
+| =, p s=   | =tasks-org-toggle-selected=          | Toggle =:selected:= on the current task (single-selection)   |
+| =, p i=   | =tasks-org-ensure-id=                | Ensure the current heading has a UUID =:ID:= property        |
+| =, p I=   | =tasks-org-backfill-ids-in-buffer=   | Add =:ID:= to every task heading in the buffer that lacks one |
+| =, p p=   | =tasks-org-open-plan=                | Open the =:PLAN:= linked from the current task, or create one |
+| =, p t=   | =tasks-org-jump-to-tasks=            | Open the project's =TASKS.org=                               |
+
+The mode lighter is =Tasks=.
+
+** Protocol conventions
+
+The package maintains four conventions:
+
+- =:ID:= property :: UUID v4 stable identifier per task heading.
+  =tasks-org-ensure-id= adds one if missing; the same on save can be
+  enabled via =tasks-org-save-backfill-ids= (off by default).
+
+- =:selected:= tag :: Reserved tag marking the single currently
+  selected task across the project. Toggling clears any other
+  selection across =TASKS.org= and any =:PLAN:='d files first to
+  enforce single-selection.
+
+- =:PLAN:= property :: Clickable org file link to a detailed plan file
+  for the task. =tasks-org-open-plan= opens an existing plan or
+  scaffolds a new one (=#+TITLE=, =#+DATE=, =#+TODO=, =* Context=,
+  =* Plan=) and writes the property as =[[file:...]]= for clickability
+  in Emacs. Bare paths and labelled link forms are also recognised
+  when reading.
+
+- =#+PLANS:= keyword (recognised, not yet auto-set) :: Top-level
+  pointer to the project's plans directory. Defaults to =design/log=
+  via =tasks-org-plans-directory=.
+
+** Relationship to the pi tasks extension
+
+Both consumers share the same plain-org files. Pi's file watchers
+pick up Emacs saves automatically; the compact widget and overlay
+refresh without manual intervention.
+
+Subtask absorption (moving local subtasks into a newly-created plan
+while leaving a parent summary) is intentionally not implemented in
+this package's v1 — it's tracked as a separate workstream to be done
+in collaboration with the pi extension's parser.
+
 * Key bindings
 
-| Key Binding | Description    |
-|-------------+----------------|
-| ~SPC x x x~ | Does thing01   |
+See [[#commands--key-bindings][tasks-org commands & key bindings]]
+above for the =, p= prefix. Other layer bindings remain those
+inherited from Spacemacs' =+lang/org= layer.
 
 # Use GitHub URLs if you wish to link a Spacemacs documentation file or its heading.
 # Examples:
