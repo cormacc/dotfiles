@@ -27,7 +27,12 @@ For persistent task memory, pair this with the org-memory skill:
 ## Org plan format
 
 When the project uses org-memory, write plans as org TODO task trees and follow
-that skill's ID and property protocol.
+that skill's ID and property protocol. Newly created plan files should declare
+the supported TODO state cycle near the top of the file:
+
+```org
+#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
+```
 
 Use only these TODO states unless the project specifies otherwise:
 
@@ -64,7 +69,8 @@ Required sections:
 
 - `* Context` :: Background, motivation, initial discussion, and design
   decisions that are not themselves actionable work. For retrospective plans,
-  summarize scope and workstream here.
+  summarize scope and workstream here. When rationale matters, use an optional
+  `** Design decisions` subsection under `* Context`.
 - `* Plan` :: The plan itself — a list of TODO headings nested under this
   heading. Use `** TODO ...` (level 2) so the tasks live under `* Plan`
   while remaining parseable by the tasks extension.
@@ -81,12 +87,14 @@ Example:
 
 ```org
 #+TITLE: Descriptive Plan Title
+#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 
 * Context
 Brief background on why this plan exists and what prompted it.
 
-Design decisions:
-- Decision A and rationale.
+** Design decisions
+
+- Decision A :: Rationale.
 
 * Plan
 ** DONE [#A] First completed step :area:
@@ -157,9 +165,10 @@ YYYY-MM-DD-short-task-name.org
    The tasks extension's `p` keybinding currently writes the `[[file:...]]`
    form so the property is clickable in Emacs by default.
 
-5. Create the linked plan file with org TODO headings under `* Plan`.
-6. Add UUID `:ID:` properties to every task/subtask in the plan.
-7. Keep the linked plan parseable by the tasks extension.
+5. Create the linked plan file with `#+TITLE:` and `#+TODO:` declarations.
+6. Put org TODO headings under `* Plan`.
+7. Add UUID `:ID:` properties to every task/subtask in the plan.
+8. Keep the linked plan parseable by the tasks extension.
 
 ## Retrospective plans
 

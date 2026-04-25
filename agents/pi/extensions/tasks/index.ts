@@ -634,6 +634,7 @@ function scaffoldPlan(task: Task): string {
   return [
     `#+TITLE: ${task.summary}`,
     `#+DATE: ${formatOrgTimestamp()}`,
+    "#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)",
     "",
     "* Context",
     "",

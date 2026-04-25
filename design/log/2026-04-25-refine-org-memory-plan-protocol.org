@@ -1,4 +1,5 @@
 #+TITLE: Refine org-memory/plan Protocol
+#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 
 * Context
 
@@ -11,7 +12,7 @@ when task files are saved by tooling, org metadata and non-task structure must n
 be discarded. This plan therefore includes both protocol-documentation updates and
 a tasks-extension verification/fix item.
 
-Key design decisions:
+** Design decisions
 
 - *:selected: stays an org tag.* It is already established and managed by the
   tasks extension/human task-selection workflow. Agents should preserve and
@@ -29,6 +30,15 @@ Key design decisions:
 - *Skills define protocol; extension implements UI.* Skill files should specify
   the file format contract and agent behaviour. Extension-specific UI details,
   keybindings, rendering, and safe write mechanics belong in the tasks extension.
+
+- *Task memory files declare TODO keywords explicitly.* `TASKS.org` and newly
+  scaffolded linked plan files should include `#+TODO: TODO(t) STARTED(s)
+  WAITING(w) | DONE(d) CANCELLED(c)` so org-mode users get the same state cycle
+  without relying on global Emacs configuration.
+
+- *Plan files may include a `** Design decisions` subsection under `* Context`.*
+  Use it when alternatives, constraints, or rationale will matter to future
+  humans/agents. Keep it optional for trivial plans.
 
 * Plan
 
@@ -191,7 +201,5 @@ property and format. Agents and Emacs can both manage IDs without conflict.
 
 * Questions for batch review
 
-- Should TASKS.org carry #+TODO: declarations to make the keyword set explicit
-  for Emacs users not loading a global org config?
-- Should plan files standardise a small "Design decisions" subsection under
-  * Context when significant rationale was established before implementation?
+None currently outstanding. The previous questions were resolved as design
+decisions recorded under `* Context` / `** Design decisions`.
