@@ -78,7 +78,8 @@ current implementation before relying on extension-specific UI details.
 - New plan-file suggestions should use the top-level `#+PLANS: [[file:...]]`
   directory from `TASKS.org`; when absent, default to `[[file:./design/log]]`.
 - A linked plan file is itself a parseable org task tree using the same TODO
-  heading syntax.
+  heading syntax. Newly created linked plans should include `#+PARENT_ID:` with
+  the parent `TASKS.org` task's UUID `:ID:`.
 - In the pi tasks extension, linked plan tasks are injected as children of the
   parent task. Without the extension, they remain accessible as normal org files.
 
@@ -235,8 +236,10 @@ YYYY-MM-DD-short-task-name.org
 :PLAN: [[file:design/log/YYYY-MM-DD-short-task-name.org][Plan]]
 ```
 
-6. Include the same `#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d)
-   CANCELLED(c)` declaration in newly scaffolded plan files.
+6. Include `#+TITLE:`, `#+DATE:`, `#+PARENT_ID:`, and the same `#+TODO: TODO(t)
+   STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)` declaration in newly scaffolded
+   plan files. `#+PARENT_ID:` should match the parent task's `:ID:` in
+   `TASKS.org`.
 7. Use the plan skill's file structure: a self-contained `* Context` summary,
    optional `** Design decisions`, and org TODO headings under `* Plan`.
    If the parent task already has subtasks, move those subtask trees into the

@@ -22,9 +22,11 @@ import type {
   Theme,
 } from "@mariozechner/pi-coding-agent";
 import {
+  Input,
   truncateToWidth,
   visibleWidth,
   type Component,
+  type Focusable,
   type TUI,
 } from "@mariozechner/pi-tui";
 import { watch, type FSWatcher } from "node:fs";
@@ -37,6 +39,7 @@ import { TasksOverlay } from "./overlay.ts";
 import {
   extractOrgLinkTarget,
   formatOrgTimestamp,
+  getTaskId,
   parseTasks,
   serializeTasks,
   serializeTasksPreservingFile,
@@ -647,9 +650,11 @@ async function suggestPlanPath(task: Task, cwd: string): Promise<string> {
 
 /** Scaffold a minimal plan file body consistent with the plan skill. */
 function scaffoldPlan(task: Task, planTasks: Task[] = []): string {
+  const parentId = getTaskId(task);
   const content = [
     `#+TITLE: ${task.summary}`,
     `#+DATE: ${formatOrgTimestamp()}`,
+    parentId ? `#+PARENT_ID: ${parentId}` : null,
     "#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)",
     "",
     "* Context",
@@ -657,7 +662,7 @@ function scaffoldPlan(task: Task, planTasks: Task[] = []): string {
     "* Plan",
     "",
     "",
-  ].join("\n");
+  ].filter((line): line is string => line !== null).join("\n");
   return insertTasksIntoPlanSection(content, planTasks);
 }
 
@@ -737,13 +742,116 @@ function insertTasksIntoPlanSection(content: string, tasks: Task[]): string {
   return lines.join("\n").replace(/\n*$/, "\n");
 }
 
+class PrefilledInputPrompt implements Component, Focusable {
+  private readonly input = new Input();
+  private _focused = false;
+
+  constructor(
+    private readonly tui: TUI,
+    private readonly theme: Theme,
+    private readonly title: string,
+    initialValue: string,
+    private readonly done: (value: string | undefined) => void,
+  ) {
+    this.input.setValue(initialValue);
+    // Input#setValue preserves the existing cursor position; for a prefilled
+    // value, place the cursor at the end so Enter accepts the suggestion and
+    // normal editing starts where users expect.
+    (this.input as unknown as { cursor: number }).cursor = initialValue.length;
+    this.input.onSubmit = (value) => this.done(value);
+    this.input.onEscape = () => this.done(undefined);
+  }
+
+  get focused(): boolean {
+    return this._focused;
+  }
+
+  set focused(value: boolean) {
+    this._focused = value;
+    this.input.focused = value;
+  }
+
+  handleInput(data: string): void {
+    this.input.handleInput(data);
+    this.tui.requestRender();
+  }
+
+  render(width: number): string[] {
+    const hBar = this.theme.fg("border", "─".repeat(Math.max(0, width)));
+    const inputWidth = Math.max(1, width - 2);
+    const inputLines = this.input.render(inputWidth).map((line) =>
+      truncateToWidth(` ${line}`, width)
+    );
+    return [
+      hBar,
+      truncateToWidth(this.theme.fg("accent", ` ${this.theme.bold(this.title)}`), width),
+      "",
+      ...inputLines,
+      "",
+      truncateToWidth(this.theme.fg("dim", " Enter submit • Esc cancel"), width),
+      hBar,
+    ];
+  }
+
+  invalidate(): void {
+    this.input.invalidate();
+  }
+}
+
+async function promptForPlanPath(
+  ctx: ExtensionContext,
+  task: Task,
+  suggested: string,
+): Promise<string | undefined> {
+  return await ctx.ui.custom<string | undefined>(
+    (tui, theme, _kb, done) =>
+      new PrefilledInputPrompt(
+        tui,
+        theme,
+        `New plan for: ${task.summary}`,
+        suggested,
+        done,
+      ),
+    {
+      overlay: true,
+      overlayOptions: {
+        width: "80%",
+        minWidth: 40,
+        anchor: "center",
+      },
+    },
+  );
+}
+
+function buildPlanDevelopmentPrompt(
+  task: Task,
+  planRelToSource: string,
+  absPlan: string,
+  absorbedSubtasks: boolean,
+): string {
+  return [
+    "Develop a linked org implementation plan for the selected TASKS.org task.",
+    "",
+    `Task: ${task.status} ${task.priority ? `[#${task.priority}] ` : ""}${task.summary}`,
+    `Plan property: [[file:${planRelToSource}]]`,
+    `Plan file: ${absPlan}`,
+    "",
+    "The tasks extension has already attached the :PLAN: property and scaffolded the plan file.",
+    absorbedSubtasks
+      ? "Existing TASKS.org subtasks were moved into the linked plan under * Plan, and the parent task now retains a plain-text summary of the extracted subtasks."
+      : "The parent task had no local subtasks to absorb.",
+    "",
+    "Use the plan skill and org-memory protocol. Start by asking me any scoping questions needed to develop the plan. Once the plan is agreed, write the final org plan to the plan file above. After writing it, offer to open the plan in Emacs.",
+  ].join("\n");
+}
+
 /**
  * Resolve or create a plan for the given task, then open it in Emacs.
  *
  * If the task has a `:PLAN:` property: open that file.
  * Otherwise: prompt for a filename (seeded from the task summary and today's
  * date), scaffold the file, attach `:PLAN:` to the task, save the source
- * org file, then open the new plan.
+ * org file, then ask the agent to develop the plan with the user.
  */
 async function handlePlanEdit(
   pi: ExtensionAPI,
@@ -768,12 +876,9 @@ async function handlePlanEdit(
 
   // ── Create new plan ──
   const suggested = await suggestPlanPath(task, ctx.cwd);
-  const approved = await ctx.ui.input(
-    `New plan for: ${task.summary}`,
-    suggested,
-  );
+  const approved = await promptForPlanPath(ctx, task, suggested);
   if (!approved) return;
-  const relPath = approved.trim();
+  const relPath = approved.split(/\r?\n/, 1)[0]?.trim();
   if (!relPath) return;
 
   const absPlan = isAbsolute(relPath) ? relPath : resolve(ctx.cwd, relPath);
@@ -831,11 +936,16 @@ async function handlePlanEdit(
     return;
   }
 
-  if (!(await ensureEmacsServer(getEmacsOptions(pi)))) {
-    ctx.ui.notify("Plan created but could not reach Emacs server", "warning");
-    return;
-  }
-  pi.events.emit("emacs:open", { file: absPlan, line: 1 });
+  ctx.ui.notify(`Plan scaffolded: ${planRelToSource}`, "info");
+  pi.sendUserMessage(
+    buildPlanDevelopmentPrompt(
+      task,
+      planRelToSource,
+      absPlan,
+      originalChildren.length > 0,
+    ),
+    { deliverAs: "followUp" },
+  );
 }
 
 // ── Create task flow ─────────────────────────────────────────────────────
