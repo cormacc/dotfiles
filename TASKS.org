@@ -66,7 +66,7 @@ A couple of ideas for minor QOL improvements on the editor side...
 - Auto-populate expected properties fields when creating tasks in emacs
 - Add keybindings to toggle selection of a given issue
 - Bi-directional sync/refresh on edit
-** STARTED [#A] Refine tasks extension :selected:
+** DONE [#A] Refine tasks extension
 :PROPERTIES:
 :ID: f92b7b2f-c7fc-4933-9e27-20c0e411cbe4
 :PLAN: [[file:design/log/2026-04-25-refine-tasks-extension.org]]
