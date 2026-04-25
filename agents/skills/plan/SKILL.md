@@ -19,12 +19,15 @@ For persistent task memory, pair this with the org-memory skill:
 - Include validation criteria for non-trivial tasks.
 - Keep completed history when drafting retrospective plans; it helps future
   agents resume context.
+- Capture important design decisions in the plan context or implementation
+  notes so later sessions can understand why work was shaped this way.
 - Do not plan endlessly. Once the plan is good enough and the user wants action,
   start executing the next task.
 
 ## Org plan format
 
-When the project uses org-memory, write plans as org TODO task trees.
+When the project uses org-memory, write plans as org TODO task trees and follow
+that skill's ID and property protocol.
 
 Use only these TODO states unless the project specifies otherwise:
 
@@ -41,15 +44,27 @@ Use priorities consistently:
 - `[#C]` medium
 - `[#D]` low
 
+Every task and subtask should have an `:ID:` property containing a UUID v4 value:
+
+```org
+** TODO [#A] Implement feature :area:
+:PROPERTIES:
+:ID: 01234567-89ab-4def-8123-456789abcdef
+:END:
+```
+
+When loading a plan as project memory, add missing IDs to loaded tasks before
+editing, as described in the org-memory skill.
+
 ## Plan file structure
 
 Plan files should begin with a title and a small number of top-level sections.
 
 Required sections:
 
-- `* Context` :: Background, motivation, and any initial discussion that is
-  not itself actionable work. For retrospective plans, summarize scope and
-  workstream here.
+- `* Context` :: Background, motivation, initial discussion, and design
+  decisions that are not themselves actionable work. For retrospective plans,
+  summarize scope and workstream here.
 - `* Plan` :: The plan itself — a list of TODO headings nested under this
   heading. Use `** TODO ...` (level 2) so the tasks live under `* Plan`
   while remaining parseable by the tasks extension.
@@ -58,8 +73,9 @@ Optional sections as appropriate:
 
 - `* Implementation` :: Notes on implementation decisions or details that may
   be useful during later maintenance.
-- `* Open questions` :: Unresolved questions that should be answered before
-  or during execution.
+- `* Open questions` :: Unresolved questions that should be reviewed as a batch
+  later, rather than interrupting implementation when the user asked not to be
+  prompted.
 
 Example:
 
@@ -69,15 +85,27 @@ Example:
 * Context
 Brief background on why this plan exists and what prompted it.
 
+Design decisions:
+- Decision A and rationale.
+
 * Plan
 ** DONE [#A] First completed step :area:
-   Short retrospective note.
+:PROPERTIES:
+:ID: 01234567-89ab-4def-8123-456789abcdef
+:END:
+Short retrospective note.
 
 ** STARTED [#A] Current active task :area:
-   What is being changed and how it will be verified.
+:PROPERTIES:
+:ID: 89abcdef-0123-4567-89ab-cdef01234567
+:END:
+What is being changed and how it will be verified.
 
 ** TODO [#B] Next task :area:
-   Acceptance criteria.
+:PROPERTIES:
+:ID: fedcba98-7654-4321-8fed-cba987654321
+:END:
+Acceptance criteria.
 
 * Implementation
 Notes on key implementation decisions or subtleties.
@@ -87,11 +115,14 @@ Notes on key implementation decisions or subtleties.
 ```
 
 The tasks extension parser ignores non-task top-level headings
-(`Context`, `Plan`, `Implementation`, `Open questions`) and does not
-attribute their bodies to preceding tasks. For predictable results, keep
-actionable headings under `* Plan`; that is the intended convention for linked
-plans. Task headings may use any supported state (`TODO`, `STARTED`,
-`WAITING`, `DONE`, `CANCELLED`).
+(`Context`, `Plan`, `Implementation`, `Open questions`) and does not attribute
+their bodies to preceding tasks. For predictable results, keep actionable
+headings under `* Plan`; that is the intended convention for linked plans.
+
+Task headings may nest deeper than level 2, for example `*** TODO ...` under a
+plan task. The tasks extension parses deeper nested TODO headings, but status is
+not automatically propagated to parent tasks. Agents must update parent statuses
+manually.
 
 ## Creating a plan for TASKS.org
 
@@ -105,26 +136,30 @@ YYYY-MM-DD-short-task-name.org
 ```
 
 3. Prefer an existing planning directory such as `design/log/` if present.
-4. Add the property drawer to the parent task. Either a bare relative path or
-   an org file link is acceptable:
+4. Add the property drawer to the parent task. For new plans, prefer the org
+   file-link form so the property is clickable in Emacs:
 
 ```org
 :PROPERTIES:
-:PLAN: design/log/YYYY-MM-DD-short-task-name.org
+:ID: 01234567-89ab-4def-8123-456789abcdef
+:PLAN: [[file:design/log/YYYY-MM-DD-short-task-name.org]]
 :END:
 ```
 
+   Bare relative paths and labelled file links are accepted for compatibility
+   and should be preserved when already present:
+
 ```org
-:PROPERTIES:
-:PLAN: [[file:design/log/YYYY-MM-DD-short-task-name.org]]
-:END:
+:PLAN: design/log/YYYY-MM-DD-short-task-name.org
+:PLAN: [[file:design/log/YYYY-MM-DD-short-task-name.org][Plan]]
 ```
 
    The tasks extension's `p` keybinding currently writes the `[[file:...]]`
    form so the property is clickable in Emacs by default.
 
-5. Create the linked plan file with org TODO headings.
-6. Keep the linked plan parseable by the tasks extension.
+5. Create the linked plan file with org TODO headings under `* Plan`.
+6. Add UUID `:ID:` properties to every task/subtask in the plan.
+7. Keep the linked plan parseable by the tasks extension.
 
 ## Retrospective plans
 
@@ -143,11 +178,16 @@ Before starting implementation:
 
 1. Read the relevant plan file.
 2. Identify the next actionable `TODO` or `STARTED` task.
-3. Mark the task `STARTED` if beginning work now.
-4. Implement the smallest change that satisfies the task.
-5. Verify the change.
-6. Mark the task `DONE` and add a short result note if useful.
-7. Add newly discovered follow-up work as new `TODO` tasks.
+3. If using org-memory/task tooling, respect the current `:selected:` marker as
+   the active task signal. Agents should not write or clear `:selected:`
+   directly unless explicitly asked or acting through a task-selection tool.
+4. Mark the task `STARTED` if beginning work now.
+5. Implement the smallest change that satisfies the task.
+6. Verify the change.
+7. Mark the task `DONE` and add a short result note if useful.
+8. Add newly discovered follow-up work as new `TODO` tasks.
+9. If the user asked not to be interrupted with questions, append questions to
+   `* Open questions` or a final question section in the plan for batch review.
 
 ## Updating plans after discoveries
 
@@ -157,7 +197,8 @@ Update the plan when implementation reveals:
 - an architectural decision,
 - a validation gap,
 - a follow-up refactor,
-- a blocked dependency.
+- a blocked dependency,
+- an unanswered question that should be reviewed later.
 
 Keep additions concise and actionable. Prefer one task per concrete outcome.
 

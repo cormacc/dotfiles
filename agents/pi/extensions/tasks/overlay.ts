@@ -10,9 +10,12 @@ import {
   wrapTextWithAnsi,
 } from "@mariozechner/pi-tui";
 import type { Task } from "./parser.ts";
-import { formatOrgTimestamp, serializeTasks } from "./parser.ts";
+import {
+  formatOrgTimestamp,
+  serializeTasksPreservingFile,
+} from "./parser.ts";
 import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const STATUS_CYCLE = [
@@ -417,9 +420,12 @@ export class TasksOverlay {
       collect(this.tasks);
 
       await Promise.all(
-        [...roots.entries()].map(([path, tasks]) =>
-          writeFile(path, serializeTasks(tasks), "utf-8"),
-        ),
+        [...roots.entries()].map(async ([path, tasks]) => {
+          const cachedOriginal = tasks.find((t) => t.sourceContent)?.sourceContent;
+          const original = cachedOriginal ?? await readFile(path, "utf-8");
+          const content = serializeTasksPreservingFile(original, tasks);
+          await writeFile(path, content, "utf-8");
+        }),
       );
     } catch {
       // Best-effort save; overlay stays usable

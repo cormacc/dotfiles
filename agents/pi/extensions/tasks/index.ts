@@ -29,12 +29,19 @@ import {
   type TUI,
 } from "@mariozechner/pi-tui";
 import { watch, type FSWatcher } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.ts";
 import { ensureEmacsServer } from "../emacsclient/emacsclient.ts";
 import { TasksOverlay } from "./overlay.ts";
-import { formatOrgTimestamp, parseTasks, serializeTasks, type Task } from "./parser.ts";
+import {
+  formatOrgTimestamp,
+  parseTasks,
+  serializeTasks,
+  serializeTasksPreservingFile,
+  type Task,
+} from "./parser.ts";
 import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
 
 const EXT_NAME = getExtensionName(import.meta.url);
@@ -573,6 +580,17 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
+async function writeTaskFilePreserving(path: string, tasks: Task[]): Promise<void> {
+  const cachedOriginal = tasks.find((t) => t.sourceContent)?.sourceContent;
+  const original = cachedOriginal ?? ((await pathExists(path))
+    ? await readFile(path, "utf-8")
+    : "");
+  const content = original
+    ? serializeTasksPreservingFile(original, tasks)
+    : serializeTasks(tasks);
+  await writeFile(path, content, "utf-8");
+}
+
 function getEmacsOptions(pi: ExtensionAPI) {
   const env = (globalThis as { [key: string]: unknown })["process"] as
     | { env?: Record<string, string | undefined> }
@@ -681,7 +699,7 @@ async function handlePlanEdit(
     task.planRaw = `[[file:${planRelToSource}]]`;
     const root = task.sourceRoot;
     if (root) {
-      await writeFile(sourcePath, serializeTasks(root), "utf-8");
+      await writeTaskFilePreserving(sourcePath, root);
     }
   } catch (err) {
     ctx.ui.notify(
@@ -730,14 +748,16 @@ async function createTask(
     tags: [],
     description: "",
     children: [],
-    propertyLines: [],
+    propertyLines: [`:ID: ${randomUUID()}`],
     planPath: null,
     planRaw: null,
     planChildren: undefined,
     closed: null,
     sourcePath: join(cwd, TASKS_FILE),
+    sourceContent: tasks.find((t) => t.sourceContent)?.sourceContent,
     sourceRoot: tasks,
     lineNumber: 0,
+    endLine: 0,
   };
 
   const container: Task[] = parentTask ? parentTask.children : tasks;
@@ -754,7 +774,7 @@ async function createTask(
 
   const tasksPath = join(cwd, TASKS_FILE);
   try {
-    await writeFile(tasksPath, serializeTasks(tasks), "utf-8");
+    await writeTaskFilePreserving(tasksPath, tasks);
   } catch (err) {
     ctx.ui.notify(`Failed to save: ${(err as Error).message}`, "error");
     const rollback = container.indexOf(newTask);
@@ -792,7 +812,9 @@ function flattenForArchive(task: Task, depth: number): Task {
     planChildren: undefined,
     closed: task.closed,
     sourcePath: task.sourcePath,
+    sourceContent: task.sourceContent,
     lineNumber: task.lineNumber,
+    endLine: task.endLine,
   };
 }
 
@@ -880,7 +902,7 @@ async function archiveTopLevel(
     archivedTasks.push(archiveCopy);
     const sortedArchive = sortArchivedTasks(archivedTasks);
     await writeFile(archivePath, serializeTasks(sortedArchive), "utf-8");
-    await writeFile(tasksPath, serializeTasks(tasks), "utf-8");
+    await writeTaskFilePreserving(tasksPath, tasks);
   } catch (err) {
     // Roll back in-memory change so the overlay stays consistent with disk.
     tasks.splice(idx, 0, topLevel);
