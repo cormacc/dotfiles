@@ -52,7 +52,7 @@ existing file watchers rather than requiring a new live protocol initially.
 
 * Plan
 
-** TODO [#A] Add local `tasks-org` package skeleton to the `org-user` layer :emacs:spacemacs:
+** DONE [#A] Add local `tasks-org` package skeleton to the `org-user` layer :emacs:spacemacs:
 :PROPERTIES:
 :ID: 07689ad9-982f-48da-816d-1ac37c8829c7
 :END:
@@ -67,21 +67,21 @@ Acceptance criteria:
   under a `design/log/` directory (filename-based detection). Manual
   `M-x tasks-org-mode` remains available for other buffers.
 - Package loads cleanly in Emacs/Spacemacs without requiring pi.
-*** TODO [#B] Define package namespace and customization variables :emacs:
+*** DONE [#B] Define package namespace and customization variables :emacs:
 :PROPERTIES:
 :ID: 9c49ed92-b353-4f4e-b10d-dfe71e3efc1b
 :END:
 Use a self-contained namespace such as `tasks-org-` and define customization
 variables for the TASKS file name, default plans directory, and whether save-time
 ID backfill is enabled.
-*** TODO [#B] Add minor mode and keymap :emacs:ui:
+*** DONE [#B] Add minor mode and keymap :emacs:ui:
 :PROPERTIES:
 :ID: 73d6082a-c0c1-4331-984b-19797e9b7276
 :END:
 Provide `tasks-org-mode` with a small keymap under an org-friendly prefix.
 Candidate bindings: select current task, ensure ID, open/create plan, jump to
 TASKS root, and refresh/reparse helpers.
-** TODO [#A] Implement org task identity helpers :org:ids:
+** DONE [#A] Implement org task identity helpers :org:ids:
 :PROPERTIES:
 :ID: e437db55-7933-4ef5-911c-89dc81dd3ae3
 :END:
@@ -97,19 +97,19 @@ Acceptance criteria:
 - Optional save-time ID backfill is disabled by default or clearly documented as
   conservative.
 - Existing IDs and unrelated properties are preserved.
-*** TODO [#B] Implement UUID/property primitives :org:ids:
+*** DONE [#B] Implement UUID/property primitives :org:ids:
 :PROPERTIES:
 :ID: bd0a484b-9e37-40a5-a295-e0d62e40edef
 :END:
 Wrap `org-entry-get`, `org-entry-put`, and org-id facilities where appropriate.
 Avoid custom parsing when org APIs can safely handle the operation.
-*** TODO [#B] Validate ID helpers on TASKS.org and linked plans :testing:
+*** STARTED [#B] Validate ID helpers on TASKS.org and linked plans :testing:
 :PROPERTIES:
 :ID: c98342fd-9292-47de-9d16-e0c3b2fdb3e0
 :END:
 Test current heading, subtree, whole buffer, existing ID preservation, and files
 with unrelated properties such as `:PLAN:` and `:BLOCKED_BY:`.
-** TODO [#A] Implement explicit task selection helpers :selection:org:
+** DONE [#A] Implement explicit task selection helpers :selection:org:
 :PROPERTIES:
 :ID: 2e6b4633-f11b-4e64-814c-ff9714308492
 :END:
@@ -124,7 +124,7 @@ Acceptance criteria:
 - Command refuses or explains when point is not on an actionable task heading.
 - Saving the buffer is enough for pi's file watcher to refresh the compact
   widget/overlay.
-*** TODO [#B] Locate task graph files for selection clearing :selection:
+*** DONE [#B] Locate task graph files for selection clearing :selection:
 :PROPERTIES:
 :ID: e896d385-2e31-4fa4-a8c9-b5e5fa0e332d
 :END:
@@ -132,13 +132,13 @@ Use `projectile-project-root` to locate the project root and resolve `TASKS.org`
 plus any plan files referenced by `:PLAN:` properties. Fall back to the buffer's
 own directory if projectile cannot resolve a root. Prefer safe, explicit file
 updates over scanning arbitrary org files.
-*** TODO [#B] Preserve normal org tag editing :selection:ux:
+*** DONE [#B] Preserve normal org tag editing :selection:ux:
 :PROPERTIES:
 :ID: f3594aeb-1eea-4e07-a02c-f4732f978f86
 :END:
 Ensure the helper coexists with `org-set-tags-command` and does not rewrite
 semantic tags unexpectedly.
-** TODO [#A] Implement plan open/create helpers :plans:org:
+** DONE [#A] Implement plan open/create helpers :plans:org:
 :PROPERTIES:
 :ID: 594900c9-5760-4ae1-ae03-a265aed20a41
 :END:
@@ -156,13 +156,13 @@ Acceptance criteria:
   explicitly creating/replacing the plan link.
 - v1 scaffolds an empty plan file only; moving local subtasks into the new plan
   is deferred to a separate workstream (see Design decisions).
-*** TODO [#B] Reuse org link APIs for clickable PLAN values :plans:emacs:
+*** DONE [#B] Reuse org link APIs for clickable PLAN values :plans:emacs:
 :PROPERTIES:
 :ID: a5b33e4f-a544-4fa4-8a2b-8c64c47d77f1
 :END:
 Use org link parsing/opening primitives where possible rather than maintaining a
 separate Emacs Lisp parser for org links.
-*** TODO [#B] Implement plan file scaffold :plans:org:
+*** DONE [#B] Implement plan file scaffold :plans:org:
 :PROPERTIES:
 :ID: 78c69fdf-c448-4df6-b960-60b2e1be271b
 :END:
@@ -170,7 +170,7 @@ Create the new plan file with `#+TITLE`, `#+DATE`, `#+TODO`, `* Context`, and
 `* Plan` sections. Update or set the parent task's `:PLAN:` property to the
 clickable `[[file:...]]` form. Subtask absorption is explicitly out of scope
 for v1 — see Design decisions.
-** TODO [#B] Document usage in the `org-user` layer README :docs:
+** DONE [#B] Document usage in the `org-user` layer README :docs:
 :PROPERTIES:
 :ID: 22f593f9-8229-4ffa-ade5-3aa47410a8ed
 :END:
@@ -182,7 +182,7 @@ Acceptance criteria:
 - README lists commands and keybindings.
 - README documents `:ID:`, `:selected:`, `:PLAN:`, and `#+PLANS` conventions.
 - README notes that sync is currently save/file-watcher based.
-** TODO [#B] Validate transparent Emacs/pi workflow :verification:
+** STARTED [#B] Validate transparent Emacs/pi workflow :verification:
 :PROPERTIES:
 :ID: 437d6716-1135-4459-ad0f-ee9f88eff294
 :END:
@@ -205,8 +205,74 @@ Implementation notes should be added as tasks are completed. Keep this section
 focused on decisions, tricky Emacs/org API details, and validation outcomes that
 future agents or humans need when maintaining the package.
 
+v1 implementation summary (2026-04-25):
+
+- Package lives at
+  =editors/emacs/spacemacs/layers/org-user/local/tasks-org/tasks-org.el= and is
+  wired into =org-user-packages= as =(tasks-org :location local)= with an
+  =org-user/init-tasks-org= function that registers Spacemacs local-leader
+  bindings under =, p=.
+- Activation: =add-hook 'org-mode-hook #'tasks-org-maybe-enable= runs the
+  filename-match check; matched buffers get =tasks-org-mode= enabled. The
+  match list is a customisation (=tasks-org-auto-enable-paths=) defaulting to
+  =TASKS.org= and =design/log/*.org= relative to the project root.
+- Project root: =projectile-project-root= via =fboundp= guard so the package
+  doesn't hard-require projectile; falls back to the buffer's directory and
+  finally =default-directory=.
+- ID helpers use =org-id-new= for UUID generation. =tasks-org-ensure-id= and
+  =tasks-org-backfill-ids-in-buffer= rely on =org-entry-get/put=, leaving
+  unrelated property drawers untouched.
+- Selection: =tasks-org--clear-selected-everywhere= reads :PLAN: links from
+  TASKS.org via a regex over property lines, then opens each file with
+  =find-file-noselect= (killing buffers it opened itself), uses
+  =org-set-tags= to mutate, and saves. =tasks-org-toggle-selected= clears
+  before applying so single-selection is always enforced.
+- Plan helpers: =tasks-org--extract-plan-path= recognises bare paths,
+  =[[file:...]]=, and =[[file:...][label]]= forms. Plan creation always
+  writes the clickable =[[file:...]]= form via =org-entry-put= and ensures
+  the source task has an :ID: before saving. Subtask absorption deliberately
+  not implemented.
+- Save hook: =tasks-org--maybe-backfill-on-save= is registered buffer-locally
+  by =tasks-org-mode= but only acts when =tasks-org-save-backfill-ids= is
+  non-nil (off by default).
+
+Key-binding map (Spacemacs local-leader =, p=):
+
+| Key   | Command                            |
+|-------+------------------------------------|
+| , p s | tasks-org-toggle-selected          |
+| , p i | tasks-org-ensure-id                |
+| , p I | tasks-org-backfill-ids-in-buffer   |
+| , p p | tasks-org-open-plan                |
+| , p t | tasks-org-jump-to-tasks            |
+
 * Open questions
 
-- Should save-time ID backfill be opt-in per buffer, enabled globally for
-  `TASKS.org`/linked plans, or exposed only as an explicit command in the first
-  version?
+Batch-review items collected during v1 implementation. Resolve before/after
+interactive validation (=437d6716=).
+
+- Save-time ID backfill scope :: Currently exposed as a customisation
+  (=tasks-org-save-backfill-ids=) defaulting to =nil=. Decide whether to
+  enable it by default for buffers that match =tasks-org-auto-enable-paths=,
+  enable globally, leave opt-in, or remove the save hook entirely in favour
+  of explicit commands.
+- Plan link parser scope :: =tasks-org--extract-plan-path= uses a regex that
+  captures everything between =file:= and the closing =]=. Org link forms
+  with search options (=[[file:foo.org::heading]]=) will have the =::heading=
+  included in the path and fail to open. Decide whether to (a) accept this
+  v1 limitation, (b) strip search options before resolving the file, or
+  (c) switch to =org-link-open-from-string= / =org-element-link-parser= for a
+  fully org-aware parse.
+- Activation pattern coverage :: =tasks-org-auto-enable-paths= matches paths
+  relative to the project root. Files outside the project (e.g. a plan file
+  visited via an absolute path from outside its repo) won't auto-enable.
+  Decide whether to (a) accept the project-only limitation, (b) also try a
+  match against =buffer-file-name= directly, or (c) gate activation on the
+  presence of a =#+PLANS:= or =#+TODO:= keyword in the buffer.
+- Buffer cleanup correctness :: =tasks-org--clear-selected-everywhere= kills
+  buffers it opened itself but keeps pre-existing visiting buffers. Verify
+  during interactive testing that this does not leave the user with stale
+  modified buffers if a save fails partway.
+- Subtask absorption follow-up :: Deferred per design decisions. When ready,
+  open as a separate workstream with its own plan; coordinate with the pi
+  tasks extension's parser so behaviour matches across editor and CLI.
