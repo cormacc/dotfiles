@@ -1,8 +1,67 @@
-** WAITING [#C] Update nixGL flake URL :nix:
-Waiting on an upstream fix for an nvidia-open issue
+#+TITLE: Things wot I should do
+#+AUTHOR: Cormac Cannon
+#+EMAIL: cormac.cannon@neuromoddevices.com
+#+LANGUAGE: en
+#+COPYRIGHT: Neuromod Devices Ltd. 2026
+#+DATE: 2026-04-25
 
-** DONE [#A] Implement an org-based memory system for pi-agent :agents:
+
+# EXPORT SETUP
+
+# 1. Ensure exports include both source block contents and any results
+#+PROPERTY: header-args :exports both
+
+# 2. Suppress author in title, and prevent ^ and _ from initiating super and subscript....
+#     N.B. can still use the braced forms -- i.e. 'bla^{super}_{sub}'
+#+OPTIONS: author:nil ^:nil
+
+# 3. HTML export theme
+#+SETUPFILE: ~/Documents/templates/org-html-themes/org/theme-readtheorg.setup
+
+# 4. ODT (and DOCX) export styles/theme
+#    N.B. Editing the ODT can cause the embedded logo jpg name to change... if this occurs, unzip the odt to check the new name and update this line
+#+ODT_STYLES_FILE: ("~/Documents/templates/nmd-template.odt" ("styles.xml" "content.xml" "Pictures/1000000000000A4F000004659ACFB30B1A81D55F.jpg"))
+
+
+# Startup options : Want to view rendered versions of latex fragments (equations etc.) by default
+#+STARTUP:: latexpreview
+
+
+Some introductory text
+
+* Table of Contents                                         :TOC_2_gh:noexport:
+- [[#improvements][Improvements]]
+  - [[#implement-an-org-based-memory-system-for-pi-agent][Implement an org-based memory system for pi-agent]]
+  - [[#add-some-sort-of-jira-integration-for-the-tasks-extension][Add some sort of Jira integration for the tasks extension]]
+- [[#housekeeping][Housekeeping]]
+  - [[#waiting-c-update-nixgl-flake-url][WAITING [#C] Update nixGL flake URL]]
+
+* Improvements
+
+** DONE [#A] Implement an org-based memory system for pi-agent      :agents:
 CLOSED: [2026-04-24 Fri 23:53]
 :PROPERTIES:
 :PLAN: design/log/2026-04-24-org-agent-memory.org
 :END:
+
+** TODO [#C] Add some sort of Jira integration for the tasks extension
+
+*** TODO [#B] Setup Jira infrastructure
+Setup appropriate tools and docs around Jira connection.
+- Login (?Oauth?)
+- List projects, issues etc. Maybe piggyback on JQL support provided by ?various vendors?.
+
+*** TODO [#C] Claim Jira tasks
+
+Ideally we'd be able to pull an item from Jira and create a task here...
+
+*** TODO [#C] Reference jira tasks
+Update the tasks extension and related skills to allow us to reference jira issue types.
+The most ergonomic approach from a user perspective would be to just include issue IDS -- but where -- in properties?
+And maybe embed a Jira URL in TASKS.org header metadata....
+
+
+* Housekeeping
+
+** WAITING [#C] Update nixGL flake URL :nix:
+Waiting on an upstream fix for an nvidia-open issue
