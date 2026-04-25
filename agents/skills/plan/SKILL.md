@@ -68,7 +68,9 @@ Plan files should begin with a title and a small number of top-level sections.
 Required sections:
 
 - `* Context` :: Background, motivation, initial discussion, and design
-  decisions that are not themselves actionable work. For retrospective plans,
+  decisions that are not themselves actionable work. Write this as a
+  self-contained summary: enough for an agent or reviewer to understand scope
+  and rationale without reading the full plan. For retrospective plans,
   summarize scope and workstream here. When rationale matters, use an optional
   `** Design decisions` subsection under `* Context`.
 - `* Plan` :: The plan itself — a list of TODO headings nested under this
@@ -128,22 +130,28 @@ their bodies to preceding tasks. For predictable results, keep actionable
 headings under `* Plan`; that is the intended convention for linked plans.
 
 Task headings may nest deeper than level 2, for example `*** TODO ...` under a
-plan task. The tasks extension parses deeper nested TODO headings, but status is
-not automatically propagated to parent tasks. Agents must update parent statuses
+plan task. The tasks extension parses deeper nested TODO headings, but it does
+not infer arbitrary parent completion from child states. The only automatic
+propagation is the pi tasks extension's narrow STARTED rule: setting a plan
+subtask to `STARTED` through the UI advances the top-level `TASKS.org` ancestor
+from `TODO` to `STARTED`. When editing files directly, update parent statuses
 manually.
 
 ## Creating a plan for TASKS.org
 
 When a parent task in `TASKS.org` needs a detailed plan:
 
-1. Propose or use a `:PLAN:` path relative to `TASKS.org`.
+1. Propose or use a `:PLAN:` path relative to `TASKS.org`. Use the top-level
+   `#+PLANS: [[file:...]]` directory from `TASKS.org` for new plan suggestions;
+   if it is absent, default to `[[file:./design/log]]`.
 2. Prefer the filename pattern:
 
 ```text
 YYYY-MM-DD-short-task-name.org
 ```
 
-3. Prefer an existing planning directory such as `design/log/` if present.
+3. Keep the plan path under the configured `#+PLANS` directory unless the user
+   requests a different location.
 4. Add the property drawer to the parent task. For new plans, prefer the org
    file-link form so the property is clickable in Emacs:
 
@@ -167,8 +175,13 @@ YYYY-MM-DD-short-task-name.org
 
 5. Create the linked plan file with `#+TITLE:` and `#+TODO:` declarations.
 6. Put org TODO headings under `* Plan`.
-7. Add UUID `:ID:` properties to every task/subtask in the plan.
-8. Keep the linked plan parseable by the tasks extension.
+7. If the parent task already has org subtasks, absorb those subtask trees into
+   the linked plan under `* Plan`, preserving statuses, priorities, tags,
+   descriptions, properties, and `:ID:` values. Replace the original subtasks in
+   `TASKS.org` with a plain-text bullet summary on the parent task so the
+   high-level task remains browseable without duplicating actionable children.
+8. Add UUID `:ID:` properties to every new task/subtask in the plan.
+9. Keep the linked plan parseable by the tasks extension.
 
 ## Retrospective plans
 
@@ -191,9 +204,8 @@ Before starting implementation:
    the active task signal. Agents should not write or clear `:selected:`
    directly unless explicitly asked or acting through a task-selection tool.
 4. Mark the task `STARTED` if beginning work now. When using the pi tasks
-   extension, setting a plan subtask to `STARTED` automatically advances the
-   top-level `TASKS.org` ancestor from `TODO` to `STARTED` if it has not yet
-   begun. Update the parent manually when editing files directly.
+   extension UI, remember its narrow STARTED propagation rule for plan subtasks;
+   when editing files directly, update parent statuses manually.
 5. Implement the smallest change that satisfies the task.
 6. Verify the change.
 7. Mark the task `DONE` and add a short result note if useful.

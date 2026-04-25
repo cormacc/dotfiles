@@ -35,6 +35,7 @@ import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.ts";
 import { ensureEmacsServer } from "../emacsclient/emacsclient.ts";
 import { TasksOverlay } from "./overlay.ts";
 import {
+  extractOrgLinkTarget,
   formatOrgTimestamp,
   parseTasks,
   serializeTasks,
@@ -47,6 +48,8 @@ import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
 const EXT_NAME = getExtensionName(import.meta.url);
 const TASKS_FILE = "TASKS.org";
 const TASKS_ARCHIVE_FILE = "TASKS.ARCHIVE.org";
+const DEFAULT_PLANS_DIR = "./design/log";
+const PLANS_KEYWORD_RE = /^\s*#\+PLANS:\s*(.*?)\s*$/im;
 const SELECTED_TAG = "selected";
 const CLOSED_STATUSES = new Set<string>(["DONE", "CANCELLED"]);
 /** Hard cap so the compact selected-task widget never dominates the screen. */
@@ -610,32 +613,41 @@ function getEmacsOptions(pi: ExtensionAPI) {
   };
 }
 
+/** Read the project-wide default plan directory from `#+PLANS: [[file:...]]`. */
+async function readPlansDir(cwd: string): Promise<string> {
+  try {
+    const content = await readFile(join(cwd, TASKS_FILE), "utf-8");
+    const match = PLANS_KEYWORD_RE.exec(content);
+    if (!match) return DEFAULT_PLANS_DIR;
+    return extractOrgLinkTarget(match[1] ?? "") ?? DEFAULT_PLANS_DIR;
+  } catch {
+    return DEFAULT_PLANS_DIR;
+  }
+}
+
+function joinPlanDir(dir: string, filename: string): string {
+  const trimmed = dir.trim().replace(/\/+$/, "") || ".";
+  if (trimmed === "." || trimmed === "./") return `./${filename}`;
+  if (trimmed.startsWith("./")) return `./${join(trimmed.slice(2), filename)}`;
+  return join(trimmed, filename);
+}
+
 /**
  * Suggest a plan path for a task that has no :PLAN: yet.
- * Prefers existing directories in this order:
- *   1. `design/log/` under cwd
- *   2. `plans/` under cwd
- *   3. directory containing the task's source file
+ * Uses `#+PLANS: [[file:...]]` from TASKS.org as the plan directory, falling
+ * back to `./design/log` when unspecified or malformed.
  */
 async function suggestPlanPath(task: Task, cwd: string): Promise<string> {
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   const slug = slugify(task.summary);
   const filename = `${today}-${slug}.org`;
-
-  const designLog = join(cwd, "design", "log");
-  if (await pathExists(designLog)) return join("design", "log", filename);
-
-  const plans = join(cwd, "plans");
-  if (await pathExists(plans)) return join("plans", filename);
-
-  const srcDir = task.sourcePath ? dirname(task.sourcePath) : cwd;
-  const rel = relative(cwd, srcDir) || ".";
-  return join(rel, filename);
+  const plansDir = await readPlansDir(cwd);
+  return joinPlanDir(plansDir, filename);
 }
 
 /** Scaffold a minimal plan file body consistent with the plan skill. */
-function scaffoldPlan(task: Task): string {
-  return [
+function scaffoldPlan(task: Task, planTasks: Task[] = []): string {
+  const content = [
     `#+TITLE: ${task.summary}`,
     `#+DATE: ${formatOrgTimestamp()}`,
     "#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)",
@@ -646,6 +658,83 @@ function scaffoldPlan(task: Task): string {
     "",
     "",
   ].join("\n");
+  return insertTasksIntoPlanSection(content, planTasks);
+}
+
+function taskLabel(task: Task): string {
+  const priority = task.priority ? ` [#${task.priority}]` : "";
+  const tags = task.tags.length > 0 ? ` :${task.tags.join(":")}:` : "";
+  return `${task.status}${priority} ${task.summary}${tags}`;
+}
+
+function formatExtractedSubtaskList(tasks: Task[]): string {
+  const lines = ["Extracted subtasks moved to linked plan:"];
+  const write = (taskList: Task[], depth: number) => {
+    for (const task of taskList) {
+      lines.push(`${"  ".repeat(depth)}- ${taskLabel(task)}`);
+      write(task.children, depth + 1);
+    }
+  };
+  write(tasks, 0);
+  return lines.join("\n");
+}
+
+function appendExtractedSubtaskList(description: string, tasks: Task[]): string {
+  if (tasks.length === 0) return description;
+  const existing = description.trimEnd();
+  const extracted = formatExtractedSubtaskList(tasks);
+  return existing ? `${existing}\n\n${extracted}` : extracted;
+}
+
+function cloneTaskForPlan(task: Task, level: number): Task {
+  return {
+    ...task,
+    level,
+    tags: [...task.tags],
+    propertyLines: [...task.propertyLines],
+    children: task.children.map((child) => cloneTaskForPlan(child, level + 1)),
+    planChildren: undefined,
+    planError: null,
+    sourcePath: undefined,
+    sourceContent: undefined,
+    sourceRoot: undefined,
+    lineNumber: 0,
+    endLine: 0,
+  };
+}
+
+function cloneSubtasksForPlan(task: Task): Task[] {
+  return task.children.map((child) => cloneTaskForPlan(child, 2));
+}
+
+function insertTasksIntoPlanSection(content: string, tasks: Task[]): string {
+  if (tasks.length === 0) return content;
+
+  const block = serializeTasks(tasks).trimEnd();
+  const blockLines = block.split("\n");
+  const normalized = content.replace(/\n*$/, "\n");
+  const lines = normalized.split("\n");
+  const planIdx = lines.findIndex((line) => /^\*\s+Plan\s*$/.test(line));
+
+  if (planIdx === -1) {
+    return `${normalized.trimEnd()}\n\n* Plan\n${block}\n`;
+  }
+
+  let insertIdx = lines.length - 1;
+  for (let i = planIdx + 1; i < lines.length; i++) {
+    if (/^\*\s+\S/.test(lines[i] ?? "")) {
+      insertIdx = i;
+      break;
+    }
+  }
+
+  const insertLines: string[] = [];
+  if (insertIdx > 0 && lines[insertIdx - 1] !== "") insertLines.push("");
+  insertLines.push(...blockLines);
+  if ((lines[insertIdx] ?? "") !== "") insertLines.push("");
+
+  lines.splice(insertIdx, 0, ...insertLines);
+  return lines.join("\n").replace(/\n*$/, "\n");
 }
 
 /**
@@ -690,23 +779,51 @@ async function handlePlanEdit(
   const absPlan = isAbsolute(relPath) ? relPath : resolve(ctx.cwd, relPath);
   const planRelToSource = relative(sourceDir, absPlan);
 
+  const originalChildren = task.children;
+  const originalDescription = task.description;
+  const originalPlanPath = task.planPath;
+  const originalPlanRaw = task.planRaw;
+  const extractedPlanTasks = cloneSubtasksForPlan(task);
+
   try {
     await mkdir(dirname(absPlan), { recursive: true });
-    if (!(await pathExists(absPlan))) {
-      await writeFile(absPlan, scaffoldPlan(task), "utf-8");
+    if (await pathExists(absPlan)) {
+      if (extractedPlanTasks.length > 0) {
+        const existing = await readFile(absPlan, "utf-8");
+        await writeFile(
+          absPlan,
+          insertTasksIntoPlanSection(existing, extractedPlanTasks),
+          "utf-8",
+        );
+      }
+    } else {
+      await writeFile(absPlan, scaffoldPlan(task, extractedPlanTasks), "utf-8");
     }
 
     // Attach :PLAN: to the in-memory task and save its source file.
     // Write the link form so the property is clickable in Emacs (C-c C-o)
     // while remaining parseable by the extension. The parser preserves this
-    // raw value on round-trip.
+    // raw value on round-trip. If the task already had local subtasks, move
+    // those task headings into the new plan and leave a plain-text summary on
+    // the parent so TASKS.org stays high-level without losing browse context.
     task.planPath = planRelToSource;
     task.planRaw = `[[file:${planRelToSource}]]`;
+    if (originalChildren.length > 0) {
+      task.description = appendExtractedSubtaskList(
+        originalDescription,
+        originalChildren,
+      );
+      task.children = [];
+    }
     const root = task.sourceRoot;
     if (root) {
       await writeTaskFilePreserving(sourcePath, root);
     }
   } catch (err) {
+    task.children = originalChildren;
+    task.description = originalDescription;
+    task.planPath = originalPlanPath;
+    task.planRaw = originalPlanRaw;
     ctx.ui.notify(
       `Failed to create plan: ${(err as Error).message}`,
       "error",
