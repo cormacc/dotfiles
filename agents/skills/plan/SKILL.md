@@ -63,7 +63,9 @@ editing, as described in the org-memory skill.
 
 ## Plan file structure
 
-Plan files should begin with a title and a small number of top-level sections.
+Plan files should begin with metadata and a small number of top-level sections.
+Linked plans should include `#+PARENT_ID:` containing the UUID `:ID:` of the
+parent task in `TASKS.org`.
 
 Required sections:
 
@@ -89,6 +91,8 @@ Example:
 
 ```org
 #+TITLE: Descriptive Plan Title
+#+DATE: 2026-04-25 Sat
+#+PARENT_ID: 01234567-89ab-4def-8123-456789abcdef
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 
 * Context
@@ -162,37 +166,15 @@ YYYY-MM-DD-short-task-name.org
 :END:
 ```
 
-   Bare relative paths and labelled file links are accepted for compatibility
-   and should be preserved when already present:
-
-```org
-:PLAN: design/log/YYYY-MM-DD-short-task-name.org
-:PLAN: [[file:design/log/YYYY-MM-DD-short-task-name.org][Plan]]
-```
-
    The tasks extension's `p` keybinding currently writes the `[[file:...]]`
    form so the property is clickable in Emacs by default.
 
-5. Create the linked plan file with `#+TITLE:` and `#+TODO:` declarations.
+5. Create the linked plan file with `#+TITLE:`, `#+DATE:`, `#+PARENT_ID:`, and
+   `#+TODO:` declarations. `#+PARENT_ID:` should match the parent task's `:ID:`
+   in `TASKS.org`.
 6. Put org TODO headings under `* Plan`.
-7. If the parent task already has org subtasks, absorb those subtask trees into
-   the linked plan under `* Plan`, preserving statuses, priorities, tags,
-   descriptions, properties, and `:ID:` values. Replace the original subtasks in
-   `TASKS.org` with a plain-text bullet summary on the parent task so the
-   high-level task remains browseable without duplicating actionable children.
-8. Add UUID `:ID:` properties to every new task/subtask in the plan.
-9. Keep the linked plan parseable by the tasks extension.
-
-## Retrospective plans
-
-When drafting a retrospective plan for work already started:
-
-- Mark completed work as `DONE`.
-- Record key implementation outcomes and verification notes.
-- Add remaining follow-up tasks as `TODO`.
-- If a task represents current in-progress work, mark it `STARTED`.
-- Avoid rewriting history to make it look planned in advance; label retrospective
-  context clearly when useful.
+7. Add UUID `:ID:` properties to every new task/subtask in the plan.
+8. Keep the linked plan parseable by the tasks extension.
 
 ## Executing from a plan
 
