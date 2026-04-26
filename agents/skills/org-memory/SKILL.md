@@ -1,6 +1,6 @@
 ---
 name: org-memory
-description: Use when maintaining or resuming project work stored in TASKS.org and included org task files. Covers the org task-memory protocol, INCLUDE properties, IDs, status updates, and compatibility with or without the pi tasks extension.
+description: Use when maintaining or resuming project work stored in TASKS.org and included org task files. Covers the org task-memory protocol: TODO states, IDs, INCLUDE links, status discipline, archiving, and resume workflows.
 ---
 
 # Org Memory
@@ -10,9 +10,6 @@ project task memory in org files. The canonical project memory index is
 `TASKS.org` in the project root. A task may include additional tasks from another
 org file using its `:INCLUDE:` property.
 
-This skill is harness-agnostic. The pi tasks extension is an optional UI over the
-same plain org files; always keep the files useful without pi.
-
 ## Responsibility boundary
 
 This skill owns the durable file protocol:
@@ -21,10 +18,6 @@ This skill owns the durable file protocol:
 - supported TODO states and priorities,
 - `:ID:`, `:INCLUDE:`, `:BLOCKED_BY:`, and reserved `:selected:` conventions,
 - task notes, status discipline, archiving, bootstrap, and resume workflows.
-
-The tasks extension owns UI concerns: commands, keybindings, overlays, rendering,
-selection mechanics, safe round-tripping, and archive implementation. If docs and
-implementation differ, verify the extension source before relying on UI details.
 
 ## Core file protocol
 
@@ -105,23 +98,20 @@ If an included file is a plan, follow the `plan` skill for its section layout.
 ## ID discipline
 
 - Generate a UUID v4 for every new task/subtask and store it as `:ID:`.
-- When loading project memory, add missing IDs to `TASKS.org` and included files
-  actually loaded for the current workstream before making other edits.
 - Preserve existing IDs, properties, heading text, and surrounding formatting.
 - Do not scan or mutate arbitrary org files outside the loaded task-memory graph.
 
 ## Starting or resuming work
 
 1. Read `TASKS.org`.
-2. Add missing `:ID:` properties to loaded tasks/subtasks.
-3. Locate the active task: prefer `:selected:`, otherwise use a user-named task,
+2. Locate the active task: prefer `:selected:`, otherwise use a user-named task,
    the first `STARTED` task, or context.
-4. Follow its `:INCLUDE:` link if present.
-5. If the included file is a plan, resume the first `STARTED` task in it, or the
+3. Follow its `:INCLUDE:` link if present.
+4. If the included file is a plan, resume the first `STARTED` task in it, or the
    first actionable `TODO` task.
-6. Read nearby task notes plus relevant included-file context/implementation
+5. Read nearby task notes plus relevant included-file context/implementation
    sections before editing code.
-7. Keep statuses and durable notes synchronized as work proceeds.
+6. Keep statuses and durable notes synchronized as work proceeds.
 
 ## Creating/updating tasks and included files
 
@@ -193,23 +183,33 @@ If `TASKS.org` does not exist and the user wants persistent task memory:
 - Use `CANCELLED` for intentionally abandoned work.
 - `DONE` and `CANCELLED` are closed states; preserve Emacs-style `CLOSED:`
   timestamps when present.
-- Update parent statuses manually when child states change.
-- Exception: the pi tasks extension may auto-advance a top-level `TASKS.org`
-  ancestor from `TODO` to `STARTED` when an included child task is set to
-  `STARTED` through the UI. When editing files directly, update parents yourself.
+- Update parent statuses when child states change.
 
-## Archiving without pi
+## Housekeeping automated by the pi tasks extension
 
-- Only archive top-level tasks whose status is `DONE` or `CANCELLED`.
-- Move the complete task subtree to `TASKS.ARCHIVE.org` in the project root.
-- Preserve `:ID:` and content; strip `:selected:`.
-- Add `:ARCHIVED: [timestamp]`.
-- Preserve or inline included task context so history remains understandable.
+If the pi tasks extension is active, skip this section — it handles the following
+automatically. Use these procedures only when editing task files without pi.
+
+### ID backfill
+
+When loading project memory, add missing `:ID:` properties to all tasks and
+subtasks in `TASKS.org` and any included files loaded for the current workstream,
+before making other edits.
+
+### Parent status propagation
+
+When a child plan task moves to `STARTED` through direct file editing, advance
+any `TODO` ancestors in `TASKS.org` to `STARTED` manually.
+
+### Archiving
+
+1. Only archive top-level tasks whose status is `DONE` or `CANCELLED`.
+2. Move the complete task subtree to `TASKS.ARCHIVE.org` in the project root.
+3. Preserve `:ID:` and content; strip `:selected:`.
+4. Add `:ARCHIVED: [timestamp]`.
+5. Preserve or inline included task context so history remains understandable.
 
 ## Interop
 
-- pi tasks extension: optional UI over this protocol. It displays `TASKS.org`,
-  injects included tasks, manages selection/status writes, and implements
-  archiving. See `agents/pi/extensions/tasks/README.md` for current UI details.
-- plan skill: use for planning methodology and canonical plan sections when an
-  included file is specifically an implementation plan: `../plan/SKILL.md`.
+For planning methodology and canonical plan file sections, see the plan skill:
+`../plan/SKILL.md`.
