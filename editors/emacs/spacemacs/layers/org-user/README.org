@@ -91,7 +91,7 @@ The package maintains four conventions:
   in Emacs. Bare paths and labelled link forms are also recognised
   when reading.
 
-- =#+PLANS:= keyword (recognised, not yet auto-set) :: Top-level
+- =#+DEFAULT-PLAN-DIR:= keyword (recognised, not yet auto-set) :: Top-level
   pointer to the project's plans directory. Defaults to =design/log=
   via =tasks-org-plans-directory=.
 
