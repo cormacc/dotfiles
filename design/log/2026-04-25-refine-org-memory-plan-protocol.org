@@ -20,8 +20,8 @@ a tasks-extension verification/fix item.
   respect it, and should not create, move, or clear it unless explicitly asked or
   acting through a task-selection tool.
 
-- *Blocking context uses :BLOCKED_BY:, not a :blocked: tag.* Tags are semantic
-  category labels. The WAITING TODO keyword conveys blocked state; :BLOCKED_BY:
+- *Blocking context uses :BLOCKED-BY:, not a :blocked: tag.* Tags are semantic
+  category labels. The WAITING TODO keyword conveys blocked state; :BLOCKED-BY:
   records the reason or dependency in a machine-readable property.
 
 - *Tasks carry :ID: UUID properties.* Use the standard org-mode :ID: property
@@ -67,7 +67,7 @@ CLOSED: [2026-04-25 Sat 13:03]
 :ID: b93f03db-4bf6-4a1f-a39c-895144302ccd
 :END:
 Added a complete minimal TASKS.org example with metadata, category headings,
-priority, tags, :ID:, :PLAN:, a subtask, and WAITING/:BLOCKED_BY: usage.
+priority, tags, :ID:, :PLAN:, a subtask, and WAITING/:BLOCKED-BY: usage.
 
 ** DONE [#A] Clarify :selected: tag semantics and reserved tag protocol :agents:
 CLOSED: [2026-04-25 Sat 13:03]
@@ -103,12 +103,12 @@ CLOSED: [2026-04-25 Sat 13:03]
 Specified [[file:...]] as the preferred new :PLAN: form while preserving existing
 bare paths or labelled file links.
 
-** DONE [#B] Define WAITING/:BLOCKED_BY: protocol in org-memory :agents:
+** DONE [#B] Define WAITING/:BLOCKED-BY: protocol in org-memory :agents:
 CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: 7ef55c0e-22f8-41f7-9992-57264b3a5483
 :END:
-Documented WAITING plus :BLOCKED_BY: semantics, examples for human/task/url/jira
+Documented WAITING plus :BLOCKED-BY: semantics, examples for human/task/url/jira
 blockers, and unblocking behavior.
 
 ** DONE [#B] Add "Resuming interrupted work" section to org-memory :agents:

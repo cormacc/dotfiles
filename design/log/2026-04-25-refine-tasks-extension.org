@@ -27,7 +27,7 @@ Ensure tasks created outside the overlay gain stable UUID `:ID:` properties auto
 
 Acceptance criteria:
 - `TASKS.org` tasks and loaded linked-plan tasks missing `:ID:` receive UUID v4 IDs.
-- Existing IDs, `:PLAN:`, `:BLOCKED_BY:`, `:ARCHIVED:`, descriptions, tags, CLOSED stamps, and non-task org content are preserved byte-for-byte where unchanged.
+- Existing IDs, `:PLAN:`, `:BLOCKED-BY:`, `:ARCHIVED:`, descriptions, tags, CLOSED stamps, and non-task org content are preserved byte-for-byte where unchanged.
 - Files are written only when at least one ID was inserted.
 - The backfill runs before overlay display and file-watcher setup so the UI immediately reflects stable task identities.
 - LSP diagnostics clean on changed files; `/reload` succeeds.

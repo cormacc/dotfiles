@@ -270,7 +270,7 @@ CLOSED: [2026-04-25 Sat 13:03]
 :ID: b93f03db-4bf6-4a1f-a39c-895144302ccd
 :END:
 Added a complete minimal TASKS.org example with metadata, category headings,
-priority, tags, :ID:, :PLAN:, a subtask, and WAITING/:BLOCKED_BY: usage.
+priority, tags, :ID:, :PLAN:, a subtask, and WAITING/:BLOCKED-BY: usage.
 ** DONE [#A] Clarify :selected: tag semantics and reserved tag protocol :agents:
 CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
@@ -301,12 +301,12 @@ CLOSED: [2026-04-25 Sat 13:03]
 :END:
 Specified [[file:...]] as the preferred new :PLAN: form while preserving existing
 bare paths or labelled file links.
-** DONE [#B] Define WAITING/:BLOCKED_BY: protocol in org-memory :agents:
+** DONE [#B] Define WAITING/:BLOCKED-BY: protocol in org-memory :agents:
 CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: 7ef55c0e-22f8-41f7-9992-57264b3a5483
 :END:
-Documented WAITING plus :BLOCKED_BY: semantics, examples for human/task/url/jira
+Documented WAITING plus :BLOCKED-BY: semantics, examples for human/task/url/jira
 blockers, and unblocking behavior.
 ** DONE [#B] Add "Resuming interrupted work" section to org-memory :agents:
 CLOSED: [2026-04-25 Sat 13:03]
@@ -380,7 +380,7 @@ Ensure tasks created outside the overlay gain stable UUID `:ID:` properties auto
 
 Acceptance criteria:
 - `TASKS.org` tasks and loaded linked-plan tasks missing `:ID:` receive UUID v4 IDs.
-- Existing IDs, `:PLAN:`, `:BLOCKED_BY:`, `:ARCHIVED:`, descriptions, tags, CLOSED stamps, and non-task org content are preserved byte-for-byte where unchanged.
+- Existing IDs, `:PLAN:`, `:BLOCKED-BY:`, `:ARCHIVED:`, descriptions, tags, CLOSED stamps, and non-task org content are preserved byte-for-byte where unchanged.
 - Files are written only when at least one ID was inserted.
 - The backfill runs before overlay display and file-watcher setup so the UI immediately reflects stable task identities.
 - LSP diagnostics clean on changed files; `/reload` succeeds.

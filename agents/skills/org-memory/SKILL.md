@@ -1,40 +1,33 @@
 ---
 name: org-memory
-description: Use when maintaining or resuming project work stored in TASKS.org and included org task files. Covers the org task-memory protocol: TODO states, IDs, INCLUDE links, status discipline, archiving, and resume workflows.
+description: "Use when maintaining or resuming project work stored in TASKS.org and included org task files. Covers the org task-memory protocol: TODO states, IDs, INCLUDE links, status discipline, archiving, and resume workflows."
 ---
 
 # Org Memory
-
-Use this skill when the user asks to work from, update, resume, review, or create
-project task memory in org files. The canonical project memory index is
-`TASKS.org` in the project root. A task may include additional tasks from another
-org file using its `:INCLUDE:` property.
+Use this skill when the user asks to work from, update, resume, review, tasks.
+The canonical project memory index is `TASKS.org` in the project root.
+A task may include additional tasks from another org file using its `:INCLUDE:` property.
 
 ## Responsibility boundary
-
 This skill owns the durable file protocol:
-
 - `TASKS.org` and included org task files,
 - supported TODO states and priorities,
-- `:ID:`, `:INCLUDE:`, `:BLOCKED_BY:`, and reserved `:selected:` conventions,
+- `:ID:`, `:INCLUDE:`, `:BLOCKED-BY:`, and reserved `:selected:` conventions,
 - task notes, status discipline, archiving, bootstrap, and resume workflows.
 
+
 ## Core file protocol
-
 `TASKS.org` and included task files should declare the shared TODO cycle:
-
 ```org
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 ```
 
 `TASKS.org` may also declare the default include/plan directory:
-
 ```org
 #+DEFAULT-PLAN-DIR: [[file:./design/log]]
 ```
 
 Actionable tasks are org headings:
-
 ```org
 ** TODO [#A] Implement feature :area:
 :PROPERTIES:
@@ -44,7 +37,6 @@ Actionable tasks are org headings:
 ```
 
 Rules:
-
 - TODO states: `TODO`, `STARTED`, `WAITING`, `DONE`, `CANCELLED`.
 - Priorities: `[#A]` critical, `[#B]` high, `[#C]` medium, `[#D]` low.
 - Tags are semantic categories. The only reserved operational tag is
@@ -61,7 +53,6 @@ Rules:
   but they remain ordinary org files without tooling.
 
 ## Example TASKS.org
-
 ```org
 #+TITLE: Project Tasks
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
@@ -87,7 +78,7 @@ Acceptance criteria: documented flows and edge cases.
 ** WAITING [#C] Update upstream dependency :nix:
 :PROPERTIES:
 :ID: fedcba98-7654-4321-8fed-cba987654321
-:BLOCKED_BY: url:https://github.com/example/project/pull/123
+:BLOCKED-BY: url:https://github.com/example/project/pull/123
 :END:
 Waiting on upstream merge.
 ```
@@ -114,6 +105,7 @@ If an included file is a plan, follow the `plan` skill for its section layout.
 - Prefer adding detail to included files rather than bloating `TASKS.org`.
 - Do not remove completed historical tasks unless the user asks.
 - Add discovered work as new TODO tasks, not hidden prose.
+
 ## Task notes
 
 Use plain text under the task heading for durable human/agent context. Prefer a
@@ -135,20 +127,20 @@ and timestamps when present.
 When blocked:
 
 1. Change status to `WAITING`.
-2. Add/update `:BLOCKED_BY:`.
+2. Add/update `:BLOCKED-BY:`.
 3. Add a short note if useful.
 
 Examples:
 
 ```org
-:BLOCKED_BY: human: confirm desired archive behavior
-:BLOCKED_BY: task:57f300c5-bdb1-4494-9837-9474722c3182
-:BLOCKED_BY: url:https://github.com/example/project/pull/123
-:BLOCKED_BY: jira:ABC-123
+:BLOCKED-BY: human: confirm desired archive behavior
+:BLOCKED-BY: task:57f300c5-bdb1-4494-9837-9474722c3182
+:BLOCKED-BY: url:https://github.com/example/project/pull/123
+:BLOCKED-BY: jira:ABC-123
 ```
 
 When unblocked, move the task back to `TODO` or `STARTED` and either remove
-`:BLOCKED_BY:` or move the old blocker into a note.
+`:BLOCKED-BY:` or move the old blocker into a note.
 
 ## Bootstrap protocol
 
@@ -165,7 +157,7 @@ If `TASKS.org` does not exist and the user wants persistent task memory:
 
 - Mark a task `STARTED` when beginning substantial work.
 - Mark it `DONE` only when implemented and verified.
-- Use `WAITING` with `:BLOCKED_BY:` for blocked work.
+- Use `WAITING` with `:BLOCKED-BY:` for blocked work.
 - Use `CANCELLED` for intentionally abandoned work.
 - `DONE` and `CANCELLED` are closed states; preserve Emacs-style `CLOSED:`
   timestamps when present.
