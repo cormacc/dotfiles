@@ -111,7 +111,7 @@ Avoid custom parsing when org APIs can safely handle the operation.
 :ID: c98342fd-9292-47de-9d16-e0c3b2fdb3e0
 :END:
 Test current heading, subtree, whole buffer, existing ID preservation, and files
-with unrelated properties such as `:PLAN:` and `:BLOCKED_BY:`.
+with unrelated properties such as `:PLAN:` and `:BLOCKED-BY:`.
 ** DONE [#A] Implement explicit task selection helpers :selection:org:
 :PROPERTIES:
 :ID: 2e6b4633-f11b-4e64-814c-ff9714308492

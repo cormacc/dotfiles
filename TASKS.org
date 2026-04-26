@@ -73,6 +73,6 @@ A couple of ideas for minor QOL improvements on the editor side...
 ** WAITING [#C] Update nixGL flake URL :nix:
 :PROPERTIES:
 :ID: 862e9ecf-6992-40e9-b2e2-597edee1ccfa
-:BLOCKED_BY: upstream: nvidia-open issue
+:BLOCKED-BY: url:https://github.com/nix-community/nixGL/pull/187
 :END:
 Waiting on an upstream fix for an nvidia-open issue

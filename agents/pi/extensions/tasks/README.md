@@ -135,7 +135,7 @@ The file uses org-mode heading syntax. A `#+TODO:` declaration is recommended so
 ** WAITING Add OAuth support :oauth:
 :PROPERTIES:
 :ID: 11111111-2222-4333-8444-555555555555
-:BLOCKED_BY: human: provider credentials
+:BLOCKED-BY: human: provider credentials
 :END:
    Waiting on provider credentials.
 * DONE [#B] Set up CI pipeline :devops:
@@ -157,7 +157,7 @@ The file uses org-mode heading syntax. A `#+TODO:` declaration is recommended so
 - **Tags** — optional, colon-delimited at end of line; `:selected:` is reserved for the current task selection and hidden in the task UI tag list
 - **ID property** — UUID in the properties drawer, compatible with org-id.el and the org-memory skill protocol. Missing IDs in `TASKS.org` and loaded linked plans are inserted automatically on load.
 - **PLAN property** — optional org properties drawer value pointing to a relative org file with a detailed task plan
-- **BLOCKED_BY property** — optional property recording why a `WAITING` task is blocked
+- **BLOCKED-BY property** — optional property recording why a `WAITING` task is blocked
 - **Description** — any non-heading text below a heading, excluding the properties drawer
 - **DEFAULT-PLAN-DIR keyword** — optional top-level `#+DEFAULT-PLAN-DIR: [[file:./path/to/dir]]` setting used as the default directory for new plan files; defaults to `[[file:./design/log]]` when absent or malformed
 
