@@ -171,13 +171,15 @@ Each entry is either:
                tasks-org-open-plan
                tasks-org-jump-to-tasks)
     :init
-    (spacemacs/declare-prefix-for-mode 'org-mode "mp" "tasks-org")
+    ;; `, p' is bound to `org-priority' by Spacemacs's org layer, so we use
+    ;; capital `, K' as the tasks-org prefix. Change here if it collides.
+    (spacemacs/declare-prefix-for-mode 'org-mode "mK" "tasks-org")
     (spacemacs/set-leader-keys-for-major-mode 'org-mode
-      "ps" 'tasks-org-toggle-selected
-      "pi" 'tasks-org-ensure-id
-      "pI" 'tasks-org-backfill-ids-in-buffer
-      "pp" 'tasks-org-open-plan
-      "pt" 'tasks-org-jump-to-tasks)))
+      "Ks" 'tasks-org-toggle-selected
+      "Ki" 'tasks-org-ensure-id
+      "KI" 'tasks-org-backfill-ids-in-buffer
+      "Kp" 'tasks-org-open-plan
+      "Kt" 'tasks-org-jump-to-tasks)))
 
 (defun org-user/post-init-org-archive-subtree-hierarchical ()
   (setq org-archive-default-command 'org-archive-subtree-hierarchical))
