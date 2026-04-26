@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Use when asked to draft, review, or execute an implementation plan. Produces concrete org TODO plans that can be linked from TASKS.org via org-memory, then guides stepwise implementation and verification.
+description: Use when asked to draft, review, or execute an implementation plan. Produces concrete plans that can be persisted as org-memory included task files, then guides stepwise implementation and verification.
 ---
 
 # Plan
@@ -9,7 +9,7 @@ Use this skill when the user asks for a plan, implementation plan, roadmap,
 retrospective plan, or to continue a multi-step workstream. Plans should be
 concrete, ordered, and executable.
 
-For persistent task memory, pair this with the org-memory skill:
+For persistent org project memory, pair this with the org-memory skill:
 `../org-memory/SKILL.md`.
 
 ## Planning principles
@@ -19,25 +19,76 @@ For persistent task memory, pair this with the org-memory skill:
 - Include validation criteria for non-trivial tasks.
 - Keep completed history when drafting retrospective plans; it helps future
   agents resume context.
-- Capture important design decisions in the plan context or implementation
-  notes so later sessions can understand why work was shaped this way.
+- Capture important design decisions in context or implementation notes so later
+  sessions understand why work was shaped this way.
 - Do not plan endlessly. Once the plan is good enough and the user wants action,
   start executing the next task.
 
-## File format and structure
+## Persistent org plans
 
-For the org file format (TODO state cycle, priorities, `:ID:` UUIDs, property
-drawers), the canonical plan file section layout (`* Context` / `* Plan` /
-`* Implementation` / `* Open questions`), and the conventions for creating a
-linked plan from a `TASKS.org` task (`:PLAN:` property, file naming,
-`#+TITLE` / `#+DATE` / `#+PARENT_ID` / `#+TODO` declarations, `#+PLANS`
-directory), follow the org-memory skill: `../org-memory/SKILL.md`. That skill
-is the single source of truth for those rules.
+When a plan should persist as project memory, it must meet the org-memory file
+protocol: shared TODO cycle, UUID `:ID:` properties, `#+PARENT_ID:`, and inclusion
+from the parent task via `:INCLUDE:`. org-memory is the source of truth for those
+file-format rules.
 
-When the user asks for a plan that should persist as project memory, create
-it as a linked plan file under the parent `TASKS.org` task per the org-memory
-protocol. For ad-hoc plans (chat, scratch file, scoping discussion), the
-planning principles above and the workflows below apply regardless of medium.
+Plan files add a planning-oriented section convention on top of org-memory:
+
+Required sections:
+
+- `* Context` :: A self-contained summary: background, motivation, scope, and
+  rationale sufficient for an agent or reviewer to understand the work without
+  reading the full plan. Use optional `** Design decisions` when alternatives,
+  constraints, or trade-offs matter.
+- `* Plan` :: Executable org TODO headings. Use `** TODO ...` for top-level plan
+  tasks so they live under `* Plan` while remaining parseable by task tooling.
+
+Optional sections:
+
+- `* Implementation` :: Notes on decisions, tricky details, validation outcomes,
+  and maintenance context discovered while executing.
+- `* Open questions` :: Questions deferred for batch review rather than
+  interrupting implementation.
+
+Minimal skeleton:
+
+```org
+#+TITLE: Descriptive Plan Title
+#+DATE: 2026-04-25 Sat
+#+PARENT_ID: 01234567-89ab-4def-8123-456789abcdef
+#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
+
+* Context
+Brief self-contained summary.
+
+** Design decisions
+- Decision :: Rationale.
+
+* Plan
+** TODO [#A] First executable step :area:
+:PROPERTIES:
+:ID: 89abcdef-0123-4567-89ab-cdef01234567
+:END:
+Acceptance criteria.
+
+* Implementation
+
+* Open questions
+```
+
+Task headings may nest deeper than level 2. Tooling parses nested TODO headings,
+but agents must keep parent statuses meaningful; see org-memory for status rules
+and pi-extension exceptions.
+
+## Retrospective plans
+
+When drafting a plan for work already started:
+
+- Mark completed work as `DONE`.
+- Record key implementation outcomes and verification notes.
+- Add remaining follow-up work as `TODO`.
+- Mark current in-progress work `STARTED`.
+- Avoid rewriting history to make it look planned in advance; label
+  retrospective context clearly when useful.
 
 ## Executing from a plan
 
@@ -46,17 +97,16 @@ Before starting implementation:
 1. Read the relevant plan file.
 2. Identify the next actionable `TODO` or `STARTED` task.
 3. If using org-memory/task tooling, respect the current `:selected:` marker as
-   the active task signal. Agents should not write or clear `:selected:`
-   directly unless explicitly asked or acting through a task-selection tool.
-4. Mark the task `STARTED` if beginning work now. (For the pi tasks
-   extension's narrow STARTED propagation rule and the manual-edit exception,
-   see the org-memory skill's "Status discipline" section.)
+   the active task signal. Do not write or clear `:selected:` directly unless
+   explicitly asked or acting through a task-selection tool.
+4. Mark the task `STARTED` if beginning work now. See org-memory for parent
+   status discipline and pi-extension propagation exceptions.
 5. Implement the smallest change that satisfies the task.
 6. Verify the change.
 7. Mark the task `DONE` and add a short result note if useful.
 8. Add newly discovered follow-up work as new `TODO` tasks.
 9. If the user asked not to be interrupted with questions, append questions to
-   `* Open questions` or a final question section in the plan for batch review.
+   `* Open questions` for batch review.
 
 ## Updating plans after discoveries
 
@@ -73,6 +123,5 @@ Keep additions concise and actionable. Prefer one task per concrete outcome.
 
 ## Cross-reference
 
-This skill defers all file-format and persistence rules to org-memory:
-`../org-memory/SKILL.md`. The cross-reference is one-directional — org-memory
-does not require this skill, and is fully usable on its own.
+This skill owns planning methodology and plan section conventions. It defers all
+org-memory file-format and persistence rules to `../org-memory/SKILL.md`.
