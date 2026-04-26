@@ -24,157 +24,20 @@ For persistent task memory, pair this with the org-memory skill:
 - Do not plan endlessly. Once the plan is good enough and the user wants action,
   start executing the next task.
 
-## Org plan format
+## File format and structure
 
-When the project uses org-memory, write plans as org TODO task trees and follow
-that skill's ID and property protocol. Newly created plan files should declare
-the supported TODO state cycle near the top of the file:
+For the org file format (TODO state cycle, priorities, `:ID:` UUIDs, property
+drawers), the canonical plan file section layout (`* Context` / `* Plan` /
+`* Implementation` / `* Open questions`), and the conventions for creating a
+linked plan from a `TASKS.org` task (`:PLAN:` property, file naming,
+`#+TITLE` / `#+DATE` / `#+PARENT_ID` / `#+TODO` declarations, `#+PLANS`
+directory), follow the org-memory skill: `../org-memory/SKILL.md`. That skill
+is the single source of truth for those rules.
 
-```org
-#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
-```
-
-Use only these TODO states unless the project specifies otherwise:
-
-- `TODO`
-- `STARTED`
-- `WAITING`
-- `DONE`
-- `CANCELLED`
-
-Use priorities consistently:
-
-- `[#A]` critical
-- `[#B]` high
-- `[#C]` medium
-- `[#D]` low
-
-Every task and subtask should have an `:ID:` property containing a UUID v4 value:
-
-```org
-** TODO [#A] Implement feature :area:
-:PROPERTIES:
-:ID: 01234567-89ab-4def-8123-456789abcdef
-:END:
-```
-
-When loading a plan as project memory, add missing IDs to loaded tasks before
-editing, as described in the org-memory skill.
-
-## Plan file structure
-
-Plan files should begin with metadata and a small number of top-level sections.
-Linked plans should include `#+PARENT_ID:` containing the UUID `:ID:` of the
-parent task in `TASKS.org`.
-
-Required sections:
-
-- `* Context` :: Background, motivation, initial discussion, and design
-  decisions that are not themselves actionable work. Write this as a
-  self-contained summary: enough for an agent or reviewer to understand scope
-  and rationale without reading the full plan. For retrospective plans,
-  summarize scope and workstream here. When rationale matters, use an optional
-  `** Design decisions` subsection under `* Context`.
-- `* Plan` :: The plan itself — a list of TODO headings nested under this
-  heading. Use `** TODO ...` (level 2) so the tasks live under `* Plan`
-  while remaining parseable by the tasks extension.
-
-Optional sections as appropriate:
-
-- `* Implementation` :: Notes on implementation decisions or details that may
-  be useful during later maintenance.
-- `* Open questions` :: Unresolved questions that should be reviewed as a batch
-  later, rather than interrupting implementation when the user asked not to be
-  prompted.
-
-Example:
-
-```org
-#+TITLE: Descriptive Plan Title
-#+DATE: 2026-04-25 Sat
-#+PARENT_ID: 01234567-89ab-4def-8123-456789abcdef
-#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
-
-* Context
-Brief background on why this plan exists and what prompted it.
-
-** Design decisions
-
-- Decision A :: Rationale.
-
-* Plan
-** DONE [#A] First completed step :area:
-:PROPERTIES:
-:ID: 01234567-89ab-4def-8123-456789abcdef
-:END:
-Short retrospective note.
-
-** STARTED [#A] Current active task :area:
-:PROPERTIES:
-:ID: 89abcdef-0123-4567-89ab-cdef01234567
-:END:
-What is being changed and how it will be verified.
-
-** TODO [#B] Next task :area:
-:PROPERTIES:
-:ID: fedcba98-7654-4321-8fed-cba987654321
-:END:
-Acceptance criteria.
-
-* Implementation
-Notes on key implementation decisions or subtleties.
-
-* Open questions
-- What should happen if X?
-```
-
-The tasks extension parser ignores non-task top-level headings
-(`Context`, `Plan`, `Implementation`, `Open questions`) and does not attribute
-their bodies to preceding tasks. For predictable results, keep actionable
-headings under `* Plan`; that is the intended convention for linked plans.
-
-Task headings may nest deeper than level 2, for example `*** TODO ...` under a
-plan task. The tasks extension parses deeper nested TODO headings, but it does
-not infer arbitrary parent completion from child states. The only automatic
-propagation is the pi tasks extension's narrow STARTED rule: setting a plan
-subtask to `STARTED` through the UI advances the top-level `TASKS.org` ancestor
-from `TODO` to `STARTED`. When editing files directly, update parent statuses
-manually.
-
-## Creating a plan for TASKS.org
-
-When a parent task in `TASKS.org` needs a detailed plan:
-
-1. Propose or use a `:PLAN:` path relative to `TASKS.org`. Use the top-level
-   `#+PLANS: [[file:...]]` directory from `TASKS.org` for new plan suggestions;
-   if it is absent, default to `[[file:./design/log]]`.
-2. Prefer the filename pattern:
-
-```text
-YYYY-MM-DD-short-task-name.org
-```
-
-3. Keep the plan path under the configured `#+PLANS` directory unless the user
-   requests a different location.
-4. Add the property drawer to the parent task. For new plans, prefer the org
-   file-link form so the property is clickable in Emacs:
-
-```org
-:PROPERTIES:
-:ID: 01234567-89ab-4def-8123-456789abcdef
-:PLAN: [[file:design/log/YYYY-MM-DD-short-task-name.org]]
-:END:
-```
-
-   The tasks extension's `p` keybinding currently writes the `[[file:...]]`
-   form so the property is clickable in Emacs by default.
-
-5. Create the linked plan file with `#+TITLE:`, `#+DATE:`, `#+PARENT_ID:`, and
-   `#+TODO:` declarations. `#+PARENT_ID:` should match the parent task's `:ID:`
-   in `TASKS.org`.
-6. Put org TODO headings under `* Plan`.
-7. Add UUID `:ID:` properties to every new task/subtask in the plan.
-8. Keep the linked plan parseable by the tasks extension.
+When the user asks for a plan that should persist as project memory, create
+it as a linked plan file under the parent `TASKS.org` task per the org-memory
+protocol. For ad-hoc plans (chat, scratch file, scoping discussion), the
+planning principles above and the workflows below apply regardless of medium.
 
 ## Executing from a plan
 
@@ -185,9 +48,9 @@ Before starting implementation:
 3. If using org-memory/task tooling, respect the current `:selected:` marker as
    the active task signal. Agents should not write or clear `:selected:`
    directly unless explicitly asked or acting through a task-selection tool.
-4. Mark the task `STARTED` if beginning work now. When using the pi tasks
-   extension UI, remember its narrow STARTED propagation rule for plan subtasks;
-   when editing files directly, update parent statuses manually.
+4. Mark the task `STARTED` if beginning work now. (For the pi tasks
+   extension's narrow STARTED propagation rule and the manual-edit exception,
+   see the org-memory skill's "Status discipline" section.)
 5. Implement the smallest change that satisfies the task.
 6. Verify the change.
 7. Mark the task `DONE` and add a short result note if useful.
@@ -210,8 +73,6 @@ Keep additions concise and actionable. Prefer one task per concrete outcome.
 
 ## Cross-reference
 
-If a plan is part of project memory, also follow the org-memory rules in:
-
-```text
-../org-memory/SKILL.md
-```
+This skill defers all file-format and persistence rules to org-memory:
+`../org-memory/SKILL.md`. The cross-reference is one-directional — org-memory
+does not require this skill, and is fully usable on its own.

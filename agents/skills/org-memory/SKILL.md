@@ -72,8 +72,7 @@ current implementation before relying on extension-specific UI details.
 ```
 
 - Use the `[[file:...]]` form for newly created `:PLAN:` values so the property
-  is clickable in Emacs. Bare relative paths and labelled org links are accepted
-  for compatibility and should be preserved when already present.
+  is clickable in Emacs.
 - The `:PLAN:` value resolves relative to the org file that declares it.
 - New plan-file suggestions should use the top-level `#+PLANS: [[file:...]]`
   directory from `TASKS.org`; when absent, default to `[[file:./design/log]]`.
@@ -240,11 +239,89 @@ YYYY-MM-DD-short-task-name.org
    STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)` declaration in newly scaffolded
    plan files. `#+PARENT_ID:` should match the parent task's `:ID:` in
    `TASKS.org`.
-7. Use the plan skill's file structure: a self-contained `* Context` summary,
-   optional `** Design decisions`, and org TODO headings under `* Plan`.
-   If the parent task already has subtasks, move those subtask trees into the
-   plan and leave a plain-text bullet summary on the parent task in `TASKS.org`.
-   Include enough retrospective context to resume later.
+7. Use the plan file structure described below: a self-contained `* Context`
+   summary, optional `** Design decisions`, org TODO headings under `* Plan`,
+   and optional `* Implementation` / `* Open questions` sections. If the parent
+   task already has subtasks, move those subtask trees into the plan and leave
+   a plain-text bullet summary on the parent task in `TASKS.org`. Include
+   enough retrospective context to resume later.
+
+## Plan file structure
+
+Linked plan files share the same TODO heading syntax as `TASKS.org` but follow
+a fixed top-level section layout so multiple consumers (humans, the pi tasks
+extension, agents) know where to find context, work items, implementation
+notes, and open questions.
+
+Required sections:
+
+- `* Context` :: Background, motivation, initial discussion, and design
+  decisions that are not themselves actionable work. Write this as a
+  self-contained summary: enough for an agent or reviewer to understand scope
+  and rationale without reading the full plan. For retrospective plans,
+  summarize scope and workstream here. When rationale matters, use an optional
+  `** Design decisions` subsection under `* Context`.
+- `* Plan` :: The plan itself — a list of TODO headings nested under this
+  heading. Use `** TODO ...` (level 2) so the tasks live under `* Plan` while
+  remaining parseable by the tasks extension.
+
+Optional sections as appropriate:
+
+- `* Implementation` :: Notes on implementation decisions or details that may
+  be useful during later maintenance.
+- `* Open questions` :: Unresolved questions that should be reviewed as a batch
+  later, rather than interrupting implementation when the user asked not to be
+  prompted.
+
+Example plan file:
+
+```org
+#+TITLE: Descriptive Plan Title
+#+DATE: 2026-04-25 Sat
+#+PARENT_ID: 01234567-89ab-4def-8123-456789abcdef
+#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
+
+* Context
+Brief background on why this plan exists and what prompted it.
+
+** Design decisions
+
+- Decision A :: Rationale.
+
+* Plan
+** DONE [#A] First completed step :area:
+:PROPERTIES:
+:ID: 01234567-89ab-4def-8123-456789abcdef
+:END:
+Short retrospective note.
+
+** STARTED [#A] Current active task :area:
+:PROPERTIES:
+:ID: 89abcdef-0123-4567-89ab-cdef01234567
+:END:
+What is being changed and how it will be verified.
+
+** TODO [#B] Next task :area:
+:PROPERTIES:
+:ID: fedcba98-7654-4321-8fed-cba987654321
+:END:
+Acceptance criteria.
+
+* Implementation
+Notes on key implementation decisions or subtleties.
+
+* Open questions
+- What should happen if X?
+```
+
+The tasks extension parser ignores non-task top-level headings (`Context`,
+`Plan`, `Implementation`, `Open questions`) and does not attribute their
+bodies to preceding tasks. Keep actionable headings under `* Plan`.
+
+Task headings may nest deeper than level 2 (`*** TODO ...` etc.). The parser
+handles deeper nested TODO headings, but it does not infer parent completion
+from child states; update parent statuses manually (with the pi-extension
+STARTED exception noted in "Status discipline" below).
 
 ## Bootstrap protocol
 
@@ -312,7 +389,10 @@ For archiving without pi:
 
 ## Interop with planning workflows
 
-For larger planning tasks, use the `plan` skill if available. It should create
-or update linked org plan files that comply with this org-memory format.
+For larger planning tasks where methodology guidance is useful (granularity,
+sequencing, retrospectives, executing from a plan, updating after
+discoveries), pair this skill with the `plan` skill: `../plan/SKILL.md`. The
+`plan` skill defers all file-format and persistence rules to this one, so
+there is no overlap to reconcile — it adds methodology only.
 
-Relative reference from this skill directory: `../plan/SKILL.md`.
+org-memory does not require the plan skill and is fully usable on its own.
