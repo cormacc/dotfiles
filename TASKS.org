@@ -1,8 +1,6 @@
 #+TITLE: Things wot I should do
 #+AUTHOR: Cormac Cannon
-#+EMAIL: cormac.cannon@neuromoddevices.com
 #+LANGUAGE: en
-#+COPYRIGHT: Neuromod Devices Ltd. 2026
 #+DATE: 2026-04-25
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 #+DEFAULT-PLAN-DIR: [[file:./design/log]]
@@ -36,6 +34,20 @@ Some introductory text
 - [[#housekeeping][Housekeeping]]
 
 * Improvements
+** TODO [#A] Move task selection state to .gitignored TASKS.local.org :pi:org-memory:multi-contributor:
+:PROPERTIES:
+:ID: a8f3c2e1-7b4d-4f9c-8a52-3e6c1d8b9f47
+:PLAN: [[file:design/log/2026-04-26-tasks-local-selection.org]]
+:END:
+Selection state (which task the contributor is actively working on) is currently
+expressed via the reserved =:selected:= tag embedded in =TASKS.org= and plan
+files. That puts per-contributor, per-machine working state into shared,
+version-controlled content. On multi-contributor repos this produces guaranteed
+merge conflicts whenever two people set selection simultaneously, and the tag
+is semantically incoherent across the team (only one person can be "selected").
+Move selection to a gitignored =TASKS.local.org= using top-level
+=#+SELECTED: <UUID>= metadata; update the org-memory skill, the pi tasks
+extension, and the tasks-org Emacs package to read/write the new location.
 ** TODO [#C] Add some sort of Jira integration for the tasks extension
 :PROPERTIES:
 :ID: 0276a6c7-0ca8-4c39-a90a-05587ad64698
