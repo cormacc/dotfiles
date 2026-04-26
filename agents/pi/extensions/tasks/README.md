@@ -106,16 +106,16 @@ Pressing `A` (shift-a) archives the top-level task containing the cursor's task.
 - Adds an `:ARCHIVED: [timestamp]` property to the archived heading. The timestamp uses the task's `CLOSED` value when present, otherwise the current time.
 - Strips `:selected:` from the archived copy so reloading `TASKS.org` doesn't flip the compact widget onto a no-longer-present task.
 
-Task creation, plan path approval, and archive confirmation prompts temporarily close the expanded UI so input/confirmation dialogs remain visible. After create/archive flows complete or are cancelled, the expanded UI reopens with a refreshed task tree. When creating a new plan, the path prompt is prefilled with the suggested `#+PLANS`-based path; accepting it scaffolds and links the file, then sends an agent prompt to develop the plan interactively.
+Task creation, plan path approval, and archive confirmation prompts temporarily close the expanded UI so input/confirmation dialogs remain visible. After create/archive flows complete or are cancelled, the expanded UI reopens with a refreshed task tree. When creating a new plan, the path prompt is prefilled with the suggested `#+DEFAULT-PLAN-DIR`-based path; accepting it scaffolds and links the file, then sends an agent prompt to develop the plan interactively.
 
 ## TASKS.org Format
 
-The file uses org-mode heading syntax. A `#+TODO:` declaration is recommended so Emacs users get the same state cycle as the extension. `#+PLANS:` optionally sets the default directory for newly created plan files and must use org-link syntax; when omitted, the default is `[[file:./design/log]]`.
+The file uses org-mode heading syntax. A `#+TODO:` declaration is recommended so Emacs users get the same state cycle as the extension. `#+DEFAULT-PLAN-DIR:` optionally sets the default directory for newly created plan files and must use org-link syntax; when omitted, the default is `[[file:./design/log]]`.
 
 ```org
 #+TITLE: Project Tasks
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
-#+PLANS: [[file:./design/log]]
+#+DEFAULT-PLAN-DIR: [[file:./design/log]]
 
 * TODO [#A] Implement authentication :backend:security:
 :PROPERTIES:
@@ -159,7 +159,7 @@ The file uses org-mode heading syntax. A `#+TODO:` declaration is recommended so
 - **PLAN property** — optional org properties drawer value pointing to a relative org file with a detailed task plan
 - **BLOCKED_BY property** — optional property recording why a `WAITING` task is blocked
 - **Description** — any non-heading text below a heading, excluding the properties drawer
-- **PLANS keyword** — optional top-level `#+PLANS: [[file:./path/to/dir]]` setting used as the default directory for new plan files; defaults to `[[file:./design/log]]` when absent or malformed
+- **DEFAULT-PLAN-DIR keyword** — optional top-level `#+DEFAULT-PLAN-DIR: [[file:./path/to/dir]]` setting used as the default directory for new plan files; defaults to `[[file:./design/log]]` when absent or malformed
 
 Subtasks nest arbitrarily deep — any TODO heading under another becomes its child. Parent statuses are not automatically inferred from child statuses.
 
@@ -176,7 +176,7 @@ A task can link to a detailed plan using an org properties drawer immediately be
   Parent task description.
 ```
 
-The `PLAN` path is resolved relative to the org file that contains the property. New plan path suggestions use the top-level `#+PLANS: [[file:...]]` directory from `TASKS.org`, defaulting to `[[file:./design/log]]` when the keyword is absent or malformed. The linked file is parsed with the same TODO heading syntax as `TASKS.org`; its tasks are injected into the expanded UI as children of the parent task. The details pane shows the plan target, loaded plan-task count, or a missing/unreadable-plan warning. New plan files scaffolded by the extension include `#+TITLE`, `#+DATE`, `#+PARENT_ID` with the parent task's UUID `:ID:`, `#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)`, `* Context`, and `* Plan` sections. If a new plan is created from a task that already has local subtasks, those subtask trees are moved into the linked plan under `* Plan`; the parent task keeps a plain-text bullet summary of the extracted subtasks instead of retaining them as actionable child headings in `TASKS.org`. After scaffolding and linking the file, the extension sends an agent prompt to develop the plan with the user, write the final plan to disk, and offer to open it in Emacs. Status changes made to injected plan tasks are saved back to the linked plan file, not copied into `TASKS.org`. Saves preserve non-task org content such as file metadata, category headings, `* Context`, optional `** Design decisions`, `* Plan`, `* Implementation`, and `* Open questions` sections.
+The `PLAN` path is resolved relative to the org file that contains the property. New plan path suggestions use the top-level `#+DEFAULT-PLAN-DIR: [[file:...]]` directory from `TASKS.org`, defaulting to `[[file:./design/log]]` when the keyword is absent or malformed. The linked file is parsed with the same TODO heading syntax as `TASKS.org`; its tasks are injected into the expanded UI as children of the parent task. The details pane shows the plan target, loaded plan-task count, or a missing/unreadable-plan warning. New plan files scaffolded by the extension include `#+TITLE`, `#+DATE`, `#+PARENT_ID` with the parent task's UUID `:ID:`, `#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)`, `* Context`, and `* Plan` sections. If a new plan is created from a task that already has local subtasks, those subtask trees are moved into the linked plan under `* Plan`; the parent task keeps a plain-text bullet summary of the extracted subtasks instead of retaining them as actionable child headings in `TASKS.org`. After scaffolding and linking the file, the extension sends an agent prompt to develop the plan with the user, write the final plan to disk, and offer to open it in Emacs. Status changes made to injected plan tasks are saved back to the linked plan file, not copied into `TASKS.org`. Saves preserve non-task org content such as file metadata, category headings, `* Context`, optional `** Design decisions`, `* Plan`, `* Implementation`, and `* Open questions` sections.
 
 The parser is intentionally permissive: actionable task headings may appear anywhere in the linked file. Using a dedicated `* Plan` section is recommended as a convention for readability, but it is not required by the extension.
 

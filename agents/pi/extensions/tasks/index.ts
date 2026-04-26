@@ -52,7 +52,7 @@ const EXT_NAME = getExtensionName(import.meta.url);
 const TASKS_FILE = "TASKS.org";
 const TASKS_ARCHIVE_FILE = "TASKS.ARCHIVE.org";
 const DEFAULT_PLANS_DIR = "./design/log";
-const PLANS_KEYWORD_RE = /^\s*#\+PLANS:\s*(.*?)\s*$/im;
+const DEFAULT_PLAN_DIR_KEYWORD_RE = /^\s*#\+DEFAULT-PLAN-DIR:\s*(.*?)\s*$/im;
 const SELECTED_TAG = "selected";
 const CLOSED_STATUSES = new Set<string>(["DONE", "CANCELLED"]);
 /** Hard cap so the compact selected-task widget never dominates the screen. */
@@ -616,11 +616,11 @@ function getEmacsOptions(pi: ExtensionAPI) {
   };
 }
 
-/** Read the project-wide default plan directory from `#+PLANS: [[file:...]]`. */
+/** Read the project-wide default plan directory from `#+DEFAULT-PLAN-DIR: [[file:...]]`. */
 async function readPlansDir(cwd: string): Promise<string> {
   try {
     const content = await readFile(join(cwd, TASKS_FILE), "utf-8");
-    const match = PLANS_KEYWORD_RE.exec(content);
+    const match = DEFAULT_PLAN_DIR_KEYWORD_RE.exec(content);
     if (!match) return DEFAULT_PLANS_DIR;
     return extractOrgLinkTarget(match[1] ?? "") ?? DEFAULT_PLANS_DIR;
   } catch {
@@ -637,7 +637,7 @@ function joinPlanDir(dir: string, filename: string): string {
 
 /**
  * Suggest a plan path for a task that has no :PLAN: yet.
- * Uses `#+PLANS: [[file:...]]` from TASKS.org as the plan directory, falling
+ * Uses `#+DEFAULT-PLAN-DIR: [[file:...]]` from TASKS.org as the plan directory, falling
  * back to `./design/log` when unspecified or malformed.
  */
 async function suggestPlanPath(task: Task, cwd: string): Promise<string> {

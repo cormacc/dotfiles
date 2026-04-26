@@ -5,7 +5,7 @@
 #+COPYRIGHT: Neuromod Devices Ltd. 2026
 #+DATE: 2026-04-25
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
-#+PLANS: [[file:./design/log]]
+#+DEFAULT-PLAN-DIR: [[file:./design/log]]
 
 
 # EXPORT SETUP
