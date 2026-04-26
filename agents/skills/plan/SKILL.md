@@ -1,16 +1,14 @@
 ---
 name: plan
-description: Use when asked to draft, review, or execute an implementation plan. Produces concrete plans that can be persisted as org-memory included task files, then guides stepwise implementation and verification.
+description: Use when asked to draft, review, or execute an implementation plan. Produces concrete plans as org-memory included task files, then guides stepwise implementation and verification.
 ---
 
 # Plan
 
-Use this skill when the user asks for a plan, implementation plan, roadmap,
-retrospective plan, or to continue a multi-step workstream. Plans should be
-concrete, ordered, and executable.
+Use this skill when the user asks for a plan.
+Plans are org-memory included task files: concrete, ordered, and executable.
 
-For persistent org project memory, pair this with the org-memory skill:
-`../org-memory/SKILL.md`.
+org-memory owns the file-format rules: `../org-memory/SKILL.md`.
 
 ## Planning principles
 
@@ -24,14 +22,9 @@ For persistent org project memory, pair this with the org-memory skill:
 - Do not plan endlessly. Once the plan is good enough and the user wants action,
   start executing the next task.
 
-## Persistent org plans
+## Plan files
 
-When a plan should persist as project memory, it must meet the org-memory file
-protocol: shared TODO cycle, UUID `:ID:` properties, `#+PARENT_ID:`, and inclusion
-from the parent task via `:INCLUDE:`. org-memory is the source of truth for those
-file-format rules.
-
-Plan files add a planning-oriented section convention on top of org-memory:
+Plan files follow the org-memory file protocol and add a planning-oriented section convention:
 
 Required sections:
 
@@ -75,9 +68,8 @@ Acceptance criteria.
 * Open questions
 ```
 
-Task headings may nest deeper than level 2. Tooling parses nested TODO headings,
-but agents must keep parent statuses meaningful; see org-memory for status rules
-and pi-extension exceptions.
+Task headings may nest deeper than level 2. Keep parent statuses meaningful;
+see org-memory for status rules.
 
 ## Retrospective plans
 
@@ -96,17 +88,17 @@ Before starting implementation:
 
 1. Read the relevant plan file.
 2. Identify the next actionable `TODO` or `STARTED` task.
-3. If using org-memory/task tooling, respect the current `:selected:` marker as
-   the active task signal. Do not write or clear `:selected:` directly unless
-   explicitly asked or acting through a task-selection tool.
+3. Respect the current `:selected:` marker as the active task signal. Do not
+   write or clear `:selected:` directly unless explicitly asked or acting
+   through a task-selection tool.
 4. Mark the task `STARTED` if beginning work now. See org-memory for parent
-   status discipline and pi-extension propagation exceptions.
+   status discipline.
 5. Implement the smallest change that satisfies the task.
 6. Verify the change.
 7. Mark the task `DONE` and add a short result note if useful.
 8. Add newly discovered follow-up work as new `TODO` tasks.
-9. If the user asked not to be interrupted with questions, append questions to
-   `* Open questions` for batch review.
+9. Append questions to `* Open questions` rather than interrupting
+   implementation.
 
 ## Updating plans after discoveries
 
