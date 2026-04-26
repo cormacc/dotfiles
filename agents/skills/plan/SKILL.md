@@ -8,7 +8,8 @@ description: Use when asked to draft, review, or execute an implementation plan.
 Use this skill when the user asks for a plan.
 Plans are org-memory included task files: concrete, ordered, and executable.
 
-org-memory owns the file-format rules: `../org-memory/SKILL.md`.
+This skill owns planning methodology and plan section conventions;
+org-memory owns file-format and persistence rules: `../org-memory/SKILL.md`.
 
 ## Planning principles
 
@@ -86,19 +87,21 @@ When drafting a plan for work already started:
 
 Before starting implementation:
 
-1. Read the relevant plan file.
-2. Identify the next actionable `TODO` or `STARTED` task.
-3. Respect the current `:selected:` marker as the active task signal. Do not
+1. Ask whether questions should be batched in `* Open questions` for final
+   review or raised immediately as they arise.
+2. Read the relevant plan file.
+3. Identify the next actionable `TODO` or `STARTED` task.
+4. Respect the current `:selected:` marker as the active task signal. Do not
    write or clear `:selected:` directly unless explicitly asked or acting
    through a task-selection tool.
-4. Mark the task `STARTED` if beginning work now. See org-memory for parent
+5. Mark the task `STARTED` if beginning work now. See org-memory for parent
    status discipline.
-5. Implement the smallest change that satisfies the task.
-6. Verify the change.
-7. Mark the task `DONE` and add a short result note if useful.
-8. Add newly discovered follow-up work as new `TODO` tasks.
-9. Append questions to `* Open questions` rather than interrupting
-   implementation.
+6. Implement the smallest change that satisfies the task.
+7. Verify the change.
+8. Mark the task `DONE` and add a short result note if useful.
+9. Add newly discovered follow-up work as new `TODO` tasks.
+10. Handle questions according to the agreed mode: append to `* Open questions`
+    or raise immediately.
 
 ## Updating plans after discoveries
 
@@ -113,7 +116,3 @@ Update the plan when implementation reveals:
 
 Keep additions concise and actionable. Prefer one task per concrete outcome.
 
-## Cross-reference
-
-This skill owns planning methodology and plan section conventions. It defers all
-org-memory file-format and persistence rules to `../org-memory/SKILL.md`.
