@@ -95,12 +95,6 @@ Waiting on upstream merge.
 Keep `TASKS.org` high-level. Put detailed checklists/history in included files.
 If an included file is a plan, follow the `plan` skill for its section layout.
 
-## ID discipline
-
-- Generate a UUID v4 for every new task/subtask and store it as `:ID:`.
-- Preserve existing IDs, properties, heading text, and surrounding formatting.
-- Do not scan or mutate arbitrary org files outside the loaded task-memory graph.
-
 ## Starting or resuming work
 
 1. Read `TASKS.org`.
@@ -120,14 +114,6 @@ If an included file is a plan, follow the `plan` skill for its section layout.
 - Prefer adding detail to included files rather than bloating `TASKS.org`.
 - Do not remove completed historical tasks unless the user asks.
 - Add discovered work as new TODO tasks, not hidden prose.
-- For new included files, suggest a path before creating it unless the user
-  already gave one. Prefer `#+DEFAULT-PLAN-DIR: [[file:...]]` from `TASKS.org`, falling
-  back to `[[file:./design/log]]`.
-- Use `YYYY-MM-DD-short-task-name.org` for new included task files unless the
-  project specifies another naming convention.
-- New included files should declare `#+TITLE:`, `#+DATE:`, `#+PARENT_ID:` (the
-  including task's `:ID:`), and the shared `#+TODO:` cycle.
-
 ## Task notes
 
 Use plain text under the task heading for durable human/agent context. Prefer a
@@ -190,11 +176,24 @@ If `TASKS.org` does not exist and the user wants persistent task memory:
 If the pi tasks extension is active, skip this section — it handles the following
 automatically. Use these procedures only when editing task files without pi.
 
-### ID backfill
+### ID discipline
 
-When loading project memory, add missing `:ID:` properties to all tasks and
-subtasks in `TASKS.org` and any included files loaded for the current workstream,
-before making other edits.
+- Generate a UUID v4 for every new task/subtask and store it as `:ID:`.
+- When loading project memory, add missing IDs to all tasks and subtasks in
+  `TASKS.org` and any included files loaded for the current workstream, before
+  making other edits.
+- Preserve existing IDs, properties, heading text, and surrounding formatting.
+- Do not scan or mutate arbitrary org files outside the loaded task-memory graph.
+
+### Creating included task files
+
+- Suggest a path before creating a new included file unless the user already gave
+  one. Prefer `#+DEFAULT-PLAN-DIR: [[file:...]]` from `TASKS.org`, falling back
+  to `[[file:./design/log]]`.
+- Use `YYYY-MM-DD-short-task-name.org` for new included task files unless the
+  project specifies another naming convention.
+- New included files should declare `#+TITLE:`, `#+DATE:`, `#+PARENT_ID:` (the
+  including task's `:ID:`), and the shared `#+TODO:` cycle.
 
 ### Parent status propagation
 
