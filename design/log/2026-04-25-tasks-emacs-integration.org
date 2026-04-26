@@ -37,7 +37,10 @@ existing file watchers rather than requiring a new live protocol initially.
   pi's existing file watchers. Any direct Emacs↔pi notification mechanism is a
   later enhancement, not a prerequisite.
 - Spacemacs key prefix :: Bind minor-mode commands under the org local-leader
-  prefix `, p` (local-leader `p`) in the `org-user` layer.
+  prefix `, K` (local-leader `K`) in the `org-user` layer. Originally proposed
+  as `, p`, but Spacemacs binds `, p` directly to `org-priority`, which
+  prevents it from being reused as a prefix; capital `K` is the chosen
+  fallback.
 - Activation by filename match :: `tasks-org-mode` auto-enables on buffers
   visiting `TASKS.org` or any `*.org` under a project's `design/log/`
   directory. Manual `M-x tasks-org-mode` remains available for other buffers.
@@ -236,15 +239,15 @@ v1 implementation summary (2026-04-25):
   by =tasks-org-mode= but only acts when =tasks-org-save-backfill-ids= is
   non-nil (off by default).
 
-Key-binding map (Spacemacs local-leader =, p=):
+Key-binding map (Spacemacs local-leader =, K=):
 
 | Key   | Command                            |
 |-------+------------------------------------|
-| , p s | tasks-org-toggle-selected          |
-| , p i | tasks-org-ensure-id                |
-| , p I | tasks-org-backfill-ids-in-buffer   |
-| , p p | tasks-org-open-plan                |
-| , p t | tasks-org-jump-to-tasks            |
+| , K s | tasks-org-toggle-selected          |
+| , K i | tasks-org-ensure-id                |
+| , K I | tasks-org-backfill-ids-in-buffer   |
+| , K p | tasks-org-open-plan                |
+| , K t | tasks-org-jump-to-tasks            |
 
 * Open questions
 

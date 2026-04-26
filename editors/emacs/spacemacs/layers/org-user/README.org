@@ -56,16 +56,18 @@ loaded, falling back to the buffer's directory otherwise.
 
 ** Commands & key bindings
 
-All bindings are registered under the org local-leader prefix =, p=
-(=SPC m p= in Spacemacs):
+All bindings are registered under the org local-leader prefix =, K=
+(=SPC m K= in Spacemacs). Capital =K= is used because Spacemacs's org
+layer binds =, p= directly to =org-priority=, which prevents it from
+being reused as a prefix. Change here if =K= collides in your setup.
 
 | Key       | Command                              | Description                                                  |
 |-----------+--------------------------------------+--------------------------------------------------------------|
-| =, p s=   | =tasks-org-toggle-selected=          | Toggle =:selected:= on the current task (single-selection)   |
-| =, p i=   | =tasks-org-ensure-id=                | Ensure the current heading has a UUID =:ID:= property        |
-| =, p I=   | =tasks-org-backfill-ids-in-buffer=   | Add =:ID:= to every task heading in the buffer that lacks one |
-| =, p p=   | =tasks-org-open-plan=                | Open the =:PLAN:= linked from the current task, or create one |
-| =, p t=   | =tasks-org-jump-to-tasks=            | Open the project's =TASKS.org=                               |
+| =, K s=   | =tasks-org-toggle-selected=          | Toggle =:selected:= on the current task (single-selection)   |
+| =, K i=   | =tasks-org-ensure-id=                | Ensure the current heading has a UUID =:ID:= property        |
+| =, K I=   | =tasks-org-backfill-ids-in-buffer=   | Add =:ID:= to every task heading in the buffer that lacks one |
+| =, K p=   | =tasks-org-open-plan=                | Open the =:PLAN:= linked from the current task, or create one |
+| =, K t=   | =tasks-org-jump-to-tasks=            | Open the project's =TASKS.org=                               |
 
 The mode lighter is =Tasks=.
 
@@ -107,7 +109,7 @@ in collaboration with the pi extension's parser.
 * Key bindings
 
 See [[#commands--key-bindings][tasks-org commands & key bindings]]
-above for the =, p= prefix. Other layer bindings remain those
+above for the =, K= prefix. Other layer bindings remain those
 inherited from Spacemacs' =+lang/org= layer.
 
 # Use GitHub URLs if you wish to link a Spacemacs documentation file or its heading.
