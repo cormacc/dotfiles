@@ -171,15 +171,20 @@ Each entry is either:
                tasks-org-open-plan
                tasks-org-jump-to-tasks)
     :init
-    ;; `, p' is bound to `org-priority' by Spacemacs's org layer, so we use
-    ;; capital `, K' as the tasks-org prefix. Change here if it collides.
-    (spacemacs/declare-prefix-for-mode 'org-mode "mK" "tasks-org")
-    (spacemacs/set-leader-keys-for-major-mode 'org-mode
-      "Ks" 'tasks-org-toggle-selected
-      "Ki" 'tasks-org-ensure-id
-      "KI" 'tasks-org-backfill-ids-in-buffer
-      "Kp" 'tasks-org-open-plan
-      "Kt" 'tasks-org-jump-to-tasks)))
+    ;; Spacemacs's org layer binds `, p' to `org-priority' and `, K' to
+    ;; `org-kill-note-or-show-branches' as single-key commands, so neither
+    ;; can be reused as a prefix without first being unbound. The unbind
+    ;; must run AFTER the org layer has set its bindings, hence the
+    ;; `with-eval-after-load' wrapper.
+    (with-eval-after-load 'org
+      (spacemacs/set-leader-keys-for-major-mode 'org-mode "K" nil)
+      (spacemacs/declare-prefix-for-mode 'org-mode "mK" "tasks-org")
+      (spacemacs/set-leader-keys-for-major-mode 'org-mode
+        "Ks" 'tasks-org-toggle-selected
+        "Ki" 'tasks-org-ensure-id
+        "KI" 'tasks-org-backfill-ids-in-buffer
+        "Kp" 'tasks-org-open-plan
+        "Kt" 'tasks-org-jump-to-tasks))))
 
 (defun org-user/post-init-org-archive-subtree-hierarchical ()
   (setq org-archive-default-command 'org-archive-subtree-hierarchical))
