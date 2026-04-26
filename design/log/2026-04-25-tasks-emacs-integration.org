@@ -202,6 +202,39 @@ Acceptance criteria:
 - Verify ordinary org editing commands still behave normally.
 - Record any follow-up work as new tasks rather than expanding this initial
   implementation beyond the transparent-helper scope.
+** TODO [#C] Rework tasks-org Spacemacs keybinding strategy :emacs:ui:deferred:
+:PROPERTIES:
+:ID: b1c8e7a3-9f4d-4c2e-a7d3-8b2f1c0e9d4a
+:END:
+Deferred follow-up. The current bindings (=, K {s,i,I,p,t}=) work but the
+implementation is ugly:
+- Capital =K= is not mnemonic for "tasks".
+- =, p= (the original choice) was already bound by Spacemacs's org layer to
+  =org-priority=; capital =, K= turned out to be bound to
+  =org-kill-note-or-show-branches=.
+- We unbind =, K= and then re-declare it as our prefix, deferring the whole
+  sequence via =with-eval-after-load 'org= to win the timing race against
+  =+lang/org='s late binding.
+
+Acceptance criteria:
+- A keybinding scheme that does not require unbinding existing Spacemacs
+  org-layer bindings, OR
+- A clearly justified scheme under a stable prefix that is unlikely to be
+  reclaimed by upstream Spacemacs.
+- README and plan design-decisions updated to match the new scheme.
+
+Candidate approaches to evaluate:
+- Move to a global leader (e.g. =SPC a t= for "applications > tasks") so
+  bindings don't compete with org-mode prefixes at all.
+- Use a special-character prefix (e.g. =, != or =, ;=) that Spacemacs does
+  not bind in any layer.
+- Nest under a sub-prefix already declared by Spacemacs (requires surveying
+  which prefixes are designated for layer extension).
+- Accept the current scheme as intentional and document the trade-off.
+
+Not blocking v1. Revisit when the package is stable enough that a breaking
+key change is acceptable, or before sharing the package beyond personal use.
+
 * Implementation
 
 Implementation notes should be added as tasks are completed. Keep this section
