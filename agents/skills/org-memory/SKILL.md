@@ -25,7 +25,7 @@ This skill owns the durable file protocol:
 
 `TASKS.org` may also declare the default include/plan directory:
 ```org
-#+DEFAULT-PLAN-DIR: [[file:./design/log]]
+#+DEFAULT_PLAN_DIR: [[file:./design/log]]
 ```
 
 Actionable tasks are org headings:
@@ -57,7 +57,7 @@ Rules:
 ```org
 #+TITLE: Project Tasks
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
-#+DEFAULT-PLAN-DIR: [[file:./design/log]]
+#+DEFAULT_PLAN_DIR: [[file:./design/log]]
 
 * Improvements
 
@@ -173,11 +173,11 @@ When unblocked, move the task back to `TODO` or `STARTED` and either remove
 If `TASKS.org` does not exist and the user wants persistent task memory:
 
 1. Create `TASKS.org` in the project root.
-2. Add `#+TITLE:`, the shared `#+TODO:`, and `#+DEFAULT-PLAN-DIR: [[file:./design/log]]`.
+2. Add `#+TITLE:`, the shared `#+TODO:`, and `#+DEFAULT_PLAN_DIR: [[file:./design/log]]`.
 3. Add a semantic section such as `* Improvements` or `* Tasks`.
 4. Add the first actionable TODO task with an `:ID:` property.
 5. If the task needs detailed work items, create an included org file under the
-   `#+DEFAULT-PLAN-DIR` directory.
+   `#+DEFAULT_PLAN_DIR` directory.
 
 ## Status discipline
 
@@ -212,7 +212,7 @@ automatically. Use these procedures only when editing task files without pi.
 ### Creating included task files
 
 - Suggest a path before creating a new included file unless the user already gave
-  one. Prefer `#+DEFAULT-PLAN-DIR: [[file:...]]` from `TASKS.org`, falling back
+  one. Prefer `#+DEFAULT_PLAN_DIR: [[file:...]]` from `TASKS.org`, falling back
   to `[[file:./design/log]]`.
 - Use `YYYY-MM-DD-short-task-name.org` for new included task files unless the
   project specifies another naming convention.

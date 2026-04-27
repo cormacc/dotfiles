@@ -54,7 +54,8 @@ I.e. if we just implement a simple task that didn't need formal planning, useful
 :PROPERTIES:
 :ID: ce69ef5e-5967-4623-a2e3-f22e0bd1a745
 :END:
-Currently we've got 'org-memory' and 'plan' -- maybe more useful to refer to 'tasks' and 'plan', and refer to the combination as org-memory?
+Currently we've got 'org-memory' and 'plan' -- maybe more useful to refer to 'tasks' and 'plan', and refer to the combination as org-memory? Or 'org-tasks' and 'org-plan' skills, with the combination of the two making up 'org-memory'?
+Consider, rename as appropriate and update docs accordingly.
 ** TODO [#C] Add some sort of Jira integration for the tasks extension
 :PROPERTIES:
 :ID: 0276a6c7-0ca8-4c39-a90a-05587ad64698
@@ -87,16 +88,6 @@ offer to move those subtasks into the new plan file (preserving =:ID:=
 properties and leaving a summary under the parent). Coordinate behaviour
 with the pi tasks extension's parser so results are consistent across
 editor and CLI.
-** DONE [#D] TASKS skill - fix completion timestamp insertion
-CLOSED: [2026-04-27 Mon 15:13]
-:PROPERTIES:
-:ID: ba720ca7-077b-455d-9a64-40b41662ec97
-:END:
-When completing a task, a completion timestamp is inserted below the properties drawer without  "CLOSED: " prefix. Also the timestamp format is incorrect. For a task completed today I expected [2026-04-27 Mon 15:07] but got [2026-04-27 Sun].
-Do the following:
-- Ensure the timestamp is in the expected format AND correct.
-- Ensure the timestamp is prefixed with "CLOSED: " and placed immediately below the task heading.
-- Ensure remaining content continues on the next line, rather than on the same line as the timestamp.
 * Dependencies
 ** TODO Evaluate pi-lens as a replacement for the in-repo lsp tool
 :PROPERTIES:
