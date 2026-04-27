@@ -9,7 +9,7 @@
 
 ;; Lightweight Emacs-side helpers for the plain-org task-memory protocol used
 ;; by the pi tasks extension.  Maintains stable :ID: properties, single-task
-;; selection via the :selected: tag, and convenient :PLAN: open/create
+;; selection via TASKS.local.org, and convenient :INCLUDE: open/create
 ;; helpers.
 ;;
 ;; Files remain plain org.  Pi reloads via its file watchers; there is no live
@@ -132,7 +132,7 @@ the responsibility of the pi tasks extension and the agent org-memory skill."
 ;;; Plan link parsing
 
 (defun tasks-org--extract-plan-path (raw)
-  "Extract a file path from a :PLAN: property value RAW.
+  "Extract a file path from an :INCLUDE: property value RAW.
 Handles bare paths, [[file:...]] and [[file:...][label]] forms.
 Search options (e.g. ::heading) are stripped from the extracted path."
   (cond
@@ -284,7 +284,7 @@ debounce."
 ;;; Plan helpers
 
 (defun tasks-org--plan-link (path)
-  "Return a clickable :PLAN: value for the relative PATH."
+  "Return a clickable :INCLUDE: value for the relative PATH."
   (format "[[file:%s]]" path))
 
 (defun tasks-org--slugify (s)
@@ -308,7 +308,7 @@ debounce."
      "* Plan\n")))
 
 (defun tasks-org--open-plan-link (raw source-dir &optional find-fn)
-  "Open the file extracted from RAW :PLAN: value, resolved against SOURCE-DIR.
+  "Open the file extracted from RAW :INCLUDE: value, resolved against SOURCE-DIR.
 FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
   (let* ((path (tasks-org--extract-plan-path raw))
          (abs (when path (expand-file-name path source-dir))))
@@ -317,7 +317,7 @@ FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
       (user-error "Plan file not found: %s" (or abs raw)))))
 
 (defun tasks-org--create-plan-for-current-task (&optional find-fn)
-  "Scaffold a new plan file for the current task and link it via :PLAN:.
+  "Scaffold a new plan file for the current task and link it via :INCLUDE:.
 FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
   (let* ((title (org-get-heading t t t t))
          (slug (tasks-org--slugify title))
@@ -336,19 +336,19 @@ FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
         (insert (tasks-org--scaffold-plan title))))
     (let* ((source-dir (file-name-directory (or buffer-file-name "")))
            (rel (file-relative-name chosen source-dir)))
-      (org-entry-put nil "PLAN" (tasks-org--plan-link rel))
+      (org-entry-put nil "INCLUDE" (tasks-org--plan-link rel))
       (tasks-org--ensure-id-at-heading))
     (save-buffer)
     (funcall (or find-fn #'find-file) chosen)))
 
 ;;;###autoload
 (defun tasks-org-open-plan (&optional find-fn)
-  "Open the :PLAN: linked from the current task, creating one if absent.
+  "Open the :INCLUDE: linked from the current task, creating one if absent.
 FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
   (interactive)
   (unless (tasks-org--at-task-heading-p)
     (user-error "Point is not on an actionable task heading"))
-  (let ((plan-raw (org-entry-get nil "PLAN"))
+  (let ((plan-raw (org-entry-get nil "INCLUDE"))
         (source-dir (file-name-directory (or buffer-file-name ""))))
     (if (and plan-raw (not (string-empty-p (string-trim plan-raw))))
         (tasks-org--open-plan-link plan-raw source-dir find-fn)
@@ -356,13 +356,13 @@ FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
 
 ;;;###autoload
 (defun tasks-org-open-plan-other-window ()
-  "Open the :PLAN: linked from the current task in another window."
+  "Open the :INCLUDE: linked from the current task in another window."
   (interactive)
   (tasks-org-open-plan #'find-file-other-window))
 
 ;;;###autoload
 (defun tasks-org-jump-to-parent-task ()
-  "Jump to the task in TASKS.org whose :PLAN: links to the current buffer."
+  "Jump to the task in TASKS.org whose :INCLUDE: links to the current buffer."
   (interactive)
   (unless buffer-file-name
     (user-error "Current buffer is not visiting a file"))
@@ -375,7 +375,7 @@ FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
       (save-excursion
         (goto-char (point-min))
         (while (and (not found-point)
-                    (re-search-forward "^[ \t]*:PLAN:[ \t]*\\(.*\\)" nil t))
+                    (re-search-forward "^[ \t]*:INCLUDE:[ \t]*\\(.*\\)" nil t)))
           (let* ((raw (string-trim (match-string 1)))
                  (path (tasks-org--extract-plan-path raw))
                  (abs (when path (expand-file-name path tasks-dir))))
@@ -406,7 +406,7 @@ the org local-leader prefix `, ;'.")
 
 When enabled, exposes commands for ensuring stable :ID: properties,
 toggling task selection via TASKS.local.org, and opening or creating
-:PLAN: linked files.  Highlights the currently selected task heading
+:INCLUDE: linked files.  Highlights the currently selected task heading
 using `tasks-org-selected-face' and watches TASKS.local.org for
 external changes (e.g. from the pi extension)."
   :lighter " Tasks"

@@ -739,7 +739,7 @@ function joinPlanDir(dir: string, filename: string): string {
 }
 
 /**
- * Suggest a plan path for a task that has no :PLAN: yet.
+ * Suggest a plan path for a task that has no :INCLUDE: yet.
  * Uses `#+DEFAULT-PLAN-DIR: [[file:...]]` from TASKS.org as the plan directory, falling
  * back to `./design/log` when unspecified or malformed.
  */
@@ -939,7 +939,7 @@ function buildPlanDevelopmentPrompt(
     `Plan property: [[file:${planRelToSource}]]`,
     `Plan file: ${absPlan}`,
     "",
-    "The tasks extension has already attached the :PLAN: property and scaffolded the plan file.",
+    "The tasks extension has already attached the :INCLUDE: property and scaffolded the plan file.",
     absorbedSubtasks
       ? "Existing TASKS.org subtasks were moved into the linked plan under * Plan, and the parent task now retains a plain-text summary of the extracted subtasks."
       : "The parent task had no local subtasks to absorb.",
@@ -951,9 +951,9 @@ function buildPlanDevelopmentPrompt(
 /**
  * Resolve or create a plan for the given task, then open it in Emacs.
  *
- * If the task has a `:PLAN:` property: open that file.
+ * If the task has a `:INCLUDE:` property: open that file.
  * Otherwise: prompt for a filename (seeded from the task summary and today's
- * date), scaffold the file, attach `:PLAN:` to the task, save the source
+ * date), scaffold the file, attach `:INCLUDE:` to the task, save the source
  * org file, then ask the agent to develop the plan with the user.
  */
 async function handlePlanEdit(
@@ -1008,7 +1008,7 @@ async function handlePlanEdit(
       await writeFile(absPlan, scaffoldPlan(task, extractedPlanTasks), "utf-8");
     }
 
-    // Attach :PLAN: to the in-memory task and save its source file.
+    // Attach :INCLUDE: to the in-memory task and save its source file.
     // Write the link form so the property is clickable in Emacs (C-c C-o)
     // while remaining parseable by the extension. The parser preserves this
     // raw value on round-trip. If the task already had local subtasks, move
