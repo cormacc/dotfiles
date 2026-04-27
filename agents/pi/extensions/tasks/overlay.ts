@@ -16,7 +16,7 @@ import {
   getTaskId,
   serializeTasksPreservingFile,
 } from "./parser.ts";
-import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
+import { colorLocal, colorPriority, colorStatus, colorTags } from "./status-colors.ts";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -75,6 +75,10 @@ export class TasksOverlay {
       parent: Task | null,
       insertAfter: Task | null,
     ) => void,
+    /** Request publish (local → shared) after overlay closes. */
+    private onPublish?: (task: Task) => void,
+    /** Request unpublish (shared → local) after overlay closes. */
+    private onUnpublish?: (task: Task) => void,
     selectedId: string | null = null,
     /** Called when the user toggles selection; should write TASKS.local.org. */
     private onSelectionChange?: (id: string | null) => Promise<void>,
@@ -252,6 +256,18 @@ export class TasksOverlay {
       return;
     }
 
+    // Publish local task → TASKS.org  (shift-P, local tasks only)
+    if (matchesKey(data, "P")) {
+      this.publish();
+      return;
+    }
+
+    // Unpublish shared task → TASKS.local.org  (shift-U, top-level shared only)
+    if (matchesKey(data, "U")) {
+      this.unpublish();
+      return;
+    }
+
     // New sibling task at the cursor's hierarchy level.
     if (matchesKey(data, "n")) {
       this.createNewTask(false);
@@ -364,6 +380,25 @@ export class TasksOverlay {
     const topLevel = this.findTopLevelRoot(row.task);
     if (!topLevel) return;
     this.onArchive(topLevel);
+    this.done(undefined);
+  }
+
+  private publish(): void {
+    const row = this.rows[this.cursor];
+    if (!row || !this.onPublish) return;
+    if (!row.task.isLocal) return; // guard: only local tasks
+    this.onPublish(row.task);
+    this.done(undefined);
+  }
+
+  private unpublish(): void {
+    const row = this.rows[this.cursor];
+    if (!row || !this.onUnpublish) return;
+    if (row.task.isLocal) return; // guard: only shared tasks
+    // Unpublish is restricted to top-level shared tasks.
+    const topLevel = this.findTopLevelRoot(row.task);
+    if (!topLevel || topLevel !== row.task) return;
+    this.onUnpublish(topLevel);
     this.done(undefined);
   }
 
@@ -560,14 +595,32 @@ export class TasksOverlay {
       // selected subtree dominates the view.
       const hasSelection = this.rows.some((r) => r.isSelectedTask);
 
+      // Index of the first local-task row in the full rows array (for separator).
+      const firstLocalGlobalIdx = this.rows.findIndex((r) => r.task.isLocal);
+
       for (let i = 0; i < visibleRows.length; i++) {
         const r = visibleRows[i]!;
         const globalIdx = this.scrollOffset + i;
         const isCursor = globalIdx === this.cursor;
         const dimmed = hasSelection && !r.inSelection;
+        const isLocal = !!r.task.isLocal;
+
+        // Inject the local-drafts separator at render time (not in the row array)
+        // when the first local row is about to be drawn and there are shared rows above.
+        if (globalIdx === firstLocalGlobalIdx && firstLocalGlobalIdx > 0) {
+          leftLines.push(
+            truncateToWidth(
+              " " + th.fg("dim", `${'─'.repeat(4)} ⊠  Local drafts ${'─'.repeat(Math.max(0, leftW - 22))}`),
+              leftW,
+            ),
+          );
+        }
 
         const indent = "  ".repeat(r.depth);
-        const treeMark = r.hasChildren ? (r.collapsed ? "▶ " : "▼ ") : "• ";
+        // Local tasks use ⊠ instead of the standard tree markers.
+        const treeMark = isLocal
+          ? (r.hasChildren ? (r.collapsed ? "⊠▶ " : "⊠▼ ") : "⊠ ")
+          : (r.hasChildren ? (r.collapsed ? "▶ " : "▼ ") : "• ");
 
         const visibleTags = r.task.tags;
 
@@ -594,19 +647,21 @@ export class TasksOverlay {
             : "";
         } else {
           indentStr = indent;
-          treeStr = treeMark;
+          treeStr = isLocal ? colorLocal(treeMark) : treeMark;
           statusStr = this.renderStatus(r.task.status, th);
           prioStr = r.task.priority ? colorPriority(r.task.priority) + " " : "";
           selectMark = r.isSelectedTask ? th.fg("accent", "★ ") : "";
           tagsStr = visibleTags.length > 0 ? " " + colorTags(visibleTags) : "";
 
-          // Cursor > selected task > in-selection > plain.
+          // Cursor > selected task > in-selection > local > plain.
           if (isCursor) {
             summaryStr = th.fg("accent", th.bold(r.task.summary));
           } else if (r.isSelectedTask) {
             summaryStr = th.fg("accent", th.bold(r.task.summary));
           } else if (r.inSelection) {
             summaryStr = th.fg("accent", r.task.summary);
+          } else if (isLocal) {
+            summaryStr = colorLocal(r.task.summary);
           } else {
             summaryStr = th.fg("text", r.task.summary);
           }
@@ -754,7 +809,7 @@ export class TasksOverlay {
     lines.push(th.fg("borderMuted", hBar(width)));
     const helpText = th.fg(
       "dim",
-      " ↑↓/jk nav • ←→/hl status • Enter toggle • s select • e edit • p plan • n new • N subtask • A archive • Ctrl-d/u scroll • q close",
+      " ↑↓/jk nav • ←→/hl status • Enter toggle • s select • e edit • p plan • n new • N subtask • A archive • P publish • U unpublish • Ctrl-d/u scroll • q close",
     );
     lines.push(truncateToWidth(pad(helpText, width), width));
     lines.push(th.fg("border", hBar(width)));

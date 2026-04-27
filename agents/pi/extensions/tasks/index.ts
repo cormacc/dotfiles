@@ -56,7 +56,7 @@ const TASKS_FILE = "TASKS.org";
 const TASKS_LOCAL_FILE = "TASKS.local.org";
 const TASKS_ARCHIVE_FILE = "TASKS.ARCHIVE.org";
 const DEFAULT_PLANS_DIR = "./design/log";
-const DEFAULT_PLAN_DIR_KEYWORD_RE = /^\s*#\+DEFAULT-PLAN-DIR:\s*(.*?)\s*$/im;
+const DEFAULT_PLAN_DIR_KEYWORD_RE = /^\s*#\+DEFAULT_PLAN_DIR:\s*(.*?)\s*$/im;
 const CLOSED_STATUSES = new Set<string>(["DONE", "CANCELLED"]);
 /** Hard cap so the compact selected-task widget never dominates the screen. */
 const MAX_COMPACT_LINES = 6;
@@ -137,9 +137,18 @@ export async function writeSelectedId(
   id: string | null,
 ): Promise<void> {
   const localPath = join(cwd, TASKS_LOCAL_FILE);
-  const content = id ? `#+SELECTED: ${id}\n` : `#+SELECTED:\n`;
+  const selectedLine = id ? `#+SELECTED: ${id}` : `#+SELECTED:`;
+
+  // Non-destructive: preserve any task headings already in the file.
+  let existing = "";
+  try { existing = await readFile(localPath, "utf-8"); } catch { /* new file */ }
+
+  const updated = /^#\+SELECTED:/im.test(existing)
+    ? existing.replace(/^#\+SELECTED:.*$/im, selectedLine)
+    : (existing ? `${selectedLine}\n${existing}` : `${selectedLine}\n`);
+
   const tmpPath = `${localPath}.tmp`;
-  await writeFile(tmpPath, content, "utf-8");
+  await writeFile(tmpPath, updated, "utf-8");
   await rename(tmpPath, localPath);
 }
 
@@ -206,29 +215,48 @@ function scheduleRefresh(): void {
   }, 150);
 }
 
+/** Recursively mark a task tree as local (from TASKS.local.org). */
+function markLocal(tasks: Task[]): void {
+  for (const t of tasks) {
+    t.isLocal = true;
+    markLocal(t.children);
+  }
+}
+
 async function loadTasks(cwd: string): Promise<Task[]> {
   const sourcePath = join(cwd, TASKS_FILE);
+  let tasks: Task[] = [];
   try {
     const content = await readFile(sourcePath, "utf-8");
-    const { tasks, fileImports } = parseTasks(content, { sourcePath });
+    const { tasks: shared, fileImports } = parseTasks(content, { sourcePath });
     for (const fp of fileImports) {
       const absPath = isAbsolute(fp) ? fp : resolve(dirname(sourcePath), fp);
       try {
         const ic = await readFile(absPath, "utf-8");
         const { tasks: it } = parseTasks(ic, { sourcePath: absPath });
-        tasks.push(...it);
+        shared.push(...it);
       } catch { /* ignore missing or unreadable import files */ }
     }
-    await loadLinkedPlans(tasks, sourcePath);
-    try {
-      await backfillMissingIds(cwd, tasks);
-    } catch {
-      // Keep the UI usable even if the automatic ID backfill cannot write.
-    }
-    return tasks;
+    tasks = shared;
+  } catch { /* TASKS.org unreadable — start with empty list */ }
+
+  // Load tasks from TASKS.local.org (gitignored per-contributor drafts).
+  // The #+SELECTED: keyword is non-task content and is preserved verbatim.
+  const localPath = join(cwd, TASKS_LOCAL_FILE);
+  try {
+    const localContent = await readFile(localPath, "utf-8");
+    const { tasks: localTasks } = parseTasks(localContent, { sourcePath: localPath });
+    markLocal(localTasks);
+    tasks.push(...localTasks);
+  } catch { /* no local tasks file or no task headings in it */ }
+
+  await loadLinkedPlans(tasks, sourcePath);
+  try {
+    await backfillMissingIds(cwd, tasks);
   } catch {
-    return [];
+    // Keep the UI usable even if the automatic ID backfill cannot write.
   }
+  return tasks;
 }
 
 async function loadLinkedPlans(
@@ -374,7 +402,7 @@ function buildCompactLines(
   if (hasLinkedPlan) {
     headerLines.push(
       truncateToWidth(
-        theme.fg("borderMuted", `  ${formatPlanLabel(selectionRoot.importPath!)}`),  
+        theme.fg("borderMuted", `  ${formatPlanLabel(selectionRoot.importPath!)}`),
         width,
       ),
     );
@@ -570,7 +598,9 @@ export default function (pi: ExtensionAPI) {
         | { type: "archive"; task: Task }
         | { type: "create"; parent: Task | null; insertAfter: Task | null }
         | { type: "edit"; task: Task }
-        | { type: "plan"; task: Task };
+        | { type: "plan"; task: Task }
+        | { type: "publish"; task: Task }
+        | { type: "unpublish"; task: Task };
 
       let reopen = true;
       let tasks = await loadTasks(ctx.cwd);
@@ -600,6 +630,14 @@ export default function (pi: ExtensionAPI) {
           workflow.request = { type: "create", parent, insertAfter };
         };
 
+        const onPublish = (task: Task) => {
+          workflow.request = { type: "publish", task };
+        };
+
+        const onUnpublish = (task: Task) => {
+          workflow.request = { type: "unpublish", task };
+        };
+
         const onSelectionChange = async (newId: string | null) => {
           selectedId = newId;
           await writeSelectedId(ctx.cwd, newId);
@@ -622,6 +660,8 @@ export default function (pi: ExtensionAPI) {
               onEditPlan,
               onArchive,
               onNewTask,
+              onPublish,
+              onUnpublish,
               selectedId,
               onSelectionChange,
             );
@@ -652,6 +692,14 @@ export default function (pi: ExtensionAPI) {
           reopen = false;
         } else if (request.type === "archive") {
           await archiveTopLevel(ctx, tasks, request.task);
+          tasks = await loadTasks(ctx.cwd);
+          reopen = true;
+        } else if (request.type === "publish") {
+          await publishTask(ctx, tasks, request.task);
+          tasks = await loadTasks(ctx.cwd);
+          reopen = true;
+        } else if (request.type === "unpublish") {
+          await unpublishTask(ctx, tasks, request.task);
           tasks = await loadTasks(ctx.cwd);
           reopen = true;
         } else if (request.type === "create") {
@@ -736,7 +784,7 @@ function getEmacsOptions(pi: ExtensionAPI) {
   };
 }
 
-/** Read the project-wide default plan directory from `#+DEFAULT-PLAN-DIR: [[file:...]]`. */
+/** Read the project-wide default plan directory from `#+DEFAULT_PLAN_DIR: [[file:...]]`. */
 async function readPlansDir(cwd: string): Promise<string> {
   try {
     const content = await readFile(join(cwd, TASKS_FILE), "utf-8");
@@ -757,7 +805,7 @@ function joinPlanDir(dir: string, filename: string): string {
 
 /**
  * Suggest a plan path for a task that has no #+IMPORT: yet.
- * Uses `#+DEFAULT-PLAN-DIR: [[file:...]]` from TASKS.org as the plan directory, falling
+ * Uses `#+DEFAULT_PLAN_DIR: [[file:...]]` from TASKS.org as the plan directory, falling
  * back to `./design/log` when unspecified or malformed.
  */
 async function suggestPlanPath(task: Task, cwd: string): Promise<string> {
@@ -1091,6 +1139,14 @@ async function createTask(
   const title = await ctx.ui.input(prompt, "");
   if (!title?.trim()) return null;
 
+  // Route to TASKS.local.org when the anchor (parent or sibling) is local.
+  const isLocal = !!(parentTask?.isLocal ?? insertAfterTask?.isLocal);
+  const targetPath = isLocal ? join(cwd, TASKS_LOCAL_FILE) : join(cwd, TASKS_FILE);
+  // The sourceRoot is the slice of `tasks` that belongs to targetPath.
+  const targetRoot = isLocal
+    ? tasks.filter((t) => t.isLocal)
+    : tasks.filter((t) => !t.isLocal);
+
   const level = parentTask ? parentTask.level + 1 : 1;
   const newTask: Task = {
     level,
@@ -1104,10 +1160,11 @@ async function createTask(
     importPath: null,
     importRaw: null,
     importChildren: undefined,
+    isLocal,
     closed: null,
-    sourcePath: join(cwd, TASKS_FILE),
-    sourceContent: tasks.find((t) => t.sourceContent)?.sourceContent,
-    sourceRoot: tasks,
+    sourcePath: targetPath,
+    sourceContent: targetRoot.find((t) => t.sourceContent)?.sourceContent,
+    sourceRoot: targetRoot,
     lineNumber: 0,
     endLine: 0,
   };
@@ -1124,9 +1181,8 @@ async function createTask(
     container.push(newTask);
   }
 
-  const tasksPath = join(cwd, TASKS_FILE);
   try {
-    await writeTaskFilePreserving(tasksPath, tasks);
+    await writeTaskFilePreserving(targetPath, targetRoot);
   } catch (err) {
     ctx.ui.notify(`Failed to save: ${(err as Error).message}`, "error");
     const rollback = container.indexOf(newTask);
@@ -1199,6 +1255,13 @@ async function archiveTopLevel(
   tasks: Task[],
   topLevel: Task,
 ): Promise<boolean> {
+  if (topLevel.isLocal) {
+    ctx.ui.notify(
+      `Cannot archive '${topLevel.summary}': local tasks cannot be archived — publish first.`,
+      "warning",
+    );
+    return false;
+  }
   if (!CLOSED_STATUSES.has(topLevel.status)) {
     ctx.ui.notify(
       `Cannot archive '${topLevel.summary}': status is ${topLevel.status}, not DONE/CANCELLED.`,
@@ -1251,4 +1314,102 @@ async function archiveTopLevel(
   ctx.ui.notify(`Archived: ${topLevel.summary}`, "info");
   await refreshTaskUi(ctx, ctx.cwd);
   return true;
+}
+
+/**
+ * Publish a local task: move it from TASKS.local.org to TASKS.org.
+ * The task is appended as a new top-level entry in TASKS.org and removed
+ * from TASKS.local.org. Its #+IMPORT: link (if any) is preserved.
+ */
+async function publishTask(
+  ctx: ExtensionContext,
+  tasks: Task[],
+  task: Task,
+): Promise<void> {
+  const ok = await ctx.ui.confirm(
+    "Publish task?",
+    `Move '${task.summary}' to TASKS.org (will be tracked in git).`,
+  );
+  if (!ok) return;
+
+  const localPath = join(ctx.cwd, TASKS_LOCAL_FILE);
+  const sharedPath = join(ctx.cwd, TASKS_FILE);
+
+  // Remove from local task list.
+  const localRoot = task.sourceRoot ?? [];
+  const localIdx = localRoot.indexOf(task);
+  if (localIdx === -1) {
+    ctx.ui.notify("Could not locate task in local file.", "error");
+    return;
+  }
+  localRoot.splice(localIdx, 1);
+
+  // Re-home the task into TASKS.org.
+  const sharedTasks = tasks.filter((t) => !t.isLocal);
+  task.isLocal = false;
+  task.lineNumber = 0;
+  task.endLine = 0;
+  task.sourcePath = sharedPath;
+  task.sourceRoot = sharedTasks;
+  task.sourceContent = sharedTasks.find((t) => t.sourceContent)?.sourceContent;
+  sharedTasks.push(task);
+
+  try {
+    await writeTaskFilePreserving(localPath, localRoot);
+    await writeTaskFilePreserving(sharedPath, sharedTasks);
+    ctx.ui.notify(`Published: ${task.summary}`, "info");
+  } catch (err) {
+    ctx.ui.notify(`Publish failed: ${(err as Error).message}`, "error");
+  }
+}
+
+/**
+ * Unpublish a top-level shared task: move it from TASKS.org to TASKS.local.org.
+ * Restricted to top-level tasks (same constraint as archiving).
+ */
+async function unpublishTask(
+  ctx: ExtensionContext,
+  tasks: Task[],
+  task: Task,
+): Promise<void> {
+  const ok = await ctx.ui.confirm(
+    "Unpublish task?",
+    `Move '${task.summary}' to TASKS.local.org (removes from git tracking).`,
+  );
+  if (!ok) return;
+
+  const localPath = join(ctx.cwd, TASKS_LOCAL_FILE);
+  const sharedPath = join(ctx.cwd, TASKS_FILE);
+
+  // Remove from shared task list.
+  const sharedTasks = tasks.filter((t) => !t.isLocal);
+  const sharedIdx = sharedTasks.indexOf(task);
+  if (sharedIdx === -1) {
+    ctx.ui.notify("Could not locate task in TASKS.org.", "error");
+    return;
+  }
+  sharedTasks.splice(sharedIdx, 1);
+
+  // Read existing local content and parse its current task list.
+  let localContent = "";
+  try { localContent = await readFile(localPath, "utf-8"); } catch { /* new file */ }
+  const { tasks: localRoot } = parseTasks(localContent, { sourcePath: localPath });
+
+  // Re-home the task into TASKS.local.org.
+  task.isLocal = true;
+  task.lineNumber = 0;
+  task.endLine = 0;
+  task.sourcePath = localPath;
+  task.sourceRoot = localRoot;
+  task.sourceContent = localContent || undefined;
+  markLocal([task]);
+  localRoot.push(task);
+
+  try {
+    await writeTaskFilePreserving(sharedPath, sharedTasks);
+    await writeTaskFilePreserving(localPath, localRoot);
+    ctx.ui.notify(`Unpublished: ${task.summary}`, "info");
+  } catch (err) {
+    ctx.ui.notify(`Unpublish failed: ${(err as Error).message}`, "error");
+  }
 }

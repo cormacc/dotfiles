@@ -21,6 +21,11 @@ export interface Task {
   children: Task[];
   /** Non-PLAN org property drawer lines, preserved on save. */
   propertyLines: string[];
+  /**
+   * True when this task comes from the gitignored `TASKS.local.org`.
+   * Set by the loader after parsing; not stored in the org file.
+   */
+  isLocal?: boolean;
   /** Path extracted from a `#+IMPORT:` keyword in the task body or file root. */
   importPath: string | null;
   /**
