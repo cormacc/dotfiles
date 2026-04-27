@@ -112,7 +112,7 @@ in collaboration with the pi extension's parser.
 * Key bindings
 
 See [[#commands--key-bindings][tasks-org commands & key bindings]]
-above for the =, K= prefix. Other layer bindings remain those
+above for the =, ;= prefix. Other layer bindings remain those
 inherited from Spacemacs' =+lang/org= layer.
 
 # Use GitHub URLs if you wish to link a Spacemacs documentation file or its heading.
