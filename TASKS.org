@@ -50,6 +50,7 @@ a local task from TASKS.local.org and vice versa.
 :PROPERTIES:
 :ID: 9f233338-833b-43c1-81d2-e413a536d586
 :END:
+#+IMPORT: [[file:design/log/2026-04-28-implementation-reports.org]]
 I.e. if we just implement a simple task that didn't need formal planning, useful to log an implementation report anyway...
 ** TODO [#C] Consider whether to rename the 'org-memory' skill to just 'tasks'
 :PROPERTIES:

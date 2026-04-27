@@ -1,0 +1,261 @@
+#+TITLE: Implementation reports for tasks without a plan
+#+DATE: 2026-04-28 Tue
+#+PARENT_ID: 9f233338-833b-43c1-81d2-e413a536d586
+#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
+
+* Context
+
+Tasks that warrant a formal plan get one: a file under =#+DEFAULT_PLAN_DIR=
+linked from the parent task via =#+IMPORT:=, with =* Context=, =* Plan=, and
+=* Implementation= sections (the plan skill defines this layout).  The
+=* Implementation= section provides a durable, in-tree record of *what was
+done* and *why*, separate from the git history.
+
+Simple tasks \u2014 a one-line bug fix, a doc tweak, an upstream version bump \u2014
+typically don't need formal planning.  Today they go directly =TODO \u2192 DONE=
+with no record beyond the heading and the =CLOSED:= timestamp.  The git log
+tells *what changed* but not *why* in any task-localised form, and there is
+nothing for an agent or future contributor to read when resuming context.
+
+The recent rollback of the keybindings capital-letter work is the
+counter-example: that task *did* have a plan, so the four failed attempts
+and what we learned from them now live in the plan's =* Implementation=
+section.  For a plan-less task, that record would have nowhere to land.
+
+This plan adds an *implementation report* convention: a minimal log file
+under =#+DEFAULT_PLAN_DIR=, linked via =#+IMPORT:= just like a plan file,
+but containing only an =* Implementation= section.  The pi tasks extension
+prompts to scaffold one when a task is closed without a pre-existing
+=#+IMPORT:=; the org-memory skill documents the convention so the agent
+knows when to offer the prompt and what to write.
+
+** Design decisions
+
+- *Location and shape of the report file* :: Same directory and filename
+  pattern as plan files (=#+DEFAULT_PLAN_DIR/YYYY-MM-DD-<slug>.org=,
+  symlinked from the parent task via =#+IMPORT:=).  Same file headers
+  (=#+TITLE=, =#+DATE=, =#+PARENT_ID=, =#+TODO=).  Difference is the
+  body: only =* Implementation=, no =* Context= and no =* Plan=.  This
+  symmetry means a report can be promoted to a plan later just by
+  inserting the missing sections \u2014 no rename, no link rewrite.
+
+- *When the prompt fires* :: On the status transition =TODO \u2192 DONE= or
+  =STARTED \u2192 DONE= for a task that has no =#+IMPORT:= attached.
+  =CANCELLED= does *not* trigger the prompt (no work was done; if the user
+  wants a record of why, they can attach a report manually).  A user
+  setting (default on) lets people opt out per project.
+
+- *Who triggers the prompt* :: The pi tasks extension, when it observes
+  the status cycle in its overlay.  Closures done outside the extension
+  (Emacs status cycle, manual edit) do not auto-prompt; they get caught
+  by the org-memory skill on the next agent interaction (the skill's
+  resume protocol scans for closed tasks lacking =#+IMPORT:= and offers
+  the report retroactively).
+
+- *Minimum report content* :: Three bullet points: =Changed=, =Why=,
+  =Follow-ups=.  Anything richer is opt-in.  The agent should populate
+  these from the recent git history scoped to the task's =STARTED \u2192 DONE=
+  window when possible, falling back to asking the user when the
+  history is ambiguous.
+
+- *Reuse the existing plan-create plumbing* :: The extension's plan
+  scaffolding flow (path prompt, file creation, =#+IMPORT:= attachment,
+  source-file save, agent message) already does almost everything.  The
+  report flow is the same flow with a different scaffold body and a
+  different agent prompt.  Avoid duplicating it; parameterise.
+
+* Plan
+
+** TODO [#A] Document implementation-report protocol in org-memory SKILL.md
+:PROPERTIES:
+:ID: c1d2e3f4-0001-4000-8000-300000000001
+:END:
+Add a new subsection (probably under =Creating/updating tasks and included
+files=) describing:
+
+- The convention: tasks closed without a plan should have an
+  *implementation report* attached via =#+IMPORT:=.
+- Report file shape: same headers as plan files, body containing only
+  =* Implementation= (no =* Context=, no =* Plan=).
+- Skeleton template:
+  #+begin_example
+  #+TITLE: <task summary>
+  #+DATE: <YYYY-MM-DD Day>
+  #+PARENT_ID: <task :ID:>
+  #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
+
+  * Implementation
+  - Changed :: ...
+  - Why :: ...
+  - Follow-ups :: ...
+  #+end_example
+- When the agent should offer to write one: on resume, if a =DONE=
+  (or =CANCELLED= with notable work) task in =TASKS.org= or a loaded
+  included file lacks an =#+IMPORT:= and has no body notes, the agent
+  prompts the user to dictate a one-line summary or asks if it should
+  derive content from the git log scoped to the closure window.
+- Promotion path: a report file can be upgraded to a full plan by
+  inserting =* Context= and =* Plan= sections; the link does not change.
+
+Acceptance: skill content lints without contradiction; an agent reading
+the skill alone can correctly create a report file with no further
+guidance.
+
+** TODO [#A] Cross-reference the protocol from plan SKILL.md
+:PROPERTIES:
+:ID: c1d2e3f4-0002-4000-8000-300000000002
+:END:
+The plan skill owns the =* Implementation= section convention.  Add a
+short subsection at the bottom (or alongside =Retrospective plans=)
+linking out to the org-memory skill's implementation-report protocol so
+plan readers know about the lighter alternative.
+
+Acceptance: cross-reference is one-way (plan \u2192 org-memory); plan skill
+remains the source of truth for plan-file structure.
+
+** TODO [#A] Tasks extension: scaffold report on DONE transition
+:PROPERTIES:
+:ID: c1d2e3f4-0003-4000-8000-300000000003
+:END:
+In =overlay.ts='s =cycleStatus()=, after the existing CLOSED-timestamp
+logic, when the new status is =DONE= and =task.importPath= is null,
+emit a new workflow request =report= via a new =onCreateReport= callback.
+
+In =index.ts=, handle the =report= request the same way =plan= is
+handled today: prompt for a path (seeded from the task summary plus
+today's date, same as =suggestPlanPath=), scaffold the file, attach
+=#+IMPORT:=, save the source, send an agent prompt asking the agent to
+populate the =* Implementation= section.
+
+Refactor =handlePlanEdit='s scaffolding to share the path-prompt + file-
+create + import-attach plumbing with the new report flow.  Two small
+helpers should fall out: one for the scaffold body, one for the agent
+prompt.
+
+A user setting =tasks.implementationReports= controls whether the
+prompt fires at all (default =true=); when false, status cycle to DONE
+behaves as it does today.
+
+Acceptance:
+- Cycling a TODO/STARTED task to DONE in the overlay opens the path
+  prompt; accepting it scaffolds the report file, attaches =#+IMPORT:=,
+  and sends an agent message containing the task summary, recent git
+  commits scoped where possible, and instructions to fill in the three
+  bullets.
+- Cycling a task that already has =#+IMPORT:= does *not* prompt.
+- Cancelling the path prompt leaves the task DONE with no report.
+- Cycling DONE -> CANCELLED does not prompt.
+
+** TODO [#B] Plan vs report: distinguish on the path prompt
+:PROPERTIES:
+:ID: c1d2e3f4-0004-4000-8000-300000000004
+:END:
+The existing =p= keybinding scaffolds a *plan* (full =* Context / * Plan
+/ * Implementation= layout, agent prompt to develop the plan).  The new
+DONE-transition flow scaffolds a *report* (=* Implementation= only,
+agent prompt to populate it from history).
+
+Both write to the same directory with the same filename pattern.  Make
+the title bar of the path-prompt overlay reflect which mode is active
+(=New plan for: \u2026= vs =New implementation report for: \u2026=) so the user
+can tell at a glance.
+
+Acceptance: visible overlay title reflects mode; no other UI difference.
+
+** TODO [#B] Skill resume protocol: detect un-reported DONE tasks
+:PROPERTIES:
+:ID: c1d2e3f4-0005-4000-8000-300000000005
+:END:
+Update the =Starting or resuming work= section of the org-memory skill so
+that when the agent loads task memory, it scans for DONE tasks that have
+neither =#+IMPORT:= nor body content beyond the heading + properties +
+=CLOSED:= line, and offers the user a one-line summary path to attach a
+retroactive report (for the most recent N such tasks, not the entire
+archive).
+
+Behaviour rules:
+- The check is bounded: scan only =TASKS.org= roots and loaded included
+  files, never =TASKS.ARCHIVE.org=.
+- The agent does not auto-create files; it offers, and only acts on
+  user confirmation.
+- The offer is made once per session at most; declining suppresses
+  further offers in the session.
+
+Acceptance: skill change is purely documentation; no code in the
+extension is required for this scan because the agent itself performs
+it through the existing file-reading tools.
+
+** TODO [#C] Emacs-side command: tasks-org-create-report
+:PROPERTIES:
+:ID: c1d2e3f4-0006-4000-8000-300000000006
+:END:
+Mirror =tasks-org-open-plan= with a =tasks-org-create-report= command:
+prompt for a filename (seeded from the heading + today's date),
+scaffold a report file (=* Implementation= only), insert =#+IMPORT:= in
+the heading body, save both buffers, open the report file.
+
+Bind under the existing tasks-org leader path (suggested =, ; r= for
+"report").
+
+Acceptance: from a DONE heading in =TASKS.org= without an =#+IMPORT:=,
+=, ; r= produces a linked report file matching the extension's output
+shape.
+
+** TODO [#C] Agent-prompt template: populate from git history
+:PROPERTIES:
+:ID: c1d2e3f4-0007-4000-8000-300000000007
+:END:
+The agent prompt sent on report scaffolding should:
+
+1. Identify the time window between the task's first =STARTED=
+   transition (if observable) and =CLOSED:=.  When the window cannot
+   be derived, fall back to "the most recent commits since the task
+   was created".
+2. Run =git log --oneline= over that window scoped to files plausibly
+   related to the task (best-effort heuristic; OK to surface all recent
+   commits when scoping is uncertain).
+3. Draft the three bullets (=Changed=, =Why=, =Follow-ups=) from the
+   commit messages and any code context.
+4. Show the draft to the user for approval before writing to disk.
+
+Acceptance: prompt template lives alongside =buildPlanDevelopmentPrompt=
+in =index.ts=; the agent reliably produces a draft for simple cases.
+
+** TODO [#C] Documentation
+:PROPERTIES:
+:ID: c1d2e3f4-0008-4000-8000-300000000008
+:END:
+- Tasks extension README: document the report flow, the
+  =tasks.implementationReports= setting, and the path-prompt title
+  difference.
+- org-user layer README: add the new =, ; r= keybinding to the table.
+- This plan file's =* Implementation= section: brief notes on what
+  shipped vs what was deferred (filled in as work completes).
+
+* Open questions
+
+1. *Filename collision with promoted reports* :: If a report is later
+   promoted to a plan, the file already has the agent-readable history
+   in =* Implementation=.  Should the path prompt warn when a file
+   already exists at the suggested path, or silently overwrite?  The
+   existing plan flow appends to a =* Plan= section in pre-existing
+   files; the report flow should probably do the analogous thing for
+   =* Implementation= (append, don't overwrite).
+
+2. *Auto-derivation of the time window* :: Is it worth tracking the
+   first =STARTED= transition timestamp on the task itself (e.g. a new
+   =:STARTED:= property) so the report's git-history scope is exact?
+   Or is the heuristic ("recent commits") good enough for the use
+   case?  Adding a property is cheap; mutating only on the first
+   transition (not subsequent re-opens) keeps it stable.
+
+3. *Whether to prompt for CANCELLED tasks* :: A cancellation note is
+   often valuable ("we tried this, here's why we stopped").  Out of
+   scope for this plan, but worth flagging as a candidate
+   second-iteration feature.
+
+4. *Should the skill's retroactive scan run on a TASKS.local.org
+   selection switch?* :: The compact widget refreshes whenever
+   selection changes; that's a natural moment for the scan to fire.
+   Or is it strictly a session-start concern?  My instinct: session
+   start only \u2014 mid-session offers would be intrusive.
