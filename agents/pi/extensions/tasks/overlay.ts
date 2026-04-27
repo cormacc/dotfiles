@@ -8,10 +8,12 @@ import {
   truncateToWidth,
   visibleWidth,
   wrapTextWithAnsi,
+  type TUI,
 } from "@mariozechner/pi-tui";
 import type { Task } from "./parser.ts";
 import {
   formatOrgTimestamp,
+  getTaskId,
   serializeTasksPreservingFile,
 } from "./parser.ts";
 import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
@@ -60,6 +62,7 @@ export class TasksOverlay {
   constructor(
     private tasks: Task[],
     private cwd: string,
+    private readonly tui: TUI,
     theme: Theme,
     done: (value: undefined) => void,
     private onEdit?: (task: Task) => void,
@@ -79,6 +82,43 @@ export class TasksOverlay {
     this.applyDefaultCollapseView();
     this.rebuildRows();
     this.focusSelectedTask();
+  }
+
+  /**
+   * Replace the task tree with a freshly-loaded copy from disk (called by the
+   * file-watcher path when an external editor changes TASKS.org while this
+   * overlay is open). Rebuilds collapse state and rows, preserves the cursor
+   * on the same task by ID where possible, then triggers a re-render.
+   */
+  refreshTasks(newTasks: Task[]): void {
+    // Remember which task the cursor is on so we can restore position after
+    // rebuilding (new task objects from disk won't share references).
+    const cursorId = this.rows[this.cursor]
+      ? getTaskId(this.rows[this.cursor]!.task)
+      : null;
+
+    this.tasks = newTasks;
+    this.applyDefaultCollapseView();
+    this.rebuildRows();
+
+    // Try to keep the cursor on the same task by ID.  Fall back to the
+    // selected task when the previous cursor task is no longer visible
+    // (e.g. a collapse-state change hid it).
+    if (cursorId) {
+      const restoredIdx = this.rows.findIndex(
+        (r) => getTaskId(r.task) === cursorId,
+      );
+      if (restoredIdx >= 0) {
+        this.cursor = restoredIdx;
+      } else {
+        this.focusSelectedTask();
+      }
+    } else {
+      this.focusSelectedTask();
+    }
+
+    this.invalidate();
+    this.tui.requestRender();
   }
 
   // ── Flatten visible rows ────────────────────────────────────────────
