@@ -61,8 +61,7 @@ warning.
 
 * Plan
 
-** DONE [#A] Fix handleLeader to use matchesKey
-CLOSED: [2026-04-27 Mon 23:02]
+** TODO [#A] Fix handleLeader to use matchesKey
 :PROPERTIES:
 :ID: e1f2a3b4-0001-4000-8000-200000000001
 :END:
@@ -79,8 +78,7 @@ Acceptance: pressing =A= fires a leader-menu entry whose =key= is either
 ="A"= or ="shift+a"=; pressing =a= (lowercase) does not fire the capital
 entry.
 
-** DONE [#A] Fix mergeChildren to use matchesKey for clash detection
-CLOSED: [2026-04-27 Mon 23:02]
+** TODO [#A] Fix mergeChildren to use matchesKey for clash detection
 :PROPERTIES:
 :ID: e1f2a3b4-0002-4000-8000-200000000002
 :END:
@@ -97,8 +95,7 @@ Acceptance: a suggested binding with =key: "shift+a"= is treated as
 clashing with an existing =key: "A"= entry (and vice-versa), and the
 warning is emitted rather than silently adding a duplicate.
 
-** DONE [#B] Fix warnClashingLeaderKeys to use matchesKey
-CLOSED: [2026-04-27 Mon 23:02]
+** TODO [#B] Fix warnClashingLeaderKeys to use matchesKey
 :PROPERTIES:
 :ID: e1f2a3b4-0003-4000-8000-200000000003
 :END:
@@ -120,8 +117,7 @@ if (clashes) { ... }
 Acceptance: a leader root key specified as ="shift+a"= correctly
 produces a "clashes with normal-mode vim binding" warning.
 
-** DONE [#C] Add #+A / #+P / #+U to tasks leader menu and update docs
-CLOSED: [2026-04-27 Mon 23:02]
+** TODO [#C] Add #+A / #+P / #+U to tasks leader menu and update docs
 :PROPERTIES:
 :ID: e1f2a3b4-0004-4000-8000-200000000004
 :END:
@@ -140,3 +136,85 @@ implementation: just open =/tasks= so the user can then press the key
 inside the overlay.)
 
 Update the keybindings README and the tasks extension README.md.
+
+* Implementation
+
+** Failed attempts (2026-04-27)
+
+Four implementation attempts on top of the plan commit
+=20e439901c2b0a5972097548e183daa0576e0bb4= were all rolled back without
+landing because none of them changed the observed user-facing behaviour:
+=SPC t A= still failed to fire its bound action.  The user reported that
+the binding only fires after pressing =shift=, releasing it, and then
+pressing the lower-case letter \u2014 a sequence the analysis below could
+never explain from first principles.
+
+Rolled-back commits, in chronological order:
+
+- =891d491= - first pass: replaced raw =c.key === data= with
+  =matchesKey(data, c.key)= in three sites: =handleLeader=,
+  =mergeChildren=, and =warnClashingLeaderKeys=.  Also added
+  =SPC t A/P/U= entries to the tasks leader menu.
+  *Outcome:* user reported behaviour unchanged.
+- =f7f4fe4= - normalised config keys to =shift+lowercase= form at
+  build time via a new =normalizeConfigKey()= helper applied in
+  =buildMenuNode=, on the theory that =matchesKey(kittyEsc, "A")= fails
+  because the no-modifier path looks for raw =0x41= rather than the
+  Kitty =shift+97= sequence.  Updated =defaults.json= and
+  =tasks/index.ts= to write =shift+r/e/a/p/u= explicitly.
+  *Outcome:* user reported behaviour unchanged.
+- =4a05754= - canonicalised both sides of the comparison (=parseKey=
+  + =normalizeConfigKey= on incoming raw data, plus existing config
+  normalisation), eliminating =matchesKey= from the leader path entirely
+  in favour of plain =string===.  Theory: =matchesKey("A", "shift+a")=
+  is false on legacy terminals because =parseKeyId= lowercases the
+  key-id and the no-modifier branch tests =data === "a"=.
+  *Outcome:* user reported behaviour unchanged.
+- =496dbd0= - belt-and-braces: tried canonical equality, raw equality,
+  and =matchesKey= in sequence so that any of the three matching
+  strategies would catch the binding.  Added an opt-in
+  =TASKS_KB_DEBUG=1= notification reporting raw bytes, canonicalised
+  form, and available config keys at the current menu node when no
+  match is found, so the failure mode could be observed concretely.
+  *Outcome:* user reported behaviour unchanged.
+
+** What we know after these attempts
+
+- The three matching strategies are individually correct in isolation:
+  - Legacy ="A"=: =canonicalizeInput("A") === "shift+a"= and
+    =matchesKey("A", "shift+a")= both return true.
+  - Kitty ESC[97;2u: =parseKey= decodes to ="shift+a"= which equals the
+    stored key.
+- =parseKey("A")= returns the raw character ="A"= verbatim, *not*
+  ="shift+a"=, because pi-tui's catch-all for printable ASCII at the
+  bottom of =parseKey= returns =data= unchanged.  This is the trap that
+  invalidated the matchesKey-only approach.
+- Files at =~/.pi/agent/extensions/keybindings/= are byte-identical to
+  the dotfiles repo source after each commit, so the "stale code" theory
+  is ruled out at the file-system level.
+- We did not confirm whether pi/Bun has a runtime module cache that
+  survives =/reload= or session restart.  This remains the most likely
+  reason the user's observation that "behaviour is unchanged" persisted
+  across structurally different fixes.
+- The user's specific symptom \u2014 "the binding fires only after shift is
+  pressed, released, and the lower-case letter is pressed" \u2014 cannot be
+  explained by any of the comparison logic we inspected.  It would
+  require either:
+  - some upstream layer (pi-tui, pi core, or the terminal) to be
+    accumulating modifier state across discrete key events, or
+  - the user's terminal sending a sequence that we haven't seen and
+    therefore haven't designed for.
+
+** Recommended next steps
+
+The user has chosen to roll back to lower-case-only bindings rather
+than continue chasing this.  The simplest implementation that works
+across every terminal is:
+
+- Use only lower-case letters as leader-menu keys.
+- Where capital-letter overlay shortcuts already exist (=A=, =P=, =U=
+  in the tasks overlay), keep them inside the overlay and do *not* try
+  to surface them at the leader-menu level.
+- If a capital-letter binding is genuinely needed in future, first
+  reproduce the failure with =TASKS_KB_DEBUG=1= so the actual raw byte
+  sequence is visible \u2014 *then* design the fix against real input.
