@@ -2144,7 +2144,9 @@ class VimEditor extends CustomEditor {
     if (!this.activeLeaderMenu) return null;
     let node = this.activeLeaderMenu;
     for (const key of this.leaderPath) {
-      const child = node.children?.find((c) => key === c.key);
+      const child = node.children?.find(
+        (c) => key === c.key || matchesKey(key, c.key),
+      );
       if (child && "children" in child) {
         node = child;
       } else {
@@ -2221,8 +2223,26 @@ class VimEditor extends CustomEditor {
       this.clearLeaderOverlay();
       return;
     }
+    // Maximally permissive matching: try every reasonable strategy in order.
+    // 1. Canonicalised equality (handles "A"->"shift+a" and Kitty escape seqs)
+    // 2. Raw equality (handles legacy single-char keys like "t", "n")
+    // 3. matchesKey (pi-tui's own matcher — handles edge cases we missed)
     const canonical = canonicalizeInput(data);
-    const match = node.children?.find((c) => canonical === c.key);
+    const match = node.children?.find(
+      (c) => canonical === c.key || data === c.key || matchesKey(data, c.key),
+    );
+
+    // Debug: when no match is found, show what we got vs what's available so
+    // we can tell at a glance whether handleLeader is even being reached and
+    // what the raw/canonical key looks like. Set TASKS_KB_DEBUG=1 to enable.
+    if (!match && this.ctx?.ui?.notify && process.env.TASKS_KB_DEBUG) {
+      const rawHex = [...data].map((c) => c.charCodeAt(0).toString(16)).join(" ");
+      const keys = (node.children ?? []).map((c) => JSON.stringify(c.key)).join(", ");
+      this.ctx.ui.notify(
+        `kb-debug: no match for raw=${JSON.stringify(data)} (hex ${rawHex}) canonical=${JSON.stringify(canonical)} ; available: [${keys}]`,
+        "warning",
+      );
+    }
 
     if (match && "children" in match) {
       // Descend into sub-menu — store the canonical config key, not the raw
