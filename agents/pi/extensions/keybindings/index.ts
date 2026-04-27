@@ -18,7 +18,6 @@
 import { CustomEditor, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
   matchesKey,
-  parseKey,
   truncateToWidth,
   visibleWidth,
   type EditorTheme,
@@ -162,7 +161,7 @@ function warnClashingLeaderKeys(
 ): void {
   if (!notify) return;
   for (const [triggerKey, node] of menus) {
-    if ([...NORMAL_MODE_KEYS].some((k) => matchesKey(k, triggerKey))) {
+    if (NORMAL_MODE_KEYS.has(triggerKey)) {
       const label = node.label ?? triggerKey;
       const displayKey = triggerKey === " " ? "SPC" : triggerKey;
       notify(
@@ -184,35 +183,6 @@ function loadKeybindingsConfig(): KeybindingsConfig {
   }
 }
 
-/**
- * Normalise a key string to a canonical "shift+lowercase" form.
- *
- * Applied to both config keys (at tree-build time) and incoming terminal data
- * (at match time) so that comparison is always string-equal without relying on
- * matchesKey's internal legacy-vs-Kitty branching.
- *
- * - Config key "A" → "shift+a"  (single uppercase letter)
- * - Incoming raw char "A" → "shift+a"  (legacy terminal sends 0x41)
- * - Incoming Kitty seq \x1b[97;2u → parseKey → "shift+a" → unchanged
- * - Anything else → unchanged
- */
-function normalizeConfigKey(key: string): string {
-  if (key.length === 1 && key >= "A" && key <= "Z") {
-    return `shift+${key.toLowerCase()}`;
-  }
-  return key;
-}
-
-/** Canonicalise raw terminal input to the same form used in the config tree. */
-function canonicalizeInput(data: string): string {
-  // Kitty and other escape sequences: let parseKey decode them first.
-  const parsed = parseKey(data);
-  if (parsed) return normalizeConfigKey(parsed);
-  // Plain single character fallback (parseKey returns undefined for bare chars
-  // because they are not escape sequences — just the raw ASCII value).
-  return normalizeConfigKey(data);
-}
-
 /** Convert a JSON menu item tree into a LeaderNode tree */
 function buildMenuNode(
   config: MenuItemConfig,
@@ -220,15 +190,14 @@ function buildMenuNode(
   editor: VimEditor,
   events?: ExtensionAPI["events"],
 ): LeaderEntry {
-  const normKey = key != null ? normalizeConfigKey(key) : key;
   if (config.items) {
     const children: LeaderEntry[] = Object.entries(config.items).map(
       ([k, item]) => buildMenuNode(item, k, editor, events),
     );
-    return { key: normKey!, label: config.label, children } as LeaderEntry;
+    return { key: key!, label: config.label, children } as LeaderEntry;
   }
   const action = buildAction(config.action ?? "", editor, events);
-  return { key: normKey!, label: config.label, action } as LeaderEntry;
+  return { key: key!, label: config.label, action } as LeaderEntry;
 }
 
 function buildAction(actionStr: string, editor: VimEditor, events?: ExtensionAPI["events"]): () => void {
@@ -2144,9 +2113,7 @@ class VimEditor extends CustomEditor {
     if (!this.activeLeaderMenu) return null;
     let node = this.activeLeaderMenu;
     for (const key of this.leaderPath) {
-      const child = node.children?.find(
-        (c) => key === c.key || matchesKey(key, c.key),
-      );
+      const child = node.children?.find((c) => c.key === key);
       if (child && "children" in child) {
         node = child;
       } else {
@@ -2223,31 +2190,11 @@ class VimEditor extends CustomEditor {
       this.clearLeaderOverlay();
       return;
     }
-    // Maximally permissive matching: try every reasonable strategy in order.
-    // 1. Canonicalised equality (handles "A"->"shift+a" and Kitty escape seqs)
-    // 2. Raw equality (handles legacy single-char keys like "t", "n")
-    // 3. matchesKey (pi-tui's own matcher — handles edge cases we missed)
-    const canonical = canonicalizeInput(data);
-    const match = node.children?.find(
-      (c) => canonical === c.key || data === c.key || matchesKey(data, c.key),
-    );
-
-    // Debug: when no match is found, show what we got vs what's available so
-    // we can tell at a glance whether handleLeader is even being reached and
-    // what the raw/canonical key looks like. Set TASKS_KB_DEBUG=1 to enable.
-    if (!match && this.ctx?.ui?.notify && process.env.TASKS_KB_DEBUG) {
-      const rawHex = [...data].map((c) => c.charCodeAt(0).toString(16)).join(" ");
-      const keys = (node.children ?? []).map((c) => JSON.stringify(c.key)).join(", ");
-      this.ctx.ui.notify(
-        `kb-debug: no match for raw=${JSON.stringify(data)} (hex ${rawHex}) canonical=${JSON.stringify(canonical)} ; available: [${keys}]`,
-        "warning",
-      );
-    }
+    const match = node.children?.find((c) => c.key === data);
 
     if (match && "children" in match) {
-      // Descend into sub-menu — store the canonical config key, not the raw
-      // terminal data, so currentLeaderNode can use plain equality to traverse.
-      this.leaderPath.push(match.key);
+      // Descend into sub-menu
+      this.leaderPath.push(data);
       // Reset overlay timer for the sub-menu
       this.scheduleLeaderOverlay();
       return;
@@ -2398,7 +2345,7 @@ export default function (pi: ExtensionAPI) {
     warn: (msg: string, level: "info" | "warning" | "error") => void,
   ): void {
     for (const child of incoming) {
-      const idx = existing.findIndex((c) => matchesKey(child.key, c.key));
+      const idx = existing.findIndex((c) => c.key === child.key);
       if (idx < 0) {
         // No clash — add the new entry
         existing.push(child);

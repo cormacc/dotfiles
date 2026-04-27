@@ -90,8 +90,7 @@ properties and leaving a summary under the parent). Coordinate behaviour
 with the pi tasks extension's parser so results are consistent across
 editor and CLI.
 * Fixes
-** DONE [#B] Update keybindings extension to handle capital letter properly
-CLOSED: [2026-04-27 Mon 23:02]
+** TODO [#B] Update keybindings extension to handle capital letter properly
 :PROPERTIES:
 :ID: d9789ed7-ff34-490a-a818-bf7a79fa1180
 :END:
