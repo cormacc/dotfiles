@@ -30,10 +30,11 @@ import {
   type Focusable,
   type TUI,
 } from "@mariozechner/pi-tui";
-import { watch, type FSWatcher } from "node:fs";
+import { existsSync, readFileSync, watch, type FSWatcher } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { homedir } from "node:os";
 import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.ts";
 import { ensureEmacsServer } from "../emacsclient/emacsclient.ts";
 import { TasksOverlay } from "./overlay.ts";
@@ -41,6 +42,7 @@ import {
   extractOrgLinkTarget,
   formatOrgTimestamp,
   getTaskId,
+  getTaskStarted,
   parseTasks,
   parseSelectedKeyword,
   serializeTasks,
@@ -61,6 +63,27 @@ const CLOSED_STATUSES = new Set<string>(["DONE", "CANCELLED"]);
 /** Hard cap so the compact selected-task widget never dominates the screen. */
 const MAX_COMPACT_LINES = 6;
 const COMPACT_WIDGET_ID = "tasks:selected";
+
+// ── Tasks-extension user settings ───────────────────────────────────
+
+const TASKS_SETTINGS_PATH = join(homedir(), ".pi", "agent", "tasks-ext.json");
+
+interface TasksSettings {
+  /** Default true. When false, status cycle to DONE behaves as it did
+      pre-feature — no retrospective change-record path prompt. */
+  changeRecordOnDone: boolean;
+}
+
+/** Read user settings on demand (cheap; avoids a stale snapshot). */
+function loadTasksSettings(): TasksSettings {
+  try {
+    if (existsSync(TASKS_SETTINGS_PATH)) {
+      const parsed = JSON.parse(readFileSync(TASKS_SETTINGS_PATH, "utf-8"));
+      return { changeRecordOnDone: parsed?.changeRecordOnDone !== false };
+    }
+  } catch { /* fall through to defaults */ }
+  return { changeRecordOnDone: true };
+}
 
 /** Cleanup handle for keybinding suggestions. */
 let cleanupKb: (() => void) | null = null;
@@ -596,6 +619,7 @@ export default function (pi: ExtensionAPI) {
 
       type WorkflowRequest =
         | { type: "archive"; task: Task }
+        | { type: "changeRecord"; task: Task }
         | { type: "create"; parent: Task | null; insertAfter: Task | null }
         | { type: "edit"; task: Task }
         | { type: "plan"; task: Task }
@@ -638,6 +662,14 @@ export default function (pi: ExtensionAPI) {
           workflow.request = { type: "unpublish", task };
         };
 
+        const onCreateChangeRecord = (task: Task): boolean => {
+          // Honour the user setting; when disabled, suppress the prompt and
+          // let the overlay continue normally.
+          if (!loadTasksSettings().changeRecordOnDone) return false;
+          workflow.request = { type: "changeRecord", task };
+          return true;
+        };
+
         const onSelectionChange = async (newId: string | null) => {
           selectedId = newId;
           await writeSelectedId(ctx.cwd, newId);
@@ -662,6 +694,7 @@ export default function (pi: ExtensionAPI) {
               onNewTask,
               onPublish,
               onUnpublish,
+              onCreateChangeRecord,
               selectedId,
               onSelectionChange,
             );
@@ -700,6 +733,10 @@ export default function (pi: ExtensionAPI) {
           reopen = true;
         } else if (request.type === "unpublish") {
           await unpublishTask(ctx, tasks, request.task);
+          tasks = await loadTasks(ctx.cwd);
+          reopen = true;
+        } else if (request.type === "changeRecord") {
+          await handlePlanEdit(pi, ctx, request.task, "retrospective");
           tasks = await loadTasks(ctx.cwd);
           reopen = true;
         } else if (request.type === "create") {
@@ -819,6 +856,9 @@ async function suggestPlanPath(task: Task, cwd: string): Promise<string> {
 /** Scaffold a minimal plan file body consistent with the plan skill. */
 function scaffoldPlan(task: Task, planTasks: Task[] = []): string {
   const parentId = getTaskId(task);
+  // Standard change-record skeleton: same shape for proactive and
+  // retrospective flows.  * Implementation is included so retrospective
+  // drafts have a section to land in without restructuring the file.
   const content = [
     `#+TITLE: ${task.summary}`,
     `#+DATE: ${formatOrgTimestamp()}`,
@@ -828,6 +868,8 @@ function scaffoldPlan(task: Task, planTasks: Task[] = []): string {
     "* Context",
     "",
     "* Plan",
+    "",
+    "* Implementation",
     "",
     "",
   ].filter((line): line is string => line !== null).join("\n");
@@ -991,40 +1033,103 @@ async function promptForPlanPath(
   );
 }
 
-function buildPlanDevelopmentPrompt(
+/**
+ * Build the agent prompt that follows change-record scaffolding.
+ *
+ * Two flows produce the same change-record artefact but differ in what the
+ * agent does next:
+ *
+ * - `proactive`: the user wants to plan up front.  Agent asks scoping
+ *   questions, drafts * Context and * Plan, then the user executes.
+ * - `retrospective`: the task already closed without a plan.  Agent uses
+ *   the task's :STARTED: / :CLOSED: timestamps to scope `git log`, then
+ *   drafts * Context and * Implementation from the commit history.
+ */
+function buildChangeRecordPrompt(
+  mode: "proactive" | "retrospective",
+  task: Task,
+  planRelToSource: string,
+  absPlan: string,
+  absorbedSubtasks: boolean,
+): string {
+  if (mode === "retrospective") {
+    return buildRetrospectiveChangeRecordPrompt(task, planRelToSource, absPlan);
+  }
+  return buildProactiveChangeRecordPrompt(
+    task, planRelToSource, absPlan, absorbedSubtasks,
+  );
+}
+
+function buildProactiveChangeRecordPrompt(
   task: Task,
   planRelToSource: string,
   absPlan: string,
   absorbedSubtasks: boolean,
 ): string {
   return [
-    "Develop a linked org implementation plan for the selected TASKS.org task.",
+    "Develop a linked org change-record for the selected TASKS.org task.",
     "",
     `Task: ${task.status} ${task.priority ? `[#${task.priority}] ` : ""}${task.summary}`,
-    `Plan property: [[file:${planRelToSource}]]`,
-    `Plan file: ${absPlan}`,
+    `Change-record link: [[file:${planRelToSource}]]`,
+    `Change-record file: ${absPlan}`,
     "",
-    "The tasks extension has already attached the #+IMPORT: keyword and scaffolded the plan file.",
+    "The tasks extension has already attached the #+IMPORT: keyword and scaffolded the change-record file.",
     absorbedSubtasks
-      ? "Existing TASKS.org subtasks were moved into the linked plan under * Plan, and the parent task now retains a plain-text summary of the extracted subtasks."
+      ? "Existing TASKS.org subtasks were moved into the linked change-record under * Plan, and the parent task now retains a plain-text summary of the extracted subtasks."
       : "The parent task had no local subtasks to absorb.",
     "",
-    "Use the plan skill and org-memory protocol. Start by asking me any scoping questions needed to develop the plan. Once the plan is agreed, write the final org plan to the plan file above. After writing it, offer to open the plan in Emacs.",
+    "Use the plan skill and org-memory protocol. Start by asking me any scoping questions needed to develop the plan. Once the plan is agreed, write the final org content to the change-record file above. After writing it, offer to open the file in Emacs.",
+  ].join("\n");
+}
+
+function buildRetrospectiveChangeRecordPrompt(
+  task: Task,
+  planRelToSource: string,
+  absPlan: string,
+): string {
+  const started = getTaskStarted(task);
+  const closed = task.closed;
+  const scopeNote = started
+    ? `The task has :STARTED: [${started}] and CLOSED: [${closed ?? "now"}] timestamps. Use these to scope \`git log\`.`
+    : "The task has no :STARTED: timestamp; fall back to recent commits since the task was created.";
+  return [
+    "Generate a retrospective change-record for the just-closed TASKS.org task.",
+    "",
+    `Task: ${task.status} ${task.priority ? `[#${task.priority}] ` : ""}${task.summary}`,
+    `Change-record link: [[file:${planRelToSource}]]`,
+    `Change-record file: ${absPlan}`,
+    "",
+    "The tasks extension has already attached the #+IMPORT: keyword and scaffolded the change-record file with empty * Context, * Plan, and * Implementation sections.",
+    "",
+    "Steps:",
+    `1. ${scopeNote} A reasonable invocation is \`git log --oneline --since="<:STARTED:>" --until="<CLOSED:>"\` (or \`-n 20\` as a fallback).`,
+    "2. Inspect the relevant commits and code changes.",
+    "3. Draft the * Context section: a short problem statement (1-2 paragraphs).",
+    "4. Draft the * Implementation section: bullet points listing what was changed and why, citing commits where useful. Include any rolled-back attempts or dead-ends if they appear in the history \u2014 the failure record is the most valuable part of a retrospective.",
+    "5. Leave * Plan empty unless there were notable steps worth recording retrospectively.",
+    "6. Show me the draft for approval, then write the final content to the change-record file. After writing, offer to open it in Emacs.",
   ].join("\n");
 }
 
 /**
- * Resolve or create a plan for the given task, then open it in Emacs.
+ * Resolve or create a change-record for the given task, then open it in Emacs.
  *
  * If the task has a `#+IMPORT:` keyword: open that file.
  * Otherwise: prompt for a filename (seeded from the task summary and today's
  * date), scaffold the file, attach `#+IMPORT:` to the task body, save the source
- * org file, then ask the agent to develop the plan with the user.
+ * org file, then send the agent a prompt to develop content.
+ *
+ * `mode` selects the agent-prompt body that follows scaffolding:
+ * - `proactive` (default): agent helps plan up front.
+ * - `retrospective`: task is already closed; agent drafts * Context and
+ *   * Implementation from git history.  Triggered by status cycle to DONE
+ *   on a task with no existing #+IMPORT: link.
  */
 async function handlePlanEdit(
   pi: ExtensionAPI,
   ctx: ExtensionContext,
   task: Task,
+  mode: "proactive" | "retrospective" = "proactive",
 ): Promise<void> {
   const sourcePath = task.sourcePath ?? join(ctx.cwd, TASKS_FILE);
   const sourceDir = dirname(sourcePath);
@@ -1104,9 +1209,10 @@ async function handlePlanEdit(
     return;
   }
 
-  ctx.ui.notify(`Plan scaffolded: ${planRelToSource}`, "info");
+  ctx.ui.notify(`Change-record scaffolded: ${planRelToSource}`, "info");
   pi.sendUserMessage(
-    buildPlanDevelopmentPrompt(
+    buildChangeRecordPrompt(
+      mode,
       task,
       planRelToSource,
       absPlan,

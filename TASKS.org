@@ -46,7 +46,8 @@ If TASKS.local.org includes tasks, consider these local/draft/gitignored tasks.
 Not checked in, but surfaced in the extension UI.
 Update task extension and emacs plugins to include publish/unpublish bindings -- promoting
 a local task from TASKS.local.org and vice versa.
-** TODO [#B] Update org-memory skill to prompt to generate an implementation report for tasks without a plan
+** DONE [#B] Update org-memory skill to prompt to generate an implementation report for tasks without a plan
+CLOSED: [2026-04-28 Tue 00:46]
 :PROPERTIES:
 :ID: 9f233338-833b-43c1-81d2-e413a536d586
 :END:

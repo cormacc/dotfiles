@@ -130,6 +130,33 @@ Pressing `A` (shift-a) archives the top-level task containing the cursor's task.
 
 Task creation, plan path approval, and archive confirmation prompts temporarily close the expanded UI so input/confirmation dialogs remain visible. After create/archive flows complete or are cancelled, the expanded UI reopens with a refreshed task tree. When creating a new plan, the path prompt is prefilled with the suggested `#+DEFAULT_PLAN_DIR`-based path; accepting it scaffolds and links the file, then sends an agent prompt to develop the plan interactively.
 
+### Change-records (proactive and retrospective)
+
+The file linked from a task via `#+IMPORT:` is called a *change-record*. The file shape (sections `* Context`, `* Plan`, `* Implementation`) is owned by the plan skill; the same shape is produced by both flows below.
+
+**Proactive flow** — press `p` on a task that has no `#+IMPORT:`, accept the path prompt, and the agent helps draft `* Context` and `* Plan` up front. As work proceeds, plan tasks transition `TODO -> STARTED -> DONE` and `* Implementation` is filled in.
+
+**Retrospective flow** — cycle a task to `DONE` (via `→` / `l`) when it has no `#+IMPORT:` already attached. The extension prompts for a path, scaffolds the change-record file, attaches `#+IMPORT:` to the parent task, and sends the agent a prompt to draft `* Context` and `* Implementation` from `git log` scoped to the task's `:STARTED:` and `CLOSED:` timestamps. The user-facing behaviour:
+
+- Triggers only on `TODO -> DONE` and `STARTED -> DONE`. `CANCELLED` does not trigger; cycling away from `DONE` does not trigger.
+- Triggers only when the parent task has no `#+IMPORT:` yet. Tasks with an existing change-record (planned or retrospective) skip the prompt.
+- If the resolved path already points to an existing file, content is appended (never overwritten).
+- Cancelling the path prompt leaves the task `DONE` with no record attached. The user can attach one later via the `p` keybinding.
+
+**Setting:** `~/.pi/agent/tasks-ext.json`
+
+```json
+{
+  "changeRecordOnDone": true
+}
+```
+
+Default is `true`. When `false`, the retrospective flow is suppressed and `TODO/STARTED -> DONE` behaves as it did before the feature.
+
+### `:STARTED:` first-transition timestamp
+
+When a task moves `TODO -> STARTED` for the first time, the extension records `:STARTED: [YYYY-MM-DD Day HH:MM]` on the task heading (matching the `CLOSED:` format). Subsequent `DONE -> STARTED` re-opens preserve the original first-start timestamp; the value is never rewritten. The retrospective change-record flow uses this timestamp to scope `git log` precisely.
+
 ## TASKS.org Format
 
 The file uses org-mode heading syntax. A `#+TODO:` declaration is recommended so Emacs users get the same state cycle as the extension. `#+DEFAULT_PLAN_DIR:` optionally sets the default directory for newly created plan files and must use org-link syntax; when omitted, the default is `[[file:./design/log]]`.
@@ -185,7 +212,7 @@ The file uses org-mode heading syntax. A `#+TODO:` declaration is recommended so
 
 Subtasks nest arbitrarily deep — any TODO heading under another becomes its child. Parent statuses are not automatically inferred from child statuses.
 
-### Linked plans
+### Linked change-records
 
 A task can link to a detailed plan or task file using a `#+IMPORT:` keyword in the task body:
 
