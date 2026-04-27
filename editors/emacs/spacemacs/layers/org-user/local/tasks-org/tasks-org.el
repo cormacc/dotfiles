@@ -195,9 +195,9 @@ Deselecting removes the file."
 
 (defface tasks-org-selected-face
   '((((class color) (background dark))
-     :background "#1e3a1e" :extend t)
+     :background "#2d5c2d" :extend t)
     (((class color) (background light))
-     :background "#e8f5e9" :extend t)
+     :background "#b8ddb8" :extend t)
     (t :weight bold))
   "Face applied to the heading line of the currently selected task."
   :group 'tasks-org)
@@ -375,7 +375,7 @@ FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
       (save-excursion
         (goto-char (point-min))
         (while (and (not found-point)
-                    (re-search-forward "^[ \t]*:INCLUDE:[ \t]*\\(.*\\)" nil t)))
+                    (re-search-forward "^[ \t]*:INCLUDE:[ \t]*\\(.*\\)" nil t))
           (let* ((raw (string-trim (match-string 1)))
                  (path (tasks-org--extract-plan-path raw))
                  (abs (when path (expand-file-name path tasks-dir))))
