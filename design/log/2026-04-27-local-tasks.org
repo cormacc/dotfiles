@@ -74,7 +74,8 @@ This plan covers the full feature:
 
 * Plan
 
-** TODO [#A] Fix writeSelectedId to be non-destructive
+** DONE [#A] Fix writeSelectedId to be non-destructive
+CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
 :ID: b1e2c3d4-0001-4000-8000-100000000001
 :END:
@@ -90,7 +91,8 @@ Replace the full-overwrite with a read-modify-write:
 Acceptance: toggling selection in the extension when =TASKS.local.org=
 contains task headings leaves those headings intact.
 
-** TODO [#A] Add isLocal flag to Task interface and loader
+** DONE [#A] Add isLocal flag to Task interface and loader
+CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
 :ID: b1e2c3d4-0002-4000-8000-100000000002
 :END:
@@ -105,7 +107,8 @@ contains task headings leaves those headings intact.
 Acceptance: =/tasks= overlay shows the "Take over the world" task from the
 demo =TASKS.local.org=.
 
-** TODO [#B] Render local tasks with visual distinction
+** DONE [#B] Render local tasks with visual distinction
+CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
 :ID: b1e2c3d4-0003-4000-8000-100000000003
 :END:
@@ -123,7 +126,8 @@ In =status-colors.ts=:
 Acceptance: local tasks are visually distinct; separator line appears only
 when at least one local task exists; shared tasks are unaffected.
 
-** TODO [#B] Publish action (local → shared)
+** DONE [#B] Publish action (local → shared)
+CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
 :ID: b1e2c3d4-0004-4000-8000-100000000004
 :END:
@@ -142,7 +146,8 @@ Flow:
 Acceptance: published task disappears from the local section, appears as a
 new top-level entry in =TASKS.org=, and the file on disk reflects both changes.
 
-** TODO [#B] Unpublish action (shared → local)
+** DONE [#B] Unpublish action (shared → local)
+CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
 :ID: b1e2c3d4-0005-4000-8000-100000000005
 :END:
@@ -162,7 +167,8 @@ Flow:
 Acceptance: task disappears from shared list, reappears in local section,
 =TASKS.org= no longer contains it.
 
-** TODO [#C] Archive guard for local tasks
+** DONE [#C] Archive guard for local tasks
+CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
 :ID: b1e2c3d4-0006-4000-8000-100000000006
 :END:
@@ -172,7 +178,8 @@ cannot be archived — publish first" and return false.
 Acceptance: pressing =A= on a local task shows the notification; no file
 changes occur.
 
-** TODO [#C] New-task routing for local tasks
+** DONE [#C] New-task routing for local tasks
+CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
 :ID: b1e2c3d4-0007-4000-8000-100000000007
 :END:
@@ -206,7 +213,8 @@ Update =README.org= for the layer.
 Acceptance: both commands work on tasks in Emacs; file contents on disk match
 the extension's view after a reload.
 
-** TODO [#C] Update docs and help text
+** DONE [#C] Update docs and help text
+CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
 :ID: b1e2c3d4-0009-4000-8000-100000000009
 :END:
@@ -218,15 +226,15 @@ the extension's view after a reload.
 
 * Open questions
 
-1. *Separator row navigability* :: Should the "⊠ Local drafts" divider row
-   be cursor-navigable (skipped automatically) or entirely absent from the
-   row list?  Skipping is simpler; omitting keeps the row count clean.
+1. *Separator row navigability* → render-time injection only.  The row array
+   stays clean; the render method detects the shared/local boundary by index
+   and injects the divider line without adding a navigable row.
 
-2. *Unpublish scope* :: Should unpublish be restricted to top-level tasks
-   only (like archive), or allowed for subtasks too?  Subtask unpublish is
-   ambiguous — the subtask would become a top-level local task, losing its
-   parent relationship.
+2. *Unpublish scope* → top-level shared tasks only, symmetric with archive.
+   Extracting a subtask to local requires a deliberate two-step (unpublish
+   the whole parent, rework locally, re-publish what you want).
 
-3. *Local task =#+IMPORT:=* :: Should local tasks be able to have their own
-   =#+IMPORT:= linked plans?  Those plan files would be tracked in git (unless
-   also excluded) while the parent task is not.  Defer or support?
+3. *Local task =#+IMPORT:=* → supported without special-casing.  The parser
+   and loader already handle it; publish just moves the task and the link
+   travels with it.  Plan files remain git-tracked; the local task is the
+   only private part.

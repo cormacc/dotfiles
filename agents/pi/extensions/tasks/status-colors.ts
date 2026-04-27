@@ -51,6 +51,11 @@ export function colorPriority(priority: string | null): string {
   return color(PRIORITY_ANSI[priority], `[#${priority}]`);
 }
 
+/** Return text tinted in the local-draft colour (magenta). */
+export function colorLocal(text: string): string {
+  return color(MAGENTA, text);
+}
+
 /** Return a visibly tag-styled token, distinct from title text. */
 export function colorTags(tags: string[]): string {
   if (tags.length === 0) return "";

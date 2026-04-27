@@ -35,7 +35,8 @@ Some introductory text
 - [[#housekeeping][Housekeeping]]
 
 * Improvements
-** TODO [#B] Update tasks extension to include local tasks
+** DONE [#B] Update tasks extension to include local tasks
+CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
 :ID: 6bee9f80-d1b5-4121-ab9c-f795e4884d3e
 :END:
