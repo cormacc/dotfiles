@@ -1,0 +1,138 @@
+#+TITLE: Fix keybindings extension capital-letter matching
+#+DATE: 2026-04-27 Mon
+#+PARENT_ID: d9789ed7-ff34-490a-a818-bf7a79fa1180
+#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
+
+* Context
+
+The keybindings extension's leader-menu dispatch uses raw string equality
+to match incoming key data against configured key strings:
+
+#+begin_example
+// handleLeader — current
+const match = node.children?.find((c) => c.key === data);
+
+// mergeChildren — current
+const idx = existing.findIndex((c) => c.key === child.key);
+#+end_example
+
+Raw equality works when both sides agree on the representation.  It
+fails when one side uses a normalised key name and the other uses the
+raw terminal byte:
+
+- Terminal sends capital A as the single byte =0x41= = the string ="A"=.
+- =matchesKey(data, "A")= returns =true=.
+- =matchesKey(data, "shift+a")= also returns =true= — =matchesKey= treats
+  the two forms as equivalent.
+- But ="shift+a" === "A"= is =false=, so a config entry written as
+  =key: "shift+a"= will never fire when the user presses =A=.
+
+The symptom is =SPC t A= silently exiting the leader without running an
+action when the config entry for that slot was written in the
+=shift+letter= normalised form rather than the bare capital-letter form.
+
+The same mismatch affects =mergeChildren=: a config with =key: "A"= and
+a suggested config with =key: "shift+a"= for the same slot are not
+recognised as clashing, so both entries end up in the tree and only the
+first one ever fires.
+
+A third affected site is =warnClashingLeaderKeys=, which checks whether
+a trigger key conflicts with a vim normal-mode binding by looking it up
+in the =NORMAL_MODE_KEYS= set.  The set contains bare capitals (="A"=,
+="I"= etc.), so a trigger specified as ="shift+a"= silently misses the
+warning.
+
+** Design decisions
+
+- Use =matchesKey= for all comparisons :: Replacing raw equality with
+  =matchesKey(incoming, configured)= (or =matchesKey(a, b)= for
+  symmetric clash detection) makes every comparison consistent with the
+  rest of the extension, which already uses =matchesKey= everywhere else.
+  No new normalisation helper is needed.
+
+- Canonical key name in the tree :: After matching with =matchesKey=, the
+  winning entry's =key= field retains whatever string was in the config.
+  This is intentional: the canonical form is preserved for the overlay
+  display; only the =match= step needs to be lenient.
+
+- =warnClashingLeaderKeys= :: Change the NORMAL_MODE_KEYS lookup to use
+  =matchesKey= so that =key: "shift+a"= correctly warns about clashing
+  with the vim =A= (insert-at-end-of-line) binding.
+
+* Plan
+
+** TODO [#A] Fix handleLeader to use matchesKey
+:PROPERTIES:
+:ID: e1f2a3b4-0001-4000-8000-200000000001
+:END:
+In =handleLeader=, replace:
+#+begin_example
+const match = node.children?.find((c) => c.key === data);
+#+end_example
+with:
+#+begin_example
+const match = node.children?.find((c) => matchesKey(data, c.key));
+#+end_example
+
+Acceptance: pressing =A= fires a leader-menu entry whose =key= is either
+="A"= or ="shift+a"=; pressing =a= (lowercase) does not fire the capital
+entry.
+
+** TODO [#A] Fix mergeChildren to use matchesKey for clash detection
+:PROPERTIES:
+:ID: e1f2a3b4-0002-4000-8000-200000000002
+:END:
+In =mergeChildren=, replace:
+#+begin_example
+const idx = existing.findIndex((c) => c.key === child.key);
+#+end_example
+with:
+#+begin_example
+const idx = existing.findIndex((c) => matchesKey(child.key, c.key));
+#+end_example
+
+Acceptance: a suggested binding with =key: "shift+a"= is treated as
+clashing with an existing =key: "A"= entry (and vice-versa), and the
+warning is emitted rather than silently adding a duplicate.
+
+** TODO [#B] Fix warnClashingLeaderKeys to use matchesKey
+:PROPERTIES:
+:ID: e1f2a3b4-0003-4000-8000-200000000003
+:END:
+=warnClashingLeaderKeys= currently checks:
+#+begin_example
+if (NORMAL_MODE_KEYS.has(triggerKey)) { ... }
+#+end_example
+
+=NORMAL_MODE_KEYS= stores bare capitals (="A"=, ="I"=, etc.) so
+=NORMAL_MODE_KEYS.has("shift+a")= is =false= even though =shift+a= is
+the same key.
+
+Replace with an explicit scan using =matchesKey=:
+#+begin_example
+const clashes = [...NORMAL_MODE_KEYS].some((k) => matchesKey(triggerKey, k));
+if (clashes) { ... }
+#+end_example
+
+Acceptance: a leader root key specified as ="shift+a"= correctly
+produces a "clashes with normal-mode vim binding" warning.
+
+** TODO [#C] Add #+A / #+P / #+U to tasks leader menu and update docs
+:PROPERTIES:
+:ID: e1f2a3b4-0004-4000-8000-200000000004
+:END:
+Once the matching fix lands, extend the tasks extension's
+=suggestKeybindings= call to expose the overlay's capital-letter actions
+in the leader menu so they are discoverable outside the overlay:
+
+| =SPC t A= | Archive top-level task (mirrors overlay =A=)  |
+| =SPC t P= | Publish local task (mirrors overlay =P=)      |
+| =SPC t U= | Unpublish shared task (mirrors overlay =U=)   |
+
+These open the =/tasks= overlay with the current task pre-selected and
+the corresponding action immediately triggered, OR dispatch the action
+directly if the task context is unambiguous.  (Simplest first
+implementation: just open =/tasks= so the user can then press the key
+inside the overlay.)
+
+Update the keybindings README and the tasks extension README.md.

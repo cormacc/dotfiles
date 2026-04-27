@@ -31,6 +31,7 @@ Some introductory text
 
 * Table of Contents                                         :TOC_1_gh:noexport:
 - [[#improvements][Improvements]]
+- [[#fixes][Fixes]]
 - [[#dependencies][Dependencies]]
 - [[#housekeeping][Housekeeping]]
 
@@ -88,6 +89,13 @@ offer to move those subtasks into the new plan file (preserving =:ID:=
 properties and leaving a summary under the parent). Coordinate behaviour
 with the pi tasks extension's parser so results are consistent across
 editor and CLI.
+* Fixes
+** TODO [#B] Update keybindings extension to handle capital letter properly
+:PROPERTIES:
+:ID: d9789ed7-ff34-490a-a818-bf7a79fa1180
+:END:
+#+IMPORT: [[file:design/log/2026-04-27-keybindings-capital-letters.org]]
+Currently a key sequence SPACE t A isn't activated as expected. The keybindings extension toggles on the sequence SPACE t SHIFT a.
 * Dependencies
 ** TODO Evaluate pi-lens as a replacement for the in-repo lsp tool
 :PROPERTIES:
