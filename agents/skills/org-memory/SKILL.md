@@ -1,20 +1,25 @@
 ---
 name: org-memory
-description: "Use when maintaining or resuming project work stored in TASKS.org and included org task files. Covers the org task-memory protocol: TODO states, IDs, IMPORT links, status discipline, archiving, and resume workflows."
+description: "Use when maintaining or resuming project work stored in TASKS.org and linked change-record files. Covers the org task-memory protocol: TODO states, IDs, IMPORT links, change-records (proactive and retrospective), status discipline, archiving, and resume workflows."
 ---
 
 # Org Memory
 Use this skill when the user asks to work from, update, resume, review, tasks.
 The canonical project memory index is `TASKS.org` in the project root.
-A task may include additional tasks from another org file using a `#+IMPORT:` keyword.
+A task may link to a *change-record* (a separate org file capturing the
+task's context, plan, and implementation notes) via a `#+IMPORT:` keyword.
 
 ## Responsibility boundary
 This skill owns the durable file protocol:
-- `TASKS.org` and included org task files,
+- `TASKS.org` and linked change-record files,
 - supported TODO states and priorities,
-- `:ID:`, `#+IMPORT:`, `:BLOCKED-BY:` conventions,
+- `:ID:`, `:STARTED:`, `#+IMPORT:`, `:BLOCKED-BY:` conventions,
 - per-contributor selection state in `TASKS.local.org`,
 - task notes, status discipline, archiving, bootstrap, and resume workflows.
+
+The section structure of change-record files (`* Context`, `* Plan`,
+`* Implementation`, `* Open questions`) is owned by the plan skill
+(`../plan/SKILL.md`); this skill defers there for layout details.
 
 
 ## Core file protocol
@@ -84,8 +89,9 @@ Acceptance criteria: documented flows and edge cases.
 Waiting on upstream merge.
 ```
 
-Keep `TASKS.org` high-level. Put detailed checklists/history in included files.
-If an included file is a plan, follow the `plan` skill for its section layout.
+Keep `TASKS.org` high-level. Put detailed checklists/history in change-record
+files. The plan skill defines the section layout (`* Context`, `* Plan`,
+`* Implementation`, optional `* Open questions`).
 
 ## Selection state
 
@@ -123,13 +129,42 @@ Protocol rules:
    sections before editing code.
 6. Keep statuses and durable notes synchronized as work proceeds.
 
-## Creating/updating tasks and included files
+## Creating/updating tasks and change-records
 
 - Use the smallest useful task granularity: each task should describe a concrete
   outcome that can become `DONE`.
-- Prefer adding detail to included files rather than bloating `TASKS.org`.
+- Prefer adding detail to change-records rather than bloating `TASKS.org`.
 - Do not remove completed historical tasks unless the user asks.
 - Add discovered work as new TODO tasks, not hidden prose.
+
+## Change-records
+
+A *change-record* is a separate org file linked from a task via `#+IMPORT:`,
+with the section layout owned by the plan skill (`* Context`, `* Plan`,
+`* Implementation`, optional `* Open questions`).  The file shape is the
+same regardless of when it is authored.
+
+There are two authoring flows:
+
+1. **Proactive** — the change-record is created before work begins.  The
+   agent helps the user draft `* Context` and `* Plan` up front, then the
+   user (or agent) executes the plan, marking each `* Plan` task `DONE` and
+   filling in `* Implementation` as work lands.  This is the flow the pi
+   tasks extension's `p` keybinding produces, and the flow the plan skill
+   primarily describes.
+2. **Retrospective** — the change-record is created after the parent task
+   has already closed.  The agent uses the parent task's `:STARTED:` and
+   `CLOSED:` timestamps to scope `git log`, then drafts `* Context` and
+   `* Implementation` from the commit history.  `* Plan` may be left empty
+   or filled with a brief retrospective list of steps actually taken
+   (including any failed attempts that were rolled back).  This flow is
+   triggered by the pi tasks extension when the user cycles a task to
+   `DONE` without an existing `#+IMPORT:` link.
+
+Whichever flow produced the file, the result is referred to as a
+*change-record* and linked the same way.  A change-record begun as a
+proactive plan becomes a record of what shipped as work proceeds; a
+retrospective change-record captures the same information after the fact.
 
 ## Task notes
 
@@ -209,15 +244,24 @@ automatically. Use these procedures only when editing task files without pi.
 - Preserve existing IDs, properties, heading text, and surrounding formatting.
 - Do not scan or mutate arbitrary org files outside the loaded task-memory graph.
 
-### Creating included task files
+### Creating change-record files
 
-- Suggest a path before creating a new included file unless the user already gave
-  one. Prefer `#+DEFAULT_PLAN_DIR: [[file:...]]` from `TASKS.org`, falling back
-  to `[[file:./design/log]]`.
-- Use `YYYY-MM-DD-short-task-name.org` for new included task files unless the
+- Suggest a path before creating a new change-record unless the user already
+  gave one. Prefer `#+DEFAULT_PLAN_DIR: [[file:...]]` from `TASKS.org`,
+  falling back to `[[file:./design/log]]`.
+- Use `YYYY-MM-DD-short-task-name.org` for new change-records unless the
   project specifies another naming convention.
-- New included files should declare `#+TITLE:`, `#+DATE:`, `#+PARENT_ID:` (the
-  including task's `:ID:`), and the shared `#+TODO:` cycle.
+- New change-records should declare `#+TITLE:`, `#+DATE:`, `#+PARENT_ID:` (the
+  parent task's `:ID:`), and the shared `#+TODO:` cycle.
+
+### `:STARTED:` first-transition timestamp
+
+When a task moves `TODO -> STARTED` for the first time, record a
+`:STARTED: [YYYY-MM-DD Day HH:MM]` property on the task heading.  Subsequent
+`DONE -> STARTED` re-opens preserve the original value.  This timestamp
+lets the retrospective change-record flow scope `git log` precisely.  The
+pi tasks extension writes this property automatically; manual editors
+should do the same.
 
 ### Parent status propagation
 

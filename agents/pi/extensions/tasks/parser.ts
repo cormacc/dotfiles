@@ -67,6 +67,7 @@ const PROPERTIES_END_RE = /^\s*:END:\s*$/i;
 /** Matches a `#+IMPORT:` keyword anywhere in a file (task body or root level). */
 const IMPORT_KEYWORD_RE = /^\s*#\+IMPORT:\s*(.*?)\s*$/i;
 const ID_PROPERTY_RE = /^\s*:ID:\s*(\S+)\s*$/i;
+const STARTED_PROPERTY_RE = /^\s*:STARTED:\s*\[([^\]]+)\]\s*$/i;
 /**
  * Extract the target path from an org link expression:
  *   [[file:path]]                  → path
@@ -171,6 +172,24 @@ export function getTaskId(task: Task): string | null {
 /** True when a task already has an org `:ID:` property. */
 export function taskHasId(task: Task): boolean {
   return getTaskId(task) !== null;
+}
+
+/**
+ * Return the org `:STARTED:` property value (timestamp body without brackets,
+ * matching the `closed` field convention), if present.
+ * Used by the retrospective change-record flow to scope `git log`.
+ */
+export function getTaskStarted(task: Task): string | null {
+  for (const line of task.propertyLines) {
+    const match = STARTED_PROPERTY_RE.exec(line);
+    if (match) return match[1]!.trim();
+  }
+  return null;
+}
+
+/** True when a task has a recorded `:STARTED:` first-transition timestamp. */
+export function taskHasStartedProperty(task: Task): boolean {
+  return getTaskStarted(task) !== null;
 }
 
 /**

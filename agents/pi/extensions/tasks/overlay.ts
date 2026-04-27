@@ -15,6 +15,7 @@ import {
   formatOrgTimestamp,
   getTaskId,
   serializeTasksPreservingFile,
+  taskHasStartedProperty,
 } from "./parser.ts";
 import { colorLocal, colorPriority, colorStatus, colorTags } from "./status-colors.ts";
 import { readFile, writeFile } from "node:fs/promises";
@@ -79,6 +80,10 @@ export class TasksOverlay {
     private onPublish?: (task: Task) => void,
     /** Request unpublish (shared → local) after overlay closes. */
     private onUnpublish?: (task: Task) => void,
+    /** Request retrospective change-record creation when a task closes
+        without an existing #+IMPORT:.  Returns true to indicate the request
+        was accepted (overlay should close); false to keep the overlay open. */
+    private onCreateChangeRecord?: (task: Task) => boolean,
     selectedId: string | null = null,
     /** Called when the user toggles selection; should write TASKS.local.org. */
     private onSelectionChange?: (id: string | null) => Promise<void>,
@@ -325,6 +330,12 @@ export class TasksOverlay {
     } else if (wasClosed) {
       row.task.closed = null;
     }
+    // Stamp :STARTED: [<ts>] on the *first* TODO→STARTED transition so the
+    // retrospective change-record flow can scope `git log` precisely.
+    // Subsequent re-opens preserve the original first-start timestamp.
+    if (nextStatus === "STARTED" && !taskHasStartedProperty(row.task)) {
+      row.task.propertyLines.push(`:STARTED: [${formatOrgTimestamp()}]`);
+    }
     // When a subtask transitions to STARTED, auto-promote the top-level
     // TASKS.org ancestor from TODO → STARTED so the parent reflects active
     // work without requiring a manual status bump.
@@ -336,6 +347,19 @@ export class TasksOverlay {
     }
     this.persistChange();
     this.invalidate();
+
+    // After persisting, if the user just closed a task that has no
+    // #+IMPORT: linked change-record, offer to scaffold one retrospectively.
+    // Done last so the on-disk DONE+CLOSED state is committed before the
+    // overlay closes for the workflow handoff.
+    if (
+      isClosed && !wasClosed && nextStatus === "DONE"
+      && !row.task.importPath
+      && this.onCreateChangeRecord
+    ) {
+      const accepted = this.onCreateChangeRecord(row.task);
+      if (accepted) this.done(undefined);
+    }
   }
 
   // ── Selection (TASKS.local.org) ──────────────────────────────────────
