@@ -3,3 +3,5 @@
 .clj-kondo
 .agents/tmp
 .codex
+TASKS.local.org
+TASKS.local.org.tmp

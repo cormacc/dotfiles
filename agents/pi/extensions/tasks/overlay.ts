@@ -29,16 +29,13 @@ const STATUS_CYCLE = [
 ] as const;
 const CLOSED_STATUSES = new Set<string>(["DONE", "CANCELLED"]);
 
-/** Reserved tag used to mark the currently-selected task. */
-const SELECTED_TAG = "selected";
-
 /** A flattened row for display & navigation. */
 interface FlatRow {
   task: Task;
   depth: number;
   collapsed: boolean;
   hasChildren: boolean;
-  /** True when this task carries the :selected: tag. */
+  /** True when this task's :ID: matches the UUID in TASKS.local.org. */
   isSelectedTask: boolean;
   /** True when this task is inside the selected top-level task tree. */
   inSelection: boolean;
@@ -59,6 +56,9 @@ export class TasksOverlay {
 
   private collapsedSet = new WeakSet<Task>();
 
+  /** UUID of the currently selected task (from TASKS.local.org), or null. */
+  private selectedId: string | null;
+
   constructor(
     private tasks: Task[],
     private cwd: string,
@@ -75,9 +75,13 @@ export class TasksOverlay {
       parent: Task | null,
       insertAfter: Task | null,
     ) => void,
+    selectedId: string | null = null,
+    /** Called when the user toggles selection; should write TASKS.local.org. */
+    private onSelectionChange?: (id: string | null) => Promise<void>,
   ) {
     this.theme = theme;
     this.done = done;
+    this.selectedId = selectedId;
     // If the file already marks a selected task, reflect that focused view on open.
     this.applyDefaultCollapseView();
     this.rebuildRows();
@@ -86,11 +90,13 @@ export class TasksOverlay {
 
   /**
    * Replace the task tree with a freshly-loaded copy from disk (called by the
-   * file-watcher path when an external editor changes TASKS.org while this
-   * overlay is open). Rebuilds collapse state and rows, preserves the cursor
-   * on the same task by ID where possible, then triggers a re-render.
+   * file-watcher path when an external editor changes TASKS.org or
+   * TASKS.local.org while this overlay is open). Rebuilds collapse state and
+   * rows, preserves the cursor on the same task by ID where possible, then
+   * triggers a re-render.
    */
-  refreshTasks(newTasks: Task[]): void {
+  refreshTasks(newTasks: Task[], selectedId: string | null = this.selectedId): void {
+    this.selectedId = selectedId;
     // Remember which task the cursor is on so we can restore position after
     // rebuilding (new task objects from disk won't share references).
     const cursorId = this.rows[this.cursor]
@@ -316,7 +322,7 @@ export class TasksOverlay {
     this.invalidate();
   }
 
-  // ── Selection (:selected: tag) ──────────────────────────────────────
+  // ── Selection (TASKS.local.org) ──────────────────────────────────────
 
   /**
    * Find the top-level TASKS.org task that contains `task`, walking through
@@ -361,34 +367,36 @@ export class TasksOverlay {
     this.done(undefined);
   }
 
-  private findSelectedTask(tasks: Task[] = this.tasks): Task | null {
-    for (const t of tasks) {
-      if (t.tags.includes(SELECTED_TAG)) return t;
-      const child = this.findSelectedTask(this.taskChildren(t));
-      if (child) return child;
-    }
-    return null;
+  /** Find the selected task by UUID in the current task graph. */
+  private findSelectedTask(): Task | null {
+    return this.findTaskById(this.tasks, this.selectedId);
   }
 
-  private clearSelectedTags(tasks: Task[] = this.tasks): void {
+  /** Find a task anywhere in the graph by its :ID: property value. */
+  private findTaskById(tasks: Task[], id: string | null): Task | null {
+    if (!id) return null;
     for (const t of tasks) {
-      if (t.tags.includes(SELECTED_TAG)) {
-        t.tags = t.tags.filter((tag) => tag !== SELECTED_TAG);
-      }
-      this.clearSelectedTags(this.taskChildren(t));
+      if (getTaskId(t) === id) return t;
+      const found = this.findTaskById(this.taskChildren(t), id);
+      if (found) return found;
     }
+    return null;
   }
 
   private toggleSelect(): void {
     const row = this.rows[this.cursor];
     if (!row) return;
     const target = row.task;
-    const wasSelected = target.tags.includes(SELECTED_TAG);
+    const id = getTaskId(target);
+    if (!id) return; // Can't select a task with no :ID:
+    const wasSelected = this.selectedId === id;
 
-    // Enforce single-selection: clear any existing :selected: first.
-    this.clearSelectedTags();
-    if (!wasSelected) {
-      target.tags.push(SELECTED_TAG);
+    // Update in-memory selection state.
+    this.selectedId = wasSelected ? null : id;
+
+    // Write to TASKS.local.org via the caller-supplied callback.
+    if (this.onSelectionChange) {
+      void this.onSelectionChange(this.selectedId);
     }
 
     this.applyDefaultCollapseView();
@@ -396,6 +404,8 @@ export class TasksOverlay {
     // Keep the cursor on the task the user just toggled, if still visible.
     const newIdx = this.rows.findIndex((r) => r.task === target);
     if (newIdx >= 0) this.cursor = newIdx;
+    // Persist task-file changes (status edits etc.) — selection is
+    // written by onSelectionChange above.
     this.persistChange();
     this.invalidate();
   }
@@ -559,9 +569,7 @@ export class TasksOverlay {
         const indent = "  ".repeat(r.depth);
         const treeMark = r.hasChildren ? (r.collapsed ? "▶ " : "▼ ") : "• ";
 
-        // Hide the :selected: tag from the tag list — it's conveyed by the
-        // star marker and highlight instead.
-        const visibleTags = r.task.tags.filter((t) => t !== SELECTED_TAG);
+        const visibleTags = r.task.tags;
 
         let statusStr: string;
         let prioStr: string;

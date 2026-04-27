@@ -34,7 +34,8 @@ Some introductory text
 - [[#housekeeping][Housekeeping]]
 
 * Improvements
-** TODO [#A] Move task selection state to .gitignored TASKS.local.org :pi:org-memory:multi-contributor:
+** DONE [#A] Move task selection state to .gitignored TASKS.local.org :pi:org-memory:multi-contributor:
+CLOSED: [2026-04-27 Mon 18:52]
 :PROPERTIES:
 :ID: a8f3c2e1-7b4d-4f9c-8a52-3e6c1d8b9f47
 :PLAN: [[file:design/log/2026-04-26-tasks-local-selection.org]]
@@ -48,6 +49,18 @@ is semantically incoherent across the team (only one person can be "selected").
 Move selection to a gitignored =TASKS.local.org= using top-level
 =#+SELECTED: <UUID>= metadata; update the org-memory skill, the pi tasks
 extension, and the tasks-org Emacs package to read/write the new location.
+** TODO [#B] Update tasks extension to include local tasks
+:PROPERTIES:
+:ID: 6bee9f80-d1b5-4121-ab9c-f795e4884d3e
+:END:
+If TASKS.local.org includes tasks, consider these local/draft/gitignored tasks.
+Not checked in, but surfaced in the extension UI.
+Update task extension and emacs plugins to include publish/unpublish bindings -- promoting
+a local task from TASKS.local.org and vice versa.
+** TODO [#C] Update tasks skill to allow INCLUDE at top level -- not just for plans
+:PROPERTIES:
+:ID: 9adb8c66-8aba-4e11-9922-70d6225f5a0e
+:END:
 ** TODO [#B] Update org-memory skill to prompt to generate an implementation report for tasks without a plan
 :PROPERTIES:
 :ID: 9f233338-833b-43c1-81d2-e413a536d586
@@ -58,7 +71,6 @@ I.e. if we just implement a simple task that didn't need formal planning, useful
 :ID: ce69ef5e-5967-4623-a2e3-f22e0bd1a745
 :END:
 Currently we've got 'org-memory' and 'plan' -- maybe more useful to refer to 'tasks' and 'plan', and refer to the combination as org-memory?
-
 ** TODO [#C] Add some sort of Jira integration for the tasks extension
 :PROPERTIES:
 :ID: 0276a6c7-0ca8-4c39-a90a-05587ad64698

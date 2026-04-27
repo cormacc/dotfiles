@@ -12,7 +12,8 @@ A task may include additional tasks from another org file using its `:INCLUDE:` 
 This skill owns the durable file protocol:
 - `TASKS.org` and included org task files,
 - supported TODO states and priorities,
-- `:ID:`, `:INCLUDE:`, `:BLOCKED-BY:`, and reserved `:selected:` conventions,
+- `:ID:`, `:INCLUDE:`, `:BLOCKED-BY:` conventions,
+- per-contributor selection state in `TASKS.local.org`,
 - task notes, status discipline, archiving, bootstrap, and resume workflows.
 
 
@@ -39,10 +40,7 @@ Actionable tasks are org headings:
 Rules:
 - TODO states: `TODO`, `STARTED`, `WAITING`, `DONE`, `CANCELLED`.
 - Priorities: `[#A]` critical, `[#B]` high, `[#C]` medium, `[#D]` low.
-- Tags are semantic categories. The only reserved operational tag is
-  `:selected:`, marking the active task for task-selection tooling. Preserve and
-  respect it; do not move or clear it unless explicitly asked or acting through a
-  selection tool.
+- Tags are semantic categories. There are no reserved operational tags.
 - Every task/subtask in `TASKS.org` and loaded included files must have a UUID v4
   `:ID:` property.
 - `:INCLUDE:` points to another org file in the same task-memory format. Use
@@ -86,11 +84,35 @@ Waiting on upstream merge.
 Keep `TASKS.org` high-level. Put detailed checklists/history in included files.
 If an included file is a plan, follow the `plan` skill for its section layout.
 
+## Selection state
+
+The currently-active task for a contributor is stored in a **gitignored**
+`TASKS.local.org` file at the project root, expressed as a single top-level
+keyword:
+
+```org
+#+SELECTED: 01234567-89ab-4def-8123-456789abcdef
+```
+
+The value is a UUID v4 `:ID:` that is resolved by looking up the matching
+task in `TASKS.org` and any linked plan files. The file holds no task
+structure — selection is a pointer, not a mutation of the shared graph.
+
+Protocol rules:
+- Absent file or missing `#+SELECTED:` keyword means "no selection".
+- Writers create or overwrite `TASKS.local.org` atomically (write-then-rename)
+  so the pi file watcher never sees a transient empty state.
+- Deselecting writes `#+SELECTED:` with no value (file is retained).
+- Selection is per-checkout. A repo with multiple local clones has independent
+  `TASKS.local.org` files — this is intentional.
+- Every repo using this protocol must add `TASKS.local.org` to `.gitignore`.
+
 ## Starting or resuming work
 
 1. Read `TASKS.org`.
-2. Locate the active task: prefer `:selected:`, otherwise use a user-named task,
-   the first `STARTED` task, or context.
+2. Locate the active task: read `TASKS.local.org` for a `#+SELECTED: <UUID>` pointer
+   and resolve it by `:ID:` match against the task graph; fall back to a user-named
+   task, the first `STARTED` task, or context.
 3. Follow its `:INCLUDE:` link if present.
 4. If the included file is a plan, resume the first `STARTED` task in it, or the
    first actionable `TODO` task.
@@ -203,7 +225,7 @@ any `TODO` ancestors in `TASKS.org` to `STARTED` manually.
 
 1. Only archive top-level tasks whose status is `DONE` or `CANCELLED`.
 2. Move the complete task subtree to `TASKS.ARCHIVE.org` in the project root.
-3. Preserve `:ID:` and content; strip `:selected:`.
+3. Preserve `:ID:` and content.
 4. Add `:ARCHIVED: [timestamp]`.
 5. Preserve or inline included task context so history remains understandable.
 

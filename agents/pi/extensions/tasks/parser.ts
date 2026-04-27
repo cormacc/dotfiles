@@ -79,6 +79,18 @@ export function extractOrgLinkTarget(value: string): string | null {
 /** Matches an org CLOSED timestamp line, e.g. `CLOSED: [2026-04-24 Fri 14:30]`. */
 const CLOSED_RE = /^\s*CLOSED:\s*\[([^\]]+)\]\s*$/;
 
+/** Matches the #+SELECTED: keyword in TASKS.local.org. */
+const SELECTED_KEYWORD_RE = /^#\+SELECTED:\s*(\S+)\s*$/im;
+
+/**
+ * Extract the selected task UUID from TASKS.local.org content.
+ * Returns null when the file is empty or has no #+SELECTED: keyword.
+ */
+export function parseSelectedKeyword(content: string): string | null {
+  const match = SELECTED_KEYWORD_RE.exec(content);
+  return match?.[1]?.trim() ?? null;
+}
+
 const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 /** Format a Date as an inactive org timestamp body, e.g. `2026-04-24 Fri 14:30`. */
