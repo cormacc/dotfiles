@@ -77,7 +77,6 @@ Acceptance criteria:
 - Archiving rules drop the "strip =:selected:=" instruction (or note it as a
   legacy concern when archiving repos that pre-date this change).
 - Example =TASKS.org= no longer shows =:selected:= as the canonical pattern.
-
 ** TODO [#A] pi tasks extension: read selection from TASKS.local.org :extension:read:
 :PROPERTIES:
 :ID: f1c8e2a5-9d4b-4e36-8f72-1a3c5e7d9b04
@@ -98,7 +97,6 @@ Acceptance criteria:
   one-line warning so the migration path is visible.
 - The =SELECTED_TAG= constant is either removed or relegated to the
   fallback-read path only; no code path writes the tag.
-
 *** TODO [#B] Watch TASKS.local.org for changes :extension:watch:
 :PROPERTIES:
 :ID: 0c5a3d9e-8f1b-4c27-a653-2e8f9d1b4a76
@@ -111,7 +109,6 @@ Acceptance criteria:
 - Watcher reacts to create / modify / delete of =TASKS.local.org=.
 - Deletion is treated as "selection cleared" and re-renders accordingly.
 - Watcher does not crash if the file never exists.
-
 ** TODO [#A] pi tasks extension: write selection to TASKS.local.org :extension:write:
 :PROPERTIES:
 :ID: 7b2c4d8e-9f0a-4e15-83cd-6f2a8b1e4c9d
@@ -127,7 +124,6 @@ Acceptance criteria:
   files when the only change is a selection update.
 - If a =:selected:= tag is found in the loaded graph during a write, strip it
   in the same operation so the migration completes opportunistically.
-
 ** TODO [#A] tasks-org Emacs package: read/write TASKS.local.org :emacs:selection:
 :PROPERTIES:
 :ID: 4e9f1c5b-8a7d-4632-9e0c-3d8a1f6b7c25
@@ -148,7 +144,6 @@ Acceptance criteria:
 - Project-root resolution continues to use =projectile-project-root= with the
   same fallback chain documented in the existing plan
   (=2026-04-25-tasks-emacs-integration.org=).
-
 *** TODO [#C] Optional: visual indicator for selected heading :emacs:ui:
 :PROPERTIES:
 :ID: 2a6c8e1f-3b9d-4527-a8f4-5e7c0d2b6a98
@@ -164,7 +159,6 @@ Acceptance criteria:
 - If implemented, the indicator is non-destructive (overlay/face only, no text
   insertion) and updates on buffer save and on
   =tasks-org-toggle-selected=.
-
 ** TODO [#B] Add TASKS.local.org to .gitignore :infra:
 :PROPERTIES:
 :ID: 6d3e8a1c-5f7b-4914-9c8a-2e5d8f0a3b67
@@ -174,7 +168,6 @@ Acceptance criteria:
 - =git status= in a repo with selection set is clean.
 - The skill documents that consumers of the protocol must do the same in their
   own repos.
-
 ** TODO [#B] Migrate existing :selected: tags :migration:
 :PROPERTIES:
 :ID: 1f8b4d2e-9c5a-4863-b07f-a1c4d8e3f9b2
@@ -191,7 +184,6 @@ Acceptance criteria:
   if nothing was selected.
 - Migration commit is separate from code/skill changes so the conversion is
   reviewable in isolation.
-
 ** TODO [#B] End-to-end validation :verification:
 :PROPERTIES:
 :ID: 9c0a3d6e-1b4f-4257-8c9d-5f7e2a0b8c14
@@ -212,7 +204,6 @@ Acceptance criteria:
 - Verify the backwards-compat read path: temporarily reintroduce a
   =:selected:= tag, confirm it is recognised and a deprecation warning is
   emitted, then confirm a write path opportunistically clears it.
-
 * Implementation
 
 Implementation notes should be added as tasks are completed. Capture concrete

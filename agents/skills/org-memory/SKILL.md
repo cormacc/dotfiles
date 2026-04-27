@@ -116,6 +116,7 @@ short paragraph note, optionally with an inactive timestamp:
 :PROPERTIES:
 :ID: 01234567-89ab-4def-8123-456789abcdef
 :END:
+CLOSED: [2026-04-25 Sat 12:00]
 [2026-04-25 Sat] Verified the serializer preserves the org preamble.
 ```
 
@@ -159,8 +160,14 @@ If `TASKS.org` does not exist and the user wants persistent task memory:
 - Mark it `DONE` only when implemented and verified.
 - Use `WAITING` with `:BLOCKED-BY:` for blocked work.
 - Use `CANCELLED` for intentionally abandoned work.
-- `DONE` and `CANCELLED` are closed states; preserve Emacs-style `CLOSED:`
-  timestamps when present.
+- `DONE` and `CANCELLED` are closed states. When changing a task to either
+  state, **insert** a `CLOSED:` timestamp immediately after the `:END:` of the
+  properties drawer (or directly after the heading if there is no drawer).
+  Use the format `CLOSED: [YYYY-MM-DD DayAbbrev HH:MM]` — always obtain the
+  current date/time and correct day-of-week abbreviation by running
+  `date +"%Y-%m-%d %a %H:%M"` via bash rather than computing it manually.
+  Preserve existing `CLOSED:` timestamps; do not replace them.
+  Ensure any note text that follows starts on its own line.
 - Update parent statuses when child states change.
 
 ## Housekeeping automated by the pi tasks extension

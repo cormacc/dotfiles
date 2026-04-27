@@ -10,9 +10,20 @@ let
   piConfig =  "${config.home.homeDirectory}/.pi/agent";
   # The xdg.configHome stuff causes pain / erratic detection...
   # piConfig = "${config.xdg.configHome}/pi";
+  npmCache = "${config.xdg.cacheHome}/npm";
 in
 {
   # home.sessionVariables.PI_CODING_AGENT_DIR = "$piConfig";
+
+  # npm's default global prefix points into the (read-only) Nix store when node
+  # comes from nixpkgs. Redirect it to a writable location so `pi install` works.
+  # This is philosophically unsound w.r.t. Nix, but a necessary hypocrisy...
+  programs.npm = {
+    enable = true;
+    package = null; # nodejs is managed separately
+    settings.prefix = "${npmCache}";
+  };
+  home.sessionPath = [ "${npmCache}/bin" ];
 
   home.packages = [
     #Pi + deps
