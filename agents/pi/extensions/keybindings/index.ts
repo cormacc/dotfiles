@@ -161,7 +161,7 @@ function warnClashingLeaderKeys(
 ): void {
   if (!notify) return;
   for (const [triggerKey, node] of menus) {
-    if (NORMAL_MODE_KEYS.has(triggerKey)) {
+    if ([...NORMAL_MODE_KEYS].some((k) => matchesKey(triggerKey, k))) {
       const label = node.label ?? triggerKey;
       const displayKey = triggerKey === " " ? "SPC" : triggerKey;
       notify(
@@ -2190,7 +2190,7 @@ class VimEditor extends CustomEditor {
       this.clearLeaderOverlay();
       return;
     }
-    const match = node.children?.find((c) => c.key === data);
+    const match = node.children?.find((c) => matchesKey(data, c.key));
 
     if (match && "children" in match) {
       // Descend into sub-menu
@@ -2345,7 +2345,7 @@ export default function (pi: ExtensionAPI) {
     warn: (msg: string, level: "info" | "warning" | "error") => void,
   ): void {
     for (const child of incoming) {
-      const idx = existing.findIndex((c) => c.key === child.key);
+      const idx = existing.findIndex((c) => matchesKey(child.key, c.key));
       if (idx < 0) {
         // No clash — add the new entry
         existing.push(child);
