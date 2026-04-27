@@ -192,7 +192,8 @@ whether the new task should be local.
 Acceptance: pressing =n= while on a local task creates a new local task in
 =TASKS.local.org=; pressing =n= on a shared task still writes to =TASKS.org=.
 
-** TODO [#C] Emacs-side publish/unpublish commands
+** DONE [#C] Emacs-side publish/unpublish commands
+CLOSED: [2026-04-27 Mon 22:35]
 :PROPERTIES:
 :ID: b1e2c3d4-0008-4000-8000-100000000008
 :END:
