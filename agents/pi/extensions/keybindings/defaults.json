@@ -15,7 +15,7 @@
         "c": { "label": "Compact", "action": "command:/compact" },
         "y": { "label": "Copy last response", "action": "command:/copy" },
         "s": { "label": "Settings", "action": "command:/settings" },
-        "R": { "label": "Reload extensions", "action": "command:/reload" }
+        "shift+r": { "label": "Reload extensions", "action": "command:/reload" }
       }
     },
     "space": {
@@ -25,7 +25,7 @@
         "t": {
           "label": "+toggle",
           "items": {
-            "E": {
+            "shift+e": {
               "label": "+editor",
               "items": {
                 "e": { "label": "Emacs mode", "action": "keybindings:set-mode-emacs" },

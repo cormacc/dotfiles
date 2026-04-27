@@ -161,7 +161,7 @@ function warnClashingLeaderKeys(
 ): void {
   if (!notify) return;
   for (const [triggerKey, node] of menus) {
-    if ([...NORMAL_MODE_KEYS].some((k) => matchesKey(triggerKey, k))) {
+    if ([...NORMAL_MODE_KEYS].some((k) => matchesKey(k, triggerKey))) {
       const label = node.label ?? triggerKey;
       const displayKey = triggerKey === " " ? "SPC" : triggerKey;
       notify(
@@ -183,6 +183,23 @@ function loadKeybindingsConfig(): KeybindingsConfig {
   }
 }
 
+/**
+ * Normalise a config key to a form that matchesKey handles correctly across
+ * all terminal types (legacy and Kitty keyboard protocol).
+ *
+ * Single uppercase ASCII letters ("A"…"Z") are converted to the canonical
+ * "shift+lowercase" form.  matchesKey("A", "shift+a") returns true for legacy
+ * terminals and matchesKey(kittyEscSeq, "shift+a") returns true for Kitty;
+ * but matchesKey(kittyEscSeq, "A") returns false because the Kitty path looks
+ * for a no-modifier sequence for codepoint 65, not the shift+97 sequence.
+ */
+function normalizeConfigKey(key: string): string {
+  if (key.length === 1 && key >= "A" && key <= "Z") {
+    return `shift+${key.toLowerCase()}`;
+  }
+  return key;
+}
+
 /** Convert a JSON menu item tree into a LeaderNode tree */
 function buildMenuNode(
   config: MenuItemConfig,
@@ -190,14 +207,15 @@ function buildMenuNode(
   editor: VimEditor,
   events?: ExtensionAPI["events"],
 ): LeaderEntry {
+  const normKey = key != null ? normalizeConfigKey(key) : key;
   if (config.items) {
     const children: LeaderEntry[] = Object.entries(config.items).map(
       ([k, item]) => buildMenuNode(item, k, editor, events),
     );
-    return { key: key!, label: config.label, children } as LeaderEntry;
+    return { key: normKey!, label: config.label, children } as LeaderEntry;
   }
   const action = buildAction(config.action ?? "", editor, events);
-  return { key: key!, label: config.label, action } as LeaderEntry;
+  return { key: normKey!, label: config.label, action } as LeaderEntry;
 }
 
 function buildAction(actionStr: string, editor: VimEditor, events?: ExtensionAPI["events"]): () => void {
@@ -2113,7 +2131,7 @@ class VimEditor extends CustomEditor {
     if (!this.activeLeaderMenu) return null;
     let node = this.activeLeaderMenu;
     for (const key of this.leaderPath) {
-      const child = node.children?.find((c) => c.key === key);
+      const child = node.children?.find((c) => matchesKey(key, c.key));
       if (child && "children" in child) {
         node = child;
       } else {
@@ -2193,8 +2211,9 @@ class VimEditor extends CustomEditor {
     const match = node.children?.find((c) => matchesKey(data, c.key));
 
     if (match && "children" in match) {
-      // Descend into sub-menu
-      this.leaderPath.push(data);
+      // Descend into sub-menu — store the canonical config key, not the raw
+      // terminal data, so currentLeaderNode can use plain equality to traverse.
+      this.leaderPath.push(match.key);
       // Reset overlay timer for the sub-menu
       this.scheduleLeaderOverlay();
       return;
