@@ -71,7 +71,7 @@ Ideally we'd be able to pull an item from Jira and create a task here...
 Update the tasks extension and related skills to allow us to reference jira issue types.
 The most ergonomic approach from a user perspective would be to just include issue IDS -- but where -- in properties?
 And maybe embed a Jira URL in TASKS.org header metadata....
-** DONE [#C] Add emacs-side tooling for tasks extension :selected:
+** DONE [#C] Add emacs-side tooling for tasks extension
 :PROPERTIES:
 :ID: 2b87d48c-d158-44ff-8fea-87c99b570144
 :PLAN: [[file:design/log/2026-04-25-tasks-emacs-integration.org]]
