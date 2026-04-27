@@ -67,6 +67,13 @@ let compactWidgetComponent: CompactTasksWidget | null = null;
 let compactWidgetTui: TUI | null = null;
 
 /**
+ * True while the expanded /tasks overlay is open. Suppresses compact-widget
+ * creation from the file-watcher path so the watcher does not re-create the
+ * widget mid-overlay (which would create visual artifacts or stale state).
+ */
+let isOverlayActive = false;
+
+/**
  * File-watcher state. The compact selected-task widget refreshes on external edits
  * (e.g. saving TASKS.org or a linked plan file in Emacs) without requiring
  * the /tasks modal to be reopened.
@@ -414,7 +421,11 @@ async function refreshTaskUi(
 ): Promise<Task[]> {
   activeCtx = ctx;
   const tasks = await loadTasks(cwd);
-  syncCompactWidget(ctx, tasks);
+  // Skip compact-widget updates while the expanded overlay is active; the
+  // overlay's own close handler will sync the widget from the in-memory state.
+  if (!isOverlayActive) {
+    syncCompactWidget(ctx, tasks);
+  }
   updateFileWatchers(collectWatchPaths(tasks, cwd));
   return tasks;
 }
@@ -481,6 +492,7 @@ export default function (pi: ExtensionAPI) {
       let reopen = true;
       let tasks = await loadTasks(ctx.cwd);
       while (reopen) {
+        isOverlayActive = true;
         clearCompactWidget(ctx);
         const workflow: { request: WorkflowRequest | null } = { request: null };
 
@@ -549,7 +561,15 @@ export default function (pi: ExtensionAPI) {
         }
       }
 
-      // Re-read from disk after close to converge with the saved file state.
+      // Overlay fully closed. Re-enable compact-widget updates from the
+      // file-watcher path.
+      isOverlayActive = false;
+      // Immediately sync the compact widget from the in-memory task state so
+      // the widget reflects any selection changes made inside the overlay
+      // without waiting for the async save to hit disk and the watcher to fire.
+      syncCompactWidget(ctx, tasks);
+      // Also reload from disk to re-attach file watchers and converge with any
+      // external edits that landed while the overlay was open.
       await refreshTaskUi(ctx, ctx.cwd);
     },
   });
