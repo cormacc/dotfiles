@@ -65,9 +65,9 @@ reachable without Shift, with no unbinding gymnastics required.
 | Key       | Command                            | Description                                                   |
 |-----------+------------------------------------+---------------------------------------------------------------|
 | =, ; s=   | =tasks-org-toggle-selected=        | Toggle =:selected:= on the current task (single-selection)    |
-| =, ; p=   | =tasks-org-open-plan=              | Open the =:INCLUDE:= linked from the current task, or create one |
+| =, ; p=   | =tasks-org-open-plan=              | Open the =#+IMPORT:= linked from the current task, or create one |
 | =, ; P=   | =tasks-org-open-plan-other-window= | Same, but open in another window                              |
-| =, ; t=   | =tasks-org-jump-to-parent-task=    | Jump to the task in =TASKS.org= whose =:INCLUDE:= is this file   |
+| =, ; t=   | =tasks-org-jump-to-parent-task=    | Jump to the task in =TASKS.org= whose =#+IMPORT:= is this file   |
 
 The mode lighter is =Tasks=.
 
@@ -84,10 +84,11 @@ The package maintains four conventions:
 
 - =:selected:= tag :: Reserved tag marking the single currently
   selected task across the project. Toggling clears any other
-  selection across =TASKS.org= and any =:INCLUDE:='d files first to
+  selection across =TASKS.org= and any =#+IMPORT:='d files first to
   enforce single-selection.
 
-- =:INCLUDE:= property :: Clickable org file link to a detailed plan file
+- =#+IMPORT:= keyword :: Org file link to a detailed plan or task file; written
+  in the task body after the =:END:= drawer line
   for the task. =tasks-org-open-plan= opens an existing plan or
   scaffolds a new one (=#+TITLE=, =#+DATE=, =#+TODO=, =* Context=,
   =* Plan=) and writes the property as =[[file:...]]= for clickability

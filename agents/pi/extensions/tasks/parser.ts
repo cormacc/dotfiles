@@ -21,19 +21,19 @@ export interface Task {
   children: Task[];
   /** Non-PLAN org property drawer lines, preserved on save. */
   propertyLines: string[];
-  /** Optional relative path to an org file containing a detailed plan. */
-  planPath: string | null;
+  /** Path extracted from a `#+IMPORT:` keyword in the task body or file root. */
+  importPath: string | null;
   /**
-   * Raw `:INCLUDE:` property value, preserved for round-trip serialization.
+   * Raw `#+IMPORT:` value, preserved for round-trip serialization.
    * When the user writes an org-link form (e.g. `[[file:plans/foo.org][Plan]]`)
    * it's preserved verbatim so Emacs keeps treating it as a clickable link
    * while the extension still follows the extracted path.
    */
-  planRaw?: string | null;
-  /** Parsed plan tasks, injected at render time as children of this task. */
-  planChildren?: Task[];
-  /** Error encountered while loading `planPath`, if any. */
-  planError?: string | null;
+  importRaw?: string | null;
+  /** Tasks loaded from the imported file, injected as children at render time. */
+  importChildren?: Task[];
+  /** Error encountered while loading `importPath`, if any. */
+  importError?: string | null;
   /**
    * Org CLOSED timestamp body (without brackets), e.g. `2026-04-24 Fri 14:30`.
    * Present when the task has been closed, matching Emacs behaviour.
@@ -59,7 +59,8 @@ const HEADING_RE =
 
 const PROPERTIES_START_RE = /^\s*:PROPERTIES:\s*$/i;
 const PROPERTIES_END_RE = /^\s*:END:\s*$/i;
-const INCLUDE_PROPERTY_RE = /^\s*:INCLUDE:\s*(.*?)\s*$/i;
+/** Matches a `#+IMPORT:` keyword anywhere in a file (task body or root level). */
+const IMPORT_KEYWORD_RE = /^\s*#\+IMPORT:\s*(.*?)\s*$/i;
 const ID_PROPERTY_RE = /^\s*:ID:\s*(\S+)\s*$/i;
 /**
  * Extract the target path from an org link expression:
@@ -136,6 +137,16 @@ function parseHeading(line: string): {
   return { level, status, priority: m[3] ?? null, summary, tags };
 }
 
+/**
+ * Result returned by `parseTasks`.
+ * `fileImports` collects paths from `#+IMPORT:` lines that appear before any
+ * task heading (i.e. at the file root level, with no parent task).
+ */
+export interface ParseResult {
+  tasks: Task[];
+  fileImports: string[];
+}
+
 export interface ParseTasksOptions {
   /** Absolute path of the file being parsed. */
   sourcePath?: string;
@@ -159,13 +170,18 @@ export function taskHasId(task: Task): boolean {
 
 /**
  * Parse the full content of a TASKS.org file into a task tree.
+ *
+ * `#+IMPORT: [[file:path]]` lines are recognised anywhere in the file:
+ * - Inside a task body: sets `importPath` on that task.
+ * - Before any task heading (file root): collected in `ParseResult.fileImports`.
  */
 export function parseTasks(
   content: string,
   options: ParseTasksOptions = {},
-): Task[] {
+): ParseResult {
   const lines = content.split("\n");
   const root: Task[] = [];
+  const fileImports: string[] = [];
   const sourceContent = options.sourceContent ?? content;
 
   // Stack tracks the current nesting path.
@@ -211,9 +227,9 @@ export function parseTasks(
         description: "",
         children: [],
         propertyLines: [],
-        planPath: null,
-        planRaw: null,
-        planError: null,
+        importPath: null,
+        importRaw: null,
+        importError: null,
         closed: null,
         sourcePath: options.sourcePath,
         sourceContent,
@@ -237,28 +253,11 @@ export function parseTasks(
       const m = CLOSED_RE.exec(line)!;
       currentTask.closed = m[1]!.trim();
     } else if (currentTask && PROPERTIES_START_RE.test(line)) {
-      // Org properties drawer immediately below a heading. Currently we
-      // consume only :INCLUDE:, but skip the whole drawer so it doesn't
-      // become part of the task description.
+      // Org properties drawer — collect all lines verbatim for round-trip.
       for (i = i + 1; i < lines.length; i++) {
         const propLine = lines[i]!;
         if (PROPERTIES_END_RE.test(propLine)) break;
-        const plan = INCLUDE_PROPERTY_RE.exec(propLine);
-        if (plan) {
-          const raw = plan[1]!.trim();
-          if (raw) {
-            const linkTarget = extractOrgLinkTarget(raw);
-            currentTask.planPath = linkTarget ?? raw;
-            // Only keep the raw form when it differs from the bare path, so
-            // plain-text entries round-trip cleanly without extra state.
-            currentTask.planRaw = linkTarget ? raw : null;
-          } else {
-            currentTask.planPath = null;
-            currentTask.planRaw = null;
-          }
-        } else {
-          currentTask.propertyLines.push(propLine);
-        }
+        currentTask.propertyLines.push(propLine);
       }
     } else if (anyHeading) {
       // Non-task heading (e.g. `* Notes`) — flush the current task's
@@ -267,6 +266,20 @@ export function parseTasks(
       flushDescription();
       closeTasksAtOrAbove(anyHeading[1]!.length, i + 1);
       currentTask = null;
+    } else if (IMPORT_KEYWORD_RE.test(line)) {
+      // #+IMPORT: keyword — extract path and attach to current task or collect
+      // as a file-level import when no task heading is in scope.
+      const raw = IMPORT_KEYWORD_RE.exec(line)![1]!.trim();
+      if (raw) {
+        const linkTarget = extractOrgLinkTarget(raw);
+        const path = linkTarget ?? raw;
+        if (currentTask) {
+          currentTask.importPath = path;
+          currentTask.importRaw = linkTarget ? raw : null;
+        } else {
+          fileImports.push(path);
+        }
+      }
     } else {
       // Non-heading line: accumulate as description for current task
       if (currentTask) {
@@ -290,7 +303,7 @@ export function parseTasks(
   };
   attachSourceRoot(root);
 
-  return root;
+  return { tasks: root, fileImports };
 }
 
 /**
@@ -316,15 +329,13 @@ export function serializeTasks(tasks: Task[]): string {
         lines.push(`CLOSED: [${t.closed}]`);
       }
       const propertyLines = [...t.propertyLines];
-      if (t.planRaw) {
-        propertyLines.push(`:INCLUDE: ${t.planRaw}`);
-      } else if (t.planPath) {
-        propertyLines.push(`:INCLUDE: ${t.planPath}`);
-      }
       if (propertyLines.length > 0) {
         lines.push(":PROPERTIES:");
         lines.push(...propertyLines);
         lines.push(":END:");
+      }
+      if (t.importPath) {
+        lines.push(`#+IMPORT: ${t.importRaw ?? t.importPath}`);
       }
       if (t.description) {
         lines.push(t.description);
@@ -363,7 +374,7 @@ export function serializeTasksPreservingFile(
   tasks: Task[],
 ): string {
   const lines = originalContent.split("\n");
-  const originalRoots = parseTasks(originalContent);
+  const { tasks: originalRoots } = parseTasks(originalContent);
   const suppliedByLine = new Map<number, Task>();
   const newRoots: Task[] = [];
 
