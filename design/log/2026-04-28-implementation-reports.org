@@ -59,17 +59,31 @@ updated to offer the retrospective scaffolding.
   project.
 
 - *Who triggers the prompt* :: The pi tasks extension only.  Closures
-  done outside the extension (Emacs status cycle, manual edit) do not
-  auto-prompt; they are caught by the org-memory skill on the next
-  agent interaction (the skill's resume protocol scans for closed tasks
-  lacking =#+IMPORT:= and offers a retrospective change-record).
+  done outside the extension (Emacs status cycle, manual edit) are not
+  auto-prompted; the user can attach a retrospective change-record at
+  any time via the existing =p= keybinding (the same proactive flow
+  works on a closed task).
 
 - *No Emacs-side scaffolding command* :: The proactive flow stays
-  reachable from Emacs via the existing =tasks-org-open-plan= (which
-  already creates a plan-shaped change-record when none exists).  The
-  retrospective flow is exclusive to the pi harness \u2014 there is no
-  =tasks-org-create-report= equivalent.  The skill's retroactive scan
-  covers Emacs-only users.
+  reachable from Emacs via =tasks-org-open-plan=, which already
+  creates a change-record when none exists.  The retrospective flow
+  is exclusive to the pi harness.
+
+- *Existing-file behaviour* :: If the path-prompt resolves to a file
+  that already exists, the scaffold appends to =* Implementation=
+  (retrospective) or =* Plan= (proactive) and never overwrites
+  existing content.  Mirrors the proactive flow's current
+  =insertTasksIntoPlanSection= behaviour.
+
+- *First-STARTED timestamp* :: To make the retrospective git-history
+  scope precise, the extension records the first =TODO \u2192 STARTED=
+  transition as a =:STARTED:= property on the task (written once per
+  task; subsequent re-opens do not overwrite).  The retrospective
+  prompt uses this property as the lower bound of the git window.
+
+- *CANCELLED tasks are out of scope* :: Recording rationale for
+  abandoned work is a plausible second-iteration feature but
+  deliberately not part of this plan.
 
 * Plan
 
@@ -130,6 +144,8 @@ flow with a new =mode: \"retrospective\"= argument.  The handler:
 - Branches only on the agent prompt: =buildPlanDevelopmentPrompt=
   becomes =buildChangeRecordPrompt(mode)= and emits a different
   body for retrospective vs proactive (see task #5).
+- If the resolved path already points to an existing file, appends
+  to =* Implementation= rather than overwriting.
 
 A user setting =tasks.changeRecordOnDone= controls whether the
 prompt fires (default =true=); when =false=, status cycle to DONE
@@ -147,28 +163,31 @@ Acceptance:
 - Cycling a task that already has =#+IMPORT:= does *not* prompt.
 - Cancelling the path prompt leaves the task DONE with no record.
 - Cycling DONE -> CANCELLED does not prompt.
+- If the resolved path already exists, no content is overwritten.
 
-** TODO [#B] Skill resume protocol: detect un-recorded DONE tasks
+** TODO [#B] Tasks extension: record first STARTED transition as :STARTED: property
 :PROPERTIES:
-:ID: c1d2e3f4-0005-4000-8000-300000000005
+:ID: c1d2e3f4-0004-4000-8000-300000000004
 :END:
-Update the =Starting or resuming work= section of the org-memory skill
-so that when the agent loads task memory, it scans for DONE tasks that
-have neither =#+IMPORT:= nor body content beyond the heading +
-properties + =CLOSED:= line, and offers the user a retrospective
-change-record for the most recent N such tasks.
+In =overlay.ts='s =cycleStatus()=, when the new status is =STARTED= and
+the task does not yet have a =:STARTED:= property, write
+=:STARTED: [YYYY-MM-DD Day HH:MM]= into the property drawer using the
+same timestamp format as =:CLOSED:=.  Subsequent transitions back to
+=STARTED= must not rewrite this value (it captures *first* start, not
+most-recent).
 
-Behaviour rules:
-- The check is bounded: scan only =TASKS.org= roots and loaded included
-  files, never =TASKS.archive.org=.
-- The agent does not auto-create files; it offers, and only acts on
-  user confirmation.
-- The offer is made once per session at most; declining suppresses
-  further offers in the session.
+This timestamp is consumed by the retrospective agent prompt to scope
+=git log= precisely.  It is also harmless when present on tasks that
+never enter the retrospective flow.
 
-Acceptance: skill change is purely documentation; no code in the
-extension is required because the agent itself performs the scan
-through existing file-reading tools.
+Acceptance:
+- A task transitioning =TODO -> STARTED= for the first time gains a
+  =:STARTED:= property; the file round-trips cleanly through the
+  parser.
+- A task transitioning =DONE -> STARTED= (re-open) preserves the
+  original =:STARTED:= value.
+- =:STARTED:= is parsed and serialised as an ordinary property line
+  (no special handling needed).
 
 ** TODO [#C] Retrospective agent-prompt template
 :PROPERTIES:
@@ -176,10 +195,10 @@ through existing file-reading tools.
 :END:
 The agent prompt sent on retrospective scaffolding should:
 
-1. Identify the time window between the task's first =STARTED=
-   transition (if observable) and =CLOSED:=.  When the window cannot
-   be derived, fall back to \"the most recent commits since the task
-   was created\".
+1. Use the task's =:STARTED:= property (when present) as the lower
+   bound of the git window; =CLOSED:= as the upper bound.  Fall back
+   to \"recent commits since the task was created\" when =:STARTED:= is
+   absent.
 2. Run =git log --oneline= over that window scoped to files plausibly
    related to the task; OK to surface all recent commits when scoping
    is uncertain.
@@ -202,29 +221,6 @@ agent reliably produces a usable retrospective draft for simple cases.
   =tasks.changeRecordOnDone= setting, and the unified \"change-record\"
   terminology.  Where the README currently says \"plan file\", update to
   \"change-record\" except where the proactive flow is specifically
-  meant.
+  meant.  Document the =:STARTED:= property semantics.
 - This change-record's =* Implementation= section: brief notes on what
   shipped vs what was deferred (filled in as work completes).
-
-* Open questions
-
-1. *Existing-file behaviour on the retrospective path* :: If the user
-   accepts the path prompt and the file already exists at the
-   suggested path, should the flow append to =* Implementation= (and
-   leave =* Context= alone) or warn?  The proactive flow appends to
-   =* Plan=; the symmetric behaviour for retrospective is to append to
-   =* Implementation=.  My lean: yes, append; never overwrite.
-
-2. *Track first =STARTED= timestamp as a property* :: Worth recording
-   the first =STARTED= transition on the task (e.g. a new =:STARTED:=
-   property, written by the extension on first transition only) so the
-   retrospective git-history scope is exact?  Cheap to add; precise.
-   My lean: yes, add it.
-
-3. *Whether to prompt for CANCELLED tasks* :: Out of scope here, but a
-   plausible second-iteration feature (\"we tried this, here's why we
-   stopped\").  Defer.
-
-4. *Retroactive-scan timing* :: Session-start only, or also when the
-   selected task changes mid-session?  My lean: session start only \u2014
-   mid-session offers would be intrusive.
