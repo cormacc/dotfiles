@@ -1141,32 +1141,19 @@ async function createTask(
 // ── Archive flow ───────────────────────────────────────────────────────
 
 /**
- * Produce a self-contained deep clone of `task` suitable for the archive.
- * Linked plan children are inlined so the archive file doesn't depend on
- * external plan files that may later move or be cleaned up. Heading levels
- * are recomputed from the archive root down.
+ * Produce a copy of `task` suitable for the archive.
+ * Transferred as-is: own children and #+IMPORT: link are preserved.
+ * Runtime-loaded importChildren are stripped; the link remains so the
+ * plan file is still reachable from the archive.
  */
-function flattenForArchive(task: Task, depth: number): Task {
-  const children: Task[] = [];
-  for (const c of task.children) children.push(flattenForArchive(c, depth + 1));
-  for (const c of task.importChildren ?? [])
-    children.push(flattenForArchive(c, depth + 1));
+function taskForArchive(task: Task): Task {
   return {
-    level: depth,
-    status: task.status,
-    priority: task.priority,
-    summary: task.summary,
-    tags: [...task.tags],
-    description: task.description,
-    children,
+    ...task,
     propertyLines: [...task.propertyLines],
-    importPath: null,
     importChildren: undefined,
-    closed: task.closed,
-    sourcePath: task.sourcePath,
-    sourceContent: task.sourceContent,
-    lineNumber: task.lineNumber,
-    endLine: task.endLine,
+    importError: null,
+    sourceRoot: undefined,
+    sourceContent: undefined,
   };
 }
 
@@ -1199,8 +1186,8 @@ function sortArchivedTasks(tasks: Task[]): Task[] {
  *   - Only CLOSED-state (`DONE`/`CANCELLED`) top-level tasks can be archived.
  *     Other statuses are refused to avoid accidentally archiving active work.
  *   - Confirmation dialog via ctx.ui.confirm.
- *   - The whole subtree is archived. Linked plan children are inlined so the
- *     archive is self-contained.
+ *   - The whole subtree is archived as-is. The #+IMPORT: link is preserved;
+ *     plan file contents are not inlined.
  *   - An :ARCHIVED: [timestamp] property is added to the top-level heading.
  *   - Archived entries are sorted by CLOSED time, falling back to ARCHIVED
  *     time when CLOSED is absent.
@@ -1232,9 +1219,9 @@ async function archiveTopLevel(
     return false;
   }
 
-  // Build the archive copy: flatten plan children inline, stamp :ARCHIVED:.
+  // Build the archive copy: transfer task as-is, stamp :ARCHIVED:.
   // Uses CLOSED timestamp if present (fallback: now).
-  const archiveCopy = flattenForArchive(topLevel, 1);
+  const archiveCopy = taskForArchive(topLevel);
   const stamp = topLevel.closed ?? formatOrgTimestamp();
   archiveCopy.propertyLines.push(`:ARCHIVED: [${stamp}]`);
 
