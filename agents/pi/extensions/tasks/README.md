@@ -19,11 +19,11 @@ and archive mechanics.
 
 ### Compact selected-task widget
 
-When a task is marked `:selected:` in `TASKS.org`, a compact widget is reserved
-above the editor. It shows the containing top-level task tree, with the selected
-task highlighted inside it. The widget:
+When a task UUID is recorded in `TASKS.local.org` (via `#+SELECTED: <UUID>`), a
+compact widget is reserved above the editor. It shows the containing top-level
+task tree, with the selected task highlighted inside it. The widget:
 
-- Appears on startup if the file already contains a `:selected:` tag.
+- Appears on startup if `TASKS.local.org` already contains a `#+SELECTED:` entry.
 - Hides while the tasks UI is expanded, then returns after the expanded UI closes.
 - Refreshes automatically when `TASKS.org` or any linked plan file is modified on disk (for example after saving from Emacs via the `e` keybinding). No need to reopen `/tasks`.
 - Does not take keyboard focus, so normal input keeps working.
@@ -76,12 +76,12 @@ The expanded UI is a centered split pane — task tree on the left, details for 
 
 Pressing `s` marks the task under the cursor as the *selected* task. This:
 
-- Writes a `:selected:` tag on that heading in `TASKS.org` (single-select — any prior selection is cleared).
+- Writes `#+SELECTED: <UUID>` to the gitignored `TASKS.local.org` (single-select — any prior selection is cleared).
 - Lets the selected marker move down into subtasks while keeping the selected path visible.
 - Auto-collapses sibling subtrees by default, so the view focuses on the current workstream rather than only the selected leaf.
 - Highlights the selected task with a `★` marker and renders the selected top-level tree with a side bar.
 
-Press `s` again on the selected task to clear the selection and return to the default top-level collapsed view. The `:selected:` tag is hidden from the tag list in the UI — it's conveyed by the marker and highlight instead.
+Press `s` again on the selected task to clear the selection and return to the default top-level collapsed view.
 
 ### Default collapse behaviour
 
@@ -104,7 +104,7 @@ Pressing `A` (shift-a) archives the top-level task containing the cursor's task.
 - Inlines any linked plan children into the archived copy so the archive file is self-contained.
 - Re-sorts `TASKS.ARCHIVE.org` by `CLOSED:` time on each archive operation, falling back to `:ARCHIVED:` time when a task has no `CLOSED:` stamp.
 - Adds an `:ARCHIVED: [timestamp]` property to the archived heading. The timestamp uses the task's `CLOSED` value when present, otherwise the current time.
-- Strips `:selected:` from the archived copy so reloading `TASKS.org` doesn't flip the compact widget onto a no-longer-present task.
+- Clears `TASKS.local.org` selection when the selected task is archived, so the compact widget doesn't point at a task that no longer exists.
 
 Task creation, plan path approval, and archive confirmation prompts temporarily close the expanded UI so input/confirmation dialogs remain visible. After create/archive flows complete or are cancelled, the expanded UI reopens with a refreshed task tree. When creating a new plan, the path prompt is prefilled with the suggested `#+DEFAULT-PLAN-DIR`-based path; accepting it scaffolds and links the file, then sends an agent prompt to develop the plan interactively.
 
@@ -120,8 +120,8 @@ The file uses org-mode heading syntax. A `#+TODO:` declaration is recommended so
 * TODO [#A] Implement authentication :backend:security:
 :PROPERTIES:
 :ID: 01234567-89ab-4def-8123-456789abcdef
-:INCLUDE: [[file:design/log/auth.org]]
 :END:
+#+IMPORT: [[file:design/log/auth.org]]
   Design and implement user auth.
 ** TODO Create user model
 :PROPERTIES:
@@ -156,7 +156,7 @@ The file uses org-mode heading syntax. A `#+TODO:` declaration is recommended so
 - **Summary** — the task title
 - **Tags** — optional, colon-delimited at end of line
 - **ID property** — UUID in the properties drawer, compatible with org-id.el and the org-memory skill protocol. Missing IDs in `TASKS.org` and loaded linked plans are inserted automatically on load.
-- **INCLUDE property** — optional org properties drawer value pointing to a relative org file with a detailed task plan
+- **IMPORT keyword** — optional `#+IMPORT: [[file:path]]` line in the task body (after the `:END:` drawer line) pointing to a relative org file with a detailed task plan or additional tasks. Can also appear at file root level (before any heading) to inject tasks from another file at the top level.
 - **BLOCKED-BY property** — optional property recording why a `WAITING` task is blocked
 - **Description** — any non-heading text below a heading, excluding the properties drawer
 - **DEFAULT-PLAN-DIR keyword** — optional top-level `#+DEFAULT-PLAN-DIR: [[file:./path/to/dir]]` setting used as the default directory for new plan files; defaults to `[[file:./design/log]]` when absent or malformed
@@ -165,18 +165,28 @@ Subtasks nest arbitrarily deep — any TODO heading under another becomes its ch
 
 ### Linked plans
 
-A task can link to a detailed plan using an org properties drawer immediately below the heading:
+A task can link to a detailed plan or task file using a `#+IMPORT:` keyword in the task body:
 
 ```org
 * TODO [#A] Implement authentication :backend:security:
 :PROPERTIES:
 :ID: 01234567-89ab-4def-8123-456789abcdef
-:INCLUDE: [[file:design/log/auth.org]]
 :END:
+#+IMPORT: [[file:design/log/auth.org]]
   Parent task description.
 ```
 
-The `INCLUDE` path is resolved relative to the org file that contains the property. New plan path suggestions use the top-level `#+DEFAULT-PLAN-DIR: [[file:...]]` directory from `TASKS.org`, defaulting to `[[file:./design/log]]` when the keyword is absent or malformed. The linked file is parsed with the same TODO heading syntax as `TASKS.org`; its tasks are injected into the expanded UI as children of the parent task. The details pane shows the plan target, loaded plan-task count, or a missing/unreadable-plan warning. New plan files scaffolded by the extension include `#+TITLE`, `#+DATE`, `#+PARENT_ID` with the parent task's UUID `:ID:`, `#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)`, `* Context`, and `* Plan` sections. If a new plan is created from a task that already has local subtasks, those subtask trees are moved into the linked plan under `* Plan`; the parent task keeps a plain-text bullet summary of the extracted subtasks instead of retaining them as actionable child headings in `TASKS.org`. After scaffolding and linking the file, the extension sends an agent prompt to develop the plan with the user, write the final plan to disk, and offer to open it in Emacs. Status changes made to injected plan tasks are saved back to the linked plan file, not copied into `TASKS.org`. Saves preserve non-task org content such as file metadata, category headings, `* Context`, optional `** Design decisions`, `* Plan`, `* Implementation`, and `* Open questions` sections.
+A `#+IMPORT:` keyword at file root level (before any heading) injects tasks from another file at the top level of the task tree:
+
+```org
+#+TITLE: My Tasks
+#+IMPORT: [[file:work/tasks.org]]
+#+IMPORT: [[file:personal/tasks.org]]
+
+* TODO Some top-level task
+```
+
+The `#+IMPORT:` path is resolved relative to the org file that contains the keyword. New plan path suggestions use the top-level `#+DEFAULT-PLAN-DIR: [[file:...]]` directory from `TASKS.org`, defaulting to `[[file:./design/log]]` when the keyword is absent or malformed. The linked file is parsed with the same TODO heading syntax as `TASKS.org`; its tasks are injected into the expanded UI as children of the parent task. The details pane shows the plan target, loaded plan-task count, or a missing/unreadable-plan warning. New plan files scaffolded by the extension include `#+TITLE`, `#+DATE`, `#+PARENT_ID` with the parent task's UUID `:ID:`, `#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)`, `* Context`, and `* Plan` sections. If a new plan is created from a task that already has local subtasks, those subtask trees are moved into the linked plan under `* Plan`; the parent task keeps a plain-text bullet summary of the extracted subtasks instead of retaining them as actionable child headings in `TASKS.org`. After scaffolding and linking the file, the extension sends an agent prompt to develop the plan with the user, write the final plan to disk, and offer to open it in Emacs. Status changes made to injected plan tasks are saved back to the linked plan file, not copied into `TASKS.org`. Saves preserve non-task org content such as file metadata, category headings, `* Context`, optional `** Design decisions`, `* Plan`, `* Implementation`, and `* Open questions` sections.
 
 The parser is intentionally permissive: actionable task headings may appear anywhere in the linked file. Using a dedicated `* Plan` section is recommended as a convention for readability, but it is not required by the extension.
 
@@ -186,14 +196,15 @@ The extension preserves non-task org content when saving status or selection cha
 
 #### Org-link syntax
 
-The `:INCLUDE:` value can be written as an org link so it's clickable in Emacs (`C-c C-o` on the property value):
+The `#+IMPORT:` value can be written as a plain path or an org link:
 
 ```org
-:INCLUDE: [[file:design/log/auth.org]]
-:INCLUDE: [[file:design/log/auth.org][Auth plan]]
+#+IMPORT: design/log/auth.org
+#+IMPORT: [[file:design/log/auth.org]]
+#+IMPORT: [[file:design/log/auth.org][Auth plan]]
 ```
 
-Both the link form and the plain-path form are parsed identically by the extension. Whichever form the file uses is preserved exactly on round-trip save. New plans created via the `p` keybinding are written in the `[[file:...]]` form so they're clickable in Emacs by default.
+Both forms are parsed identically. Whichever form the file uses is preserved exactly on round-trip save. New plans created via the `p` keybinding are written in the `[[file:...]]` form so they're clickable in Emacs by default (`C-c C-o` on the link).
 
 
 ## Dependencies

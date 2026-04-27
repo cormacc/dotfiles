@@ -9,12 +9,12 @@
 
 ;; Lightweight Emacs-side helpers for the plain-org task-memory protocol used
 ;; by the pi tasks extension.  Maintains stable :ID: properties, single-task
-;; selection via TASKS.local.org, and convenient :INCLUDE: open/create
+;; selection via TASKS.local.org, and convenient #+IMPORT: open/create
 ;; helpers.
 ;;
 ;; Files remain plain org.  Pi reloads via its file watchers; there is no live
 ;; IPC.  All commands operate on the current org buffer using standard org
-;; APIs (`org-id', `org-entry-get/put', org link parsing) so no special
+;; APIs (`org-id', regex search, org link parsing) so no special
 ;; serialization is required.
 ;;
 ;; Activation: `tasks-org-mode' auto-enables on buffers visiting `TASKS.org'
@@ -131,8 +131,8 @@ the responsibility of the pi tasks extension and the agent org-memory skill."
 
 ;;; Plan link parsing
 
-(defun tasks-org--extract-plan-path (raw)
-  "Extract a file path from an :INCLUDE: property value RAW.
+(defun tasks-org--extract-import-path (raw)
+  "Extract a file path from a #+IMPORT: value RAW.
 Handles bare paths, [[file:...]] and [[file:...][label]] forms.
 Search options (e.g. ::heading) are stripped from the extracted path."
   (cond
@@ -142,6 +142,40 @@ Search options (e.g. ::heading) are stripped from the extracted path."
    ((not (string-empty-p (string-trim raw)))
     (string-trim raw))
    (t nil)))
+
+(defun tasks-org--get-import-raw ()
+  "Return the raw #+IMPORT: value from the current heading body, or nil.
+Searches forward from the heading to the next heading boundary."
+  (save-excursion
+    (unless (org-at-heading-p)
+      (org-back-to-heading t))
+    (let ((end (save-excursion (outline-next-heading) (point))))
+      (when (re-search-forward "^[ \t]*#\\+IMPORT:[ \t]*\\(.*\\)" end t)
+        (let ((val (string-trim (match-string-no-properties 1))))
+          (and (not (string-empty-p val)) val))))))
+
+(defun tasks-org--set-import (link-value)
+  "Insert or replace #+IMPORT: in the current heading body.
+LINK-VALUE is the full value to write, e.g. \"[[file:plan.org]]\".
+Inserts after the :END: of the properties drawer (or CLOSED: line,
+or directly after the heading when neither is present)."
+  (save-excursion
+    (unless (org-at-heading-p)
+      (org-back-to-heading t))
+    (let ((end (save-excursion (outline-next-heading) (point))))
+      (if (re-search-forward "^[ \t]*#\\+IMPORT:.*$" end t)
+          (replace-match (format "#+IMPORT: %s" link-value))
+        ;; Insert at the right place: after drawer :END: or CLOSED:, else
+        ;; immediately after the heading line.
+        (goto-char (org-entry-beginning-position))
+        (forward-line 1)
+        (when (looking-at "[ \t]*CLOSED:")
+          (forward-line 1))
+        (when (looking-at "[ \t]*:PROPERTIES:")
+          (while (not (looking-at "[ \t]*:END:"))
+            (forward-line 1))
+          (forward-line 1))
+        (insert (format "#+IMPORT: %s\n" link-value))))))
 
 ;;; Selection helpers — TASKS.local.org scheme
 
@@ -284,7 +318,7 @@ debounce."
 ;;; Plan helpers
 
 (defun tasks-org--plan-link (path)
-  "Return a clickable :INCLUDE: value for the relative PATH."
+  "Return a clickable org-link value for use in #+IMPORT: for the relative PATH."
   (format "[[file:%s]]" path))
 
 (defun tasks-org--slugify (s)
@@ -308,16 +342,16 @@ debounce."
      "* Plan\n")))
 
 (defun tasks-org--open-plan-link (raw source-dir &optional find-fn)
-  "Open the file extracted from RAW :INCLUDE: value, resolved against SOURCE-DIR.
+  "Open the file extracted from RAW #+IMPORT: value, resolved against SOURCE-DIR.
 FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
-  (let* ((path (tasks-org--extract-plan-path raw))
+  (let* ((path (tasks-org--extract-import-path raw))
          (abs (when path (expand-file-name path source-dir))))
     (if (and abs (file-readable-p abs))
         (funcall (or find-fn #'find-file) abs)
       (user-error "Plan file not found: %s" (or abs raw)))))
 
 (defun tasks-org--create-plan-for-current-task (&optional find-fn)
-  "Scaffold a new plan file for the current task and link it via :INCLUDE:.
+  "Scaffold a new plan file for the current task and link it via #+IMPORT:.
 FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
   (let* ((title (org-get-heading t t t t))
          (slug (tasks-org--slugify title))
@@ -336,33 +370,33 @@ FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
         (insert (tasks-org--scaffold-plan title))))
     (let* ((source-dir (file-name-directory (or buffer-file-name "")))
            (rel (file-relative-name chosen source-dir)))
-      (org-entry-put nil "INCLUDE" (tasks-org--plan-link rel))
+      (tasks-org--set-import (tasks-org--plan-link rel))
       (tasks-org--ensure-id-at-heading))
     (save-buffer)
     (funcall (or find-fn #'find-file) chosen)))
 
 ;;;###autoload
 (defun tasks-org-open-plan (&optional find-fn)
-  "Open the :INCLUDE: linked from the current task, creating one if absent.
+  "Open the #+IMPORT: linked from the current task, creating one if absent.
 FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
   (interactive)
   (unless (tasks-org--at-task-heading-p)
     (user-error "Point is not on an actionable task heading"))
-  (let ((plan-raw (org-entry-get nil "INCLUDE"))
+  (let ((import-raw (tasks-org--get-import-raw))
         (source-dir (file-name-directory (or buffer-file-name ""))))
-    (if (and plan-raw (not (string-empty-p (string-trim plan-raw))))
-        (tasks-org--open-plan-link plan-raw source-dir find-fn)
+    (if import-raw
+        (tasks-org--open-plan-link import-raw source-dir find-fn)
       (tasks-org--create-plan-for-current-task find-fn))))
 
 ;;;###autoload
 (defun tasks-org-open-plan-other-window ()
-  "Open the :INCLUDE: linked from the current task in another window."
+  "Open the #+IMPORT: linked from the current task in another window."
   (interactive)
   (tasks-org-open-plan #'find-file-other-window))
 
 ;;;###autoload
 (defun tasks-org-jump-to-parent-task ()
-  "Jump to the task in TASKS.org whose :INCLUDE: links to the current buffer."
+  "Jump to the task in TASKS.org whose #+IMPORT: links to the current buffer."
   (interactive)
   (unless buffer-file-name
     (user-error "Current buffer is not visiting a file"))
@@ -375,9 +409,9 @@ FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
       (save-excursion
         (goto-char (point-min))
         (while (and (not found-point)
-                    (re-search-forward "^[ \t]*:INCLUDE:[ \t]*\\(.*\\)" nil t))
+                    (re-search-forward "^[ \t]*#\\+IMPORT:[ \t]*\\(.*\\)" nil t))
           (let* ((raw (string-trim (match-string 1)))
-                 (path (tasks-org--extract-plan-path raw))
+                 (path (tasks-org--extract-import-path raw))
                  (abs (when path (expand-file-name path tasks-dir))))
             (when (and abs (string= (expand-file-name abs) current-abs))
               (org-back-to-heading t)
@@ -406,7 +440,7 @@ the org local-leader prefix `, ;'.")
 
 When enabled, exposes commands for ensuring stable :ID: properties,
 toggling task selection via TASKS.local.org, and opening or creating
-:INCLUDE: linked files.  Highlights the currently selected task heading
+#+IMPORT: linked files.  Highlights the currently selected task heading
 using `tasks-org-selected-face' and watches TASKS.local.org for
 external changes (e.g. from the pi extension)."
   :lighter " Tasks"

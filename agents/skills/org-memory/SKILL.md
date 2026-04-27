@@ -1,18 +1,18 @@
 ---
 name: org-memory
-description: "Use when maintaining or resuming project work stored in TASKS.org and included org task files. Covers the org task-memory protocol: TODO states, IDs, INCLUDE links, status discipline, archiving, and resume workflows."
+description: "Use when maintaining or resuming project work stored in TASKS.org and included org task files. Covers the org task-memory protocol: TODO states, IDs, IMPORT links, status discipline, archiving, and resume workflows."
 ---
 
 # Org Memory
 Use this skill when the user asks to work from, update, resume, review, tasks.
 The canonical project memory index is `TASKS.org` in the project root.
-A task may include additional tasks from another org file using its `:INCLUDE:` property.
+A task may include additional tasks from another org file using a `#+IMPORT:` keyword.
 
 ## Responsibility boundary
 This skill owns the durable file protocol:
 - `TASKS.org` and included org task files,
 - supported TODO states and priorities,
-- `:ID:`, `:INCLUDE:`, `:BLOCKED-BY:` conventions,
+- `:ID:`, `#+IMPORT:`, `:BLOCKED-BY:` conventions,
 - per-contributor selection state in `TASKS.local.org`,
 - task notes, status discipline, archiving, bootstrap, and resume workflows.
 
@@ -33,8 +33,8 @@ Actionable tasks are org headings:
 ** TODO [#A] Implement feature :area:
 :PROPERTIES:
 :ID: 01234567-89ab-4def-8123-456789abcdef
-:INCLUDE: [[file:design/log/2026-04-25-feature.org]]
 :END:
+#+IMPORT: [[file:design/log/2026-04-25-feature.org]]
 ```
 
 Rules:
@@ -43,10 +43,13 @@ Rules:
 - Tags are semantic categories. There are no reserved operational tags.
 - Every task/subtask in `TASKS.org` and loaded included files must have a UUID v4
   `:ID:` property.
-- `:INCLUDE:` points to another org file in the same task-memory format. Use
-  clickable `[[file:...]]` links for new values; preserve existing bare or
+- `#+IMPORT:` points to another org file in the same task-memory format.
+  Place the keyword on its own line in the task body (after the `:END:` of
+  the properties drawer, before any description text), or at file root level
+  (before any heading) to inject tasks from another file at the root.
+  Use clickable `[[file:...]]` links for new values; preserve existing bare or
   labelled links when already present. Resolve relative paths against the file
-  that declares the property.
+  that contains the keyword.
 - Included tasks may be displayed as children of the including task by tooling,
   but they remain ordinary org files without tooling.
 
@@ -61,8 +64,8 @@ Rules:
 ** TODO [#A] Implement authentication :backend:security:
 :PROPERTIES:
 :ID: 01234567-89ab-4def-8123-456789abcdef
-:INCLUDE: [[file:design/log/2026-04-25-authentication.org]]
 :END:
+#+IMPORT: [[file:design/log/2026-04-25-authentication.org]]
 [2026-04-25 Sat] Initial scope captured from user request.
 
 *** TODO [#B] Define password reset acceptance criteria :backend:
@@ -113,7 +116,7 @@ Protocol rules:
 2. Locate the active task: read `TASKS.local.org` for a `#+SELECTED: <UUID>` pointer
    and resolve it by `:ID:` match against the task graph; fall back to a user-named
    task, the first `STARTED` task, or context.
-3. Follow its `:INCLUDE:` link if present.
+3. Follow its `#+IMPORT:` link if present.
 4. If the included file is a plan, resume the first `STARTED` task in it, or the
    first actionable `TODO` task.
 5. Read nearby task notes plus relevant included-file context/implementation

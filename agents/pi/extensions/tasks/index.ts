@@ -1,14 +1,14 @@
 /**
- * Tasks Extension — track project tasks using org-mode TODO syntax.
+ * Tasks Extension - track project tasks using org-mode TODO syntax.
  *
  * Reads TASKS.org from the project root and displays tasks in an expandable tree UI.
  *
  * Commands:
- *   /tasks — expand the tasks UI
- *   /tasks new — create a new top-level task
+ *   /tasks - expand the tasks UI
+ *   /tasks new - create a new top-level task
  *
  * Keybindings (via the keybindings extension):
- *   <leader> t t — expand the tasks UI
+ *   <leader> t t - expand the tasks UI
  *
  * Persistent UI:
  *   When a task UUID is recorded in TASKS.local.org (#+SELECTED: <UUID>), a
@@ -104,7 +104,7 @@ function collectWatchPaths(tasks: Task[], cwd: string): Set<string> {
     for (const t of ts) {
       if (t.sourcePath) paths.add(t.sourcePath);
       walk(t.children);
-      if (t.planChildren) walk(t.planChildren);
+      if (t.importChildren) walk(t.importChildren);
     }
   };
   walk(tasks);
@@ -129,7 +129,7 @@ async function readSelectedId(cwd: string): Promise<string | null> {
 
 /**
  * Write the selected task UUID to TASKS.local.org atomically (write-then-rename).
- * Pass null to deselect — the file is retained with an empty #+SELECTED: keyword
+ * Pass null to deselect - the file is retained with an empty #+SELECTED: keyword
  * so it remains in place (e.g. for version-control ignore-list purposes).
  */
 export async function writeSelectedId(
@@ -210,7 +210,15 @@ async function loadTasks(cwd: string): Promise<Task[]> {
   const sourcePath = join(cwd, TASKS_FILE);
   try {
     const content = await readFile(sourcePath, "utf-8");
-    const tasks = parseTasks(content, { sourcePath });
+    const { tasks, fileImports } = parseTasks(content, { sourcePath });
+    for (const fp of fileImports) {
+      const absPath = isAbsolute(fp) ? fp : resolve(dirname(sourcePath), fp);
+      try {
+        const ic = await readFile(absPath, "utf-8");
+        const { tasks: it } = parseTasks(ic, { sourcePath: absPath });
+        tasks.push(...it);
+      } catch { /* ignore missing or unreadable import files */ }
+    }
     await loadLinkedPlans(tasks, sourcePath);
     try {
       await backfillMissingIds(cwd, tasks);
@@ -230,28 +238,37 @@ async function loadLinkedPlans(
 ): Promise<void> {
   const sourceDir = dirname(sourcePath);
   for (const task of tasks) {
-    if (task.planPath) {
-      const planPath = isAbsolute(task.planPath)
-        ? task.planPath
-        : resolve(sourceDir, task.planPath);
-      const cached = cache.get(planPath);
+    if (task.importPath) {
+      const importPath = isAbsolute(task.importPath)
+        ? task.importPath
+        : resolve(sourceDir, task.importPath);
+      const cached = cache.get(importPath);
       if (cached) {
-        task.planChildren = cached.tasks;
-        task.planError = cached.error;
+        task.importChildren = cached.tasks;
+        task.importError = cached.error;
       } else {
         try {
-          const content = await readFile(planPath, "utf-8");
-          const planTasks = parseTasks(content, { sourcePath: planPath });
-          const entry = { tasks: planTasks, error: null };
-          cache.set(planPath, entry);
-          await loadLinkedPlans(planTasks, planPath, cache);
-          task.planChildren = planTasks;
-          task.planError = null;
+          const content = await readFile(importPath, "utf-8");
+          const { tasks: importTasks, fileImports } = parseTasks(content, { sourcePath: importPath });
+          const importDir = dirname(importPath);
+          for (const fp of fileImports) {
+            const absPath = isAbsolute(fp) ? fp : resolve(importDir, fp);
+            try {
+              const nc = await readFile(absPath, "utf-8");
+              const { tasks: nt } = parseTasks(nc, { sourcePath: absPath });
+              importTasks.push(...nt);
+            } catch { /* ignore */ }
+          }
+          const entry = { tasks: importTasks, error: null };
+          cache.set(importPath, entry);
+          await loadLinkedPlans(importTasks, importPath, cache);
+          task.importChildren = importTasks;
+          task.importError = null;
         } catch (err) {
           const error = (err as Error).message;
-          task.planChildren = [];
-          task.planError = error;
-          cache.set(planPath, { tasks: task.planChildren, error });
+          task.importChildren = [];
+          task.importError = error;
+          cache.set(importPath, { tasks: task.importChildren, error });
         }
       }
     }
@@ -269,7 +286,7 @@ async function backfillMissingIds(cwd: string, tasks: Task[]): Promise<void> {
         changedRoots.set(sourcePath, task.sourceRoot ?? tasks);
       }
       visit(task.children);
-      if (task.planChildren) visit(task.planChildren);
+      if (task.importChildren) visit(task.importChildren);
     }
   };
   visit(tasks);
@@ -282,7 +299,7 @@ async function backfillMissingIds(cwd: string, tasks: Task[]): Promise<void> {
 }
 
 function taskChildren(task: Task): Task[] {
-  return [...task.children, ...(task.planChildren ?? [])];
+  return [...task.children, ...(task.importChildren ?? [])];
 }
 
 /**
@@ -292,7 +309,7 @@ export function findSelectedTask(
   tasks: Task[],
   selectedId: string | null = null,
 ): Task | null {
-  return findTaskById(tasks, selectedId);
+  return selectedId ? findTaskById(tasks, selectedId) : null;
 }
 
 function findTopLevelRoot(tasks: Task[], target: Task): Task | null {
@@ -343,8 +360,8 @@ function buildCompactLines(
   if (!selected) return undefined;
   const selectionRoot = findTopLevelRoot(tasks, selected) ?? selected;
 
-  const hasLinkedPlan = !!selectionRoot.planPath &&
-    (selectionRoot.planChildren?.length ?? 0) > 0;
+  const hasLinkedPlan = !!selectionRoot.importPath &&
+    (selectionRoot.importChildren?.length ?? 0) > 0;
   const headerLines = [
     border(width, theme),
     formatTaskLine(
@@ -357,7 +374,7 @@ function buildCompactLines(
   if (hasLinkedPlan) {
     headerLines.push(
       truncateToWidth(
-        theme.fg("borderMuted", `  ${formatPlanLabel(selectionRoot.planPath!)}`),
+        theme.fg("borderMuted", `  ${formatPlanLabel(selectionRoot.importPath!)}`),  
         width,
       ),
     );
@@ -403,7 +420,7 @@ function buildCompactLines(
   if (hiddenCompleted > 0) {
     const label = hiddenCompleted === 1 ? "subtask" : "subtasks";
     lines.push(
-      theme.fg("dim", `  … ${hiddenCompleted} completed ${label}`),
+      theme.fg("dim", `  ... ${hiddenCompleted} completed ${label}`),
     );
   }
 
@@ -420,7 +437,7 @@ function buildCompactLines(
 
   if (hiddenMore > 0) {
     const label = hiddenMore === 1 ? "subtask" : "subtasks";
-    lines.push(theme.fg("dim", `  … ${hiddenMore} more ${label}`));
+    lines.push(theme.fg("dim", `  ... ${hiddenMore} more ${label}`));
   }
 
   return lines;
@@ -539,7 +556,7 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      // `/tasks new` — create a new top-level task without opening the overlay.
+      // `/tasks new` - create a new top-level task without opening the overlay.
       if (args?.trim() === "new") {
         const tasks = await loadTasks(ctx.cwd);
         const created = await createTask(ctx, tasks, ctx.cwd, null, null);
@@ -739,7 +756,7 @@ function joinPlanDir(dir: string, filename: string): string {
 }
 
 /**
- * Suggest a plan path for a task that has no :INCLUDE: yet.
+ * Suggest a plan path for a task that has no #+IMPORT: yet.
  * Uses `#+DEFAULT-PLAN-DIR: [[file:...]]` from TASKS.org as the plan directory, falling
  * back to `./design/log` when unspecified or malformed.
  */
@@ -801,8 +818,8 @@ function cloneTaskForPlan(task: Task, level: number): Task {
     tags: [...task.tags],
     propertyLines: [...task.propertyLines],
     children: task.children.map((child) => cloneTaskForPlan(child, level + 1)),
-    planChildren: undefined,
-    planError: null,
+    importChildren: undefined,
+    importError: null,
     sourcePath: undefined,
     sourceContent: undefined,
     sourceRoot: undefined,
@@ -939,7 +956,7 @@ function buildPlanDevelopmentPrompt(
     `Plan property: [[file:${planRelToSource}]]`,
     `Plan file: ${absPlan}`,
     "",
-    "The tasks extension has already attached the :INCLUDE: property and scaffolded the plan file.",
+    "The tasks extension has already attached the #+IMPORT: keyword and scaffolded the plan file.",
     absorbedSubtasks
       ? "Existing TASKS.org subtasks were moved into the linked plan under * Plan, and the parent task now retains a plain-text summary of the extracted subtasks."
       : "The parent task had no local subtasks to absorb.",
@@ -951,9 +968,9 @@ function buildPlanDevelopmentPrompt(
 /**
  * Resolve or create a plan for the given task, then open it in Emacs.
  *
- * If the task has a `:INCLUDE:` property: open that file.
+ * If the task has a `#+IMPORT:` keyword: open that file.
  * Otherwise: prompt for a filename (seeded from the task summary and today's
- * date), scaffold the file, attach `:INCLUDE:` to the task, save the source
+ * date), scaffold the file, attach `#+IMPORT:` to the task body, save the source
  * org file, then ask the agent to develop the plan with the user.
  */
 async function handlePlanEdit(
@@ -965,10 +982,10 @@ async function handlePlanEdit(
   const sourceDir = dirname(sourcePath);
 
   // ── Open existing plan ──
-  if (task.planPath) {
-    const absPlan = isAbsolute(task.planPath)
-      ? task.planPath
-      : resolve(sourceDir, task.planPath);
+  if (task.importPath) {
+    const absPlan = isAbsolute(task.importPath)
+      ? task.importPath
+      : resolve(sourceDir, task.importPath);
     if (!(await ensureEmacsServer(getEmacsOptions(pi)))) {
       ctx.ui.notify("Could not reach or start Emacs server", "error");
       return;
@@ -989,8 +1006,8 @@ async function handlePlanEdit(
 
   const originalChildren = task.children;
   const originalDescription = task.description;
-  const originalPlanPath = task.planPath;
-  const originalPlanRaw = task.planRaw;
+  const origImportPath = task.importPath;
+  const origImportRaw = task.importRaw;
   const extractedPlanTasks = cloneSubtasksForPlan(task);
 
   try {
@@ -1008,14 +1025,14 @@ async function handlePlanEdit(
       await writeFile(absPlan, scaffoldPlan(task, extractedPlanTasks), "utf-8");
     }
 
-    // Attach :INCLUDE: to the in-memory task and save its source file.
-    // Write the link form so the property is clickable in Emacs (C-c C-o)
+    // Attach #+IMPORT: to the in-memory task body and save its source file.
+    // Write the link form so the keyword is clickable in Emacs (C-c C-o)
     // while remaining parseable by the extension. The parser preserves this
     // raw value on round-trip. If the task already had local subtasks, move
     // those task headings into the new plan and leave a plain-text summary on
     // the parent so TASKS.org stays high-level without losing browse context.
-    task.planPath = planRelToSource;
-    task.planRaw = `[[file:${planRelToSource}]]`;
+    task.importPath = planRelToSource;
+    task.importRaw = `[[file:${planRelToSource}]]`;
     if (originalChildren.length > 0) {
       task.description = appendExtractedSubtaskList(
         originalDescription,
@@ -1030,8 +1047,8 @@ async function handlePlanEdit(
   } catch (err) {
     task.children = originalChildren;
     task.description = originalDescription;
-    task.planPath = originalPlanPath;
-    task.planRaw = originalPlanRaw;
+    task.importPath = origImportPath;
+    task.importRaw = origImportRaw;
     ctx.ui.notify(
       `Failed to create plan: ${(err as Error).message}`,
       "error",
@@ -1084,9 +1101,9 @@ async function createTask(
     description: "",
     children: [],
     propertyLines: [`:ID: ${randomUUID()}`],
-    planPath: null,
-    planRaw: null,
-    planChildren: undefined,
+    importPath: null,
+    importRaw: null,
+    importChildren: undefined,
     closed: null,
     sourcePath: join(cwd, TASKS_FILE),
     sourceContent: tasks.find((t) => t.sourceContent)?.sourceContent,
@@ -1132,7 +1149,7 @@ async function createTask(
 function flattenForArchive(task: Task, depth: number): Task {
   const children: Task[] = [];
   for (const c of task.children) children.push(flattenForArchive(c, depth + 1));
-  for (const c of task.planChildren ?? [])
+  for (const c of task.importChildren ?? [])
     children.push(flattenForArchive(c, depth + 1));
   return {
     level: depth,
@@ -1143,8 +1160,8 @@ function flattenForArchive(task: Task, depth: number): Task {
     description: task.description,
     children,
     propertyLines: [...task.propertyLines],
-    planPath: null,
-    planChildren: undefined,
+    importPath: null,
+    importChildren: undefined,
     closed: task.closed,
     sourcePath: task.sourcePath,
     sourceContent: task.sourceContent,
@@ -1232,7 +1249,7 @@ async function archiveTopLevel(
       : "";
     const archivedTasks = existing.trim() === ""
       ? []
-      : parseTasks(existing, { sourcePath: archivePath });
+      : parseTasks(existing, { sourcePath: archivePath }).tasks;
     archivedTasks.push(archiveCopy);
     const sortedArchive = sortArchivedTasks(archivedTasks);
     await writeFile(archivePath, serializeTasks(sortedArchive), "utf-8");

@@ -170,7 +170,7 @@ export class TasksOverlay {
   }
 
   private taskChildren(task: Task): Task[] {
-    return [...task.children, ...(task.planChildren ?? [])];
+    return [...task.children, ...(task.importChildren ?? [])];
   }
 
   // ── Input ───────────────────────────────────────────────────────────
@@ -473,7 +473,7 @@ export class TasksOverlay {
             roots.set(task.sourcePath, task.sourceRoot);
           }
           collect(task.children);
-          if (task.planChildren) collect(task.planChildren);
+          if (task.importChildren) collect(task.importChildren);
         }
       };
       collect(this.tasks);
@@ -663,16 +663,16 @@ export class TasksOverlay {
       rightLines.push(` ${colorStatus(task.status)} ${th.fg("accent", th.bold(task.summary))}`);
       rightLines.push("");
 
-      const planLabel = task.planRaw ?? task.planPath;
+      const planLabel = task.importRaw ?? task.importPath;
       if (planLabel) {
         rightLines.push(th.fg("accent", " Plan"));
         for (const l of wrapTextWithAnsi(` ${planLabel}`, wrapWidth)) {
           rightLines.push(th.fg("text", l));
         }
-        if (task.planError) {
-          rightLines.push(th.fg("warning", ` Missing/unreadable: ${task.planError}`));
+        if (task.importError) {
+          rightLines.push(th.fg("warning", ` Missing/unreadable: ${task.importError}`));
         } else {
-          const n = task.planChildren?.length ?? 0;
+          const n = task.importChildren?.length ?? 0;
           const label = n === 1 ? "task" : "tasks";
           rightLines.push(th.fg("dim", ` ${n} linked plan ${label} loaded`));
         }
