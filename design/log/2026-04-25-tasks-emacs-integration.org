@@ -37,13 +37,16 @@ existing file watchers rather than requiring a new live protocol initially.
   pi's existing file watchers. Any direct Emacs↔pi notification mechanism is a
   later enhancement, not a prerequisite.
 - Spacemacs key prefix :: Bind minor-mode commands under the org local-leader
-  prefix `, K` (local-leader `K`) in the `org-user` layer. Originally proposed
-  as `, p`, but Spacemacs binds `, p` directly to `org-priority`, which
-  prevents it from being reused as a prefix; capital `K` is the chosen
-  fallback.
-- Activation by filename match :: `tasks-org-mode` auto-enables on buffers
-  visiting `TASKS.org` or any `*.org` under a project's `design/log/`
-  directory. Manual `M-x tasks-org-mode` remains available for other buffers.
+  prefix `, ;` in the `org-user` layer. Originally `, p` (blocked by
+  `org-priority`), then `, K` (required ugly unbinding of `org-shiftup`).
+  `, ;` is free, requires no unbinding, and is reachable without Shift.
+  See the keybinding rework task (=b1c8e7a3=) for the full evaluation.
+- Activation by filename match and keyword :: `tasks-org-mode` auto-enables
+  on buffers matching `tasks-org-auto-enable-paths` (project-relative;
+  defaults: `TASKS.org`, `design/log/*.org`) OR containing a
+  `#+DEFAULT-PLAN-DIR:` keyword. The keyword check fires first and covers
+  task-memory root files opened from outside their project root. Manual
+  `M-x tasks-org-mode` remains available for other buffers.
 - Project root via projectile :: Use `projectile-project-root` to locate the
   project root (and therefore `TASKS.org` and the plans directory) from any
   buffer. Fall back to the buffer's directory only when projectile cannot
@@ -52,6 +55,15 @@ existing file watchers rather than requiring a new live protocol initially.
   plan file only. Moving local subtasks into the new plan (preserving IDs and
   leaving a parent summary) is non-trivial and tracked as a separate
   workstream rather than v1 scope.
+- ID backfill is not an Emacs responsibility :: The pi tasks extension
+  backfills missing =:ID:= properties on load; the agent org-memory skill
+  does the same on resume. Duplicating that in Emacs (as public commands or a
+  save hook) adds noise without value for the common workflow. The only
+  Emacs-side ID assignment is the internal call in =tasks-org--create-plan-for-current-task=
+  which must stamp a new ID before pi sees the file for the first time.
+  Public =tasks-org-ensure-id= / =tasks-org-backfill-ids-in-buffer= commands
+  and the =tasks-org-save-backfill-ids= customisation were removed
+  post-validation (2026-04-27).
 
 * Plan
 
@@ -106,7 +118,7 @@ Acceptance criteria:
 :END:
 Wrap `org-entry-get`, `org-entry-put`, and org-id facilities where appropriate.
 Avoid custom parsing when org APIs can safely handle the operation.
-*** STARTED [#B] Validate ID helpers on TASKS.org and linked plans :testing:
+*** DONE [#B] Validate ID helpers on TASKS.org and linked plans :testing:
 :PROPERTIES:
 :ID: c98342fd-9292-47de-9d16-e0c3b2fdb3e0
 :END:
@@ -185,11 +197,13 @@ Acceptance criteria:
 - README lists commands and keybindings.
 - README documents `:ID:`, `:selected:`, `:PLAN:`, and `#+PLANS` conventions.
 - README notes that sync is currently save/file-watcher based.
-** STARTED [#B] Validate transparent Emacs/pi workflow :verification:
+** DONE [#B] Validate transparent Emacs/pi workflow :verification:
 :PROPERTIES:
 :ID: 437d6716-1135-4459-ad0f-ee9f88eff294
 :END:
 Run an end-to-end smoke test using normal org editing plus the new helpers.
+
+[2026-04-27 Sun] All acceptance criteria passed via manual validation.
 
 Acceptance criteria:
 - Open `TASKS.org` in Emacs, enable/use `tasks-org-mode`, and ensure an ID on a
@@ -202,7 +216,7 @@ Acceptance criteria:
 - Verify ordinary org editing commands still behave normally.
 - Record any follow-up work as new tasks rather than expanding this initial
   implementation beyond the transparent-helper scope.
-** TODO [#C] Rework tasks-org Spacemacs keybinding strategy :emacs:ui:deferred:
+** DONE [#C] Rework tasks-org Spacemacs keybinding strategy :emacs:ui:
 :PROPERTIES:
 :ID: b1c8e7a3-9f4d-4c2e-a7d3-8b2f1c0e9d4a
 :END:
@@ -232,8 +246,33 @@ Candidate approaches to evaluate:
   which prefixes are designated for layer extension).
 - Accept the current scheme as intentional and document the trade-off.
 
+[2026-04-27 Sun] Adopted =, ;= as the prefix. =;= is free in the Spacemacs
+org layer, reachable without Shift, and requires no unbinding of existing
+bindings. The =with-eval-after-load 'org= timing workaround was removed
+entirely. Candidate approaches evaluated and rejected: =SPC a t= (global
+leader, too many keystrokes for frequent use), single free capital letters
+(non-mnemonic). =;= is non-mnemonic too but is the most ergonomic free key.
+
 Not blocking v1. Revisit when the package is stable enough that a breaking
 key change is acceptable, or before sharing the package beyond personal use.
+
+** DONE [#D] Add convenience keybinding
+:PROPERTIES:
+:ID: ddb2529d-6588-40ed-b4ac-81bcb6c31765
+:END:
+[2026-04-27 Sun] Implemented.
+
+- =, ; P= (=tasks-org-open-plan-other-window=) :: Threads `find-fn` through
+  =tasks-org--open-plan-link= and =tasks-org--create-plan-for-current-task=
+  as an optional parameter (defaulting to =#'find-file=).
+  =tasks-org-open-plan= accepts the same optional arg; the new command
+  passes =#'find-file-other-window=.
+- =, ; u= (=tasks-org-jump-to-parent-task=) :: Searches TASKS.org for a
+  =:PLAN:= property whose resolved absolute path matches the current
+  buffer's file; jumps to that heading via =find-file-noselect= +
+  =org-back-to-heading= + =org-show-entry=. Only searches TASKS.org
+  (not nested plan files); sufficient for the common case where plan
+  files are linked directly from the task root.
 
 * Implementation
 
@@ -264,51 +303,49 @@ v1 implementation summary (2026-04-25):
   =org-set-tags= to mutate, and saves. =tasks-org-toggle-selected= clears
   before applying so single-selection is always enforced.
 - Plan helpers: =tasks-org--extract-plan-path= recognises bare paths,
-  =[[file:...]]=, and =[[file:...][label]]= forms. Plan creation always
-  writes the clickable =[[file:...]]= form via =org-entry-put= and ensures
-  the source task has an :ID: before saving. Subtask absorption deliberately
-  not implemented.
+  =[[file:...]]=, and =[[file:...][label]]= forms; =::search-option= suffixes
+  are stripped before resolving the file path (post-v1 fix, 2026-04-27).
+  Plan creation always writes the clickable =[[file:...]]= form via
+  =org-entry-put= and ensures the source task has an :ID: before saving.
+  Subtask absorption deliberately not implemented.
 - Save hook: =tasks-org--maybe-backfill-on-save= is registered buffer-locally
   by =tasks-org-mode= but only acts when =tasks-org-save-backfill-ids= is
   non-nil (off by default).
 
-Key-binding map (Spacemacs local-leader =, K=):
+Key-binding map (Spacemacs local-leader =, ;=):
 
 | Key   | Command                            |
 |-------+------------------------------------|
-| , K s | tasks-org-toggle-selected          |
-| , K i | tasks-org-ensure-id                |
-| , K I | tasks-org-backfill-ids-in-buffer   |
-| , K p | tasks-org-open-plan                |
-| , K t | tasks-org-jump-to-tasks            |
+| , ; s | tasks-org-toggle-selected          |
+| , ; p | tasks-org-open-plan                |
+| , ; P | tasks-org-open-plan-other-window   |
+| , ; t | tasks-org-jump-to-parent-task      |
 
-* Open questions
+* Open questions (resolved 2026-04-27)
 
-Batch-review items collected during v1 implementation. Resolve before/after
-interactive validation (=437d6716=).
+All resolved after manual end-to-end validation (=437d6716=).
 
-- Save-time ID backfill scope :: Currently exposed as a customisation
-  (=tasks-org-save-backfill-ids=) defaulting to =nil=. Decide whether to
-  enable it by default for buffers that match =tasks-org-auto-enable-paths=,
-  enable globally, leave opt-in, or remove the save hook entirely in favour
-  of explicit commands.
-- Plan link parser scope :: =tasks-org--extract-plan-path= uses a regex that
-  captures everything between =file:= and the closing =]=. Org link forms
-  with search options (=[[file:foo.org::heading]]=) will have the =::heading=
-  included in the path and fail to open. Decide whether to (a) accept this
-  v1 limitation, (b) strip search options before resolving the file, or
-  (c) switch to =org-link-open-from-string= / =org-element-link-parser= for a
-  fully org-aware parse.
-- Activation pattern coverage :: =tasks-org-auto-enable-paths= matches paths
-  relative to the project root. Files outside the project (e.g. a plan file
-  visited via an absolute path from outside its repo) won't auto-enable.
-  Decide whether to (a) accept the project-only limitation, (b) also try a
-  match against =buffer-file-name= directly, or (c) gate activation on the
-  presence of a =#+PLANS:= or =#+TODO:= keyword in the buffer.
-- Buffer cleanup correctness :: =tasks-org--clear-selected-everywhere= kills
-  buffers it opened itself but keeps pre-existing visiting buffers. Verify
-  during interactive testing that this does not leave the user with stale
-  modified buffers if a save fails partway.
-- Subtask absorption follow-up :: Deferred per design decisions. When ready,
-  open as a separate workstream with its own plan; coordinate with the pi
-  tasks extension's parser so behaviour matches across editor and CLI.
+- Save-time ID backfill scope :: *Removed entirely (2026-04-27).* The pi
+  tasks extension and agent org-memory skill already backfill IDs
+  automatically; duplicating the responsibility in Emacs is redundant.
+  =tasks-org-ensure-id=, =tasks-org-backfill-ids-in-buffer=, the save hook,
+  and the =tasks-org-save-backfill-ids= customisation were all removed.
+  See the Context design-decisions section for rationale.
+- Plan link parser scope :: *Strip search options (option b).* Added a
+  =replace-regexp-in-string= call in =tasks-org--extract-plan-path= to drop
+  =::...= suffixes before resolving the file path. Handles all realistic
+  =:PLAN:= values without pulling in =org-element= for link parsing.
+  Remaining edge case (label text containing =]=) accepted as negligible.
+- Activation pattern coverage :: *Keyword-gated variant of option (c).*
+  Added =tasks-org--has-plan-dir-keyword-p= which fires before the
+  project-relative path check. =#+DEFAULT-PLAN-DIR:= is specific to the
+  task-memory protocol so the trigger is tight with no false positives.
+  Files outside the project that lack the keyword can still use
+  =M-x tasks-org-mode= manually.
+- Buffer cleanup correctness :: *Validated.* Interactive testing confirmed
+  that =tasks-org--clear-selected-everywhere= correctly kills only the buffers
+  it opened itself and leaves pre-existing visiting buffers intact. No stale
+  modified-buffer issue observed.
+- Subtask absorption follow-up :: *Tracked as separate workstream.* A TODO
+  task has been added to =TASKS.org= for future implementation, to be
+  coordinated with the pi tasks extension's parser.
