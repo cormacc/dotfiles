@@ -48,6 +48,17 @@ is semantically incoherent across the team (only one person can be "selected").
 Move selection to a gitignored =TASKS.local.org= using top-level
 =#+SELECTED: <UUID>= metadata; update the org-memory skill, the pi tasks
 extension, and the tasks-org Emacs package to read/write the new location.
+** TODO [#B] Update org-memory skill to prompt to generate an implementation report for tasks without a plan
+:PROPERTIES:
+:ID: 9f233338-833b-43c1-81d2-e413a536d586
+:END:
+I.e. if we just implement a simple task that didn't need formal planning, useful to log an implementation report anyway...
+** TODO [#C] Consider whether to rename the 'org-memory' skill to just 'tasks'
+:PROPERTIES:
+:ID: ce69ef5e-5967-4623-a2e3-f22e0bd1a745
+:END:
+Currently we've got 'org-memory' and 'plan' -- maybe more useful to refer to 'tasks' and 'plan', and refer to the combination as org-memory?
+
 ** TODO [#C] Add some sort of Jira integration for the tasks extension
 :PROPERTIES:
 :ID: 0276a6c7-0ca8-4c39-a90a-05587ad64698
