@@ -3,7 +3,7 @@
 #+LANGUAGE: en
 #+DATE: 2026-04-25
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
-#+DEFAULT-PLAN-DIR: [[file:./design/log]]
+#+DEFAULT_PLAN_DIR: [[file:./design/log]]
 
 
 # EXPORT SETUP
@@ -39,16 +39,11 @@ Some introductory text
 :PROPERTIES:
 :ID: 6bee9f80-d1b5-4121-ab9c-f795e4884d3e
 :END:
+#+IMPORT: [[file:design/log/2026-04-27-local-tasks.org]]
 If TASKS.local.org includes tasks, consider these local/draft/gitignored tasks.
 Not checked in, but surfaced in the extension UI.
 Update task extension and emacs plugins to include publish/unpublish bindings -- promoting
 a local task from TASKS.local.org and vice versa.
-** DONE [#C] Replace :INCLUDE: drawer property with #+IMPORT: keyword
-CLOSED: [2026-04-27 Mon 21:53]
-:PROPERTIES:
-:ID: 9adb8c66-8aba-4e11-9922-70d6225f5a0e
-:END:
-#+IMPORT: [[file:design/log/2026-04-27-import-keyword.org]]
 ** TODO [#B] Update org-memory skill to prompt to generate an implementation report for tasks without a plan
 :PROPERTIES:
 :ID: 9f233338-833b-43c1-81d2-e413a536d586
@@ -82,15 +77,6 @@ Ideally we'd be able to pull an item from Jira and create a task here...
 Update the tasks extension and related skills to allow us to reference jira issue types.
 The most ergonomic approach from a user perspective would be to just include issue IDS -- but where -- in properties?
 And maybe embed a Jira URL in TASKS.org header metadata....
-** DONE [#C] Add emacs-side tooling for tasks extension
-:PROPERTIES:
-:ID: 2b87d48c-d158-44ff-8fea-87c99b570144
-:END:
-#+IMPORT: [[file:design/log/2026-04-25-tasks-emacs-integration.org]]
-A couple of ideas for minor QOL improvements on the editor side...
-- Auto-populate expected properties fields when creating tasks in emacs
-- Add keybindings to toggle selection of a given issue
-- Bi-directional sync/refresh on edit
 ** TODO [#D] tasks-org: subtask absorption on plan create :emacs:pi:
 :PROPERTIES:
 :ID: f4a2c819-3e7d-4b08-a901-6d7c0e5b2f38
@@ -100,14 +86,6 @@ offer to move those subtasks into the new plan file (preserving =:ID:=
 properties and leaving a summary under the parent). Coordinate behaviour
 with the pi tasks extension's parser so results are consistent across
 editor and CLI.
-** DONE [#D] Tasks overlay bugfixes
-CLOSED: [2026-04-27 Mon 17:39]
-:PROPERTIES:
-:ID: d36fe453-b8f8-4dfb-8ea6-5ed9d9eeee90
-:END:
-#+IMPORT: [[file:design/log/2026-04-27-task-overlay-bugfixes.org]]
-- Toggling selection updates status overlay BUT not editor overlay
-- Editor overlay should open with insertion point at selected subtask, not top level task
 ** DONE [#D] TASKS skill - fix completion timestamp insertion
 CLOSED: [2026-04-27 Mon 15:13]
 :PROPERTIES:
