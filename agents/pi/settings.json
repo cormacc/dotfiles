@@ -1,7 +1,10 @@
 {
-  "lastChangelogVersion": "0.70.0",
+  "lastChangelogVersion": "0.70.2",
   "hideThinkingBlock": true,
   "defaultThinkingLevel": "high",
   "defaultProvider": "anthropic",
-  "defaultModel": "claude-sonnet-4-6"
+  "defaultModel": "claude-sonnet-4-6",
+  "packages": [
+    "npm:@gotgenes/pi-anthropic-auth"
+  ]
 }

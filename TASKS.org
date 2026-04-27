@@ -89,7 +89,7 @@ offer to move those subtasks into the new plan file (preserving =:ID:=
 properties and leaving a summary under the parent). Coordinate behaviour
 with the pi tasks extension's parser so results are consistent across
 editor and CLI.
-** DONE [#D] Minor tasks extension refinements
+** DONE [#D] Tasks overlay bugfixes
 CLOSED: [2026-04-27 Mon 17:26]
 :PROPERTIES:
 :ID: d36fe453-b8f8-4dfb-8ea6-5ed9d9eeee90

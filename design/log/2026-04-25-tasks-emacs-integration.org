@@ -255,7 +255,6 @@ leader, too many keystrokes for frequent use), single free capital letters
 
 Not blocking v1. Revisit when the package is stable enough that a breaking
 key change is acceptable, or before sharing the package beyond personal use.
-
 ** DONE [#D] Add convenience keybinding
 :PROPERTIES:
 :ID: ddb2529d-6588-40ed-b4ac-81bcb6c31765
@@ -273,7 +272,6 @@ key change is acceptable, or before sharing the package beyond personal use.
   =org-back-to-heading= + =org-show-entry=. Only searches TASKS.org
   (not nested plan files); sufficient for the common case where plan
   files are linked directly from the task root.
-
 * Implementation
 
 Implementation notes should be added as tasks are completed. Keep this section
