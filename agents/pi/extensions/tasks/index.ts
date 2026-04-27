@@ -556,9 +556,9 @@ export default function (pi: ExtensionAPI) {
               items: {
                 t: { label: "Show tasks", action: "command:/tasks" },
                 n: { label: "New task", action: "command:/tasks new" },
-                A: { label: "Archive task (open tasks → A)", action: "command:/tasks" },
-                P: { label: "Publish local task (open tasks → P)", action: "command:/tasks" },
-                U: { label: "Unpublish task (open tasks → U)", action: "command:/tasks" },
+                "shift+a": { label: "Archive task (open tasks → A)", action: "command:/tasks" },
+                "shift+p": { label: "Publish local task (open tasks → P)", action: "command:/tasks" },
+                "shift+u": { label: "Unpublish task (open tasks → U)", action: "command:/tasks" },
               },
             },
           },
