@@ -74,6 +74,14 @@ let compactWidgetTui: TUI | null = null;
 let isOverlayActive = false;
 
 /**
+ * The currently-rendered TasksOverlay instance, or null when the overlay is
+ * not on screen. Used by the file-watcher path to push fresh task data into
+ * the live overlay when external changes (e.g. Emacs selection toggle) land
+ * while the overlay is open.
+ */
+let activeOverlayInstance: TasksOverlay | null = null;
+
+/**
  * File-watcher state. The compact selected-task widget refreshes on external edits
  * (e.g. saving TASKS.org or a linked plan file in Emacs) without requiring
  * the /tasks modal to be reopened.
@@ -421,9 +429,11 @@ async function refreshTaskUi(
 ): Promise<Task[]> {
   activeCtx = ctx;
   const tasks = await loadTasks(cwd);
-  // Skip compact-widget updates while the expanded overlay is active; the
-  // overlay's own close handler will sync the widget from the in-memory state.
-  if (!isOverlayActive) {
+  if (isOverlayActive) {
+    // Push fresh task data into the running overlay so external changes
+    // (e.g. Emacs selection toggle) are reflected immediately.
+    activeOverlayInstance?.refreshTasks(tasks);
+  } else {
     syncCompactWidget(ctx, tasks);
   }
   updateFileWatchers(collectWatchPaths(tasks, cwd));
@@ -517,10 +527,11 @@ export default function (pi: ExtensionAPI) {
         };
 
         await ctx.ui.custom(
-          (_tui, theme, _kb, done) =>
-            new TasksOverlay(
+          (tui, theme, _kb, done) => {
+            const overlay = new TasksOverlay(
               tasks,
               ctx.cwd,
+              tui,
               theme,
               done,
               onEdit,
@@ -528,7 +539,10 @@ export default function (pi: ExtensionAPI) {
               onEditPlan,
               onArchive,
               onNewTask,
-            ),
+            );
+            activeOverlayInstance = overlay;
+            return overlay;
+          },
           {
             overlay: true,
             overlayOptions: {
@@ -537,6 +551,7 @@ export default function (pi: ExtensionAPI) {
             },
           },
         );
+        activeOverlayInstance = null;
 
         const request = workflow.request as WorkflowRequest | null;
         if (!request) {
