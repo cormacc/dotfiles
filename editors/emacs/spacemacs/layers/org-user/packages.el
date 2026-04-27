@@ -168,14 +168,19 @@ Each entry is either:
                tasks-org-toggle-selected
                tasks-org-open-plan
                tasks-org-open-plan-other-window
-               tasks-org-jump-to-parent-task)
+               tasks-org-jump-to-parent-task
+               tasks-org-publish-task
+               tasks-org-unpublish-task)
     :init
     (spacemacs/declare-prefix-for-mode 'org-mode "m;" "tasks-org")
+    (spacemacs/declare-prefix-for-mode 'org-mode "m;L" "local")
     (spacemacs/set-leader-keys-for-major-mode 'org-mode
       ";s" 'tasks-org-toggle-selected
       ";p" 'tasks-org-open-plan
       ";P" 'tasks-org-open-plan-other-window
-      ";t" 'tasks-org-jump-to-parent-task)))
+      ";t" 'tasks-org-jump-to-parent-task
+      ";Lp" 'tasks-org-publish-task
+      ";Lu" 'tasks-org-unpublish-task)))
 
 (defun org-user/post-init-org-archive-subtree-hierarchical ()
   (setq org-archive-default-command 'org-archive-subtree-hierarchical))

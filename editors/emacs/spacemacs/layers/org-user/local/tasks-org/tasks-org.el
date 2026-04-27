@@ -61,7 +61,7 @@
   "Path patterns (regexps) that auto-enable `tasks-org-mode'.
 Each entry is matched against the buffer's file path relative to
 the project root.  Activation also triggers on any org buffer that
-contains a `#+DEFAULT-PLAN-DIR:' keyword, regardless of path."
+contains a `#+DEFAULT_PLAN_DIR:' keyword, regardless of path."
   :type '(repeat regexp)
   :group 'tasks-org)
 
@@ -83,16 +83,16 @@ current buffer's directory."
 ;;; Activation
 
 (defun tasks-org--has-plan-dir-keyword-p ()
-  "Return non-nil when the current buffer contains a #+DEFAULT-PLAN-DIR: keyword."
+  "Return non-nil when the current buffer contains a #+DEFAULT_PLAN_DIR: keyword."
   (save-excursion
     (goto-char (point-min))
-    (re-search-forward "^#\\+DEFAULT-PLAN-DIR:" nil t)))
+    (re-search-forward "^#\\+DEFAULT_PLAN_DIR:" nil t)))
 
 (defun tasks-org--should-auto-enable-p ()
   "Return non-nil when the current buffer matches activation rules.
 Activates when the buffer's path (relative to the project root) matches
 `tasks-org-auto-enable-paths', or when the buffer contains a
-`#+DEFAULT-PLAN-DIR:' keyword (the canonical marker of a task-memory root)."
+`#+DEFAULT_PLAN_DIR:' keyword (the canonical marker of a task-memory root)."
   (when (and buffer-file-name (derived-mode-p 'org-mode))
     (or (tasks-org--has-plan-dir-keyword-p)
         (let* ((root (tasks-org--project-root))
@@ -393,6 +393,62 @@ FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
   "Open the #+IMPORT: linked from the current task in another window."
   (interactive)
   (tasks-org-open-plan #'find-file-other-window))
+
+;;;###autoload
+(defun tasks-org-publish-task ()
+  "Publish the task subtree at point to TASKS.org.
+Moves the subtree from the current file (typically TASKS.local.org) to the
+project's TASKS.org as a new top-level entry.  Both files are saved.
+Prompts for confirmation before making any changes."
+  (interactive)
+  (unless (tasks-org--at-task-heading-p)
+    (user-error "Point is not on an actionable task heading"))
+  (unless buffer-file-name
+    (user-error "Current buffer is not visiting a file"))
+  (let* ((tasks-file (tasks-org--tasks-file))
+         (summary (org-get-heading t t t t)))
+    (unless (yes-or-no-p
+             (format "Publish '%s' to %s? " summary tasks-org-tasks-file-name))
+      (user-error "Cancelled"))
+    (org-cut-subtree)
+    (save-buffer)
+    (with-current-buffer (find-file-noselect tasks-file)
+      (goto-char (point-max))
+      (unless (bolp) (insert "\n"))
+      (unless (looking-back "\n\n" 2) (insert "\n"))
+      (org-paste-subtree 1)
+      (save-buffer))
+    (message "Published '%s' to %s" summary tasks-org-tasks-file-name)))
+
+;;;###autoload
+(defun tasks-org-unpublish-task ()
+  "Unpublish the top-level task at point from TASKS.org to TASKS.local.org.
+Only level-1 tasks may be unpublished.  Both files are saved.
+Prompts for confirmation before making any changes."
+  (interactive)
+  (unless (tasks-org--at-task-heading-p)
+    (user-error "Point is not on an actionable task heading"))
+  (save-excursion
+    (unless (org-at-heading-p)
+      (org-back-to-heading t))
+    (unless (= (org-outline-level) 1)
+      (user-error "Only top-level tasks can be unpublished (current level: %d)"
+                  (org-outline-level))))
+  (let* ((local-file (tasks-org--local-file))
+         (summary (org-get-heading t t t t)))
+    (unless (yes-or-no-p
+             (format "Unpublish '%s' to %s (removes from git tracking)? "
+                     summary tasks-org-local-file-name))
+      (user-error "Cancelled"))
+    (org-cut-subtree)
+    (save-buffer)
+    (with-current-buffer (find-file-noselect local-file)
+      (goto-char (point-max))
+      (unless (bolp) (insert "\n"))
+      (unless (looking-back "\n\n" 2) (insert "\n"))
+      (org-paste-subtree 1)
+      (save-buffer))
+    (message "Unpublished '%s' to %s" summary tasks-org-local-file-name)))
 
 ;;;###autoload
 (defun tasks-org-jump-to-parent-task ()

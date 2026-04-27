@@ -8,7 +8,7 @@
 - [[#description][Description]]
   - [[#features][Features]]
 - [[#install][Install]]
-- [[#tasks-org][tasks-org: plain-org task memory helpers]]
+- [[#tasks-org-plain-org-task-memory-helpers][tasks-org: plain-org task memory helpers]]
   - [[#activation][Activation]]
   - [[#commands--key-bindings][Commands & key bindings]]
   - [[#protocol-conventions][Protocol conventions]]
@@ -45,7 +45,7 @@ because it just maintains conventions on top of standard org.
 
 =tasks-org-mode= auto-enables on any org buffer that matches either rule:
 
-- The buffer contains a =#+DEFAULT-PLAN-DIR:= keyword (canonical marker
+- The buffer contains a =#+DEFAULT_PLAN_DIR:= keyword (canonical marker
   of a task-memory root file — matches =TASKS.org= regardless of where
   it lives relative to the project).
 - The buffer's path (relative to the project root) matches a pattern in
@@ -64,10 +64,12 @@ reachable without Shift, with no unbinding gymnastics required.
 
 | Key       | Command                            | Description                                                   |
 |-----------+------------------------------------+---------------------------------------------------------------|
-| =, ; s=   | =tasks-org-toggle-selected=        | Toggle =:selected:= on the current task (single-selection)    |
+| =, ; s=   | =tasks-org-toggle-selected=        | Toggle =#+SELECTED:= on the current task (single-selection)   |
 | =, ; p=   | =tasks-org-open-plan=              | Open the =#+IMPORT:= linked from the current task, or create one |
 | =, ; P=   | =tasks-org-open-plan-other-window= | Same, but open in another window                              |
 | =, ; t=   | =tasks-org-jump-to-parent-task=    | Jump to the task in =TASKS.org= whose =#+IMPORT:= is this file   |
+| =, ; L p= | =tasks-org-publish-task=           | Publish local task → =TASKS.org= (moves subtree, saves both)  |
+| =, ; L u= | =tasks-org-unpublish-task=         | Unpublish top-level task → =TASKS.local.org= (top-level only) |
 
 The mode lighter is =Tasks=.
 
@@ -95,7 +97,7 @@ The package maintains four conventions:
   in Emacs. Bare paths and labelled link forms are also recognised
   when reading.
 
-- =#+DEFAULT-PLAN-DIR:= keyword (recognised, not yet auto-set) :: Top-level
+- =#+DEFAULT_PLAN_DIR:= keyword (recognised, not yet auto-set) :: Top-level
   pointer to the project's plans directory. Defaults to =design/log=
   via =tasks-org-plans-directory=.
 
