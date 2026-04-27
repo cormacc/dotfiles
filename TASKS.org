@@ -31,6 +31,7 @@ Some introductory text
 
 * Table of Contents                                         :TOC_1_gh:noexport:
 - [[#improvements][Improvements]]
+- [[#dependencies][Dependencies]]
 - [[#housekeeping][Housekeeping]]
 
 * Improvements
@@ -42,10 +43,12 @@ If TASKS.local.org includes tasks, consider these local/draft/gitignored tasks.
 Not checked in, but surfaced in the extension UI.
 Update task extension and emacs plugins to include publish/unpublish bindings -- promoting
 a local task from TASKS.local.org and vice versa.
-** TODO [#C] Update tasks skill to allow INCLUDE at top level -- not just for plans
+** DONE [#C] Replace :INCLUDE: drawer property with #+IMPORT: keyword
+CLOSED: [2026-04-27 Mon 21:53]
 :PROPERTIES:
 :ID: 9adb8c66-8aba-4e11-9922-70d6225f5a0e
 :END:
+#+IMPORT: [[file:design/log/2026-04-27-import-keyword.org]]
 ** TODO [#B] Update org-memory skill to prompt to generate an implementation report for tasks without a plan
 :PROPERTIES:
 :ID: 9f233338-833b-43c1-81d2-e413a536d586
@@ -115,6 +118,12 @@ Do the following:
 - Ensure the timestamp is in the expected format AND correct.
 - Ensure the timestamp is prefixed with "CLOSED: " and placed immediately below the task heading.
 - Ensure remaining content continues on the next line, rather than on the same line as the timestamp.
+* Dependencies
+** TODO Evaluate pi-lens as a replacement for the in-repo lsp tool
+:PROPERTIES:
+:ID: bd58da61-36bb-4bed-a6d3-ac0024293676
+:END:
+Seems more comprehensive...
 * Housekeeping
 
 ** WAITING [#C] Update nixGL flake URL :nix:
