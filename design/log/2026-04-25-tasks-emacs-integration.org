@@ -44,7 +44,7 @@ existing file watchers rather than requiring a new live protocol initially.
 - Activation by filename match and keyword :: `tasks-org-mode` auto-enables
   on buffers matching `tasks-org-auto-enable-paths` (project-relative;
   defaults: `TASKS.org`, `design/log/*.org`) OR containing a
-  `#+DEFAULT-PLAN-DIR:` keyword. The keyword check fires first and covers
+  `#+DEFAULT_PLAN_DIR:` keyword. The keyword check fires first and covers
   task-memory root files opened from outside their project root. Manual
   `M-x tasks-org-mode` remains available for other buffers.
 - Project root via projectile :: Use `projectile-project-root` to locate the
@@ -336,7 +336,7 @@ All resolved after manual end-to-end validation (=437d6716=).
   Remaining edge case (label text containing =]=) accepted as negligible.
 - Activation pattern coverage :: *Keyword-gated variant of option (c).*
   Added =tasks-org--has-plan-dir-keyword-p= which fires before the
-  project-relative path check. =#+DEFAULT-PLAN-DIR:= is specific to the
+  project-relative path check. =#+DEFAULT_PLAN_DIR:= is specific to the
   task-memory protocol so the trigger is tight with no false positives.
   Files outside the project that lack the keyword can still use
   =M-x tasks-org-mode= manually.
