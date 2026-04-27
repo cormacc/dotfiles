@@ -54,7 +54,6 @@ Fix (=index.ts=):
   =syncCompactWidget= when =isOverlayActive= is set.
 - After the loop exits, call =syncCompactWidget(ctx, tasks)= immediately
   using the in-memory task state before calling =refreshTaskUi=.
-
 ** DONE [#D] Fix overlay cursor starting at top-level task :extension:
 :PROPERTIES:
 :ID: 3b7d5e91-6f2a-4c08-8e4b-1a9c0d7f2e35
@@ -78,20 +77,43 @@ remaining conditions correctly express the intended rules:
 - No selection → collapse everything with children.
 - With selection → collapse only tasks not in =keepVisible=, covering
   completed non-ancestor tasks automatically.
+** DONE [#D] Live-update editor overlay on external file changes :extension:
+:PROPERTIES:
+:ID: 1c4f8a2e-7d3b-4e19-9f5c-6a0b2d8e1f47
+:END:
+The original fix suppressed =refreshTaskUi='s =syncCompactWidget= call
+while the overlay was active but did nothing with the freshly-loaded
+task data. External changes (Emacs selection toggle, status edits) were
+silently discarded — the overlay stayed frozen on its original snapshot.
+
+Fix (=index.ts= + =overlay.ts=):
+- Added =activeOverlayInstance= module-level ref; set in the
+  =ctx.ui.custom= factory callback, cleared after =await=.
+- =refreshTaskUi= now calls =activeOverlayInstance?.refreshTasks(tasks)=
+  instead of skipping entirely when =isOverlayActive=.
+- =TasksOverlay= gains a =TUI= constructor parameter and a public
+  =refreshTasks(newTasks)= method that replaces =this.tasks=, rebuilds
+  collapse state and rows, preserves cursor by task ID (falling back to
+  the selected task), calls =invalidate()= + =tui.requestRender()=.
 
 * Implementation
 
-Both fixes landed in a single commit (=4b04886=) on 2026-04-27.
+Original two fixes: commit =4b04886= (2026-04-27).
+Follow-up live-update fix: commit =2b7cffc= (2026-04-27).
 
 Files changed:
-- =agents/pi/extensions/tasks/index.ts= — =isOverlayActive= flag, guarded
-  =syncCompactWidget= in =refreshTaskUi=, immediate in-memory widget sync
-  after overlay loop.
-- =agents/pi/extensions/tasks/overlay.ts= — removed third condition from
-  =applyDefaultCollapseView=.
+- =agents/pi/extensions/tasks/index.ts= — =isOverlayActive= flag,
+  =activeOverlayInstance= ref, =refreshTaskUi= branching, immediate
+  in-memory widget sync after overlay loop.
+- =agents/pi/extensions/tasks/overlay.ts= — removed erroneous third
+  condition from =applyDefaultCollapseView=; added =TUI= parameter and
+  =refreshTasks()= method.
 
-The =isOverlayActive= guard also benefits the archive/create reopen flows:
-=archiveTopLevel= calls =refreshTaskUi= internally while the loop is still
-iterating (=isOverlayActive= still true), so no spurious widget creation
-occurs mid-loop. The widget is only re-created once, after the loop fully
-exits.
+The =isOverlayActive= guard correctly suppresses =syncCompactWidget= in
+the archive/create reopen flows (=archiveTopLevel= calls =refreshTaskUi=
+internally while the loop iterates with =isOverlayActive= still true).
+The widget is re-created once, after the loop fully exits.
+
+=activeOverlayInstance= is null during the archive/create gap between
+overlay sessions so stray =refreshTasks= calls from the file watcher in
+that window are no-ops.

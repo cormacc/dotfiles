@@ -90,7 +90,7 @@ properties and leaving a summary under the parent). Coordinate behaviour
 with the pi tasks extension's parser so results are consistent across
 editor and CLI.
 ** DONE [#D] Tasks overlay bugfixes
-CLOSED: [2026-04-27 Mon 17:26]
+CLOSED: [2026-04-27 Mon 17:39]
 :PROPERTIES:
 :ID: d36fe453-b8f8-4dfb-8ea6-5ed9d9eeee90
 :PLAN: [[file:design/log/2026-04-27-task-overlay-bugfixes.org]]
