@@ -298,10 +298,9 @@ FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
   (let* ((tasks-file (tasks-org--tasks-file))
          (tasks-dir (file-name-directory (expand-file-name tasks-file)))
          (current-abs (expand-file-name buffer-file-name))
+         (tasks-buf (find-file-noselect tasks-file))
          found-point)
-    (unless (file-readable-p tasks-file)
-      (user-error "TASKS.org not found at %s" tasks-file))
-    (with-current-buffer (find-file-noselect tasks-file)
+    (with-current-buffer tasks-buf
       (save-excursion
         (goto-char (point-min))
         (while (and (not found-point)
@@ -313,8 +312,10 @@ FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
               (org-back-to-heading t)
               (setq found-point (point)))))))
     (if found-point
-        (progn
-          (find-file tasks-file)
+        (let ((win (get-buffer-window tasks-buf)))
+          (if win
+              (select-window win)
+            (switch-to-buffer tasks-buf))
           (goto-char found-point)
           (org-show-entry)
           (recenter))
