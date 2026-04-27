@@ -24,7 +24,7 @@ export interface Task {
   /** Optional relative path to an org file containing a detailed plan. */
   planPath: string | null;
   /**
-   * Raw `:PLAN:` property value, preserved for round-trip serialization.
+   * Raw `:INCLUDE:` property value, preserved for round-trip serialization.
    * When the user writes an org-link form (e.g. `[[file:plans/foo.org][Plan]]`)
    * it's preserved verbatim so Emacs keeps treating it as a clickable link
    * while the extension still follows the extracted path.
@@ -59,7 +59,7 @@ const HEADING_RE =
 
 const PROPERTIES_START_RE = /^\s*:PROPERTIES:\s*$/i;
 const PROPERTIES_END_RE = /^\s*:END:\s*$/i;
-const PLAN_PROPERTY_RE = /^\s*:PLAN:\s*(.*?)\s*$/i;
+const INCLUDE_PROPERTY_RE = /^\s*:INCLUDE:\s*(.*?)\s*$/i;
 const ID_PROPERTY_RE = /^\s*:ID:\s*(\S+)\s*$/i;
 /**
  * Extract the target path from an org link expression:
@@ -238,12 +238,12 @@ export function parseTasks(
       currentTask.closed = m[1]!.trim();
     } else if (currentTask && PROPERTIES_START_RE.test(line)) {
       // Org properties drawer immediately below a heading. Currently we
-      // consume only :PLAN:, but skip the whole drawer so it doesn't become
-      // part of the task description.
+      // consume only :INCLUDE:, but skip the whole drawer so it doesn't
+      // become part of the task description.
       for (i = i + 1; i < lines.length; i++) {
         const propLine = lines[i]!;
         if (PROPERTIES_END_RE.test(propLine)) break;
-        const plan = PLAN_PROPERTY_RE.exec(propLine);
+        const plan = INCLUDE_PROPERTY_RE.exec(propLine);
         if (plan) {
           const raw = plan[1]!.trim();
           if (raw) {
@@ -317,9 +317,9 @@ export function serializeTasks(tasks: Task[]): string {
       }
       const propertyLines = [...t.propertyLines];
       if (t.planRaw) {
-        propertyLines.push(`:PLAN: ${t.planRaw}`);
+        propertyLines.push(`:INCLUDE: ${t.planRaw}`);
       } else if (t.planPath) {
-        propertyLines.push(`:PLAN: ${t.planPath}`);
+        propertyLines.push(`:INCLUDE: ${t.planPath}`);
       }
       if (propertyLines.length > 0) {
         lines.push(":PROPERTIES:");

@@ -38,7 +38,7 @@ Some introductory text
 CLOSED: [2026-04-27 Mon 18:52]
 :PROPERTIES:
 :ID: a8f3c2e1-7b4d-4f9c-8a52-3e6c1d8b9f47
-:PLAN: [[file:design/log/2026-04-26-tasks-local-selection.org]]
+:INCLUDE: [[file:design/log/2026-04-26-tasks-local-selection.org]]
 :END:
 Selection state (which task the contributor is actively working on) is currently
 expressed via the reserved =:selected:= tag embedded in =TASKS.org= and plan
@@ -97,7 +97,7 @@ And maybe embed a Jira URL in TASKS.org header metadata....
 ** DONE [#C] Add emacs-side tooling for tasks extension
 :PROPERTIES:
 :ID: 2b87d48c-d158-44ff-8fea-87c99b570144
-:PLAN: [[file:design/log/2026-04-25-tasks-emacs-integration.org]]
+:INCLUDE: [[file:design/log/2026-04-25-tasks-emacs-integration.org]]
 :END:
 A couple of ideas for minor QOL improvements on the editor side...
 - Auto-populate expected properties fields when creating tasks in emacs
@@ -107,7 +107,7 @@ A couple of ideas for minor QOL improvements on the editor side...
 :PROPERTIES:
 :ID: f4a2c819-3e7d-4b08-a901-6d7c0e5b2f38
 :END:
-When creating a new =:PLAN:= for a task that already has local subtasks,
+When creating a new =:INCLUDE:= for a task that already has local subtasks,
 offer to move those subtasks into the new plan file (preserving =:ID:=
 properties and leaving a summary under the parent). Coordinate behaviour
 with the pi tasks extension's parser so results are consistent across
@@ -116,7 +116,7 @@ editor and CLI.
 CLOSED: [2026-04-27 Mon 17:39]
 :PROPERTIES:
 :ID: d36fe453-b8f8-4dfb-8ea6-5ed9d9eeee90
-:PLAN: [[file:design/log/2026-04-27-task-overlay-bugfixes.org]]
+:INCLUDE: [[file:design/log/2026-04-27-task-overlay-bugfixes.org]]
 :END:
 - Toggling selection updates status overlay BUT not editor overlay
 - Editor overlay should open with insertion point at selected subtask, not top level task
