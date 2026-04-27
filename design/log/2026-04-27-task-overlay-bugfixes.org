@@ -95,7 +95,6 @@ Fix (=index.ts= + =overlay.ts=):
   =refreshTasks(newTasks)= method that replaces =this.tasks=, rebuilds
   collapse state and rows, preserves cursor by task ID (falling back to
   the selected task), calls =invalidate()= + =tui.requestRender()=.
-
 * Implementation
 
 Original two fixes: commit =4b04886= (2026-04-27).

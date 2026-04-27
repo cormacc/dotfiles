@@ -11,9 +11,10 @@
  *   <leader> t t — expand the tasks UI
  *
  * Persistent UI:
- *   When a task is marked :selected: in TASKS.org, a compact widget above the
- *   editor shows that task plus a few subtasks. It is refreshed on startup and
- *   immediately as the expanded /tasks UI mutates task status/selection.
+ *   When a task UUID is recorded in TASKS.local.org (#+SELECTED: <UUID>), a
+ *   compact widget above the editor shows that task plus a few subtasks. It is
+ *   refreshed on startup and immediately as the expanded /tasks UI mutates
+ *   task status/selection.
  */
 
 import type {
@@ -31,7 +32,7 @@ import {
 } from "@mariozechner/pi-tui";
 import { watch, type FSWatcher } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.ts";
 import { ensureEmacsServer } from "../emacsclient/emacsclient.ts";
@@ -41,6 +42,7 @@ import {
   formatOrgTimestamp,
   getTaskId,
   parseTasks,
+  parseSelectedKeyword,
   serializeTasks,
   serializeTasksPreservingFile,
   taskHasId,
@@ -50,10 +52,11 @@ import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
 
 const EXT_NAME = getExtensionName(import.meta.url);
 const TASKS_FILE = "TASKS.org";
+/** Gitignored local file that stores per-contributor selection state. */
+const TASKS_LOCAL_FILE = "TASKS.local.org";
 const TASKS_ARCHIVE_FILE = "TASKS.ARCHIVE.org";
 const DEFAULT_PLANS_DIR = "./design/log";
 const DEFAULT_PLAN_DIR_KEYWORD_RE = /^\s*#\+DEFAULT-PLAN-DIR:\s*(.*?)\s*$/im;
-const SELECTED_TAG = "selected";
 const CLOSED_STATUSES = new Set<string>(["DONE", "CANCELLED"]);
 /** Hard cap so the compact selected-task widget never dominates the screen. */
 const MAX_COMPACT_LINES = 6;
@@ -94,6 +97,9 @@ let activeCtx: ExtensionContext | null = null;
 function collectWatchPaths(tasks: Task[], cwd: string): Set<string> {
   const paths = new Set<string>();
   paths.add(join(cwd, TASKS_FILE));
+  // Always watch the local selection file so Emacs-originated selection
+  // changes are reflected immediately without reopening the overlay.
+  paths.add(join(cwd, TASKS_LOCAL_FILE));
   const walk = (ts: Task[]) => {
     for (const t of ts) {
       if (t.sourcePath) paths.add(t.sourcePath);
@@ -103,6 +109,50 @@ function collectWatchPaths(tasks: Task[], cwd: string): Set<string> {
   };
   walk(tasks);
   return paths;
+}
+
+// ── TASKS.local.org read/write ───────────────────────────────────────
+
+/**
+ * Read the selected task UUID from TASKS.local.org.
+ * Returns null when the file is absent or has no #+SELECTED: keyword.
+ */
+async function readSelectedId(cwd: string): Promise<string | null> {
+  const localPath = join(cwd, TASKS_LOCAL_FILE);
+  try {
+    const content = await readFile(localPath, "utf-8");
+    return parseSelectedKeyword(content);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Write the selected task UUID to TASKS.local.org atomically (write-then-rename).
+ * Pass null to deselect — the file is retained with an empty #+SELECTED: keyword
+ * so it remains in place (e.g. for version-control ignore-list purposes).
+ */
+export async function writeSelectedId(
+  cwd: string,
+  id: string | null,
+): Promise<void> {
+  const localPath = join(cwd, TASKS_LOCAL_FILE);
+  const content = id ? `#+SELECTED: ${id}\n` : `#+SELECTED:\n`;
+  const tmpPath = `${localPath}.tmp`;
+  await writeFile(tmpPath, content, "utf-8");
+  await rename(tmpPath, localPath);
+}
+
+/**
+ * Find a task by its org :ID: property across the full task graph.
+ */
+export function findTaskById(tasks: Task[], id: string): Task | null {
+  for (const t of tasks) {
+    if (getTaskId(t) === id) return t;
+    const child = findTaskById(taskChildren(t), id);
+    if (child) return child;
+  }
+  return null;
 }
 
 function attachFileWatcher(path: string): void {
@@ -235,13 +285,14 @@ function taskChildren(task: Task): Task[] {
   return [...task.children, ...(task.planChildren ?? [])];
 }
 
-function findSelectedTask(tasks: Task[]): Task | null {
-  for (const t of tasks) {
-    if (t.tags.includes(SELECTED_TAG)) return t;
-    const child = findSelectedTask(taskChildren(t));
-    if (child) return child;
-  }
-  return null;
+/**
+ * Find the selected task by UUID pointer from TASKS.local.org.
+ */
+export function findSelectedTask(
+  tasks: Task[],
+  selectedId: string | null = null,
+): Task | null {
+  return findTaskById(tasks, selectedId);
 }
 
 function findTopLevelRoot(tasks: Task[], target: Task): Task | null {
@@ -259,7 +310,7 @@ function formatTaskLine(
   width: number,
 ): string {
   const priority = colorPriority(t.priority);
-  const visibleTags = t.tags.filter((tg) => tg !== SELECTED_TAG);
+  const visibleTags = t.tags;
   const tags = colorTags(visibleTags);
   const left = `${indent}${marker}${colorStatus(t.status)} ${priority ? `${priority} ` : ""}${t.summary}`;
   if (!tags) return truncateToWidth(left, width);
@@ -284,10 +335,11 @@ function formatPlanLabel(planPath: string): string {
 /** Build the compact selected-task widget's pre-styled lines, or undefined if nothing is selected. */
 function buildCompactLines(
   tasks: Task[],
+  selectedId: string | null,
   theme: Theme,
   width: number,
 ): string[] | undefined {
-  const selected = findSelectedTask(tasks);
+  const selected = findSelectedTask(tasks, selectedId);
   if (!selected) return undefined;
   const selectionRoot = findTopLevelRoot(tasks, selected) ?? selected;
 
@@ -377,15 +429,17 @@ function buildCompactLines(
 class CompactTasksWidget implements Component {
   constructor(
     private tasks: Task[],
+    private selectedId: string | null,
     private readonly theme: Theme,
   ) {}
 
-  setTasks(tasks: Task[]): void {
+  setTasks(tasks: Task[], selectedId: string | null): void {
     this.tasks = tasks;
+    this.selectedId = selectedId;
   }
 
   render(width: number): string[] {
-    const lines = buildCompactLines(this.tasks, this.theme, width) ?? [];
+    const lines = buildCompactLines(this.tasks, this.selectedId, this.theme, width) ?? [];
     return lines.map((l) => truncateToWidth(l, width));
   }
 
@@ -401,24 +455,25 @@ function clearCompactWidget(ctx?: ExtensionContext): void {
 function syncCompactWidget(
   ctx: ExtensionContext,
   tasks: Task[],
+  selectedId: string | null,
   hidden = false,
 ): void {
   if (!ctx.hasUI) return;
-  const hasSelectedTask = findSelectedTask(tasks) !== null;
+  const hasSelectedTask = findSelectedTask(tasks, selectedId) !== null;
   if (hidden || !hasSelectedTask) {
     clearCompactWidget(ctx);
     return;
   }
 
   if (compactWidgetComponent) {
-    compactWidgetComponent.setTasks(tasks);
+    compactWidgetComponent.setTasks(tasks, selectedId);
     compactWidgetTui?.requestRender();
     return;
   }
 
   ctx.ui.setWidget(COMPACT_WIDGET_ID, (tui, theme) => {
     compactWidgetTui = tui;
-    compactWidgetComponent = new CompactTasksWidget(tasks, theme);
+    compactWidgetComponent = new CompactTasksWidget(tasks, selectedId, theme);
     return compactWidgetComponent;
   });
 }
@@ -429,12 +484,13 @@ async function refreshTaskUi(
 ): Promise<Task[]> {
   activeCtx = ctx;
   const tasks = await loadTasks(cwd);
+  const selectedId = await readSelectedId(cwd);
   if (isOverlayActive) {
     // Push fresh task data into the running overlay so external changes
     // (e.g. Emacs selection toggle) are reflected immediately.
-    activeOverlayInstance?.refreshTasks(tasks);
+    activeOverlayInstance?.refreshTasks(tasks, selectedId);
   } else {
-    syncCompactWidget(ctx, tasks);
+    syncCompactWidget(ctx, tasks, selectedId);
   }
   updateFileWatchers(collectWatchPaths(tasks, cwd));
   return tasks;
@@ -501,6 +557,7 @@ export default function (pi: ExtensionAPI) {
 
       let reopen = true;
       let tasks = await loadTasks(ctx.cwd);
+      let selectedId: string | null = await readSelectedId(ctx.cwd);
       while (reopen) {
         isOverlayActive = true;
         clearCompactWidget(ctx);
@@ -526,6 +583,15 @@ export default function (pi: ExtensionAPI) {
           workflow.request = { type: "create", parent, insertAfter };
         };
 
+        const onSelectionChange = async (newId: string | null) => {
+          selectedId = newId;
+          await writeSelectedId(ctx.cwd, newId);
+          // Explicitly schedule a refresh so the compact widget picks up the
+          // change immediately after the overlay closes, and so Emacs-origin
+          // changes reflected via the watcher also hit the live overlay.
+          scheduleRefresh();
+        };
+
         await ctx.ui.custom(
           (tui, theme, _kb, done) => {
             const overlay = new TasksOverlay(
@@ -539,6 +605,8 @@ export default function (pi: ExtensionAPI) {
               onEditPlan,
               onArchive,
               onNewTask,
+              selectedId,
+              onSelectionChange,
             );
             activeOverlayInstance = overlay;
             return overlay;
@@ -582,7 +650,7 @@ export default function (pi: ExtensionAPI) {
       // Immediately sync the compact widget from the in-memory task state so
       // the widget reflects any selection changes made inside the overlay
       // without waiting for the async save to hit disk and the watcher to fire.
-      syncCompactWidget(ctx, tasks);
+      syncCompactWidget(ctx, tasks, selectedId);
       // Also reload from disk to re-attach file watchers and converge with any
       // external edits that landed while the overlay was open.
       await refreshTaskUi(ctx, ctx.cwd);
@@ -1147,10 +1215,9 @@ async function archiveTopLevel(
     return false;
   }
 
-  // Build the archive copy: flatten plan children inline, strip :selected:,
-  // stamp :ARCHIVED:. Uses CLOSED timestamp if present (fallback: now).
+  // Build the archive copy: flatten plan children inline, stamp :ARCHIVED:.
+  // Uses CLOSED timestamp if present (fallback: now).
   const archiveCopy = flattenForArchive(topLevel, 1);
-  archiveCopy.tags = archiveCopy.tags.filter((t) => t !== SELECTED_TAG);
   const stamp = topLevel.closed ?? formatOrgTimestamp();
   archiveCopy.propertyLines.push(`:ARCHIVED: [${stamp}]`);
 

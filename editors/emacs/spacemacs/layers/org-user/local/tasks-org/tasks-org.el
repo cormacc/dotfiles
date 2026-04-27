@@ -25,6 +25,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'filenotify)
 (require 'org)
 (require 'org-id)
 (require 'subr-x)
@@ -50,8 +51,8 @@
   :type 'string
   :group 'tasks-org)
 
-(defcustom tasks-org-selected-tag "selected"
-  "Reserved tag marking the currently selected task."
+(defcustom tasks-org-local-file-name "TASKS.local.org"
+  "Filename of the per-contributor gitignored selection state file."
   :type 'string
   :group 'tasks-org)
 
@@ -142,73 +143,143 @@ Search options (e.g. ::heading) are stripped from the extracted path."
     (string-trim raw))
    (t nil)))
 
-;;; Selection helpers
+;;; Selection helpers — TASKS.local.org scheme
 
-(defun tasks-org--collect-task-files ()
-  "Return absolute paths of all org files in the project task graph.
-Includes TASKS.org plus any files referenced by :PLAN: properties
-inside it.  Files that do not exist or are unreadable are skipped."
-  (let* ((tasks-file (tasks-org--tasks-file))
-         (files (when (file-readable-p tasks-file) (list tasks-file))))
-    (when (file-readable-p tasks-file)
+(defun tasks-org--local-file ()
+  "Return the absolute path of the per-contributor local selection file."
+  (expand-file-name tasks-org-local-file-name (tasks-org--project-root)))
+
+(defun tasks-org-selected-id ()
+  "Return the UUID of the currently selected task from TASKS.local.org, or nil."
+  (let ((local-file (tasks-org--local-file)))
+    (when (file-readable-p local-file)
       (with-temp-buffer
-        (insert-file-contents tasks-file)
+        (insert-file-contents local-file)
         (goto-char (point-min))
-        (while (re-search-forward "^\\s-*:PLAN:\\s-*\\(.*\\)$" nil t)
-          (let* ((raw (string-trim (match-string 1)))
-                 (path (tasks-org--extract-plan-path raw)))
-            (when path
-              (let ((abs (expand-file-name
-                          path (file-name-directory tasks-file))))
-                (when (file-readable-p abs)
-                  (push abs files))))))))
-    (delete-dups files)))
+        (when (re-search-forward "^#\\+SELECTED:\\s-*\\([^[:space:]\n]+\\)" nil t)
+          (match-string-no-properties 1))))))
 
-(defun tasks-org--clear-selected-everywhere ()
-  "Remove the `:selected:' tag from every task in every project task file.
-Returns the list of files that were modified."
-  (let ((modified-files '()))
-    (dolist (file (tasks-org--collect-task-files))
-      (when (file-writable-p file)
-        (let* ((existing-buf (find-buffer-visiting file))
-               (visit-buf (or existing-buf (find-file-noselect file))))
-          (with-current-buffer visit-buf
-            (let ((modified nil))
-              (save-excursion
-                (goto-char (point-min))
-                (while (re-search-forward org-heading-regexp nil t)
-                  (let ((tags (org-get-tags nil t)))
-                    (when (member tasks-org-selected-tag tags)
-                      (org-set-tags (delete tasks-org-selected-tag tags))
-                      (setq modified t)))))
-              (when modified
-                (save-buffer)
-                (push file modified-files))
-              ;; Don't keep buffers we opened ourselves around.
-              (unless existing-buf (kill-buffer)))))))
-    modified-files))
+(defun tasks-org--write-local-selection (id)
+  "Write ID to TASKS.local.org atomically.
+When ID is nil the file is retained with an empty #+SELECTED: keyword
+rather than deleted, so it remains present for .gitignore purposes."
+  (let* ((local-file (tasks-org--local-file))
+         (tmp-file (concat local-file ".tmp")))
+    (make-directory (file-name-directory local-file) t)
+    (with-temp-file tmp-file
+      (insert (if id (format "#+SELECTED: %s\n" id) "#+SELECTED:\n")))
+    (rename-file tmp-file local-file t)))
 
 ;;;###autoload
 (defun tasks-org-toggle-selected ()
-  "Toggle the `:selected:' tag on the current task.
-Clears any other selected task across the project task graph first
-to enforce single-selection."
+  "Toggle the selection of the current task via TASKS.local.org.
+Writes #+SELECTED: <UUID> to TASKS.local.org (creating it if absent).
+Deselecting removes the file."
   (interactive)
   (unless (tasks-org--at-task-heading-p)
     (user-error "Point is not on an actionable task heading"))
-  (let* ((tags (org-get-tags nil t))
-         (was-selected (member tasks-org-selected-tag tags)))
-    ;; Clear selection across all task files (including the current one)
-    (tasks-org--clear-selected-everywhere)
-    ;; Re-fetch tags from current heading (clear pass may have rewritten them)
-    (let ((current-tags (org-get-tags nil t)))
-      (if was-selected
-          (message "Cleared selection: %s" (org-get-heading t t t t))
-        (org-set-tags
-         (cons tasks-org-selected-tag
-               (delete tasks-org-selected-tag current-tags)))
-        (message "Selected: %s" (org-get-heading t t t t))))
-    (save-buffer)))
+  ;; Ensure the task has an :ID:
+  (tasks-org--ensure-id-at-heading)
+  (let* ((id (org-entry-get nil "ID"))
+         (current-selected (tasks-org-selected-id))
+         (was-selected (and id (string= id current-selected))))
+    (if was-selected
+        (progn
+          (tasks-org--write-local-selection nil)
+          (message "Cleared selection: %s" (org-get-heading t t t t)))
+      (tasks-org--write-local-selection id)
+      (message "Selected: %s" (org-get-heading t t t t))))
+  (tasks-org--refresh-all-selection-overlays))
+
+;;; Selection overlay
+
+(defface tasks-org-selected-face
+  '((((class color) (background dark))
+     :background "#1e3a1e" :extend t)
+    (((class color) (background light))
+     :background "#e8f5e9" :extend t)
+    (t :weight bold))
+  "Face applied to the heading line of the currently selected task."
+  :group 'tasks-org)
+
+(defvar-local tasks-org--selection-overlay nil
+  "Buffer-local overlay marking the currently selected task heading.")
+
+(defvar tasks-org--local-file-watchers '()
+  "Alist of (local-file-path . watch-descriptor) for file-notify watchers.")
+
+(defun tasks-org--clear-selection-overlay ()
+  "Remove the selection overlay from the current buffer."
+  (when (overlayp tasks-org--selection-overlay)
+    (delete-overlay tasks-org--selection-overlay))
+  (setq tasks-org--selection-overlay nil))
+
+(defun tasks-org--find-heading-pos-by-id (id)
+  "Return the buffer position of the heading with :ID: ID, or nil."
+  (org-with-wide-buffer
+   (goto-char (point-min))
+   (let (found)
+     (while (and (not found)
+                 (re-search-forward
+                  (concat "^[ \t]*:ID:[ \t]+" (regexp-quote id) "[ \t]*$")
+                  nil t))
+       (ignore-errors
+         (org-back-to-heading t)
+         (setq found (point))))
+     found)))
+
+(defun tasks-org--refresh-selection-overlay ()
+  "Update the selection overlay for the current org buffer."
+  (when (derived-mode-p 'org-mode)
+    (tasks-org--clear-selection-overlay)
+    (when-let* ((id (tasks-org-selected-id))
+                (pos (tasks-org--find-heading-pos-by-id id)))
+      (save-excursion
+        (goto-char pos)
+        (let* ((bol (line-beginning-position))
+               (eol (line-end-position))
+               (ov  (make-overlay bol (1+ eol))))
+          (overlay-put ov 'face 'tasks-org-selected-face)
+          (overlay-put ov 'evaporate t)
+          (overlay-put ov 'tasks-org-selection t)
+          (setq tasks-org--selection-overlay ov))))))
+
+(defun tasks-org--refresh-all-selection-overlays ()
+  "Refresh selection overlays in all live `tasks-org-mode' buffers."
+  (dolist (buf (buffer-list))
+    (when (buffer-live-p buf)
+      (with-current-buffer buf
+        (when (bound-and-true-p tasks-org-mode)
+          (tasks-org--refresh-selection-overlay))))))
+
+(defun tasks-org--setup-local-file-watch ()
+  "Watch the project root for changes to TASKS.local.org.
+Uses `filenotify' so that selection changes written by the pi extension
+or another Emacs session are reflected immediately via an idle-timer
+debounce."
+  (let* ((local-file (expand-file-name (tasks-org--local-file)))
+         (root-dir   (file-name-directory local-file)))
+    (unless (assoc local-file tasks-org--local-file-watchers)
+      (condition-case nil
+          (let* ((lf local-file)
+                 (desc (file-notify-add-watch
+                        root-dir '(change)
+                        (lambda (event)
+                          (when (string= (expand-file-name (nth 2 event)) lf)
+                            (run-with-idle-timer
+                             0.1 nil
+                             #'tasks-org--refresh-all-selection-overlays))))))
+            (push (cons local-file desc) tasks-org--local-file-watchers))
+        (error nil)))))
+
+(defun tasks-org--teardown-local-file-watch ()
+  "Remove the file-notify watcher for the current project's TASKS.local.org."
+  (let* ((local-file (expand-file-name (tasks-org--local-file)))
+         (entry (assoc local-file tasks-org--local-file-watchers)))
+    (when entry
+      (ignore-errors (file-notify-rm-watch (cdr entry)))
+      (setq tasks-org--local-file-watchers
+            (delq entry tasks-org--local-file-watchers)))))
 
 ;;; Plan helpers
 
@@ -334,11 +405,19 @@ the org local-leader prefix `, ;'.")
   "Minor mode for plain-org task memory helpers.
 
 When enabled, exposes commands for ensuring stable :ID: properties,
-toggling the reserved :selected: tag, and opening or creating
-:PLAN: linked files."
+toggling task selection via TASKS.local.org, and opening or creating
+:PLAN: linked files.  Highlights the currently selected task heading
+using `tasks-org-selected-face' and watches TASKS.local.org for
+external changes (e.g. from the pi extension)."
   :lighter " Tasks"
   :keymap tasks-org-mode-map
-)
+  (if tasks-org-mode
+      (progn
+        (add-hook 'after-save-hook #'tasks-org--refresh-selection-overlay nil t)
+        (tasks-org--setup-local-file-watch)
+        (tasks-org--refresh-selection-overlay))
+    (remove-hook 'after-save-hook #'tasks-org--refresh-selection-overlay t)
+    (tasks-org--clear-selection-overlay)))
 
 ;;;###autoload
 (add-hook 'org-mode-hook #'tasks-org-maybe-enable)
