@@ -166,25 +166,16 @@ Each entry is either:
   (use-package tasks-org
     :commands (tasks-org-mode
                tasks-org-toggle-selected
-               tasks-org-ensure-id
-               tasks-org-backfill-ids-in-buffer
                tasks-org-open-plan
-               tasks-org-jump-to-tasks)
+               tasks-org-open-plan-other-window
+               tasks-org-jump-to-parent-task)
     :init
-    ;; Spacemacs's org layer binds `, p' to `org-priority' and `, K' to
-    ;; `org-kill-note-or-show-branches' as single-key commands, so neither
-    ;; can be reused as a prefix without first being unbound. The unbind
-    ;; must run AFTER the org layer has set its bindings, hence the
-    ;; `with-eval-after-load' wrapper.
-    (with-eval-after-load 'org
-      (spacemacs/set-leader-keys-for-major-mode 'org-mode "K" nil)
-      (spacemacs/declare-prefix-for-mode 'org-mode "mK" "tasks-org")
-      (spacemacs/set-leader-keys-for-major-mode 'org-mode
-        "Ks" 'tasks-org-toggle-selected
-        "Ki" 'tasks-org-ensure-id
-        "KI" 'tasks-org-backfill-ids-in-buffer
-        "Kp" 'tasks-org-open-plan
-        "Kt" 'tasks-org-jump-to-tasks))))
+    (spacemacs/declare-prefix-for-mode 'org-mode "m;" "tasks-org")
+    (spacemacs/set-leader-keys-for-major-mode 'org-mode
+      ";s" 'tasks-org-toggle-selected
+      ";p" 'tasks-org-open-plan
+      ";P" 'tasks-org-open-plan-other-window
+      ";t" 'tasks-org-jump-to-parent-task)))
 
 (defun org-user/post-init-org-archive-subtree-hierarchical ()
   (setq org-archive-default-command 'org-archive-subtree-hierarchical))

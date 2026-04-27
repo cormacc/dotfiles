@@ -71,7 +71,7 @@ Ideally we'd be able to pull an item from Jira and create a task here...
 Update the tasks extension and related skills to allow us to reference jira issue types.
 The most ergonomic approach from a user perspective would be to just include issue IDS -- but where -- in properties?
 And maybe embed a Jira URL in TASKS.org header metadata....
-** STARTED [#C] Add emacs-side tooling for tasks extension :selected:
+** DONE [#C] Add emacs-side tooling for tasks extension :selected:
 :PROPERTIES:
 :ID: 2b87d48c-d158-44ff-8fea-87c99b570144
 :PLAN: [[file:design/log/2026-04-25-tasks-emacs-integration.org]]
@@ -80,6 +80,27 @@ A couple of ideas for minor QOL improvements on the editor side...
 - Auto-populate expected properties fields when creating tasks in emacs
 - Add keybindings to toggle selection of a given issue
 - Bi-directional sync/refresh on edit
+** TODO [#D] tasks-org: subtask absorption on plan create :emacs:pi:
+:PROPERTIES:
+:ID: f4a2c819-3e7d-4b08-a901-6d7c0e5b2f38
+:END:
+When creating a new =:PLAN:= for a task that already has local subtasks,
+offer to move those subtasks into the new plan file (preserving =:ID:=
+properties and leaving a summary under the parent). Coordinate behaviour
+with the pi tasks extension's parser so results are consistent across
+editor and CLI.
+** TODO [#D] Minor tasks extension refinements
+:PROPERTIES:
+:ID: d36fe453-b8f8-4dfb-8ea6-5ed9d9eeee90
+:END:
+- Toggling selection updates status overlay BUT not editor overlay
+- Editor overlay should open with insertion point at selected subtask, not top level task
+** TODO [#D] Minor plan skill refinements
+:PROPERTIES:
+:ID: ba720ca7-077b-455d-9a64-40b41662ec97
+:END:
+- When completing a plan, the final issue appears to be left open?
+- When completing a task, no completion timestamp is added.
 * Housekeeping
 
 ** WAITING [#C] Update nixGL flake URL :nix:

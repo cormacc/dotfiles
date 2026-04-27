@@ -55,18 +55,12 @@
   :type 'string
   :group 'tasks-org)
 
-(defcustom tasks-org-save-backfill-ids nil
-  "When non-nil, backfill missing :ID: properties on save.
-Off by default; explicit `tasks-org-backfill-ids-in-buffer' is the
-recommended path."
-  :type 'boolean
-  :group 'tasks-org)
-
 (defcustom tasks-org-auto-enable-paths
   '("\\`TASKS\\.org\\'" "\\`design/log/.*\\.org\\'")
   "Path patterns (regexps) that auto-enable `tasks-org-mode'.
 Each entry is matched against the buffer's file path relative to
-the project root."
+the project root.  Activation also triggers on any org buffer that
+contains a `#+DEFAULT-PLAN-DIR:' keyword, regardless of path."
   :type '(repeat regexp)
   :group 'tasks-org)
 
@@ -87,13 +81,23 @@ current buffer's directory."
 
 ;;; Activation
 
+(defun tasks-org--has-plan-dir-keyword-p ()
+  "Return non-nil when the current buffer contains a #+DEFAULT-PLAN-DIR: keyword."
+  (save-excursion
+    (goto-char (point-min))
+    (re-search-forward "^#\\+DEFAULT-PLAN-DIR:" nil t)))
+
 (defun tasks-org--should-auto-enable-p ()
-  "Return non-nil when the current buffer matches `tasks-org-auto-enable-paths'."
+  "Return non-nil when the current buffer matches activation rules.
+Activates when the buffer's path (relative to the project root) matches
+`tasks-org-auto-enable-paths', or when the buffer contains a
+`#+DEFAULT-PLAN-DIR:' keyword (the canonical marker of a task-memory root)."
   (when (and buffer-file-name (derived-mode-p 'org-mode))
-    (let* ((root (tasks-org--project-root))
-           (rel (file-relative-name buffer-file-name root)))
-      (cl-some (lambda (re) (string-match-p re rel))
-               tasks-org-auto-enable-paths))))
+    (or (tasks-org--has-plan-dir-keyword-p)
+        (let* ((root (tasks-org--project-root))
+               (rel (file-relative-name buffer-file-name root)))
+          (cl-some (lambda (re) (string-match-p re rel))
+                   tasks-org-auto-enable-paths)))))
 
 (defun tasks-org-maybe-enable ()
   "Enable `tasks-org-mode' if the current buffer matches activation rules."
@@ -114,46 +118,26 @@ declared TODO sequence."
 
 ;;; ID helpers
 
-;;;###autoload
-(defun tasks-org-ensure-id ()
-  "Ensure the current heading has an :ID: property; add a UUID v4 if missing."
-  (interactive)
+(defun tasks-org--ensure-id-at-heading ()
+  "Ensure the current heading has an :ID: property; add a UUID v4 if missing.
+Internal helper used by plan creation.  ID backfill for existing tasks is
+the responsibility of the pi tasks extension and the agent org-memory skill."
   (save-excursion
     (unless (org-at-heading-p)
       (org-back-to-heading t))
-    (let ((id (org-entry-get nil "ID")))
-      (if id
-          (message "ID already present: %s" id)
-        (let ((new-id (org-id-new)))
-          (org-entry-put nil "ID" new-id)
-          (message "ID assigned: %s" new-id))))))
-
-;;;###autoload
-(defun tasks-org-backfill-ids-in-buffer ()
-  "Add :ID: properties to every task heading in the current buffer that lacks one.
-Reports the number of IDs assigned in the echo area."
-  (interactive)
-  (let ((added 0))
-    (save-excursion
-      (goto-char (point-min))
-      (while (re-search-forward org-heading-regexp nil t)
-        (when (and (org-at-heading-p)
-                   (org-get-todo-state)
-                   (not (org-entry-get nil "ID")))
-          (org-entry-put nil "ID" (org-id-new))
-          (setq added (1+ added)))))
-    (message "tasks-org: assigned %d new ID(s)" added)
-    added))
+    (unless (org-entry-get nil "ID")
+      (org-entry-put nil "ID" (org-id-new)))))
 
 ;;; Plan link parsing
 
 (defun tasks-org--extract-plan-path (raw)
   "Extract a file path from a :PLAN: property value RAW.
-Handles bare paths, [[file:...]] and [[file:...][label]] forms."
+Handles bare paths, [[file:...]] and [[file:...][label]] forms.
+Search options (e.g. ::heading) are stripped from the extracted path."
   (cond
    ((null raw) nil)
    ((string-match "\\[\\[file:\\([^]]+?\\)\\(?:\\]\\[[^]]*\\)?\\]\\]" raw)
-    (match-string 1 raw))
+    (replace-regexp-in-string "::[^]]*\\'" "" (match-string 1 raw)))
    ((not (string-empty-p (string-trim raw)))
     (string-trim raw))
    (t nil)))
@@ -252,16 +236,18 @@ to enforce single-selection."
      "* Context\n\n"
      "* Plan\n")))
 
-(defun tasks-org--open-plan-link (raw source-dir)
-  "Open the file extracted from RAW :PLAN: value, resolved against SOURCE-DIR."
+(defun tasks-org--open-plan-link (raw source-dir &optional find-fn)
+  "Open the file extracted from RAW :PLAN: value, resolved against SOURCE-DIR.
+FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
   (let* ((path (tasks-org--extract-plan-path raw))
          (abs (when path (expand-file-name path source-dir))))
     (if (and abs (file-readable-p abs))
-        (find-file abs)
+        (funcall (or find-fn #'find-file) abs)
       (user-error "Plan file not found: %s" (or abs raw)))))
 
-(defun tasks-org--create-plan-for-current-task ()
-  "Scaffold a new plan file for the current task and link it via :PLAN:."
+(defun tasks-org--create-plan-for-current-task (&optional find-fn)
+  "Scaffold a new plan file for the current task and link it via :PLAN:.
+FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
   (let* ((title (org-get-heading t t t t))
          (slug (tasks-org--slugify title))
          (today (format-time-string "%Y-%m-%d"))
@@ -280,44 +266,67 @@ to enforce single-selection."
     (let* ((source-dir (file-name-directory (or buffer-file-name "")))
            (rel (file-relative-name chosen source-dir)))
       (org-entry-put nil "PLAN" (tasks-org--plan-link rel))
-      (tasks-org-ensure-id))
+      (tasks-org--ensure-id-at-heading))
     (save-buffer)
-    (find-file chosen)))
+    (funcall (or find-fn #'find-file) chosen)))
 
 ;;;###autoload
-(defun tasks-org-open-plan ()
-  "Open the :PLAN: linked from the current task, creating one if absent."
+(defun tasks-org-open-plan (&optional find-fn)
+  "Open the :PLAN: linked from the current task, creating one if absent.
+FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
   (interactive)
   (unless (tasks-org--at-task-heading-p)
     (user-error "Point is not on an actionable task heading"))
   (let ((plan-raw (org-entry-get nil "PLAN"))
         (source-dir (file-name-directory (or buffer-file-name ""))))
     (if (and plan-raw (not (string-empty-p (string-trim plan-raw))))
-        (tasks-org--open-plan-link plan-raw source-dir)
-      (tasks-org--create-plan-for-current-task))))
+        (tasks-org--open-plan-link plan-raw source-dir find-fn)
+      (tasks-org--create-plan-for-current-task find-fn))))
 
 ;;;###autoload
-(defun tasks-org-jump-to-tasks ()
-  "Open the project's TASKS.org file."
+(defun tasks-org-open-plan-other-window ()
+  "Open the :PLAN: linked from the current task in another window."
   (interactive)
-  (let ((file (tasks-org--tasks-file)))
-    (if (file-readable-p file)
-        (find-file file)
-      (user-error "TASKS.org not found at %s" file))))
+  (tasks-org-open-plan #'find-file-other-window))
 
-;;; Save hook
-
-(defun tasks-org--maybe-backfill-on-save ()
-  "Run conservative save-time helpers when enabled."
-  (when (and tasks-org-mode tasks-org-save-backfill-ids)
-    (tasks-org-backfill-ids-in-buffer)))
+;;;###autoload
+(defun tasks-org-jump-to-parent-task ()
+  "Jump to the task in TASKS.org whose :PLAN: links to the current buffer."
+  (interactive)
+  (unless buffer-file-name
+    (user-error "Current buffer is not visiting a file"))
+  (let* ((tasks-file (tasks-org--tasks-file))
+         (tasks-dir (file-name-directory (expand-file-name tasks-file)))
+         (current-abs (expand-file-name buffer-file-name))
+         found-point)
+    (unless (file-readable-p tasks-file)
+      (user-error "TASKS.org not found at %s" tasks-file))
+    (with-current-buffer (find-file-noselect tasks-file)
+      (save-excursion
+        (goto-char (point-min))
+        (while (and (not found-point)
+                    (re-search-forward "^[ \t]*:PLAN:[ \t]*\\(.*\\)" nil t))
+          (let* ((raw (string-trim (match-string 1)))
+                 (path (tasks-org--extract-plan-path raw))
+                 (abs (when path (expand-file-name path tasks-dir))))
+            (when (and abs (string= (expand-file-name abs) current-abs))
+              (org-back-to-heading t)
+              (setq found-point (point)))))))
+    (if found-point
+        (progn
+          (find-file tasks-file)
+          (goto-char found-point)
+          (org-show-entry)
+          (recenter))
+      (user-error "No task in %s links to the current file"
+                  tasks-org-tasks-file-name))))
 
 ;;; Minor mode + keymap
 
 (defvar tasks-org-mode-map (make-sparse-keymap)
   "Keymap for `tasks-org-mode'.
 Spacemacs bindings are declared in the layer's `packages.el' under
-the org local-leader prefix `, p'.")
+the org local-leader prefix `, ;'.")
 
 ;;;###autoload
 (define-minor-mode tasks-org-mode
@@ -328,9 +337,7 @@ toggling the reserved :selected: tag, and opening or creating
 :PLAN: linked files."
   :lighter " Tasks"
   :keymap tasks-org-mode-map
-  (if tasks-org-mode
-      (add-hook 'before-save-hook #'tasks-org--maybe-backfill-on-save nil t)
-    (remove-hook 'before-save-hook #'tasks-org--maybe-backfill-on-save t)))
+)
 
 ;;;###autoload
 (add-hook 'org-mode-hook #'tasks-org-maybe-enable)

@@ -43,31 +43,31 @@ because it just maintains conventions on top of standard org.
 
 ** Activation
 
-=tasks-org-mode= auto-enables on buffers visiting:
+=tasks-org-mode= auto-enables on any org buffer that matches either rule:
 
-- =TASKS.org= (project root)
-- any =*.org= under a =design/log/= directory
+- The buffer contains a =#+DEFAULT-PLAN-DIR:= keyword (canonical marker
+  of a task-memory root file — matches =TASKS.org= regardless of where
+  it lives relative to the project).
+- The buffer's path (relative to the project root) matches a pattern in
+  =tasks-org-auto-enable-paths= (defaults: =TASKS.org=, =design/log/*.org=).
 
 Manual activation: =M-x tasks-org-mode=.
 
-Patterns are configurable via =tasks-org-auto-enable-paths=. Project
-root is resolved via =projectile-project-root= when projectile is
-loaded, falling back to the buffer's directory otherwise.
+Project root is resolved via =projectile-project-root= when projectile
+is loaded, falling back to the buffer's directory otherwise.
 
 ** Commands & key bindings
 
-All bindings are registered under the org local-leader prefix =, K=
-(=SPC m K= in Spacemacs). Capital =K= is used because Spacemacs's org
-layer binds =, p= directly to =org-priority=, which prevents it from
-being reused as a prefix. Change here if =K= collides in your setup.
+All bindings are registered under the org local-leader prefix =, ;=
+(=SPC m ;= in Spacemacs). =;= is free in the Spacemacs org layer and
+reachable without Shift, with no unbinding gymnastics required.
 
-| Key       | Command                              | Description                                                  |
-|-----------+--------------------------------------+--------------------------------------------------------------|
-| =, K s=   | =tasks-org-toggle-selected=          | Toggle =:selected:= on the current task (single-selection)   |
-| =, K i=   | =tasks-org-ensure-id=                | Ensure the current heading has a UUID =:ID:= property        |
-| =, K I=   | =tasks-org-backfill-ids-in-buffer=   | Add =:ID:= to every task heading in the buffer that lacks one |
-| =, K p=   | =tasks-org-open-plan=                | Open the =:PLAN:= linked from the current task, or create one |
-| =, K t=   | =tasks-org-jump-to-tasks=            | Open the project's =TASKS.org=                               |
+| Key       | Command                            | Description                                                   |
+|-----------+------------------------------------+---------------------------------------------------------------|
+| =, ; s=   | =tasks-org-toggle-selected=        | Toggle =:selected:= on the current task (single-selection)    |
+| =, ; p=   | =tasks-org-open-plan=              | Open the =:PLAN:= linked from the current task, or create one |
+| =, ; P=   | =tasks-org-open-plan-other-window= | Same, but open in another window                              |
+| =, ; t=   | =tasks-org-jump-to-parent-task=    | Jump to the task in =TASKS.org= whose =:PLAN:= is this file   |
 
 The mode lighter is =Tasks=.
 
@@ -76,8 +76,11 @@ The mode lighter is =Tasks=.
 The package maintains four conventions:
 
 - =:ID:= property :: UUID v4 stable identifier per task heading.
-  =tasks-org-ensure-id= adds one if missing; the same on save can be
-  enabled via =tasks-org-save-backfill-ids= (off by default).
+  Backfill of missing IDs is handled automatically by the pi tasks
+  extension (on load) and by the agent org-memory skill (on resume).
+  Emacs-side backfill commands are intentionally absent to avoid
+  duplicating that responsibility; plan creation assigns an ID to any
+  new task automatically.
 
 - =:selected:= tag :: Reserved tag marking the single currently
   selected task across the project. Toggling clears any other
