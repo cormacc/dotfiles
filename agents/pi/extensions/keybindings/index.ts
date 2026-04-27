@@ -18,6 +18,7 @@
 import { CustomEditor, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
   matchesKey,
+  parseKey,
   truncateToWidth,
   visibleWidth,
   type EditorTheme,
@@ -184,20 +185,32 @@ function loadKeybindingsConfig(): KeybindingsConfig {
 }
 
 /**
- * Normalise a config key to a form that matchesKey handles correctly across
- * all terminal types (legacy and Kitty keyboard protocol).
+ * Normalise a key string to a canonical "shift+lowercase" form.
  *
- * Single uppercase ASCII letters ("A"…"Z") are converted to the canonical
- * "shift+lowercase" form.  matchesKey("A", "shift+a") returns true for legacy
- * terminals and matchesKey(kittyEscSeq, "shift+a") returns true for Kitty;
- * but matchesKey(kittyEscSeq, "A") returns false because the Kitty path looks
- * for a no-modifier sequence for codepoint 65, not the shift+97 sequence.
+ * Applied to both config keys (at tree-build time) and incoming terminal data
+ * (at match time) so that comparison is always string-equal without relying on
+ * matchesKey's internal legacy-vs-Kitty branching.
+ *
+ * - Config key "A" → "shift+a"  (single uppercase letter)
+ * - Incoming raw char "A" → "shift+a"  (legacy terminal sends 0x41)
+ * - Incoming Kitty seq \x1b[97;2u → parseKey → "shift+a" → unchanged
+ * - Anything else → unchanged
  */
 function normalizeConfigKey(key: string): string {
   if (key.length === 1 && key >= "A" && key <= "Z") {
     return `shift+${key.toLowerCase()}`;
   }
   return key;
+}
+
+/** Canonicalise raw terminal input to the same form used in the config tree. */
+function canonicalizeInput(data: string): string {
+  // Kitty and other escape sequences: let parseKey decode them first.
+  const parsed = parseKey(data);
+  if (parsed) return normalizeConfigKey(parsed);
+  // Plain single character fallback (parseKey returns undefined for bare chars
+  // because they are not escape sequences — just the raw ASCII value).
+  return normalizeConfigKey(data);
 }
 
 /** Convert a JSON menu item tree into a LeaderNode tree */
@@ -2131,7 +2144,7 @@ class VimEditor extends CustomEditor {
     if (!this.activeLeaderMenu) return null;
     let node = this.activeLeaderMenu;
     for (const key of this.leaderPath) {
-      const child = node.children?.find((c) => matchesKey(key, c.key));
+      const child = node.children?.find((c) => key === c.key);
       if (child && "children" in child) {
         node = child;
       } else {
@@ -2208,7 +2221,8 @@ class VimEditor extends CustomEditor {
       this.clearLeaderOverlay();
       return;
     }
-    const match = node.children?.find((c) => matchesKey(data, c.key));
+    const canonical = canonicalizeInput(data);
+    const match = node.children?.find((c) => canonical === c.key);
 
     if (match && "children" in match) {
       // Descend into sub-menu — store the canonical config key, not the raw
