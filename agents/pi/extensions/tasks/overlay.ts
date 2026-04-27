@@ -392,10 +392,14 @@ export class TasksOverlay {
           if (!selected) {
             this.collapsedSet.add(task);
           } else if (!keepVisible.has(task)) {
-            this.collapsedSet.add(task);
-          } else if (CLOSED_STATUSES.has(task.status) && task !== selected) {
+            // Task is not on the path to the selected task — collapse it.
+            // This also covers completed tasks that are not ancestors of the
+            // selection, without needing a separate DONE/CANCELLED check.
             this.collapsedSet.add(task);
           }
+          // Tasks in keepVisible (ancestors of the selected task) are always
+          // kept expanded so the selected task remains visible, even when
+          // those ancestors are in a DONE or CANCELLED state.
         }
         walk(children);
       }

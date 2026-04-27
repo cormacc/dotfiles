@@ -89,18 +89,23 @@ offer to move those subtasks into the new plan file (preserving =:ID:=
 properties and leaving a summary under the parent). Coordinate behaviour
 with the pi tasks extension's parser so results are consistent across
 editor and CLI.
-** TODO [#D] Minor tasks extension refinements
+** DONE [#D] Minor tasks extension refinements
+CLOSED: [2026-04-27 Mon 17:26]
 :PROPERTIES:
 :ID: d36fe453-b8f8-4dfb-8ea6-5ed9d9eeee90
 :END:
 - Toggling selection updates status overlay BUT not editor overlay
 - Editor overlay should open with insertion point at selected subtask, not top level task
-** TODO [#D] Minor plan skill refinements
+** DONE [#D] TASKS skill - fix completion timestamp insertion
+CLOSED: [2026-04-27 Mon 15:13]
 :PROPERTIES:
 :ID: ba720ca7-077b-455d-9a64-40b41662ec97
 :END:
-- When completing a plan, the final issue appears to be left open?
-- When completing a task, no completion timestamp is added.
+When completing a task, a completion timestamp is inserted below the properties drawer without  "CLOSED: " prefix. Also the timestamp format is incorrect. For a task completed today I expected [2026-04-27 Mon 15:07] but got [2026-04-27 Sun].
+Do the following:
+- Ensure the timestamp is in the expected format AND correct.
+- Ensure the timestamp is prefixed with "CLOSED: " and placed immediately below the task heading.
+- Ensure remaining content continues on the next line, rather than on the same line as the timestamp.
 * Housekeeping
 
 ** WAITING [#C] Update nixGL flake URL :nix:
