@@ -108,7 +108,7 @@ Progress on the Microchip side lives under [[./microchip/]] and the [[https://gi
 - =homeConfigurations= -- =default= (full Linux workstation, imports [[./home.nix]]) and =minimal= (server / WSL, imports [[./home-linux.nix]]).
 - =darwinConfigurations."Cormacs-MacBook-Air"= -- macOS system config with home-manager bundled as a darwin module.
 
-Key flake inputs: =nixpkgs= (unstable), =home-manager=, =nix-darwin=, =nixGL=, =nix-microchip=, =rust-overlay=, =NUR=, =llm-agents=, =meridian= and =claude-desktop=. =allowUnfree = true= is set globally; =--impure= is required on all builds (the flake reads identity env vars).
+ =allowUnfree = true= is set globally; =--impure= is required on all builds (the flake reads identity env vars).
 
 ** NixOS module layering
 [[./nixos-workstation.nix]] imports [[./nixos-base.nix]] and adds workstation concerns (audio, display, sway, hyprland). Host-specific configs live in =hosts/<hostname>/=. Optional mixins:
