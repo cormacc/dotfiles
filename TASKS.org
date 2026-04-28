@@ -44,17 +44,20 @@ Some introductory text
 - [[#housekeeping][Housekeeping]]
 
 * Improvements
-** TODO [#C] Token-efficient Jira clone workflow
+** DONE [#C] Token-efficient Jira clone workflow
+CLOSED: [2026-04-28 Tue 16:54]
 :PROPERTIES:
 :ID: 4ad4bb1b-9e74-48a0-9ce4-2d69639a8bc8
 :CREATED: 2026-04-28 Tue 15:16
+:STARTED: [2026-04-28 Tue 16:34]
 :END:
 #+IMPORT: [[file:design/log/2026-04-28-jira-clone-token-efficiency.org]]
 Follow-up to the read-only Jira integration. Today's `/jira clone` round-trips the
 entire `atlassian_getJiraIssue` JSON and the rendered org body through the model,
 which is wasteful (~17KB ingested for ~6 fields used). Step 1 (field-list filter
 in the prompt) shipped on 2026-04-28. The remaining wins below are tracked here.
-*** TODO [#C] Two-step clone with per-session cache
+*** DONE [#A] Emission-side clone tool (re-scoped from two-step+cache)
+CLOSED: [2026-04-28 Tue 16:50]
 :PROPERTIES:
 :ID: 5a0b8c2e-f1a3-4d24-b6e8-6c1c2e9b1a01
 :END:
@@ -80,7 +83,8 @@ Replace the single all-in-one prompt with a fetch + apply pair:
   captured into the cache by the registered tool wrapper rather than echoed
   through the conversation. Verify this is achievable with the current
   ExtensionAPI before committing to the design.
-*** TODO [#D] ~/jira get KEY~ discovery subcommand
+*** DONE [#C] ~/jira get KEY~ ergonomics subcommand
+CLOSED: [2026-04-28 Tue 16:52]
 :PROPERTIES:
 :ID: 8a7d832c-03e0-443d-b359-f158e8e47983
 :END:
@@ -98,9 +102,11 @@ User-facing inspection helper, not part of the workflow internals.
 - Update README + the /jira help description to list the new subcommand.
 - Ship together with the ~jira_get_issue~ tool from the sibling subtask so
   the slash command and the underlying primitive land in one change.
-*** TODO [#C] Shared ~tasks.insertTask~ API
+*** DONE [#A] Shared ~tasks.insertTask~ API
+CLOSED: [2026-04-28 Tue 16:44]
 :PROPERTIES:
 :ID: 6c2d4f8b-3a91-4e57-b04c-9d7d8a3a9b02
+:STARTED: [2026-04-28 Tue 16:34]
 :END:
 Factor the org-task rendering + file-insertion logic out of the (future) jira
 clone path into a shared helper exposed by the tasks extension:

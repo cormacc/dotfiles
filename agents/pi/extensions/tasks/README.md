@@ -229,6 +229,58 @@ extensions like `jira` that contribute slash commands and use
 `getDrawerProperty` / `setDrawerProperty` / `getLinkedIssues` from this
 extension's parser to read and write the property.
 
+## Cross-extension tools
+
+The extension also registers an LLM-callable tool that other extensions
+(and the agent itself) can use to insert tasks into TASKS-shaped files
+without hand-rolling org-mode strings.
+
+### `tasks_insert_task`
+
+Inserts a new TODO task into a project's `TASKS.org` (or sibling) under
+a named section. Performs deterministic org rendering (priority cookie,
+UUID, `:CREATED:` timestamp, `:LINKED_ISSUES:` drawer line, label
+tag suffix). Refuses with a structured `duplicate` error when any
+supplied `:LINKED_ISSUES:` token already appears in the scanned set.
+
+**Args** (TypeBox schema in `index.ts`):
+
+| Field                | Type      | Description                                                                                          |
+| -------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
+| `file`               | string    | Absolute or cwd-relative path to the org file to insert into.                                        |
+| `section`            | string    | Level-1 heading text (e.g. `Improvements`). Tags on the heading line are tolerated.                  |
+| `summary`            | string    | Heading text. Required, non-empty.                                                                   |
+| `priorityName`       | string?   | `Highest`/`High`/`Medium`/`Low`/`Lowest`. Anything else → no priority cookie.                       |
+| `body`               | string?   | Body text rendered after the drawer.                                                                 |
+| `linkedIssues`       | string[]? | Tokens written into `:LINKED_ISSUES:` *and* checked for idempotency.                                 |
+| `labels`             | string[]? | Rendered as org tags `:l1:l2:`.                                                                      |
+| `parentId`           | string?   | When set, render as a level-3 subtask. The id itself is not embedded.                                |
+| `allowCreateSection` | bool?     | When true, missing sections are appended to the file. Default `false`.                               |
+| `alsoScan`           | string[]? | Additional org files scanned for `:LINKED_ISSUES:` collisions. Imports walked recursively.           |
+
+**Return shapes** (in `details`):
+
+```ts
+// success
+{ status: "inserted",          id, file, line }
+// idempotency refusal
+{ status: "duplicate",         existingId, existingFile, conflictingToken }
+// section missing without allowCreateSection
+{ status: "section_not_found", file, section }
+// caller mis-configured
+{ status: "error",             reason, message }
+```
+
+Duplicate / `section_not_found` / `error` results all carry
+`isError: true` so the agent surfaces them as recoverable refusals
+rather than fatal failures.
+
+The Jira `jira_clone_apply` tool delegates to this primitive (via a
+direct JS import of `insertTaskIntoFile` from `./insert.ts`) so all
+org-mode string assembly stays in one place. Future tracker
+integrations (github / linear / gitlab / `/jira create` reverse path)
+should use the same primitive.
+
 ## Cross-extension events
 
 The extension emits a small set of events on the shared pi event bus
