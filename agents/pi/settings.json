@@ -1,10 +1,12 @@
 {
-  "lastChangelogVersion": "0.70.2",
+  "lastChangelogVersion": "0.70.5",
   "hideThinkingBlock": true,
   "defaultThinkingLevel": "high",
   "defaultProvider": "anthropic",
   "defaultModel": "claude-opus-4-7",
   "packages": [
-    "npm:@gotgenes/pi-anthropic-auth"
+    "npm:@gotgenes/pi-anthropic-auth",
+    "npm:pi-mcp-adapter",
+    "npm:pi-web-access"
   ]
 }
