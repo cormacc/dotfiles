@@ -5,10 +5,8 @@ let
   commonSessionVariables = {
     #Use fish as default shell, but NOT login shell as not posix compliant
     # FIXME: Bypassing for now, as nix profile not getting sourced under fish...
-    #TERMINAL = "foot -e /usr/bin/env fish";
-    #N.B. Check that this overrides the foot-extra specified in some OS defaults (e.g. manjaro)
-    #     foot is included in ncurses / makes interop easier, and foot-extra additions included in ncurses version since 2021-11-13
-    TERM = "foot";
+    #TERMINAL = "kitty -e /usr/bin/env fish";
+    TERM = "xterm-kitty";
 
     #Prevents java UIs showing up as a gray window on i3 and sway...
     _JAVA_AWT_WM_NONREPARENTING = 1;
@@ -147,7 +145,7 @@ in {
 
   home.file."${config.xdg.configHome}/fontconfig/conf.d/51-monospace.conf".source = ./fontconfig.conf;
 
-  # Terminfo not usually installed for foot, which sets TERM=foot or TERM=foot-extra
+  # Terminfo not usually installed for kitty, which sets TERM=xterm-kitty
   home.shellAliases = {
     ssh = "TERM=linux ssh";
   };
