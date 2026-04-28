@@ -41,6 +41,8 @@ import { TasksOverlay } from "./overlay.ts";
 import {
   extractOrgLinkTarget,
   formatOrgTimestamp,
+  getFileKeyword,
+  getLinkedIssues,
   getTaskId,
   getTaskStarted,
   parseTasks,
@@ -51,7 +53,7 @@ import {
   type Task,
 } from "./parser.ts";
 import { insertTasksIntoPlanSection, scaffoldPlan } from "./scaffold.ts";
-import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
+import { colorIssues, colorPriority, colorStatus, colorTags } from "./status-colors.ts";
 
 const EXT_NAME = getExtensionName(import.meta.url);
 const TASKS_FILE = "TASKS.org";
@@ -381,15 +383,26 @@ function formatTaskLine(
   const priority = colorPriority(t.priority);
   const visibleTags = t.tags;
   const tags = colorTags(visibleTags);
+  const urlBase = t.sourceContent
+    ? getFileKeyword(t.sourceContent, "ISSUE_URL_BASE")
+    : null;
+  const issues = colorIssues(
+    getLinkedIssues(t, urlBase).map((i) => i.label),
+  );
   const left = `${indent}${marker}${colorStatus(t.status)} ${priority ? `${priority} ` : ""}${t.summary}`;
-  if (!tags) return truncateToWidth(left, width);
+  // Suffix = issues + tags (right-aligned). Issues come first so tags
+  // remain at the far right where the eye expects them.
+  const suffix =
+    issues || tags
+      ? ` ${issues}${issues && tags ? " " : ""}${tags}`
+      : "";
+  if (!suffix) return truncateToWidth(left, width);
 
-  const tagText = ` ${tags}`;
-  const tagWidth = visibleWidth(tagText);
-  const leftWidth = Math.max(0, width - tagWidth - 1);
+  const suffixWidth = visibleWidth(suffix);
+  const leftWidth = Math.max(0, width - suffixWidth - 1);
   const clippedLeft = truncateToWidth(left, leftWidth);
-  const gap = Math.max(1, width - visibleWidth(clippedLeft) - tagWidth);
-  return truncateToWidth(`${clippedLeft}${" ".repeat(gap)}${tagText}`, width);
+  const gap = Math.max(1, width - visibleWidth(clippedLeft) - suffixWidth);
+  return truncateToWidth(`${clippedLeft}${" ".repeat(gap)}${suffix}`, width);
 }
 
 function border(width: number, theme: Theme, fill = "─"): string {
@@ -680,6 +693,33 @@ export default function (pi: ExtensionAPI) {
           scheduleRefresh();
         };
 
+        const onOpenUrls = async (urls: string[]) => {
+          // Detect platform once per call. Cross-platform browser-open:
+          //   darwin  → `open <url>`
+          //   linux   → `xdg-open <url>`
+          //   other   → best-effort `xdg-open`
+          const proc = (globalThis as { [key: string]: unknown })["process"] as
+            | { platform?: string }
+            | undefined;
+          const cmd = proc?.platform === "darwin" ? "open" : "xdg-open";
+          for (const url of urls) {
+            try {
+              await pi.exec(cmd, [url], { timeout: 5000 });
+            } catch (err) {
+              ctx.ui.notify(
+                `Failed to open ${url}: ${(err as Error).message}`,
+                "error",
+              );
+            }
+          }
+        };
+        const onNotify = (
+          message: string,
+          kind: "info" | "warn" | "error" = "info",
+        ) => {
+          ctx.ui.notify(message, kind);
+        };
+
         await ctx.ui.custom(
           (tui, theme, _kb, done) => {
             const overlay = new TasksOverlay(
@@ -698,6 +738,8 @@ export default function (pi: ExtensionAPI) {
               onCreateChangeRecord,
               selectedId,
               onSelectionChange,
+              onOpenUrls,
+              onNotify,
             );
             activeOverlayInstance = overlay;
             return overlay;

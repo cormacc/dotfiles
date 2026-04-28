@@ -30,5 +30,10 @@ fi
 
 CODE=0
 echo "# Running parser/scaffold unit tests..."
-tsx ./parser.test.ts || CODE=1
+# Use `tsx` directly when on PATH, otherwise fall back to `npx tsx`.
+if command -v tsx >/dev/null 2>&1; then
+  tsx ./parser.test.ts || CODE=1
+else
+  npx --yes tsx ./parser.test.ts || CODE=1
+fi
 exit "$CODE"

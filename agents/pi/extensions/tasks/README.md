@@ -72,6 +72,7 @@ The expanded UI is a centered split pane — task tree on the left, details for 
 | `A` (shift-a)             | Archive the top-level task (must be `DONE` or `CANCELLED`) |
 | `P` (shift-p)             | Publish local task → `TASKS.org` (local tasks only)        |
 | `U` (shift-u)             | Unpublish task → `TASKS.local.org` (top-level shared tasks only) |
+| `J` (shift-j)             | Open linked-issue URLs in the browser (see *Linked external issues* below) |
 | `Esc` / `q`               | Close                              |
 
 ### Local tasks
@@ -165,6 +166,68 @@ Default is `true`. When `false`, the retrospective flow is suppressed and `TODO/
   Emitted on its own line above the `:PROPERTIES:` drawer (matches
   `org-todo`'s native behaviour). The parser accepts `CLOSED:` in
   either position and serializes back above the drawer.
+
+### Linked external issues
+
+Tasks may reference issues in external trackers (Jira, GitHub, Linear,
+etc.) via a generic, tracker-agnostic mechanism owned by this extension.
+
+**Drawer property `:LINKED_ISSUES:`** — multi-valued, whitespace-separated
+list of tokens. Each token is either:
+
+1. **Bare key** (e.g. `MBFW-123`) — resolved against `#+ISSUE_URL_BASE`
+   (see below) to produce a clickable URL. Rendered as the key itself.
+2. **Org link** `[[url][label]]` — resolved directly, no template needed.
+   Rendered as `label`.
+
+The two forms can mix freely on a single line:
+
+```org
+:PROPERTIES:
+:ID: 01234567-…
+:LINKED_ISSUES: MBFW-123 MBE-45 [[https://github.com/foo/bar/issues/42][gh#42]]
+:END:
+```
+
+The property is created on first link only — never auto-backfilled on
+existing tasks or pre-created on new tasks (mirroring `:STARTED:`).
+
+**File keyword `#+ISSUE_URL_BASE:`** — URL template used to resolve bare
+keys. Two forms accepted:
+
+```org
+#+ISSUE_URL_BASE: https://your-org.atlassian.net/browse/{ID}
+#+ISSUE_URL_BASE: https://your-org.atlassian.net/browse/
+```
+
+Resolution rule for bare keys:
+
+1. URL-encode the key.
+2. If the template contains `{ID}`, substitute the encoded key for every
+   occurrence.
+3. Otherwise treat the template as a prefix and append the encoded key.
+
+Unusual URL shapes (`https://issues.example.com/?id={ID}&v=full`) are
+also expressible. `TASKS.local.org` may override the keyword
+(last-write-wins, mirroring `#+SELECTED:`).
+
+**Rendering** — each linked issue appears as a cyan badge prefixed with
+`⤴`, immediately before the tags suffix on the task row. Badges show
+in both the expanded UI and the compact selected-task widget. Tasks
+with no `:LINKED_ISSUES:` are rendered unchanged.
+
+**`J` keybinding (expanded UI)** — opens every resolvable URL on the
+cursor task in the user's browser, capped at 5 with a notification when
+exceeded. Empty/absent property is a silent no-op. Bare tokens with no
+resolvable URL (no `#+ISSUE_URL_BASE` and not an org link) trigger a
+notification pointing at the missing keyword. Browser is invoked via
+`open` (macOS) or `xdg-open` (Linux/other).
+
+**Tracker-specific workflows** (claim, transition, comment, create) are
+intentionally *not* part of this extension. They live in companion
+extensions like `jira` that contribute slash commands and use
+`getDrawerProperty` / `setDrawerProperty` / `getLinkedIssues` from this
+extension's parser to read and write the property.
 
 ## File format
 
