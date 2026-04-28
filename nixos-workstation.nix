@@ -107,7 +107,7 @@
     # Install GPU accelerated terminals at os level
     kitty
     ghostty
-    # ... we use foot by default on wayland, but that's not GPU-accelerated so can be owned by home-manager
+    # ... kitty is the default terminal; foot is still installed via home-manager for the pi term extension
     # Install system python at OS level...
     # ... this keeps home-manager config compatible with Arch linux package management
     python3
