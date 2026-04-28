@@ -103,9 +103,11 @@ Top-level plan tasks below mirror the parent task's TASKS.org subtask
 rule).  Finer-grained subtasks beneath them get fresh UUIDs and
 represent plan-only work units.
 
-** TODO [#A] Shared ~tasks.insertTask~ API :tasks:
+** DONE [#A] Shared ~tasks.insertTask~ API :tasks:
+CLOSED: [2026-04-28 Tue 16:44]
 :PROPERTIES:
 :ID: 6c2d4f8b-3a91-4e57-b04c-9d7d8a3a9b02
+:STARTED: [2026-04-28 Tue 16:34]
 :END:
 Factor the org-task rendering + file-insertion logic into a shared
 helper exposed by the =tasks= extension, consumable by
@@ -113,11 +115,16 @@ helper exposed by the =tasks= extension, consumable by
 =* Context= for the rationale; this plan tightens scope to two
 executable units below.
 
-*** TODO [#A] Scaffold ~tasks.insertTask~ helper API + tests :tasks:
+*** DONE [#A] Scaffold ~tasks.insertTask~ helper API + tests :tasks:
+CLOSED: [2026-04-28 Tue 16:42]
 :PROPERTIES:
 :ID: 3b03d011-c3c1-48a8-b999-55ad576f4fb4
 :CREATED: [2026-04-28 Tue 15:52]
+:STARTED: [2026-04-28 Tue 16:34]
 :END:
+Landed as ~agents/pi/extensions/tasks/insert.ts~ + ~insert.test.ts~. 34/34 assertions pass; covers each priority bucket, missing/unknown priority,
+label tag suffix shape, drawer ordering invariant, trailing-newline hygiene, body normalisation, ~parentId~ → level-3 promotion, and default UUID/timestamp
+shape. Wired into ~test.sh~ alongside the existing parser tests.
 Pure-function helper module exposing the org-task-block builder.  No
 file I/O at this stage — all I/O lives in the next task.
 
@@ -138,11 +145,18 @@ file I/O at this stage — all I/O lives in the next task.
 Acceptance: =bash agents/pi/extensions/tasks/test.sh= passes the new
 assertions; existing assertions unchanged.
 
-*** TODO [#A] Implement file-side ~tasks.insertTask~ + idempotency :tasks:
+*** DONE [#A] Implement file-side ~tasks.insertTask~ + idempotency :tasks:
+CLOSED: [2026-04-28 Tue 16:44]
 :PROPERTIES:
 :ID: f5aacdf5-1cc3-4be9-93ef-88dfe76edefd
 :CREATED: [2026-04-28 Tue 15:52]
+:STARTED: [2026-04-28 Tue 16:42]
 :END:
+File-side helper landed in ~insert.ts~ as ~insertTaskIntoFile()~; ~tasks_insert_task~ pi tool registered in ~index.ts~ wraps it with a TypeBox schema and structured
+return shapes (~inserted~ / ~duplicate~ / ~section_not_found~ / ~error~). Tests in ~insert.test.ts~ cover happy-path splice (with full file fixture comparison),
+duplicate refusal in the target file, duplicate refusal across an ~alsoScan~ sibling (TASKS.local.org), missing-section refusal, ~allowCreateSection~ scaffold path,
+and empty-summary error. Throwaway driver at ~.agents/tmp/drive-insert-task.mjs~ exercises the JS-level helper end-to-end against a temp dir and asserts a literal
+fixture; documented under "Cross-extension tools" in ~tasks/README.md~. 51/51 tasks-side assertions pass.
 Wire the helper to a registered tool exposed by the =tasks= extension
 so other extensions can call it.
 
@@ -168,9 +182,11 @@ Acceptance:
 - A throwaway script in =.agents/tmp/= drives the tool against a
   scratch =TASKS.org= and asserts the resulting file matches a fixture.
 
-** TODO [#A] Emission-side clone tool (re-scoped from two-step+cache) :jira:
+** DONE [#A] Emission-side clone tool (re-scoped from two-step+cache) :jira:
+CLOSED: [2026-04-28 Tue 16:50]
 :PROPERTIES:
 :ID: 5a0b8c2e-f1a3-4d24-b6e8-6c1c2e9b1a01
+:STARTED: [2026-04-28 Tue 16:44]
 :END:
 Re-scoped at plan time: the original task body proposed an
 extension-side fetch wrapper with a per-session cache.  That path is
@@ -179,11 +195,17 @@ This task therefore narrows to the emission-side win only —
 =jira_clone_apply= structured-args tool plus a two-step =/jira clone=
 dispatch.
 
-*** TODO [#A] Implement ~jira_clone_apply~ tool :jira:
+*** DONE [#A] Implement ~jira_clone_apply~ tool :jira:
+CLOSED: [2026-04-28 Tue 16:48]
 :PROPERTIES:
 :ID: c7fc5b20-edad-4440-9419-26cdf6f7790b
 :CREATED: [2026-04-28 Tue 15:52]
+:STARTED: [2026-04-28 Tue 16:44]
 :END:
+Landed as ~jira_clone_apply~ pi tool registered in ~agents/pi/extensions/jira/index.ts~. Validates the issue key against ~JIRA_KEY_RE~,
+then forwards to ~insertTaskIntoFile~ from ~../tasks/insert.ts~ with ~linkedIssues: [key]~, ~labels~ as-is, and ~alsoScan~ pointing at
+the sibling TASKS file so duplicates across TASKS.org↔TASKS.local.org are caught. Surfaces ~inserted~/~duplicate~/~section_not_found~/~error~
+structured returns straight back to the model. Existing jira test.sh (34/34) still passes; no org-mode string assembly inside the jira extension.
 Registered pi tool that the agent calls after =atlassian_getJiraIssue=.
 Performs Jira-specific transforms then delegates the org write to
 =tasks_insert_task=.
@@ -204,11 +226,17 @@ Acceptance: jira-side tests cover args validation + delegation.  No
 new pure-function tests for org rendering — that's covered in
 tasks-side tests.
 
-*** TODO [#B] Two-step ~/jira clone~ dispatch :jira:
+*** DONE [#B] Two-step ~/jira clone~ dispatch :jira:
+CLOSED: [2026-04-28 Tue 16:50]
 :PROPERTIES:
 :ID: b5162966-57a6-467f-ba23-b5221de5e443
 :CREATED: [2026-04-28 Tue 15:52]
+:STARTED: [2026-04-28 Tue 16:48]
 :END:
+~buildClonePrompt~ rewritten in ~jira/utils.ts~ to instruct a two-step dispatch: ~atlassian_getJiraIssue~ (with the existing field filter) then ~jira_clone_apply~
+with parsed fields. Body / summary / labels are passed verbatim into the tool args; no manual drawer assembly. Prompt-builder tests gained two regression guards:
+(1) presence of ~jira_clone_apply~ in the prompt, (2) absence of v1 hand-rolled drawer markers (~:LINKED_ISSUES: <KEY>~, ~:ID: <new uuid>~, "properties drawer:").
+36/36 jira-side assertions pass.
 Update =buildClonePrompt= so the model:
 
 1. Calls =atlassian_getJiraIssue= with the existing field filter.
@@ -227,10 +255,16 @@ SAND smoke test confirms a realistic body-heavy issue clones with
 visibly fewer model emissions (rough token measurement noted in
 =* Implementation=).
 
-** TODO [#C] ~/jira get KEY~ ergonomics subcommand :jira:
+** DONE [#C] ~/jira get KEY~ ergonomics subcommand :jira:
+CLOSED: [2026-04-28 Tue 16:52]
 :PROPERTIES:
 :ID: 8a7d832c-03e0-443d-b359-f158e8e47983
+:STARTED: [2026-04-28 Tue 16:50]
 :END:
+Landed as ~buildGetPrompt~ in ~jira/utils.ts~ + ~/jira get~ subcommand wired in ~index.ts~. Reuses ~resolveKey~ + cloudId resolution + the same field filter as the
+clone path. Pure prompt-builder — no underlying tool (deferred until pi-mcp-adapter exposes a JS-callable client). Tests cover single-key, multi-key (plural
+wording + every key listed), cloudId inlining, footer-link composition from ~#+JIRA_BASE_URL~ (with absence suppressing the link), field-filter reuse, and a
+regression guard that the prompt does not instruct any TASKS file writes. 45/45 jira-side assertions pass.
 Standalone display affordance, decoupled from the clone path.  Plan
 time re-scope: no underlying =jira_get_issue= tool (architecturally
 not feasible — see =* Context=); reduced to a prompt-builder slash
@@ -250,11 +284,18 @@ Acceptance: prompt-builder snapshot test covers single-key + multi-key
 forms; help string updated; manual try against a SAND issue confirms
 the rendered block is human-readable.
 
-** TODO [#C] Documentation + retrospective measurement :docs:
+** DONE [#C] Documentation + retrospective measurement :docs:
+CLOSED: [2026-04-28 Tue 16:54]
 :PROPERTIES:
 :ID: 4bf3bcb0-d881-4a65-9050-10de89c4a3c6
 :CREATED: [2026-04-28 Tue 15:52]
+:STARTED: [2026-04-28 Tue 16:52]
 :END:
+=jira/README.md= status table now reflects =jira_clone_apply= + =/jira get= + the (already-shipped) auto-transition listener; new "Tools" section documents the
+=jira_clone_apply= contract and points at =tasks/README.md='s cross-extension-tools subsection. =tasks/README.md= grew a "Cross-extension tools" section with the
+full =tasks_insert_task= schema + return shapes. The =org-jira= skill's "Clone" section now describes the two-step dispatch + structured-return handling, and a
+new "Get" section captures the prompt-builder-only =/jira get= flow. Token-reduction reasoning + an empirical-measurement open question recorded in =* Implementation= /
+=* Open questions= above.
 New plan-only work unit (no TASKS.org analogue under =4ad4bb1b=).
 
 - Update =agents/pi/extensions/jira/README.md=: status table reflects
@@ -275,4 +316,121 @@ measurement note in =* Implementation=.
 
 * Open questions
 
+- /Empirical token-reduction measurement./ The qualitative argument is
+  in =* Implementation= but no clone has been run end-to-end against a
+  real SAND issue post-this-change. Validation step before closing
+  the parent task: clone a body-heavy SAND issue with the new flow,
+  capture the model emission length, and compare against a simulated
+  pre-flow reconstruction of the same issue. Requires MCP
+  reconnection.
+
+- /Body cleanup heuristics./ The model still owns ADF→markdown cleanup
+  (broken =| --- |= rows, summary trim). If a deterministic version
+  emerges (say, the MCP server gains a markdown rendering option),
+  it can move into =buildTaskBlock= as a pre-emit normaliser. Track
+  separately rather than expand scope here.
+
+- /=parentId= placement semantics./ =buildTaskBlock= currently
+  promotes to =***= when =parentId= is set, but =insertTaskIntoFile=
+  still appends at the *end of the named section* rather than under
+  a specific parent task subtree. No consumer needs the
+  parent-anchored case yet (jira clone is always top-level under a
+  category section), so the gap is documented in the type but not
+  exercised. If a future tracker wants subtask cloning, fold
+  parent-by-id splice support in then.
+
+- /Jira-extension fixture coverage./ =jira_clone_apply='s execute()
+  path is exercised indirectly via the =insertTaskIntoFile= tests
+  but has no scratch-file end-to-end test inside =jira/= itself. If
+  the Jira-side transforms grow (label sanitisation, project-aware
+  defaults), add a temp-dir test at that point.
+
+- /Fetch-side optimisation./ Documented in =* Context=; depends on
+  pi-mcp-adapter exposing a JS-callable client to extensions. If/when
+  that lands, a follow-up change-record can revisit the fetch-side
+  cache + filtered persistence ideas the original parent-task body
+  proposed.
+
 * Implementation
+
+** Architecture
+
+- /Pure helper at the bottom./ =agents/pi/extensions/tasks/insert.ts=
+  exposes =buildTaskBlock= (org-mode rendering, no I/O) and
+  =insertTaskIntoFile= (file-side splice + idempotency). Both are
+  importable JS — no =pi-tui= / =pi-coding-agent= dependency — so
+  cross-extension consumers can use them without round-tripping
+  through the LLM tool registry.
+
+- /LLM-tool wrappers on top./ =tasks_insert_task= (in =tasks/index.ts=)
+  and =jira_clone_apply= (in =jira/index.ts=) are thin TypeBox-schema
+  adapters around those JS helpers. =jira_clone_apply= calls
+  =insertTaskIntoFile= directly via JS import; the duplication of
+  the schema for the LLM is intentional, since the contract the
+  model sees needs Jira-specific descriptions (e.g. priority-name
+  buckets) that are out of scope for the generic helper.
+
+- /Two-step dispatch in the prompt./ =buildClonePrompt= no longer
+  asks the agent to render an org task block via =edit=. Instead it
+  describes the structured =jira_clone_apply= args and the
+  =inserted=/=duplicate=/=section_not_found=/=error= return shapes.
+  This is the emission-side win: the rendered org body never
+  appears in any =edit= tool call.
+
+** Idempotency contract
+
+=insertTaskIntoFile= scans the target file plus every =alsoScan=
+entry (and recursively their =#+IMPORT:= references) for any task
+whose =:LINKED_ISSUES:= drawer property contains any of the
+requested tokens. First match wins; the helper refuses with
+=status: "duplicate"= and returns =existingId= + =existingFile= +
+=conflictingToken=. The file is not mutated on refusal.
+
+=jira_clone_apply= passes =alsoScan: [TASKS.local.org]= when the
+target is =TASKS.org= (and vice-versa) so a draft of the same issue
+in either slot trips the refusal regardless of which file the user
+cloned to first.
+
+** Token-reduction reasoning
+
+Qualitative break-down of model emission per clone:
+
+| Step                                   | Pre-2f0f354    | Post-2f0f354 (today)        | Post-this-change          |
+|----------------------------------------+----------------+-----------------------------+---------------------------|
+| Issue ingest (atlassian_getJiraIssue)  | ~17 KB JSON    | ~1.5 KB JSON (field filter) | ~1.5 KB JSON (unchanged)  |
+| Org body emission                      | edit tool: drawer + heading + UUID + timestamp + body (~300–800 tok) | edit tool: same as pre (~300–800 tok) | tool args: key + summary + priorityName + body + labels (body is the only large field; org boilerplate gone) |
+| Idempotency on re-clone                | none           | none                        | structured refusal at the helper, no model rendering at all |
+
+The single largest residual cost is the issue body itself, which is
+intrinsic. The savings come from removing the org-mode boilerplate
+around it (=:PROPERTIES:= drawer, UUID, =:CREATED:= timestamp,
+=:LINKED_ISSUES:=, heading priority-cookie syntax) plus the ability
+to refuse duplicates without invoking the model for rendering.
+
+An empirical measurement against a body-heavy SAND issue is captured
+as the first =* Open question= above; once it lands the table can
+be turned into concrete numbers.
+
+** Tests
+
+- =agents/pi/extensions/tasks/insert.test.ts= — 34 pure-helper
+  assertions (priority bucket, label tag suffix, drawer ordering,
+  trailing-newline hygiene, parentId level promotion, default UUID/
+  timestamp shape) + 17 file-side assertions (happy-path full-file
+  fixture, duplicate refusal in target, duplicate refusal across
+  =alsoScan= sibling, missing-section refusal, =allowCreateSection=
+  scaffold, empty-summary error). Total: 51/51 pass.
+
+- =agents/pi/extensions/jira/jira.test.ts= — prompt-builder
+  regression suite: =buildClonePrompt= mentions =jira_clone_apply=
+  + does NOT instruct hand-rolled drawer text +
+  documents the duplicate-status return; =buildGetPrompt= covers
+  single + multi-key forms, cloudId inlining, footer-link
+  composition, field-filter reuse, no-TASKS-write guard. Total:
+  45/45 pass.
+
+- =.agents/tmp/drive-insert-task.mjs= — throwaway driver per the
+  plan's acceptance criterion. Runs =insertTaskIntoFile= against a
+  scratch =TASKS.org=, asserts a literal post-insert fixture, then
+  re-runs the same call to assert a duplicate refusal + that the
+  file remained unchanged. Passes.

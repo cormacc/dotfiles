@@ -37,7 +37,9 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { homedir } from "node:os";
 import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.ts";
 import { ensureEmacsServer } from "../emacsclient/emacsclient.ts";
+import { Type } from "@sinclair/typebox";
 import { TasksOverlay } from "./overlay.ts";
+import { insertTaskIntoFile, type InsertResult } from "./insert.ts";
 import {
   extractOrgLinkTarget,
   formatOrgTimestamp,
@@ -578,7 +580,151 @@ async function refreshTaskUi(
   return tasks;
 }
 
+// ── tasks_insert_task: cross-extension tool ************************
+//
+// Registered with pi at extension load (no `session_start` gating)
+// because the LLM may invoke it from a non-interactive sub-agent. The
+// JS-level `insertTaskIntoFile` helper does the real work; this tool
+// is just a typed schema + return-shape adapter.
+//
+// Cross-extension consumers (e.g. `jira_clone_apply`) should prefer
+// importing `insertTaskIntoFile` directly from `./insert.ts` rather
+// than round-tripping through the tool registry; the JSON contract
+// here exists for the LLM and for ad-hoc agent dispatches.
+
+const InsertTaskParams = Type.Object({
+  file: Type.String({
+    description:
+      "Absolute or cwd-relative path to the org file to insert into. " +
+      "Almost always the project's TASKS.org or TASKS.local.org.",
+  }),
+  section: Type.String({
+    description:
+      "Level-1 heading text under which the task is appended (e.g. 'Improvements'). " +
+      "Tags on the heading line are tolerated.",
+  }),
+  summary: Type.String({
+    description: "Heading text for the new task. Required, non-empty.",
+  }),
+  priorityName: Type.Optional(Type.String({
+    description:
+      "Priority name (Jira convention): Highest|High|Medium|Low|Lowest. " +
+      "Anything else (or absent) yields no priority cookie.",
+  })),
+  body: Type.Optional(Type.String({
+    description:
+      "Body text rendered after the drawer. Plain markdown/text; " +
+      "do not embed raw ADF JSON.",
+  })),
+  linkedIssues: Type.Optional(Type.Array(Type.String(), {
+    description:
+      "External-tracker references written into :LINKED_ISSUES:. " +
+      "Used both for the drawer line *and* for idempotency: a duplicate " +
+      "refusal fires if any of these tokens already appears in any " +
+      "scanned task's :LINKED_ISSUES:.",
+  })),
+  labels: Type.Optional(Type.Array(Type.String(), {
+    description: "Tracker-side labels rendered as org tags ':l1:l2:'.",
+  })),
+  parentId: Type.Optional(Type.String({
+    description:
+      "When set, the new task is rendered as a level-3 subtask. " +
+      "The id itself is not embedded \u2014 it just selects the heading level.",
+  })),
+  allowCreateSection: Type.Optional(Type.Boolean({
+    description:
+      "When true, missing sections are appended to the file. Default: false (refuse).",
+  })),
+  alsoScan: Type.Optional(Type.Array(Type.String(), {
+    description:
+      "Additional org file paths scanned for :LINKED_ISSUES: collisions. " +
+      "Imports referenced via #+IMPORT: from any scanned file are walked " +
+      "recursively. Pass the sibling file (e.g. TASKS.local.org when " +
+      "inserting into TASKS.org) so duplicates are detected regardless " +
+      "of which slot they sit in.",
+  })),
+});
+
+function insertResultToToolReturn(result: InsertResult) {
+  switch (result.status) {
+    case "inserted":
+      return {
+        content: [{
+          type: "text" as const,
+          text:
+            `Inserted new task at ${result.file}:${result.line} (id=${result.id}).`,
+        }],
+        details: result,
+      };
+    case "duplicate": {
+      const existing = result.existingId ?? "(no :ID:)";
+      return {
+        content: [{
+          type: "text" as const,
+          text:
+            `Duplicate :LINKED_ISSUES: token \`${result.conflictingToken}\` already linked from existing task ${existing} in ${result.existingFile}. No file written.`,
+        }],
+        details: result,
+        isError: true,
+      };
+    }
+    case "section_not_found":
+      return {
+        content: [{
+          type: "text" as const,
+          text:
+            `Section '${result.section}' not found in ${result.file}. Pass allowCreateSection: true to scaffold it, or correct the section name.`,
+        }],
+        details: result,
+        isError: true,
+      };
+    case "error":
+      return {
+        content: [{ type: "text" as const, text: `Error: ${result.message}` }],
+        details: result,
+        isError: true,
+      };
+  }
+}
+
+function registerInsertTaskTool(pi: ExtensionAPI): void {
+  pi.registerTool({
+    name: "tasks_insert_task",
+    label: "Tasks: insert task",
+    description:
+      "Insert a new TODO task into a project's TASKS.org (or sibling) under a " +
+      "named section. Performs deterministic org rendering (priority cookie, " +
+      "UUID, :CREATED: timestamp, :LINKED_ISSUES: drawer, label tag suffix) so " +
+      "callers never assemble org-mode strings themselves. Refuses with a " +
+      "structured 'duplicate' error when any supplied :LINKED_ISSUES: token " +
+      "already appears in TASKS.org / TASKS.local.org / their imports.",
+    promptSnippet:
+      "Insert a new TASKS.org task with auto-generated :ID:, :CREATED:, drawer + tags",
+    promptGuidelines: [
+      "Use tasks_insert_task whenever you would otherwise hand-assemble an org task heading + drawer; prefer it over `edit` for inserts so duplicate :LINKED_ISSUES: tokens are caught and priority/UUID/timestamp formatting stays consistent.",
+    ],
+    parameters: InsertTaskParams,
+    async execute(_toolCallId, params) {
+      const result = await insertTaskIntoFile({
+        file: params.file,
+        section: params.section,
+        summary: params.summary,
+        priorityName: params.priorityName ?? null,
+        body: params.body ?? null,
+        linkedIssues: params.linkedIssues ?? null,
+        labels: params.labels ?? null,
+        parentId: params.parentId ?? null,
+        allowCreateSection: params.allowCreateSection ?? false,
+        alsoScan: params.alsoScan ?? [],
+      });
+      return insertResultToToolReturn(result);
+    },
+  });
+}
+
 export default function (pi: ExtensionAPI) {
+  registerInsertTaskTool(pi);
+
   // ── Keybinding suggestions + startup compact widget restore ─────────
 
   pi.on("session_start", async (_ev, ctx) => {

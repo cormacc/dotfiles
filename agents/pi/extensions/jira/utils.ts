@@ -61,6 +61,18 @@ export function resolveKey(
 /**
  * Compose the structured prompt that drives `/jira clone` end-to-end.
  *
+ * Two-step dispatch (re-scoped 2026-04-28 — see
+ * `design/log/2026-04-28-jira-clone-token-efficiency.org`):
+ *
+ *   1. `atlassian_getJiraIssue` with the field-list filter.
+ *   2. `jira_clone_apply` with the parsed fields (key, summary,
+ *      priorityName, body, labels). The body, summary, and labels
+ *      never re-appear in any `edit` tool argument.
+ *
+ * Org-mode string assembly (drawer, UUID, :CREATED:, priority cookie,
+ * tag suffix) lives in `tasks_insert_task` via the `tasks` extension's
+ * `buildTaskBlock` helper. The model never re-emits the rendered body.
+ *
  * Pure function — exported so tests can snapshot the prompt shape.
  */
 export function buildClonePrompt(
@@ -83,25 +95,86 @@ export function buildClonePrompt(
     "",
     "Use the **org-jira** skill for the full clone protocol; the steps below are a concise reminder, not a substitute.",
     "",
+    "This is a *two-step* dispatch: first fetch the issue, then forward the",
+    "parsed fields to `jira_clone_apply`. Do **not** assemble the org task",
+    "block manually via the `edit` tool; org-mode rendering (drawer, UUID,",
+    "`:CREATED:`, priority cookie, tag suffix, `:LINKED_ISSUES:`) is owned",
+    "by the `jira_clone_apply` tool's deterministic helper.",
+    "",
     "Steps for each key:",
     `1. ${cloudIdLine}`,
     "2. Call `atlassian_getJiraIssue` with the resolved cloudId, the issue key, and `fields=\"summary,priority,labels,description,issuetype,parent,subtasks\"` to keep the response small. Do not request `*all` or expand customfields.",
-    "3. Map the issue's priority name to an org priority:",
-    "   - `Highest` → `[#A]`",
-    "   - `High`    → `[#B]`",
-    "   - `Medium`  → `[#C]`",
-    "   - `Low`, `Lowest` → `[#D]`",
-    "   - missing/unknown → no priority cookie",
-    `4. Edit ${tasksFile} (preferred) or ${tasksLocalFile} (when the user is working on local drafts) to insert a new top-level task with:`,
-    "   - heading: `** TODO [#X] <issue.fields.summary>` (TODO state; map priority per the table above; if the issue has labels you want to keep, append `:label1:label2:`).",
-    "   - body: the issue description rendered as plain text (Jira ADF → markdown-ish; do not embed raw ADF JSON).",
-    "   - properties drawer: `:ID: <new uuid>`, `:CREATED: <now via \\`date +\"%Y-%m-%d %a %H:%M\"\\`>`, `:LINKED_ISSUES: <KEY>`.",
-    "5. Save the file. Do not invoke the tasks-extension UI; edit the org file directly.",
+    "3. Render the issue description as plain text/markdown (Jira ADF → markdown-ish; do not embed raw ADF JSON). Apply any obvious cleanup (collapse broken `| --- |` table rows, trim noisy summary boilerplate). Keep the result short.",
+    "4. Call `jira_clone_apply` with:",
+    "   - `key` — the issue key.",
+    "   - `summary` — `issue.fields.summary` verbatim (after any small surgery).",
+    "   - `priorityName` — the priority name string (`Highest`/`High`/`Medium`/`Low`/`Lowest`); omit when missing/unknown.",
+    "   - `body` — the rendered description from step 3.",
+    "   - `labels` — the issue's label list (may be empty).",
+    `   - \`file\` — \`${tasksFile}\` by default; pass \`${tasksLocalFile}\` only when the user is working on local drafts.`,
+    "   - `section` — omit to use `Improvements`; pass an explicit section if the user has been working in a different one.",
+    "5. Surface the tool's structured return verbatim:",
+    "   - `status: \"inserted\"` — confirm with the new heading and Jira URL.",
+    "   - `status: \"duplicate\"` — tell the user the issue is already cloned (cite the existing task's `:ID:` from `details.existingId`).",
+    "   - `status: \"section_not_found\"` — ask whether to retry with `allowCreateSection: true` or correct the section name.",
+    "   - `status: \"error\"` — surface the message.",
     "",
     `Project root: \`${cwd}\`.`,
-    `Place new tasks under an existing semantic section (e.g. \`* Improvements\` or whichever section the user has been working in); do not create a new top-level section.`,
+    "Do not invoke the tasks-extension UI; the tool writes the file directly.",
     "",
     "After cloning, summarise: one bullet per key with the new local task's heading and Jira URL.",
+  ].join("\n");
+}
+
+/**
+ * Compose the prompt for the user-facing inspection helper `/jira get`.
+ *
+ * Re-scoped at plan time (see
+ * `design/log/2026-04-28-jira-clone-token-efficiency.org` →
+ * "~/jira get KEY~ ergonomics subcommand"): no underlying
+ * `jira_get_issue` tool exists today because pi-mcp-adapter does not
+ * expose a JS-callable client to extensions. This helper therefore
+ * stays a prompt-builder — the agent calls `atlassian_getJiraIssue`
+ * directly with the same field filter used by `buildClonePrompt`,
+ * then renders a compact human-readable summary.
+ *
+ * Pure function — exported so tests can snapshot the prompt shape.
+ */
+export function buildGetPrompt(
+  keys: string[],
+  cfg: JiraConfig,
+  cwd: string,
+): string {
+  const cloudIdLine = cfg.cloudId
+    ? `Use cloudId \`${cfg.cloudId}\` from #+JIRA_CLOUDID.`
+    : "Resolve the cloudId by calling `atlassian_getAccessibleAtlassianResources`" +
+        (cfg.baseUrl
+          ? ` and selecting the resource whose \`url\` equals \`${cfg.baseUrl}\`.`
+          : ".");
+  const keyList = keys.map((k) => `\`${k}\``).join(", ");
+  const plural = keys.length === 1 ? "" : "s";
+
+  return [
+    `Show the user a compact human-readable summary of the following Jira issue${plural}: ${keyList}.`,
+    "",
+    "Use the **org-jira** skill for the canonical inspection conventions; the steps below are a concise reminder.",
+    "",
+    `Project root: \`${cwd}\`.`,
+    "",
+    "Steps for each key:",
+    `1. ${cloudIdLine}`,
+    "2. Call `atlassian_getJiraIssue` with the resolved cloudId, the issue key, and `fields=\"summary,priority,labels,description,issuetype,parent,subtasks,status\"` to keep the response small. Do not request `*all` or expand customfields.",
+    "3. Render a compact, human-readable block (NOT raw JSON):",
+    "   - Heading: `KEY \u2014 <summary>` plus the issue's status.",
+    "   - One-line metadata: priority, issuetype, labels (comma-separated; “none” when empty).",
+    "   - Parent: `parent.key \u2014 parent.fields.summary` when set; otherwise omit.",
+    "   - Subtasks: count plus each subtask's `key \u2014 summary` line, capped at 5 with a “+N more” footnote if exceeded.",
+    "   - Description preview: first paragraph of the description, max 300 characters; mark truncation with “…”.",
+    cfg.baseUrl
+      ? `   - Footer link: \`${cfg.baseUrl}/browse/<KEY>\`.`
+      : "   - Footer link: skip when `#+JIRA_BASE_URL` is unset.",
+    "",
+    "Render each key as its own block separated by a blank line. Do not write to any TASKS file.",
   ].join("\n");
 }
 

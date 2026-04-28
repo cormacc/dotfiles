@@ -15,6 +15,7 @@ import {
   buildClonePrompt,
   buildCommentPrompt,
   buildCreatePrompt,
+  buildGetPrompt,
   buildTransitionPrompt,
   getFileKeyword,
   parseCreateArgs,
@@ -158,12 +159,41 @@ assertEqual(
     failed++;
     console.log("not ok - buildClonePrompt: should reference atlassian_getJiraIssue");
   }
-  if (prompt.includes(":LINKED_ISSUES: <KEY>")) {
+  if (prompt.includes("jira_clone_apply")) {
     passed++;
-    console.log("ok - buildClonePrompt: instructs setting :LINKED_ISSUES:");
+    console.log("ok - buildClonePrompt: dispatches to jira_clone_apply");
   } else {
     failed++;
-    console.log("not ok - buildClonePrompt: should instruct :LINKED_ISSUES: write");
+    console.log("not ok - buildClonePrompt: should reference jira_clone_apply");
+  }
+  // The two-step dispatch must NOT instruct the agent to manually assemble
+  // drawer text. Regression guard against drift back to the v1 prompt-builder
+  // approach.
+  const looksHandRolled =
+    prompt.includes(":LINKED_ISSUES: <KEY>") ||
+    /:ID:\s*<new uuid>/.test(prompt) ||
+    /properties drawer:/i.test(prompt);
+  if (!looksHandRolled) {
+    passed++;
+    console.log(
+      "ok - buildClonePrompt: does not instruct manual drawer assembly",
+    );
+  } else {
+    failed++;
+    console.log(
+      "not ok - buildClonePrompt: should not instruct manual drawer assembly (drift back to v1 contract)",
+    );
+  }
+  if (prompt.includes('"duplicate"')) {
+    passed++;
+    console.log(
+      "ok - buildClonePrompt: documents the duplicate-status return",
+    );
+  } else {
+    failed++;
+    console.log(
+      "not ok - buildClonePrompt: should document the duplicate-status return",
+    );
   }
 }
 
@@ -445,6 +475,107 @@ assertEqual(
     console.log(
       "not ok - buildTransitionPrompt: should reference atlassian_transitionJiraIssue",
     );
+  }
+}
+
+// ── buildGetPrompt: single + multi-key forms ─────────────────────
+
+{
+  const single = buildGetPrompt(
+    ["SAND-1"],
+    {
+      cloudId: "abc-cloud",
+      project: "SAND",
+      baseUrl: "https://example.atlassian.net",
+    },
+    "/tmp/proj",
+  );
+  if (single.includes("SAND-1")) {
+    passed++;
+    console.log("ok - buildGetPrompt: includes the requested key");
+  } else {
+    failed++;
+    console.log("not ok - buildGetPrompt: should include requested key");
+  }
+  if (single.includes("atlassian_getJiraIssue")) {
+    passed++;
+    console.log("ok - buildGetPrompt: references atlassian_getJiraIssue");
+  } else {
+    failed++;
+    console.log("not ok - buildGetPrompt: should reference atlassian_getJiraIssue");
+  }
+  if (single.includes("abc-cloud")) {
+    passed++;
+    console.log("ok - buildGetPrompt: inlines cloudId when present");
+  } else {
+    failed++;
+    console.log("not ok - buildGetPrompt: should inline cloudId when present");
+  }
+  if (single.includes("https://example.atlassian.net/browse/<KEY>")) {
+    passed++;
+    console.log("ok - buildGetPrompt: footer link uses #+JIRA_BASE_URL");
+  } else {
+    failed++;
+    console.log("not ok - buildGetPrompt: should compose footer link from baseUrl");
+  }
+  if (
+    single.includes("summary,priority,labels,description,issuetype,parent,subtasks")
+  ) {
+    passed++;
+    console.log("ok - buildGetPrompt: reuses the field-list constant");
+  } else {
+    failed++;
+    console.log("not ok - buildGetPrompt: should reuse the field filter from /jira clone");
+  }
+  // Inspection helper must NOT instruct any TASKS file write.
+  if (
+    !single.toLowerCase().includes("jira_clone_apply") &&
+    !single.toLowerCase().includes("tasks.org")
+  ) {
+    passed++;
+    console.log("ok - buildGetPrompt: does not write to TASKS files");
+  } else {
+    failed++;
+    console.log("not ok - buildGetPrompt: should not write to TASKS files");
+  }
+
+  // Without a baseUrl: footer link suppressed.
+  const noBaseUrl = buildGetPrompt(
+    ["SAND-1"],
+    { cloudId: "abc", project: "SAND", baseUrl: null },
+    "/tmp/proj",
+  );
+  if (!/example\.atlassian\.net\/browse/.test(noBaseUrl)) {
+    passed++;
+    console.log("ok - buildGetPrompt: no footer link when #+JIRA_BASE_URL absent");
+  } else {
+    failed++;
+    console.log("not ok - buildGetPrompt: should suppress footer link when baseUrl null");
+  }
+
+  // Multi-key prompt mentions all keys + plural wording.
+  const multi = buildGetPrompt(
+    ["SAND-1", "SAND-2", "SAND-3"],
+    { cloudId: "abc", project: "SAND", baseUrl: null },
+    "/tmp/proj",
+  );
+  if (
+    multi.includes("SAND-1") &&
+    multi.includes("SAND-2") &&
+    multi.includes("SAND-3")
+  ) {
+    passed++;
+    console.log("ok - buildGetPrompt: multi-key form lists every key");
+  } else {
+    failed++;
+    console.log("not ok - buildGetPrompt: multi-key form should list every key");
+  }
+  if (multi.includes("issues")) {
+    passed++;
+    console.log("ok - buildGetPrompt: multi-key form uses plural wording");
+  } else {
+    failed++;
+    console.log("not ok - buildGetPrompt: multi-key form should use plural wording");
   }
 }
 

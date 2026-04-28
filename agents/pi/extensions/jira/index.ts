@@ -16,18 +16,22 @@
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { Type } from "@sinclair/typebox";
 import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { getExtensionName } from "../lib/pi-utils.ts";
+import { insertTaskIntoFile } from "../tasks/insert.ts";
 import {
   buildClaimPrompt,
   buildClonePrompt,
   buildCommentPrompt,
   buildCreatePrompt,
+  buildGetPrompt,
   buildTransitionPrompt,
   getFileKeyword,
+  JIRA_KEY_RE,
   parseCreateArgs,
   resolveKey,
   type JiraConfig,
@@ -152,10 +156,152 @@ async function readSelectedId(cwd: string): Promise<string | null> {
   }
 }
 
+// ── jira_clone_apply: emission-side win for /jira clone ─────────────
+//
+// Registered pi tool. The /jira clone prompt instructs the agent to:
+//   1. atlassian_getJiraIssue (with the field-list filter shipped at
+//      commit 2f0f354).
+//   2. Map the response into a single jira_clone_apply call.
+//
+// This tool then performs Jira-specific transforms (priority-name
+// stays as the primitive, label list flows to org tags as-is) and
+// delegates the org write to insertTaskIntoFile() in tasks/insert.ts.
+// No org-mode string assembly happens inside this extension; that
+// responsibility lives in the tasks extension's helper.
+
+const CloneApplyParams = Type.Object({
+  key: Type.String({
+    description:
+      "Jira issue key to attach as :LINKED_ISSUES: (e.g. SAND-42). " +
+      "Validated against the standard PROJ-NNN regex.",
+  }),
+  summary: Type.String({
+    description: "Issue summary (becomes the org task heading).",
+  }),
+  priorityName: Type.Optional(Type.String({
+    description:
+      "Issue priority name (Highest|High|Medium|Low|Lowest). Anything else \u2192 no priority cookie.",
+  })),
+  body: Type.Optional(Type.String({
+    description:
+      "Issue description rendered as plain markdown/text. Do not embed raw ADF JSON.",
+  })),
+  labels: Type.Optional(Type.Array(Type.String(), {
+    description: "Issue labels rendered as org tags ':l1:l2:'.",
+  })),
+  file: Type.Optional(Type.String({
+    description: "Org file to insert into (default: TASKS.org under cwd).",
+  })),
+  section: Type.Optional(Type.String({
+    description: "Top-level section heading (default: 'Improvements').",
+  })),
+  allowCreateSection: Type.Optional(Type.Boolean({
+    description:
+      "When true, missing sections are appended to the file. Default: false.",
+  })),
+});
+
+function registerCloneApplyTool(pi: ExtensionAPI): void {
+  pi.registerTool({
+    name: "jira_clone_apply",
+    label: "Jira: clone apply",
+    description:
+      "Apply a Jira issue's already-fetched fields to TASKS.org as a new " +
+      "local task. Validates the issue key, performs Jira-specific transforms " +
+      "(priority + labels), and delegates the org write to the tasks " +
+      "extension's deterministic insert helper. The body, summary, and labels " +
+      "are passed verbatim \u2014 they never need to round-trip through an " +
+      "`edit` tool call.",
+    promptSnippet:
+      "Apply a Jira issue's fields to TASKS.org without re-emitting the rendered org body",
+    promptGuidelines: [
+      "Use jira_clone_apply after atlassian_getJiraIssue when /jira clone is in progress; never assemble the org task block manually via the `edit` tool.",
+    ],
+    parameters: CloneApplyParams,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      if (!JIRA_KEY_RE.test(params.key)) {
+        return {
+          content: [{
+            type: "text" as const,
+            text:
+              `Invalid Jira key \`${params.key}\`. Expected PROJ-NNN (e.g. SAND-42).`,
+          }],
+          details: { error: "invalid_key", key: params.key },
+          isError: true,
+        };
+      }
+
+      // Resolve target file/section against ctx.cwd. The default file is
+      // the project's TASKS.org; alsoScan covers TASKS.local.org so a
+      // local draft of the same issue surfaces as a duplicate.
+      const cwd = ctx.cwd;
+      const file = params.file ?? join(cwd, TASKS_FILE);
+      const fileAbs = isAbsolute(file) ? file : resolve(cwd, file);
+      const localAbs = join(cwd, TASKS_LOCAL_FILE);
+      const sibling = fileAbs === localAbs ? join(cwd, TASKS_FILE) : localAbs;
+
+      const result = await insertTaskIntoFile({
+        file: fileAbs,
+        section: params.section ?? "Improvements",
+        summary: params.summary,
+        priorityName: params.priorityName ?? null,
+        body: params.body ?? null,
+        labels: params.labels ?? null,
+        linkedIssues: [params.key],
+        allowCreateSection: params.allowCreateSection ?? false,
+        alsoScan: [sibling],
+      });
+
+      switch (result.status) {
+        case "inserted":
+          return {
+            content: [{
+              type: "text" as const,
+              text:
+                `Cloned ${params.key} into ${result.file}:${result.line} (id=${result.id}).`,
+            }],
+            details: { ...result, key: params.key },
+          };
+        case "duplicate":
+          return {
+            content: [{
+              type: "text" as const,
+              text:
+                `${params.key} is already linked from existing task ${result.existingId ?? "(no :ID:)"} in ${result.existingFile}. Refusing to clone again.`,
+            }],
+            details: { ...result, key: params.key },
+            isError: true,
+          };
+        case "section_not_found":
+          return {
+            content: [{
+              type: "text" as const,
+              text:
+                `Section '${result.section}' not found in ${result.file}. Pass allowCreateSection: true to scaffold it, or correct the section name.`,
+            }],
+            details: { ...result, key: params.key },
+            isError: true,
+          };
+        case "error":
+          return {
+            content: [{
+              type: "text" as const,
+              text: `Error cloning ${params.key}: ${result.message}`,
+            }],
+            details: { ...result, key: params.key },
+            isError: true,
+          };
+      }
+    },
+  });
+}
+
 export default function (pi: ExtensionAPI) {
+  registerCloneApplyTool(pi);
+
   pi.registerCommand("jira", {
     description:
-      "Jira integration via the Atlassian MCP server (status, clone; more workflows coming)",
+      "Jira integration via the Atlassian MCP server (status, clone, get, claim, comment, create)",
     handler: async (args, ctx) => {
       const trimmed = args.trim();
       const parts = trimmed.length === 0 ? [] : trimmed.split(/\s+/);
@@ -188,6 +334,44 @@ export default function (pi: ExtensionAPI) {
             "info",
           );
         }
+        return;
+      }
+
+      if (subcommand === "get") {
+        if (rest.length === 0) {
+          ctx.ui.notify(
+            "Usage: /jira get KEY [KEY...]   (KEY = PROJ-NNN or a bare number when #+JIRA_PROJECT is set)",
+            "warn",
+          );
+          return;
+        }
+        if (!isConnected) {
+          ctx.ui.notify(
+            "Atlassian MCP: disconnected. Run /mcp reconnect atlassian first.",
+            "warn",
+          );
+          return;
+        }
+
+        const cfg = await loadJiraConfig(ctx.cwd);
+        const resolved: string[] = [];
+        const errors: string[] = [];
+        for (const arg of rest) {
+          const r = resolveKey(arg, cfg.project);
+          if ("key" in r) resolved.push(r.key);
+          else errors.push(r.error);
+        }
+        if (errors.length > 0) {
+          for (const e of errors) ctx.ui.notify(e, "error");
+          return;
+        }
+
+        const prompt = buildGetPrompt(resolved, cfg, ctx.cwd);
+        pi.sendUserMessage(prompt);
+        ctx.ui.notify(
+          `Dispatched /jira get for ${resolved.length} issue${resolved.length === 1 ? "" : "s"}: ${resolved.join(", ")}.`,
+          "info",
+        );
         return;
       }
 
@@ -350,7 +534,7 @@ export default function (pi: ExtensionAPI) {
       }
 
       ctx.ui.notify(
-        `Unknown subcommand "${subcommand}". Available: status, clone, claim, comment, create.`,
+        `Unknown subcommand "${subcommand}". Available: status, clone, get, claim, comment, create.`,
         "warn",
       );
     },

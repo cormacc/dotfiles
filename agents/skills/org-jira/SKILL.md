@@ -119,24 +119,127 @@ No prompt needed. The user types a Jira key into `:LINKED_ISSUES:` and
 sets `#+ISSUE_URL_BASE` once; `tasks` renders badges and `J` opens
 URLs. Fully offline-safe.
 
+### Planning context (when drafting a plan for a task with `:LINKED_ISSUES:`)
+
+When the [`org-plan`](../org-plan/SKILL.md) skill is drafting or
+refining a change-record for a task that has Jira-shaped tokens in
+`:LINKED_ISSUES:`, fetch the issue tree from Jira *before* writing
+`* Context` so the plan reflects upstream scope, decomposition, and
+language. This applies whether the plan is proactive or retrospective.
+
+Procedure for each Jira-shaped token:
+
+1. Ensure the Atlassian MCP is connected (see above). If not, surface
+   the reconnect instruction and proceed without the Jira context
+   rather than blocking the plan.
+2. Resolve the cloudId per "cloudId resolution" above.
+3. Call `atlassian_getJiraIssue` for the parent key. Capture:
+   - `summary`, `status.name`, `issuetype.name`, `priority.name`,
+     `assignee.displayName`.
+   - `description` (plain-text rendering of the ADF body).
+   - `issuelinks` — note `Blocks`, `is blocked by`, `relates to`
+     relationships; their keys are candidates for follow-up fetches
+     when relevant to scope.
+   - `parent.key` if present (issue sits under an Epic / parent task).
+4. Walk children one level at a time, depth-first only when a child's
+   summary suggests it materially shapes the plan. Use
+   `atlassian_searchJiraIssuesUsingJql` with the appropriate clause:
+   - **Epic** → `"parent" = KEY` (covers stories/tasks under the Epic
+     in modern Jira; legacy projects may need `"Epic Link" = KEY`).
+   - **Task / Story / Bug** → `parent = KEY` (returns subtasks).
+   - Project the same fields as step 3 (`summary,status,issuetype,
+     priority,assignee,parent`) and request a generous `fields` list
+     plus a sensible `maxResults` (50 is usually enough; raise if a
+     page boundary is hit).
+5. Stop descending when:
+   - A subtree is `Done` / `Closed` and not load-bearing for the new
+     work, or
+   - The branch is clearly out-of-scope for the task at hand, or
+   - Depth exceeds two levels below the linked issue (deeper trees
+     are rare and almost always noise for planning).
+6. Summarise the gathered tree into `* Context` of the change-record:
+   - One short paragraph naming each linked parent issue (key,
+     summary, status, type) and how it frames the task.
+   - A bullet list of in-scope children with their key, summary, and
+     status. Use this list to seed `** Design decisions` or to mirror
+     children as level-2 `* Plan` headings when the user wants the
+     plan to track Jira decomposition one-to-one.
+   - Note any `Blocks` / `is blocked by` relationships in `* Context`
+     so dependencies are visible at planning time.
+7. Do **not** mint new Jira issues from this read-only walk. Surface
+   gaps ("the linked Epic has no subtasks covering X") in
+   `* Open questions` and let the user decide whether to
+   `/jira create` them.
+
+Keep the fetched data ephemeral — do not paste raw issue JSON or full
+ADF descriptions into the change-record. Distil to plan-relevant
+prose and bullets. Re-fetch on subsequent planning sessions rather
+than caching, since Jira state drifts.
+
 ### Clone (`/jira clone <KEY>`)
+
+*Two-step dispatch:* the slash command builds a prompt that asks the
+agent to call `atlassian_getJiraIssue`, then forward the parsed
+fields to the registered `jira_clone_apply` tool. The agent never
+assembles the org task heading, drawer, or body via the `edit` tool;
+all org-mode rendering lives in the `tasks` extension's
+`tasks_insert_task` primitive (priority cookie, UUID, `:CREATED:`
+timestamp, `:LINKED_ISSUES:` drawer line, label tag suffix).
 
 1. Validate `KEY` against the regex above. If the user passes a bare
    number (`123`), prepend `#+JIRA_PROJECT-` (or refuse if
-   `#+JIRA_PROJECT` is absent).
-2. Call `atlassian_getJiraIssue` with the resolved cloudId and key.
-3. Create a new task via the `tasks` extension with:
-   - **Heading**: `${issue.fields.summary}`.
-   - **Body**: `${issue.fields.description}` (plain-text rendering of
-     the ADF body; if the body is rich Jira ADF, summarise to plain
-     text rather than embedding raw ADF).
-   - **Priority**: map `issue.fields.priority.name` per the table:
-     `Highest → #A`, `High → #B`, `Medium → #C`, `Low → #D`,
-     `Lowest → #D`. Tasks without a priority field stay unprioritised.
-   - **`:LINKED_ISSUES:`**: bare `KEY` (set via `setDrawerProperty` if
-     editing the org file directly, or via the `tasks` new-task flow's
-     property hooks).
-3. Smoke test against `SAND` only.
+   `#+JIRA_PROJECT` is absent). The slash-command code already does
+   this via `resolveKey()`.
+2. Call `atlassian_getJiraIssue` with the resolved cloudId, the issue
+   key, and `fields="summary,priority,labels,description,issuetype,parent,subtasks"`
+   to keep the response small. Do not request `*all` or expand
+   customfields.
+3. Render the issue description as plain text/markdown (Jira ADF →
+   markdown-ish; never embed raw ADF JSON). Apply small cleanups
+   inline (collapse broken `| --- |` table rows, trim noisy summary
+   boilerplate). Keep the result short.
+4. Call `jira_clone_apply` with structured args:
+   - `key` — the issue key.
+   - `summary` — `issue.fields.summary` verbatim (after any small
+     surgery).
+   - `priorityName` — the priority name string
+     (`Highest`/`High`/`Medium`/`Low`/`Lowest`); omit when missing or
+     unknown.
+   - `body` — the rendered description from step 3.
+   - `labels` — the issue's label list (may be empty).
+   - `file` — default `TASKS.org`; pass `TASKS.local.org` only when
+     the user is working on local drafts.
+   - `section` — default `Improvements`; pass an explicit section if
+     the user has been working in a different one.
+5. Surface the tool's structured return verbatim:
+   - `status: "inserted"` — confirm with the new heading and Jira URL.
+   - `status: "duplicate"` — cite `details.existingId` and refuse to
+     re-clone (idempotency: the same `:LINKED_ISSUES:` token already
+     appears somewhere in TASKS.org / TASKS.local.org / their
+     imports).
+   - `status: "section_not_found"` — ask whether to retry with
+     `allowCreateSection: true` or correct the section name.
+   - `status: "error"` — surface the message verbatim.
+6. Smoke test against `SAND` only.
+
+### Get (`/jira get <KEY>`)
+
+A standalone display affordance that prints a compact human-readable
+block per key (heading, status, priority, labels, parent, subtask
+count, description preview, footer URL). No file writes; no
+`jira_clone_apply` involvement. Reuses the same field filter as the
+clone path.
+
+The slash command builds the prompt deterministically; the agent
+simply executes:
+
+1. Resolve cloudId per the standard rule.
+2. Call `atlassian_getJiraIssue` with the field filter.
+3. Render the per-key block (do not paste raw JSON).
+4. Repeat for each remaining key, separated by a blank line.
+
+Use this when the user wants to *inspect* an issue without committing
+it to TASKS.org. It is the read-only counterpart of `/jira clone`.
 
 ### Claim (`/jira claim`)
 

@@ -8,10 +8,11 @@ of the generic `tasks` extension's tracker-agnostic linkage features
 
 ## Status
 
-Read-only and write workflows implemented (clone / claim / comment /
-create). Optional `autoTransition` on local TODO→STARTED→DONE cycles
-still pending; depends on the `tasks` extension publishing a
-status-change event on the pi event bus.
+Read and write workflows implemented (status / clone / get / claim /
+comment / create). Optional `autoTransition` on local
+TODO→STARTED→DONE cycles is implemented as an event listener on
+`tasks:status-changed`; off by default, opt in via
+`~/.pi/agent/jira-ext.json`.
 
 ## Commands
 
@@ -19,11 +20,32 @@ status-change event on the pi event bus.
 | -------------------------------------- | ----------- | ------------------------------------------------------ |
 | `/jira`                                | Implemented | Print Atlassian MCP connection status.                 |
 | `/jira status`                         | Implemented | Alias for `/jira`.                                     |
-| `/jira clone KEY [KEY...]`             | Implemented | Pull issue(s) from Jira → create local task(s).        |
+| `/jira clone KEY [KEY...]`             | Implemented | Pull issue(s) from Jira → create local task(s) via the `jira_clone_apply` tool. |
+| `/jira get KEY [KEY...]`               | Implemented | Render a compact human-readable summary of one or more issues. No file writes. |
 | `/jira claim`                          | Implemented | Set assignee on every Jira-shaped issue on the selected task. |
 | `/jira comment <markdown>`             | Implemented | Add a comment to every Jira-shaped issue on the selected task. |
 | `/jira create [PROJECT] [--type Type]` | Implemented | Promote the selected task to a new Jira issue.         |
-| auto-transition (no command)           | Pending     | Mirror local TODO→STARTED→DONE on linked Jira issues.   |
+| auto-transition (no command)           | Implemented | Mirror local TODO→STARTED→DONE on linked Jira issues. Off by default. |
+
+## Tools
+
+The extension also registers an LLM-callable tool that handles the
+emission-side cost of `/jira clone` (so the rendered org body never
+round-trips through the model):
+
+- **`jira_clone_apply`** — takes structured Jira fields
+  (`key`, `summary`, `priorityName?`, `body?`, `labels?`, `file?`,
+  `section?`, `allowCreateSection?`) and delegates the org write to
+  the `tasks` extension's `tasks_insert_task` primitive (see
+  `agents/pi/extensions/tasks/README.md#cross-extension-tools`). All
+  org-mode string assembly (drawer, UUID, `:CREATED:`, priority
+  cookie, tag suffix, `:LINKED_ISSUES:`) happens inside
+  `tasks_insert_task` — not in this extension and not in the model.
+
+The `/jira clone` slash command instructs the agent in a *two-step
+dispatch*: call `atlassian_getJiraIssue` (with the existing field
+filter), then `jira_clone_apply` with the parsed fields. The agent
+never assembles drawer text via the `edit` tool.
 
 All workflows are *agent-driven*: the slash command drafts a structured
 prompt (using the conventions in the `org-jira` skill) and dispatches
