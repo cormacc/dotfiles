@@ -39,6 +39,7 @@ Some introductory text
 :PROPERTIES:
 :ID: 0276a6c7-0ca8-4c39-a90a-05587ad64698
 :END:
+#+IMPORT: [[file:design/log/2026-04-28-jira-integration.org]]
 *** TODO [#C] Setup Jira access
 :PROPERTIES:
 :ID: d618bcc1-9481-4431-a572-8a1f17612e4f
