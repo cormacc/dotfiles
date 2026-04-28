@@ -61,7 +61,8 @@ warning.
 
 * Plan
 
-** TODO [#A] Fix handleLeader to use matchesKey
+** CANCELLED [#A] Fix handleLeader to use matchesKey
+CLOSED: [2026-04-28 Tue 22:57]
 :PROPERTIES:
 :ID: e1f2a3b4-0001-4000-8000-200000000001
 :END:
@@ -77,7 +78,8 @@ const match = node.children?.find((c) => matchesKey(data, c.key));
 Acceptance: pressing =A= fires a leader-menu entry whose =key= is either
 ="A"= or ="shift+a"=; pressing =a= (lowercase) does not fire the capital
 entry.
-** TODO [#A] Fix mergeChildren to use matchesKey for clash detection
+** CANCELLED [#A] Fix mergeChildren to use matchesKey for clash detection
+CLOSED: [2026-04-28 Tue 22:57]
 :PROPERTIES:
 :ID: e1f2a3b4-0002-4000-8000-200000000002
 :END:
@@ -93,7 +95,8 @@ const idx = existing.findIndex((c) => matchesKey(child.key, c.key));
 Acceptance: a suggested binding with =key: "shift+a"= is treated as
 clashing with an existing =key: "A"= entry (and vice-versa), and the
 warning is emitted rather than silently adding a duplicate.
-** TODO [#B] Fix warnClashingLeaderKeys to use matchesKey
+** CANCELLED [#B] Fix warnClashingLeaderKeys to use matchesKey
+CLOSED: [2026-04-28 Tue 22:57]
 :PROPERTIES:
 :ID: e1f2a3b4-0003-4000-8000-200000000003
 :END:
@@ -114,7 +117,8 @@ if (clashes) { ... }
 
 Acceptance: a leader root key specified as ="shift+a"= correctly
 produces a "clashes with normal-mode vim binding" warning.
-** TODO [#C] Add #+A / #+P / #+U to tasks leader menu and update docs
+** CANCELLED [#C] Add #+A / #+P / #+U to tasks leader menu and update docs
+CLOSED: [2026-04-28 Tue 22:57]
 :PROPERTIES:
 :ID: e1f2a3b4-0004-4000-8000-200000000004
 :END:
@@ -214,3 +218,35 @@ across every terminal is:
 - If a capital-letter binding is genuinely needed in future, first
   reproduce the failure with =TASKS_KB_DEBUG=1= so the actual raw byte
   sequence is visible \u2014 *then* design the fix against real input.
+
+** Resolution (2026-04-28) \u2014 misdiagnosis
+
+Task cancelled. The keybindings extension was never the bug.
+
+While adding parallel debug logging to the tasks overlay's =handleInput=
+(so we could see what the overlay was actually receiving when the leader
+fired through to it), we found the overlay calling:
+
+#+begin_example
+if (matchesKey(data, "A")) { ... }   // archive
+if (matchesKey(data, "P")) { ... }   // publish
+if (matchesKey(data, "U")) { ... }   // unpublish
+if (matchesKey(data, "N")) { ... }   // new-child
+if (matchesKey(data, "J")) { ... }   // open-linked-issues
+#+end_example
+
+=matchesKey= expects the canonical name (=shift+a=, =shift+p=,
+=shift+u=, =shift+n=, =shift+j=) for shifted letters, not the literal
+uppercase character. Fixing the five call sites in
+=agents/pi/extensions/tasks/overlay.ts= resolved the original symptom.
+
+Lessons:
+- The four rolled-back commits all chased the wrong layer. Every change
+  was internally consistent and correct; none addressed the actual
+  consumer of the dispatched key.
+- The =TASKS_KB_DEBUG=1= notification approach mooted above turned out
+  to be the right diagnostic instinct \u2014 but it needed to live in the
+  *consumer* (overlay) too, not only in the leader.
+- A no-op fix at the leader level looked like "behaviour unchanged"
+  precisely because the leader was already forwarding the key correctly;
+  the overlay was silently rejecting it.
