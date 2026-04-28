@@ -75,6 +75,30 @@ Plan task headings may nest deeper than level 2. Status discipline
 (including parent propagation, `:STARTED:`, `CLOSED:`) is owned by
 `org-tasks`.
 
+### UUID mirroring with TASKS.org
+
+When the parent task in `TASKS.org` already has subtasks, the
+proactive plan's *level-2* `* Plan` headings **reuse** those
+subtask `:ID:` values one-to-one. Heading text, priority, and tags
+may be refined as the plan tightens scope; the `:ID:` is the
+durable link.
+
+Finer-grained level-3+ subtasks introduced by the plan get fresh
+UUIDs and `:CREATED:` properties. New plan-only level-2 work units
+that have no TASKS.org analogue (e.g. "Documentation + measurement")
+also get fresh UUIDs.
+
+Do **not** mint a new UUID for a level-2 plan task that conceptually
+matches an existing TASKS.org subtask — this orphans both copies
+from parent-status propagation and from the resume workflow. If a
+TASKS.org subtask is being re-scoped at plan time, keep its `:ID:`
+and note the re-scope in the plan task's body or in `* Context`.
+
+TASKS.org subtasks are *not* deleted when the plan is drafted; they
+remain the high-level outline. The plan adds depth (finer subtasks)
+and context (`* Context`, `* Implementation`).
+
+
 ## Retrospective change-records
 
 When drafting after work has started or completed:
