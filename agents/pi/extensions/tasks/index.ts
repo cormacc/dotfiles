@@ -853,7 +853,7 @@ async function suggestPlanPath(task: Task, cwd: string): Promise<string> {
   return joinPlanDir(plansDir, filename);
 }
 
-/** Scaffold a minimal plan file body consistent with the plan skill. */
+/** Scaffold a minimal change-record body consistent with the `org-plan` skill. */
 function scaffoldPlan(task: Task, planTasks: Task[] = []): string {
   const parentId = getTaskId(task);
   // Standard change-record skeleton: same shape for proactive and
@@ -1078,7 +1078,7 @@ function buildProactiveChangeRecordPrompt(
       ? "Existing TASKS.org subtasks were moved into the linked change-record under * Plan, and the parent task now retains a plain-text summary of the extracted subtasks."
       : "The parent task had no local subtasks to absorb.",
     "",
-    "Use the plan skill and org-memory protocol. Start by asking me any scoping questions needed to develop the plan. Once the plan is agreed, write the final org content to the change-record file above. After writing it, offer to open the file in Emacs.",
+    "Use the `org-plan` and `org-tasks` skills. Start by asking me any scoping questions needed to develop the plan. Once the plan is agreed, write the final org content to the change-record file above. After writing it, offer to open the file in Emacs.",
   ].join("\n");
 }
 

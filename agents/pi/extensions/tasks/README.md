@@ -2,7 +2,7 @@
 
 Displays project tasks from a `TASKS.org` file in the project root using org-mode TODO syntax.
 The extension is a UI over the plain-org task-memory protocol documented in
-`agents/skills/org-memory/SKILL.md`; that skill defines the durable file-format
+`agents/skills/org-tasks/SKILL.md`; that skill defines the durable file-format
 contract, while this extension owns commands, rendering, selection, status writes,
 and archive mechanics.
 
@@ -132,7 +132,7 @@ Task creation, plan path approval, and archive confirmation prompts temporarily 
 
 ### Change-records (proactive and retrospective)
 
-The file linked from a task via `#+IMPORT:` is called a *change-record*. The file shape (sections `* Context`, `* Plan`, `* Implementation`) is owned by the plan skill; the same shape is produced by both flows below.
+The file linked from a task via `#+IMPORT:` is called a *change-record*. The file shape (sections `* Context`, `* Plan`, `* Implementation`) is owned by the `org-plan` skill; the same shape is produced by both flows below.
 
 **Proactive flow** — press `p` on a task that has no `#+IMPORT:`, accept the path prompt, and the agent helps draft `* Context` and `* Plan` up front. As work proceeds, plan tasks transition `TODO -> STARTED -> DONE` and `* Implementation` is filled in.
 
@@ -204,7 +204,7 @@ The file uses org-mode heading syntax. A `#+TODO:` declaration is recommended so
 - **Priority** — optional, e.g. `[#A]`, `[#B]`, `[#C]`, `[#D]`
 - **Summary** — the task title
 - **Tags** — optional, colon-delimited at end of line
-- **ID property** — UUID in the properties drawer, compatible with org-id.el and the org-memory skill protocol. Missing IDs in `TASKS.org` and loaded linked plans are inserted automatically on load.
+- **ID property** — UUID in the properties drawer, compatible with org-id.el and the `org-tasks` skill protocol. Missing IDs in `TASKS.org` and loaded linked plans are inserted automatically on load.
 - **IMPORT keyword** — optional `#+IMPORT: [[file:path]]` line in the task body (after the `:END:` drawer line) pointing to a relative org file with a detailed task plan or additional tasks. Can also appear at file root level (before any heading) to inject tasks from another file at the top level.
 - **BLOCKED-BY property** — optional property recording why a `WAITING` task is blocked
 - **Description** — any non-heading text below a heading, excluding the properties drawer

@@ -410,3 +410,21 @@ key change is acceptable, or before sharing the package beyond personal use.
   =org-back-to-heading= + =org-show-entry=. Only searches TASKS.org
   (not nested plan files); sufficient for the common case where plan
   files are linked directly from the task root.
+** DONE [#B] Update org-memory skill to prompt to generate an implementation report for tasks without a plan
+CLOSED: [2026-04-28 Tue 00:46]
+:PROPERTIES:
+:ID: 9f233338-833b-43c1-81d2-e413a536d586
+:ARCHIVED: [2026-04-28 Tue 00:46]
+:END:
+#+IMPORT: [[file:design/log/2026-04-28-implementation-reports.org]]
+I.e. if we just implement a simple task that didn't need formal planning, useful to log an implementation report anyway...
+
+** DONE [#C] Consider whether to rename the 'org-memory' skill to just 'tasks'
+CLOSED: [2026-04-28 Tue 01:03]
+:PROPERTIES:
+:ID: ce69ef5e-5967-4623-a2e3-f22e0bd1a745
+:ARCHIVED: [2026-04-28 Tue 01:03]
+:END:
+#+IMPORT: [[file:design/log/2026-04-28-skill-rename-org-tasks-org-plan.org]]
+Currently we've got 'org-memory' and 'plan' -- maybe more useful to refer to 'tasks' and 'plan', and refer to the combination as org-memory? Or 'org-tasks' and 'org-plan' skills, with the combination of the two making up 'org-memory'?
+Consider, rename as appropriate and update docs accordingly.

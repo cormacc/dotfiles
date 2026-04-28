@@ -52,7 +52,8 @@ for symmetry and namespace clarity in the agent's skill registry.
 
 * Plan
 
-** TODO [#A] Rename skill directories and update frontmatter
+** DONE [#A] Rename skill directories and update frontmatter
+CLOSED: [2026-04-28 Tue 01:03]
 :PROPERTIES:
 :ID: d2e3f4a5-0001-4000-8000-400000000001
 :END:
@@ -68,8 +69,8 @@ for symmetry and namespace clarity in the agent's skill registry.
 Acceptance: =git log --follow= on the moved =SKILL.md= files traces
 back through history; =name:= field in each matches the new directory
 name.
-
-** TODO [#A] Update cross-references between the two skill bodies
+** DONE [#A] Update cross-references between the two skill bodies
+CLOSED: [2026-04-28 Tue 01:03]
 :PROPERTIES:
 :ID: d2e3f4a5-0002-4000-8000-400000000002
 :END:
@@ -89,8 +90,8 @@ Each skill references the other via path and by name:
 Acceptance: no occurrence of =skills/org-memory/= or =skills/plan/= in
 either =SKILL.md= file; cross-link paths resolve from the moved
 locations.
-
-** TODO [#A] Update body prose in both skill files
+** DONE [#A] Update body prose in both skill files
+CLOSED: [2026-04-28 Tue 01:03]
 :PROPERTIES:
 :ID: d2e3f4a5-0003-4000-8000-400000000003
 :END:
@@ -108,8 +109,8 @@ references.
 
 Acceptance: =rg \"plan skill\\|org-memory skill\"= in the two files
 returns no results.
-
-** TODO [#A] Update tasks extension code and docs
+** DONE [#A] Update tasks extension code and docs
+CLOSED: [2026-04-28 Tue 01:03]
 :PROPERTIES:
 :ID: d2e3f4a5-0004-4000-8000-400000000004
 :END:
@@ -126,8 +127,8 @@ Sweep with =rg= and update; preserve umbrella-concept uses of
 Acceptance: =rg \"plan skill\\|org-memory skill\"= in
 =agents/pi/extensions/tasks/= returns no results; agent prompts
 reference the new skill names.
-
-** TODO [#B] Update existing change-records and TASKS.org body text
+** DONE [#B] Update existing change-records and TASKS.org body text
+CLOSED: [2026-04-28 Tue 01:03]
 :PROPERTIES:
 :ID: d2e3f4a5-0005-4000-8000-400000000005
 :END:
@@ -147,8 +148,8 @@ quotation.
 
 Acceptance: live skill references use new names; historical
 narrative reads sensibly.
-
-** TODO [#C] Update AGENTS.md files
+** DONE [#C] Update AGENTS.md files
+CLOSED: [2026-04-28 Tue 01:03]
 :PROPERTIES:
 :ID: d2e3f4a5-0006-4000-8000-400000000006
 :END:
@@ -158,8 +159,8 @@ Update these so newly-spawned agents see the correct names.
 
 Acceptance: =rg \"org-memory\\|plan skill\"= across =AGENTS.md= files
 returns only umbrella-concept uses, no stale skill identifiers.
-
-** TODO [#C] Final sweep
+** DONE [#C] Final sweep
+CLOSED: [2026-04-28 Tue 01:03]
 :PROPERTIES:
 :ID: d2e3f4a5-0007-4000-8000-400000000007
 :END:
@@ -176,3 +177,49 @@ the change-record's =* Implementation= section.
 
 Acceptance: zero hits for skill-path patterns; remaining \"org-memory\"
 hits are exclusively umbrella-concept uses.
+* Implementation
+
+** Files changed (live)
+
+- =agents/skills/org-tasks/= (was =org-memory/=) — directory rename via
+  =git mv=; =SKILL.md= frontmatter =name:= updated and 5 internal
+  prose/cross-ref edits.
+- =agents/skills/org-plan/= (was =plan/=) — directory rename via
+  =git mv=; =SKILL.md= frontmatter =name:= updated and 6 internal
+  prose/cross-ref edits.
+- =agents/pi/extensions/tasks/index.ts= — 2 prose edits in JSDoc and
+  agent-prompt template (=buildProactiveChangeRecordPrompt=).
+- =agents/pi/extensions/tasks/README.md= — 3 prose edits (skill-path
+  reference, "the plan skill" \u2192 "the =org-plan= skill", "org-memory
+  skill protocol" \u2192 "=org-tasks= skill protocol").
+
+** Subtasks 5 and 6 were effective no-ops
+
+- =TASKS.org= and =TASKS.archive.org= mention the old skill names only
+  in (a) the rename task's own body text (which proposes the rename
+  using the old names \u2014 historical) and (b) archived task descriptions
+  describing past work on those skills (also historical).  Per the
+  design decision to preserve historical narrative, no edits were made.
+- =design/log/*.org= references are all historical change-records of
+  prior work on the skills.  No edits.
+- =AGENTS.md= files at repo root and =agents/AGENTS.md= contained no
+  skill-name references at all.
+
+** Verification
+
+Final =rg= sweeps returned zero hits for:
+
+- =skills/org-memory= and =skills/plan= (path references)
+- =name: org-memory$= and =name: plan$= (frontmatter)
+- ="the plan skill"= and ="the org-memory skill"= in active code,
+  active docs, and =AGENTS.md= files
+
+Remaining occurrences of "org-memory", "plan skill", etc. live entirely
+in =design/log/*.org= historical change-records and the original
+proposing prose of TASKS.org tasks \u2014 all intentionally preserved.
+
+** No backwards-compatibility shim
+
+As planned, no redirects or aliases from the old names.  The skill
+loader picks up the new names directly from the (renamed) directory
+layout.  Pre-release; no deployed agents to migrate.

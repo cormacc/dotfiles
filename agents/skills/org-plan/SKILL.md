@@ -1,20 +1,22 @@
 ---
-name: plan
-description: Use when asked to draft, review, or execute an implementation plan. Produces concrete plans as org-memory change-record files, then guides stepwise implementation and verification.
+name: org-plan
+description: Use when asked to draft, review, or execute an implementation plan. Produces concrete plans as change-record files, then guides stepwise implementation and verification.
 ---
 
 # Plan
 
 Use this skill when the user asks for a plan.
-A plan is the leading content of a *change-record* — the org-memory artefact
-linked from a task via `#+IMPORT:`.  The change-record begins life as a plan
-and becomes a record of what shipped as work proceeds.
+A plan is the leading content of a *change-record* — the artefact
+owned by the `org-tasks` skill, linked from a task via `#+IMPORT:`.
+The change-record begins life as a plan and becomes a record of what
+shipped as work proceeds.
 
 This skill owns planning methodology and change-record section conventions;
-org-memory owns file-format and persistence rules: `../org-memory/SKILL.md`.
+the `org-tasks` skill owns file-format and persistence rules:
+`../org-tasks/SKILL.md`.
 
 A change-record may also be authored *retrospectively*, after a task has
-closed without a prior plan.  The org-memory skill describes the
+closed without a prior plan.  The `org-tasks` skill describes the
 retrospective flow; the section structure below applies to both.
 
 ## Planning principles
@@ -31,7 +33,7 @@ retrospective flow; the section structure below applies to both.
 
 ## Change-record sections
 
-Change-records follow the org-memory file protocol and add the
+Change-records follow the file protocol owned by `org-tasks` and add the
 planning-oriented section convention below:
 
 Required sections:
@@ -80,7 +82,7 @@ Acceptance criteria.
 ```
 
 Task headings may nest deeper than level 2. Keep parent statuses meaningful;
-see org-memory for status rules.
+see `org-tasks` for status rules.
 
 ## Retrospective change-records
 
@@ -96,7 +98,7 @@ When drafting a change-record for work already started or completed:
 When the work is *fully* closed and there was no prior plan, the harness
 may scaffold an empty change-record and ask the agent to populate
 `* Context` and `* Implementation` from `git log` scoped to the parent
-task's `:STARTED:` and `CLOSED:` timestamps.  See `../org-memory/SKILL.md`
+task's `:STARTED:` and `CLOSED:` timestamps.  See `../org-tasks/SKILL.md`
 for the retrospective protocol; the section structure above still applies.
 
 ## Executing from a change-record
@@ -110,7 +112,7 @@ Before starting implementation:
 4. Respect the current `#+SELECTED:` pointer in `TASKS.local.org` as the
    active task signal. Do not write or clear it directly unless explicitly
    asked or acting through a task-selection tool.
-5. Mark the task `STARTED` if beginning work now. See org-memory for parent
+5. Mark the task `STARTED` if beginning work now. See `org-tasks` for parent
    status discipline.
 6. Implement the smallest change that satisfies the task.
 7. Verify the change.

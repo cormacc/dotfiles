@@ -46,13 +46,6 @@ If TASKS.local.org includes tasks, consider these local/draft/gitignored tasks.
 Not checked in, but surfaced in the extension UI.
 Update task extension and emacs plugins to include publish/unpublish bindings -- promoting
 a local task from TASKS.local.org and vice versa.
-** TODO [#C] Consider whether to rename the 'org-memory' skill to just 'tasks'
-:PROPERTIES:
-:ID: ce69ef5e-5967-4623-a2e3-f22e0bd1a745
-:END:
-#+IMPORT: [[file:design/log/2026-04-28-skill-rename-org-tasks-org-plan.org]]
-Currently we've got 'org-memory' and 'plan' -- maybe more useful to refer to 'tasks' and 'plan', and refer to the combination as org-memory? Or 'org-tasks' and 'org-plan' skills, with the combination of the two making up 'org-memory'?
-Consider, rename as appropriate and update docs accordingly.
 ** TODO [#C] Add some sort of Jira integration for the tasks extension
 :PROPERTIES:
 :ID: 0276a6c7-0ca8-4c39-a90a-05587ad64698
