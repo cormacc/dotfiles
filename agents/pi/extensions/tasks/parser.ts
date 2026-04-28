@@ -112,6 +112,17 @@ export function formatOrgTimestamp(d: Date = new Date()): string {
   return `${y}-${mo}-${da} ${dow} ${hh}:${mm}`;
 }
 
+/** Format a Date as a date-only org body, e.g. `2026-04-24 Fri`.
+ * Used for `#+DATE:` headers where time-of-day is not meaningful. */
+export function formatOrgDate(d: Date = new Date()): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const y = d.getFullYear();
+  const mo = pad(d.getMonth() + 1);
+  const da = pad(d.getDate());
+  const dow = DAY_ABBR[d.getDay()]!;
+  return `${y}-${mo}-${da} ${dow}`;
+}
+
 /**
  * Parse a single heading line into its components.
  * Returns null if the line is not a valid task heading.

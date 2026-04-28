@@ -9,8 +9,15 @@
 
 ;; Lightweight Emacs-side helpers for the plain-org task-memory protocol used
 ;; by the pi tasks extension.  Maintains stable :ID: properties, single-task
-;; selection via TASKS.local.org, and convenient #+IMPORT: open/create
-;; helpers.
+;; selection via TASKS.local.org, convenient navigation to existing
+;; #+IMPORT:'d change-records, and `:STARTED:' first-transition timestamps
+;; via `org-after-todo-state-change-hook'.
+;;
+;; Scope: review, edit, and reorganisation of existing task graphs and
+;; change-records.  Plan creation and task creation are the remit of the
+;; agent harness (the pi tasks extension's `/tasks new', `n', `N', and
+;; `p' keybindings); this mode intentionally does not scaffold new
+;; change-records or new tasks.
 ;;
 ;; Files remain plain org.  Pi reloads via its file watchers; there is no live
 ;; IPC.  All commands operate on the current org buffer using standard org
@@ -47,7 +54,11 @@
   :group 'tasks-org)
 
 (defcustom tasks-org-plans-directory "design/log"
-  "Default directory under the project root for new plan files."
+  "Fallback project-relative directory for change-records.
+Used by the auto-enable predicate when `TASKS.org' does not declare a
+`#+DEFAULT_PLAN_DIR:' keyword. This mode does not create change-records;
+the directory is consulted only to decide whether `tasks-org-mode'
+should activate on a buffer."
   :type 'string
   :group 'tasks-org)
 
@@ -88,17 +99,49 @@ current buffer's directory."
     (goto-char (point-min))
     (re-search-forward "^#\\+DEFAULT_PLAN_DIR:" nil t)))
 
+(defun tasks-org--read-default-plan-dir ()
+  "Return the project's `#+DEFAULT_PLAN_DIR:' value, or nil.
+Reads `TASKS.org' from the project root and extracts the directory
+from the org-link form `[[file:./path/to/dir]]' or a bare path.
+Returns a string relative to the project root (no leading `./')
+or nil when the keyword is absent or the file is unreadable."
+  (let ((tasks-file (tasks-org--tasks-file)))
+    (when (file-readable-p tasks-file)
+      (with-temp-buffer
+        (insert-file-contents tasks-file)
+        (goto-char (point-min))
+        (when (re-search-forward
+               "^#\\+DEFAULT_PLAN_DIR:[ \t]*\\(.*\\)" nil t)
+          (let* ((raw (string-trim (match-string-no-properties 1)))
+                 (path (or (tasks-org--extract-import-path raw)
+                           (and (not (string-empty-p raw)) raw))))
+            (when path
+              (replace-regexp-in-string "\\`\\./" "" path))))))))
+
+(defun tasks-org--effective-plans-directory ()
+  "Return the project's plan directory: `#+DEFAULT_PLAN_DIR:' or fallback.
+The fallback is `tasks-org-plans-directory'."
+  (or (tasks-org--read-default-plan-dir)
+      tasks-org-plans-directory))
+
 (defun tasks-org--should-auto-enable-p ()
   "Return non-nil when the current buffer matches activation rules.
 Activates when the buffer's path (relative to the project root) matches
-`tasks-org-auto-enable-paths', or when the buffer contains a
-`#+DEFAULT_PLAN_DIR:' keyword (the canonical marker of a task-memory root)."
+`tasks-org-auto-enable-paths', when the buffer's directory matches the
+project's `#+DEFAULT_PLAN_DIR:' (or its `tasks-org-plans-directory'
+fallback), or when the buffer itself contains a `#+DEFAULT_PLAN_DIR:'
+keyword (the canonical marker of a task-memory root)."
   (when (and buffer-file-name (derived-mode-p 'org-mode))
     (or (tasks-org--has-plan-dir-keyword-p)
         (let* ((root (tasks-org--project-root))
-               (rel (file-relative-name buffer-file-name root)))
-          (cl-some (lambda (re) (string-match-p re rel))
-                   tasks-org-auto-enable-paths)))))
+               (rel (file-relative-name buffer-file-name root))
+               (plans-dir (ignore-errors
+                            (tasks-org--effective-plans-directory))))
+          (or (cl-some (lambda (re) (string-match-p re rel))
+                       tasks-org-auto-enable-paths)
+              (and plans-dir
+                   (string-prefix-p
+                    (file-name-as-directory plans-dir) rel)))))))
 
 (defun tasks-org-maybe-enable ()
   "Enable `tasks-org-mode' if the current buffer matches activation rules."
@@ -177,6 +220,28 @@ or directly after the heading when neither is present)."
           (forward-line 1))
         (insert (format "#+IMPORT: %s\n" link-value))))))
 
+;;; Timestamp helpers
+
+(defvar org-state)
+
+(defun tasks-org--org-timestamp ()
+  "Return an org-style inactive timestamp value, e.g. `2026-04-28 Tue 11:00'.
+Matches the format used by `:STARTED:', `:CREATED:', and `CLOSED:'."
+  (format-time-string "%Y-%m-%d %a %H:%M"))
+
+(defun tasks-org--maybe-record-started ()
+  "Record `:STARTED: [...]' on the current heading if missing.
+Called from `org-after-todo-state-change-hook' when a task transitions
+into `STARTED'. Re-opens (DONE -> STARTED) preserve the original value:
+the property is written only when absent."
+  (when (and (bound-and-true-p tasks-org-mode)
+             (boundp 'org-state)
+             (string= org-state "STARTED")
+             (tasks-org--at-task-heading-p)
+             (not (org-entry-get nil "STARTED")))
+    (org-entry-put nil "STARTED"
+                   (format "[%s]" (tasks-org--org-timestamp)))))
+
 ;;; Selection helpers — TASKS.local.org scheme
 
 (defun tasks-org--local-file ()
@@ -208,7 +273,9 @@ rather than deleted, so it remains present for .gitignore purposes."
 (defun tasks-org-toggle-selected ()
   "Toggle the selection of the current task via TASKS.local.org.
 Writes #+SELECTED: <UUID> to TASKS.local.org (creating it if absent).
-Deselecting removes the file."
+Deselecting clears the `#+SELECTED:' value; the file is retained
+(it remains gitignored and may carry local drafts and #+IMPORT:
+keywords alongside the selection keyword)."
   (interactive)
   (unless (tasks-org--at-task-heading-p)
     (user-error "Point is not on an actionable task heading"))
@@ -315,82 +382,37 @@ debounce."
       (setq tasks-org--local-file-watchers
             (delq entry tasks-org--local-file-watchers)))))
 
-;;; Plan helpers
+;;; Change-record navigation
 
-(defun tasks-org--plan-link (path)
-  "Return a clickable org-link value for use in #+IMPORT: for the relative PATH."
-  (format "[[file:%s]]" path))
-
-(defun tasks-org--slugify (s)
-  "Slugify the string S for use in a filename."
-  (let* ((down (downcase (or s "")))
-         (clean (replace-regexp-in-string "[^a-z0-9]+" "-" down))
-         (trimmed (replace-regexp-in-string "\\(^-+\\|-+$\\)" "" clean)))
-    (if (string-empty-p trimmed)
-        "plan"
-      (substring trimmed 0 (min 40 (length trimmed))))))
-
-(defun tasks-org--scaffold-plan (title)
-  "Return scaffolded plan-file content for TITLE."
-  (let ((date (format-time-string "%Y-%m-%d %a")))
-    (concat
-     (format "#+TITLE: %s\n" title)
-     (format "#+DATE: %s\n" date)
-     "#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)\n"
-     "\n"
-     "* Context\n\n"
-     "* Plan\n")))
-
-(defun tasks-org--open-plan-link (raw source-dir &optional find-fn)
+(defun tasks-org--open-import-link (raw source-dir &optional find-fn)
   "Open the file extracted from RAW #+IMPORT: value, resolved against SOURCE-DIR.
 FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
   (let* ((path (tasks-org--extract-import-path raw))
          (abs (when path (expand-file-name path source-dir))))
     (if (and abs (file-readable-p abs))
         (funcall (or find-fn #'find-file) abs)
-      (user-error "Plan file not found: %s" (or abs raw)))))
-
-(defun tasks-org--create-plan-for-current-task (&optional find-fn)
-  "Scaffold a new plan file for the current task and link it via #+IMPORT:.
-FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
-  (let* ((title (org-get-heading t t t t))
-         (slug (tasks-org--slugify title))
-         (today (format-time-string "%Y-%m-%d"))
-         (default-rel (concat (file-name-as-directory tasks-org-plans-directory)
-                              today "-" slug ".org"))
-         (root (tasks-org--project-root))
-         (default-abs (expand-file-name default-rel root))
-         (chosen (read-file-name
-                  "New plan file: "
-                  (file-name-directory default-abs) nil nil
-                  (file-name-nondirectory default-abs))))
-    (unless (file-exists-p chosen)
-      (make-directory (file-name-directory chosen) t)
-      (with-temp-file chosen
-        (insert (tasks-org--scaffold-plan title))))
-    (let* ((source-dir (file-name-directory (or buffer-file-name "")))
-           (rel (file-relative-name chosen source-dir)))
-      (tasks-org--set-import (tasks-org--plan-link rel))
-      (tasks-org--ensure-id-at-heading))
-    (save-buffer)
-    (funcall (or find-fn #'find-file) chosen)))
+      (user-error "Change-record file not found: %s" (or abs raw)))))
 
 ;;;###autoload
 (defun tasks-org-open-plan (&optional find-fn)
-  "Open the #+IMPORT: linked from the current task, creating one if absent.
-FIND-FN defaults to `find-file'; pass `find-file-other-window' to split."
+  "Open the change-record linked from the current task via `#+IMPORT:'.
+FIND-FN defaults to `find-file'; pass `find-file-other-window' to split.
+Signals a `user-error' when the task has no `#+IMPORT:' link \u2014
+change-record creation is the remit of the agent harness (use the pi
+tasks extension's `p' keybinding to scaffold one)."
   (interactive)
   (unless (tasks-org--at-task-heading-p)
     (user-error "Point is not on an actionable task heading"))
   (let ((import-raw (tasks-org--get-import-raw))
         (source-dir (file-name-directory (or buffer-file-name ""))))
-    (if import-raw
-        (tasks-org--open-plan-link import-raw source-dir find-fn)
-      (tasks-org--create-plan-for-current-task find-fn))))
+    (unless import-raw
+      (user-error
+       "No #+IMPORT: on this task; use the pi tasks extension's `p' to create one"))
+    (tasks-org--open-import-link import-raw source-dir find-fn)))
 
 ;;;###autoload
 (defun tasks-org-open-plan-other-window ()
-  "Open the #+IMPORT: linked from the current task in another window."
+  "Open the change-record linked from the current task in another window."
   (interactive)
   (tasks-org-open-plan #'find-file-other-window))
 
@@ -504,9 +526,13 @@ external changes (e.g. from the pi extension)."
   (if tasks-org-mode
       (progn
         (add-hook 'after-save-hook #'tasks-org--refresh-selection-overlay nil t)
+        (add-hook 'org-after-todo-state-change-hook
+                  #'tasks-org--maybe-record-started nil t)
         (tasks-org--setup-local-file-watch)
         (tasks-org--refresh-selection-overlay))
     (remove-hook 'after-save-hook #'tasks-org--refresh-selection-overlay t)
+    (remove-hook 'org-after-todo-state-change-hook
+                 #'tasks-org--maybe-record-started t)
     (tasks-org--clear-selection-overlay)))
 
 ;;;###autoload

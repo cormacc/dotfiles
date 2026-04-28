@@ -153,108 +153,63 @@ The file linked from a task via `#+IMPORT:` is called a *change-record*. The fil
 
 Default is `true`. When `false`, the retrospective flow is suppressed and `TODO/STARTED -> DONE` behaves as it did before the feature.
 
-### `:STARTED:` first-transition timestamp
+### Timestamps
 
-When a task moves `TODO -> STARTED` for the first time, the extension records `:STARTED: [YYYY-MM-DD Day HH:MM]` on the task heading (matching the `CLOSED:` format). Subsequent `DONE -> STARTED` re-opens preserve the original first-start timestamp; the value is never rewritten. The retrospective change-record flow uses this timestamp to scope `git log` precisely.
+- **`:CREATED:`** — written on every new task created via `/tasks new`,
+  `n`, or `N`, in `[YYYY-MM-DD Day HH:MM]` format. Existing tasks are
+  not backfilled.
+- **`:STARTED:`** — written the first time a task moves `TODO -> STARTED`.
+  Subsequent `DONE -> STARTED` re-opens preserve the original value.
+  Used by the retrospective change-record flow to scope `git log`.
+- **`CLOSED:`** — written on transition to `DONE` or `CANCELLED`.
+  Emitted on its own line above the `:PROPERTIES:` drawer (matches
+  `org-todo`'s native behaviour). The parser accepts `CLOSED:` in
+  either position and serializes back above the drawer.
 
-## TASKS.org Format
+## File format
 
-The file uses org-mode heading syntax. A `#+TODO:` declaration is recommended so Emacs users get the same state cycle as the extension. `#+DEFAULT_PLAN_DIR:` optionally sets the default directory for newly created plan files and must use org-link syntax; when omitted, the default is `[[file:./design/log]]`.
+File-format details (heading syntax, properties, `#+IMPORT:`,
+`#+DEFAULT_PLAN_DIR:`, `#+SELECTED:`, change-record sections) live
+in the `org-tasks` skill: `agents/skills/org-tasks/SKILL.md`. The
+extension implements that protocol; this README only covers the UI
+and extension-specific behaviour.
 
-```org
-#+TITLE: Project Tasks
-#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
-#+DEFAULT_PLAN_DIR: [[file:./design/log]]
+Extension-specific notes:
 
-* TODO [#A] Implement authentication :backend:security:
-:PROPERTIES:
-:ID: 01234567-89ab-4def-8123-456789abcdef
-:END:
-#+IMPORT: [[file:design/log/auth.org]]
-  Design and implement user auth.
-** TODO Create user model
-:PROPERTIES:
-:ID: 89abcdef-0123-4567-89ab-cdef01234567
-:END:
-** STARTED Implement login endpoint
-:PROPERTIES:
-:ID: fedcba98-7654-4321-8fed-cba987654321
-:END:
-   Working on JWT token generation.
-** WAITING Add OAuth support :oauth:
-:PROPERTIES:
-:ID: 11111111-2222-4333-8444-555555555555
-:BLOCKED-BY: human: provider credentials
-:END:
-   Waiting on provider credentials.
-* DONE [#B] Set up CI pipeline :devops:
-:PROPERTIES:
-:ID: 22222222-3333-4444-8555-666666666666
-:END:
+- **Round-trip preservation**: in `TASKS.org`, file-level metadata,
+  preamble, and non-task category headings stay in place; only
+  parsed task subtrees are rewritten. In linked change-records,
+  sections like `#+TITLE`, `#+TODO`, `* Context`,
+  `** Design decisions`, `* Plan`, `* Implementation`, and
+  `* Open questions` are preserved; only parsed task subtrees are
+  rewritten.
+- **Permissive parsing**: actionable task headings may appear
+  anywhere in a linked change-record. Using `* Plan` is the
+  recommended convention but not required.
+- **`#+IMPORT:` link form**: the value can be a bare path,
+  `[[file:...]]`, or `[[file:...][label]]`. Whichever form is on
+  disk is preserved exactly. New change-records scaffolded by `p`
+  are written in `[[file:...]]` form so they're clickable in Emacs.
+- **Subtask absorption**: if `p` is pressed on a task that already
+  has local subtasks, those subtask trees are moved into the new
+  change-record under `* Plan`; the parent retains a plain-text
+  bullet summary of the extracted subtasks.
+
+## Tests
+
+```sh
+./test.sh
 ```
 
-### Heading syntax
+Runs structural sanity checks against `index.ts` and the
+`parser.test.ts` unit suite (parser round-trip invariants and the
+`scaffoldPlan()` literal-snapshot test). The snapshot is paired with
+an equivalent `ert` test in the spacemacs `tasks-org` layer
+(`editors/emacs/spacemacs/layers/org-user/local/tasks-org/tasks-org-tests.el`)
+so drift between the TS scaffolder and the elisp helpers is caught
+on both sides.
 
-```
-* STATUS [#PRIORITY] Summary text :tag1:tag2:
-```
-
-- **Stars** (`*`) — heading level; nested headings become subtasks
-- **Status** — one of `TODO`, `STARTED`, `WAITING`, `DONE`, `CANCELLED`
-- **Priority** — optional, e.g. `[#A]`, `[#B]`, `[#C]`, `[#D]`
-- **Summary** — the task title
-- **Tags** — optional, colon-delimited at end of line
-- **ID property** — UUID in the properties drawer, compatible with org-id.el and the `org-tasks` skill protocol. Missing IDs in `TASKS.org` and loaded linked plans are inserted automatically on load.
-- **IMPORT keyword** — optional `#+IMPORT: [[file:path]]` line in the task body (after the `:END:` drawer line) pointing to a relative org file with a detailed task plan or additional tasks. Can also appear at file root level (before any heading) to inject tasks from another file at the top level.
-- **BLOCKED-BY property** — optional property recording why a `WAITING` task is blocked
-- **Description** — any non-heading text below a heading, excluding the properties drawer
-- **DEFAULT_PLAN_DIR keyword** — optional top-level `#+DEFAULT_PLAN_DIR: [[file:./path/to/dir]]` setting used as the default directory for new plan files; defaults to `[[file:./design/log]]` when absent or malformed
-
-Subtasks nest arbitrarily deep — any TODO heading under another becomes its child. Parent statuses are not automatically inferred from child statuses.
-
-### Linked change-records
-
-A task can link to a detailed plan or task file using a `#+IMPORT:` keyword in the task body:
-
-```org
-* TODO [#A] Implement authentication :backend:security:
-:PROPERTIES:
-:ID: 01234567-89ab-4def-8123-456789abcdef
-:END:
-#+IMPORT: [[file:design/log/auth.org]]
-  Parent task description.
-```
-
-A `#+IMPORT:` keyword at file root level (before any heading) injects tasks from another file at the top level of the task tree:
-
-```org
-#+TITLE: My Tasks
-#+IMPORT: [[file:work/tasks.org]]
-#+IMPORT: [[file:personal/tasks.org]]
-
-* TODO Some top-level task
-```
-
-The `#+IMPORT:` path is resolved relative to the org file that contains the keyword. New plan path suggestions use the top-level `#+DEFAULT_PLAN_DIR: [[file:...]]` directory from `TASKS.org`, defaulting to `[[file:./design/log]]` when the keyword is absent or malformed. The linked file is parsed with the same TODO heading syntax as `TASKS.org`; its tasks are injected into the expanded UI as children of the parent task. The details pane shows the plan target, loaded plan-task count, or a missing/unreadable-plan warning. New plan files scaffolded by the extension include `#+TITLE`, `#+DATE`, `#+PARENT_ID` with the parent task's UUID `:ID:`, `#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)`, `* Context`, and `* Plan` sections. If a new plan is created from a task that already has local subtasks, those subtask trees are moved into the linked plan under `* Plan`; the parent task keeps a plain-text bullet summary of the extracted subtasks instead of retaining them as actionable child headings in `TASKS.org`. After scaffolding and linking the file, the extension sends an agent prompt to develop the plan with the user, write the final plan to disk, and offer to open it in Emacs. Status changes made to injected plan tasks are saved back to the linked plan file, not copied into `TASKS.org`. Saves preserve non-task org content such as file metadata, category headings, `* Context`, optional `** Design decisions`, `* Plan`, `* Implementation`, and `* Open questions` sections.
-
-The parser is intentionally permissive: actionable task headings may appear anywhere in the linked file. Using a dedicated `* Plan` section is recommended as a convention for readability, but it is not required by the extension.
-
-### Round-trip preservation
-
-The extension preserves non-task org content when saving status or selection changes. In `TASKS.org`, metadata/preamble text and non-task category headings remain in place. In linked plan files, sections such as `#+TITLE`, `#+TODO`, `* Context`, optional `** Design decisions`, `* Plan`, `* Implementation`, and `* Open questions` remain in place; only parsed task subtrees are rewritten.
-
-#### Org-link syntax
-
-The `#+IMPORT:` value can be written as a plain path or an org link:
-
-```org
-#+IMPORT: design/log/auth.org
-#+IMPORT: [[file:design/log/auth.org]]
-#+IMPORT: [[file:design/log/auth.org][Auth plan]]
-```
-
-Both forms are parsed identically. Whichever form the file uses is preserved exactly on round-trip save. New plans created via the `p` keybinding are written in the `[[file:...]]` form so they're clickable in Emacs by default (`C-c C-o` on the link).
-
+Requires `tsx` on `$PATH` (e.g. via `npx tsx` or a global install).
 
 ## Dependencies
 
