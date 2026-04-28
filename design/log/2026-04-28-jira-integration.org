@@ -372,10 +372,12 @@ Added a regression test.
   task; visual check that the keywords survive a save-from-Emacs
   cycle.
 
-** TODO [#A] Read-only Jira integration :jira:
+** DONE [#A] Read-only Jira integration :jira:
+CLOSED: [2026-04-28 Tue 13:52]
 :PROPERTIES:
 :ID: 0d3431c4-d997-41ef-8e6d-0925a386ea6b
 :CREATED: [2026-04-25 Sat 09:00]
+:STARTED: [2026-04-28 Tue 13:48]
 :END:
 
 The display half ("see and click my Jira tickets from a task") falls
@@ -385,11 +387,17 @@ instance, gives us badges and =J= for free.  This stage covers the
 remaining read-only Jira-specific work: pulling new tasks from Jira
 and codifying the Jira-shape conventions in =org-jira=.
 
-*** TODO [#A] Document Jira reference conventions in =org-jira=
+*** DONE [#A] Document Jira reference conventions in =org-jira=
+CLOSED: [2026-04-28 Tue 13:48]
 :PROPERTIES:
 :ID: 097a6e4f-6752-4f97-8b41-f416f8b47384
 :CREATED: [2026-04-25 Sat 09:00]
+:STARTED: [2026-04-28 Tue 13:48]
 :END:
+Covered by the org-jira SKILL.md scaffold (fffb7c63): the
+“File-format conventions” section documents the bare =PROJ-NNN= key
+shape, the validation regex, and how =:LINKED_ISSUES:= + =#+ISSUE_URL_BASE=
+produce badges and =J= browser-open via the generic =tasks= mechanism.
 Skill-level documentation (no code).
 - =org-jira= explains: write Jira keys as bare =PROJ-NNN= tokens in
   =:LINKED_ISSUES:= and set =#+ISSUE_URL_BASE= to the Jira browse
@@ -400,10 +408,12 @@ Skill-level documentation (no code).
 - Acceptance: skill content reviewed; matches the actual behaviour of
   the foundations stage.
 
-*** TODO [#B] Clone Jira issues into tasks
+*** DONE [#B] Clone Jira issues into tasks
+CLOSED: [2026-04-28 Tue 13:52]
 :PROPERTIES:
 :ID: edbea049-3a56-40ad-9aa5-660843364524
 :CREATED: [2026-04-25 Sat 09:00]
+:STARTED: [2026-04-28 Tue 13:48]
 :END:
 
 User-visible behaviour: a slash command =/jira clone <KEY>= creates a
@@ -411,11 +421,20 @@ new task seeded from the Jira issue.  Whether the new task lands in
 =TASKS.org= or =TASKS.local.org= follows the existing tasks-extension
 new-task rule (cursor context); the Jira flow itself does not care.
 
-**** TODO [#B] =/jira clone= slash command (agent-driven)
+**** DONE [#B] =/jira clone= slash command (agent-driven)
+CLOSED: [2026-04-28 Tue 13:52]
 :PROPERTIES:
 :ID: 93502d76-a566-449c-a0c3-49dc28938338
 :CREATED: [2026-04-28 Tue 11:57]
+:STARTED: [2026-04-28 Tue 13:48]
 :END:
+Implementation note: extracted =resolveKey=, =buildClonePrompt=, and
+=getFileKeyword= into =jira/utils.ts= so the test runner can exercise
+them without pulling in =pi-tui= via =../lib/pi-utils.ts=.  The
+slash-command handler in =index.ts= drives them and uses
+=pi.sendUserMessage= to dispatch the structured prompt to the agent
+(no live MCP smoke test yet — deferred to user-side verification on
+=SAND=).
 - =jira= extension parses =KEY= argument(s); validates against
   =#+JIRA_PROJECT= prefix when given as a bare number.
 - Hands a structured prompt to the agent: "Use =atlassian_getJiraIssue=
