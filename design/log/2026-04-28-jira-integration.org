@@ -171,7 +171,8 @@ under =* Plan= so they can be picked up incrementally.
 
 * Plan
 
-** STARTED [#A] Foundations: extension points + generic linked-issues + scaffolding :tasks-ext:jira:
+** DONE [#A] Foundations: extension points + generic linked-issues + scaffolding :tasks-ext:jira:
+CLOSED: [2026-04-28 Tue 13:47]
 :PROPERTIES:
 :ID: d618bcc1-9481-4431-a572-8a1f17612e4f
 :CREATED: [2026-04-25 Sat 09:00]
@@ -298,11 +299,18 @@ CLOSED: [2026-04-28 Tue 13:40]
 - Acceptance: README rendered and reviewed; cross-link from
   =org-tasks/SKILL.md= "Extension points" section.
 
-*** TODO [#A] Scaffold the =jira= pi extension
+*** DONE [#A] Scaffold the =jira= pi extension
+CLOSED: [2026-04-28 Tue 13:44]
 :PROPERTIES:
 :ID: d837f4ba-c217-42c4-8c2f-8afaeb6f845c
 :CREATED: [2026-04-28 Tue 11:57]
+:STARTED: [2026-04-28 Tue 13:40]
 :END:
+MCP-detection approach: =pi.getAllTools()= filtered for the
+=atlassian_= prefix. Avoids actually invoking any MCP tool just for a
+status check. Connection visible at
+=~/.pi/agent/extensions/jira/= via the existing =agents.nix= symlink
+(no nix change required).
 - =agents/pi/extensions/jira/= with =index.ts=, =README.md=, =test.sh=,
   and a minimal =/jira= slash command that prints "Atlassian MCP:
   <connected|disconnected>".
@@ -313,10 +321,12 @@ CLOSED: [2026-04-28 Tue 13:40]
   extension installs cleanly via the existing =agents.nix= symlink
   rule.
 
-*** TODO [#A] Scaffold =agents/skills/org-jira/SKILL.md=
+*** DONE [#A] Scaffold =agents/skills/org-jira/SKILL.md=
+CLOSED: [2026-04-28 Tue 13:46]
 :PROPERTIES:
 :ID: fffb7c63-1508-45f3-934e-96d16f376def
 :CREATED: [2026-04-28 Tue 11:57]
+:STARTED: [2026-04-28 Tue 13:44]
 :END:
 New skill positioned as "extends =org-tasks= with Jira awareness".
 Documents:
@@ -341,11 +351,18 @@ Documents:
 - Acceptance: skill listed in the harness's available-skills index on
   the next session.
 
-*** TODO [#A] Add file-level keywords to =TASKS.org=
+*** DONE [#A] Add file-level keywords to =TASKS.org=
+CLOSED: [2026-04-28 Tue 13:47]
 :PROPERTIES:
 :ID: 0bdc5ce4-62d8-481f-bda3-3d609519e85c
 :CREATED: [2026-04-28 Tue 11:57]
+:STARTED: [2026-04-28 Tue 13:46]
 :END:
+Flushed out a regression in =getFileKeyword= while verifying: an empty
+=#+KEYWORD:= line was bleeding into the next line because the regex
+used =\s*= (which includes =\n=) around the captured value.  Fixed to
+=[\t ]*= so blank values yield =""=, not the next line’s content.
+Added a regression test.
 - Insert =#+ISSUE_URL_BASE=
   =https://your-org.atlassian.net/browse/{ID}= into the =TASKS.org=
   preamble.
