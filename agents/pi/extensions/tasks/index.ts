@@ -720,6 +720,20 @@ export default function (pi: ExtensionAPI) {
           ctx.ui.notify(message, kind);
         };
 
+        // Generic event emit so other extensions can react to status
+        // cycles (e.g. `jira` for auto-transition). Stays generic — no
+        // tracker-specific knowledge in `tasks`.
+        const onStatusChanged = (task: Task, prevStatus: string) => {
+          const id = getTaskId(task);
+          pi.events.emit("tasks:status-changed", {
+            id,
+            status: task.status,
+            prevStatus,
+            summary: task.summary,
+            closed: task.status === "DONE" || task.status === "CANCELLED",
+          });
+        };
+
         await ctx.ui.custom(
           (tui, theme, _kb, done) => {
             const overlay = new TasksOverlay(
@@ -740,6 +754,7 @@ export default function (pi: ExtensionAPI) {
               onSelectionChange,
               onOpenUrls,
               onNotify,
+              onStatusChanged,
             );
             activeOverlayInstance = overlay;
             return overlay;

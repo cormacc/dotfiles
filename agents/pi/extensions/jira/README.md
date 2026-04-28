@@ -8,20 +8,28 @@ of the generic `tasks` extension's tracker-agnostic linkage features
 
 ## Status
 
-**Scaffold.** Connection-status command implemented; clone / claim /
-comment / create / transition workflows land in subsequent plan tasks
-(see `design/log/2026-04-28-jira-integration.org`).
+Read-only and write workflows implemented (clone / claim / comment /
+create). Optional `autoTransition` on local TODO→STARTED→DONE cycles
+still pending; depends on the `tasks` extension publishing a
+status-change event on the pi event bus.
 
 ## Commands
 
-| Command          | Status      | Description                                            |
-| ---------------- | ----------- | ------------------------------------------------------ |
-| `/jira`          | Implemented | Print Atlassian MCP connection status.                 |
-| `/jira status`   | Implemented | Alias for `/jira`.                                     |
-| `/jira clone`    | Planned     | Pull an issue from Jira → create a task locally.       |
-| `/jira claim`    | Planned     | Set assignee on every Jira-shaped issue on a task.     |
-| `/jira comment`  | Planned     | Add a comment to every Jira-shaped issue on a task.    |
-| `/jira create`   | Planned     | Promote a task to a new Jira issue and link it back.   |
+| Command                                | Status      | Description                                            |
+| -------------------------------------- | ----------- | ------------------------------------------------------ |
+| `/jira`                                | Implemented | Print Atlassian MCP connection status.                 |
+| `/jira status`                         | Implemented | Alias for `/jira`.                                     |
+| `/jira clone KEY [KEY...]`             | Implemented | Pull issue(s) from Jira → create local task(s).        |
+| `/jira claim`                          | Implemented | Set assignee on every Jira-shaped issue on the selected task. |
+| `/jira comment <markdown>`             | Implemented | Add a comment to every Jira-shaped issue on the selected task. |
+| `/jira create [PROJECT] [--type Type]` | Implemented | Promote the selected task to a new Jira issue.         |
+| auto-transition (no command)           | Pending     | Mirror local TODO→STARTED→DONE on linked Jira issues.   |
+
+All workflows are *agent-driven*: the slash command drafts a structured
+prompt (using the conventions in the `org-jira` skill) and dispatches
+it via `pi.sendUserMessage`. The agent then performs the actual MCP
+calls and TASKS-file edits. The extension itself stays I/O-free for
+write paths.
 
 ## Connection model
 

@@ -106,6 +106,8 @@ export class TasksOverlay {
     private onOpenUrls?: (urls: string[]) => Promise<void>,
     /** Display a one-shot notification (status footer / toast). */
     private onNotify?: (message: string, kind?: "info" | "warn" | "error") => void,
+    /** Called after a task's status is cycled (via →/← / l/h). */
+    private onStatusChanged?: (task: Task, prevStatus: string) => void,
   ) {
     this.theme = theme;
     this.done = done;
@@ -394,6 +396,11 @@ export class TasksOverlay {
     }
     this.persistChange();
     this.invalidate();
+
+    // Notify any listening extension (e.g. `jira` for auto-transition)
+    // that a task's status changed. Done after persistChange so file
+    // watchers see the on-disk update before consumers act on it.
+    this.onStatusChanged?.(row.task, currentStatus);
 
     // After persisting, if the user just closed a task that has no
     // #+IMPORT: linked change-record, offer to scaffold one retrospectively.
