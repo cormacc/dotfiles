@@ -32,5 +32,11 @@ if command -v npx >/dev/null 2>&1; then
   fi
 fi
 
-echo "# All structural checks passed."
-echo "ok"
+CODE=0
+echo "# Running unit tests..."
+if command -v tsx >/dev/null 2>&1; then
+  tsx ./jira.test.ts || CODE=1
+else
+  npx --yes tsx ./jira.test.ts || CODE=1
+fi
+exit "$CODE"
