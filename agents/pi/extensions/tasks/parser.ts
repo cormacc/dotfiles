@@ -83,6 +83,34 @@ export function extractOrgLinkTarget(value: string): string | null {
   return match?.[1]?.trim() || null;
 }
 
+/**
+ * Org link with both target and (optional) description captured.
+ *   `[[url]]`             → { target: "url", description: null }
+ *   `[[url][label]]`      → { target: "url", description: "label" }
+ *   `[[file:path]]`       → { target: "path", description: null }
+ */
+const ORG_LINK_FULL_RE = /^\[\[(?:file:)?([^\]]+?)\](?:\[([^\]]*)\])?\]$/;
+
+export interface OrgLink {
+  /** The link target (URL or file path). */
+  target: string;
+  /** The optional description text shown to the user, or null when absent. */
+  description: string | null;
+}
+
+/**
+ * Parse an org link expression into target + description.
+ * Returns null when the value isn't an org link.
+ */
+export function extractOrgLink(value: string): OrgLink | null {
+  const match = ORG_LINK_FULL_RE.exec(value.trim());
+  if (!match) return null;
+  const target = match[1]?.trim();
+  if (!target) return null;
+  const description = match[2] !== undefined ? match[2].trim() : "";
+  return { target, description: description.length > 0 ? description : null };
+}
+
 /** Matches an org CLOSED timestamp line, e.g. `CLOSED: [2026-04-24 Fri 14:30]`. */
 const CLOSED_RE = /^\s*CLOSED:\s*\[([^\]]+)\]\s*$/;
 
@@ -201,6 +229,164 @@ export function getTaskStarted(task: Task): string | null {
 /** True when a task has a recorded `:STARTED:` first-transition timestamp. */
 export function taskHasStartedProperty(task: Task): boolean {
   return getTaskStarted(task) !== null;
+}
+
+/**
+ * Generic property-line matcher: `:NAME: value`.
+ * `NAME` is case-insensitive in org; we normalise via `.toUpperCase()`.
+ */
+const PROPERTY_LINE_RE = /^\s*:([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/;
+
+/**
+ * Return the value of an arbitrary drawer property by name, or null when
+ * the property is absent. Case-insensitive match on the property name.
+ *
+ * Generic accessor for third-party extensions: stable contract that
+ * unknown drawer properties round-trip cleanly through the parser.
+ */
+export function getDrawerProperty(task: Task, name: string): string | null {
+  const target = name.toUpperCase();
+  for (const line of task.propertyLines) {
+    const m = PROPERTY_LINE_RE.exec(line);
+    if (m && m[1]!.toUpperCase() === target) {
+      return m[2]!.trim();
+    }
+  }
+  return null;
+}
+
+/**
+ * Set or clear an arbitrary drawer property by name.
+ * - `value === null` removes the property line if present (no-op otherwise).
+ * - When the property is already present, the existing line is replaced
+ *   in place, preserving the original casing of the property name.
+ * - When absent, a new line is appended in `:NAME: value` form using the
+ *   `name` argument verbatim.
+ */
+export function setDrawerProperty(
+  task: Task,
+  name: string,
+  value: string | null,
+): void {
+  const target = name.toUpperCase();
+  let replaced = false;
+  task.propertyLines = task.propertyLines.flatMap((line) => {
+    const m = PROPERTY_LINE_RE.exec(line);
+    if (m && m[1]!.toUpperCase() === target) {
+      replaced = true;
+      return value === null ? [] : [`:${m[1]!}: ${value}`];
+    }
+    return [line];
+  });
+  if (!replaced && value !== null) {
+    task.propertyLines.push(`:${name}: ${value}`);
+  }
+}
+
+/**
+ * Return the value of a file-level `#+KEYWORD:` from raw org content,
+ * or null when absent. Case-insensitive match on the keyword name.
+ * First occurrence wins; callers wanting `TASKS.local.org` to override
+ * `TASKS.org` should call this on each file separately and prefer the
+ * local value when present.
+ */
+export function getFileKeyword(
+  content: string,
+  name: string,
+): string | null {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`^\\s*#\\+${escaped}\\s*:\\s*(.*?)\\s*$`, "im");
+  const m = re.exec(content);
+  return m?.[1]?.trim() ?? null;
+}
+
+// ── Linked external issues (`:LINKED_ISSUES:` + `#+ISSUE_URL_BASE`) ───────
+//
+// Tracker-agnostic external-issue references stored in the `:LINKED_ISSUES:`
+// drawer property as whitespace-separated tokens. Each token is either:
+//   1. A bare key (e.g. `MBFW-123`), resolved against `#+ISSUE_URL_BASE`.
+//   2. A full org link `[[url][label]]`, resolved directly.
+//
+// Tracker-specific behaviour (workflow, MCP routing, slash commands)
+// lives in companion extensions; this module knows nothing about them.
+
+export interface LinkedIssue {
+  /** Resolved URL, or null when a bare token has no usable `#+ISSUE_URL_BASE`. */
+  url: string | null;
+  /** Human-readable badge label (key for bare tokens, description for org links). */
+  label: string;
+  /** Original whitespace-separated token from the drawer line. */
+  rawToken: string;
+}
+
+/**
+ * Compose a URL for a bare issue key against an `#+ISSUE_URL_BASE` template.
+ *
+ * Resolution rule:
+ *   1. URL-encode the key.
+ *   2. If `template` contains `{ID}`, substitute the encoded key for every
+ *      occurrence.
+ *   3. Otherwise treat `template` as a prefix and append the encoded key.
+ *
+ * Returns null when `template` is null or empty.
+ */
+export function resolveIssueUrl(
+  template: string | null | undefined,
+  key: string,
+): string | null {
+  if (!template) return null;
+  const encoded = encodeURIComponent(key);
+  if (template.includes("{ID}")) {
+    return template.split("{ID}").join(encoded);
+  }
+  return template + encoded;
+}
+
+/**
+ * Parse `:LINKED_ISSUES:` for a task, classifying each token and resolving
+ * URLs via the supplied `#+ISSUE_URL_BASE` template (may be null).
+ *
+ * Empty/absent property returns an empty array. Malformed tokens (anything
+ * that's not a clean bare key or a parseable org link) are kept as bare
+ * tokens with whatever URL `resolveIssueUrl` produces — the parser does
+ * not validate token shape; rendering and `J` open are best-effort.
+ */
+export function getLinkedIssues(
+  task: Task,
+  urlBaseTemplate: string | null,
+): LinkedIssue[] {
+  const value = getDrawerProperty(task, "LINKED_ISSUES");
+  if (!value) return [];
+  const tokens = value.split(/\s+/).filter((t) => t.length > 0);
+  return tokens.map((rawToken) => {
+    const link = extractOrgLink(rawToken);
+    if (link) {
+      return {
+        url: link.target,
+        label: link.description ?? link.target,
+        rawToken,
+      };
+    }
+    return {
+      url: resolveIssueUrl(urlBaseTemplate, rawToken),
+      label: rawToken,
+      rawToken,
+    };
+  });
+}
+
+/**
+ * Replace the `:LINKED_ISSUES:` drawer property with the given tokens
+ * (whitespace-joined). Tokens are written verbatim — callers are
+ * responsible for choosing bare-key vs `[[url][label]]` form per token.
+ * Passing an empty array clears the property.
+ */
+export function setLinkedIssues(task: Task, tokens: string[]): void {
+  if (tokens.length === 0) {
+    setDrawerProperty(task, "LINKED_ISSUES", null);
+    return;
+  }
+  setDrawerProperty(task, "LINKED_ISSUES", tokens.join(" "));
 }
 
 /**

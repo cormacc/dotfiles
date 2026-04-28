@@ -171,10 +171,11 @@ under =* Plan= so they can be picked up incrementally.
 
 * Plan
 
-** TODO [#A] Foundations: extension points + generic linked-issues + scaffolding :tasks-ext:jira:
+** STARTED [#A] Foundations: extension points + generic linked-issues + scaffolding :tasks-ext:jira:
 :PROPERTIES:
 :ID: d618bcc1-9481-4431-a572-8a1f17612e4f
 :CREATED: [2026-04-25 Sat 09:00]
+:STARTED: [2026-04-28 Tue 13:27]
 :END:
 
 Two strands of foundation work:
@@ -186,10 +187,12 @@ Two strands of foundation work:
 No MCP traffic in this stage.  No Jira-specific code lands in =tasks=
 or =org-tasks=.
 
-*** TODO [#A] Document extension-point conventions in =org-tasks/SKILL.md=
+*** DONE [#A] Document extension-point conventions in =org-tasks/SKILL.md=
+CLOSED: [2026-04-28 Tue 13:29]
 :PROPERTIES:
 :ID: 734e2717-c8ab-479a-8571-30dd7b1ad53a
 :CREATED: [2026-04-28 Tue 11:57]
+:STARTED: [2026-04-28 Tue 13:27]
 :END:
 - New short "Extension points" section.  Specify that:
   - Unknown =#+= keywords in =TASKS.org= preamble (and
@@ -208,10 +211,12 @@ or =org-tasks=.
 - Acceptance: skill renders cleanly, references no third-party
   integrations by name; harness still loads it.
 
-*** TODO [#A] Lock in generic round-trip in =tasks=' parser
+*** DONE [#A] Lock in generic round-trip in =tasks=' parser
+CLOSED: [2026-04-28 Tue 13:36]
 :PROPERTIES:
 :ID: ea886cdd-e52b-4194-833f-75d9cecb39dc
 :CREATED: [2026-04-28 Tue 11:57]
+:STARTED: [2026-04-28 Tue 13:29]
 :END:
 The existing pass-through behaviour for unknown keywords and drawer
 properties is the contract on which third-party extensions build.
@@ -225,11 +230,18 @@ Lock it in before anything else depends on it.
   =getFileKeyword(parsed, name): string | null=.
 - Acceptance: =./test.sh= passes with the new test; helpers exported.
 
-*** TODO [#A] First-class =:LINKED_ISSUES:= + =#+ISSUE_URL_BASE= in =tasks=
+*** DONE [#A] First-class =:LINKED_ISSUES:= + =#+ISSUE_URL_BASE= in =tasks=
+CLOSED: [2026-04-28 Tue 13:39]
 :PROPERTIES:
 :ID: 91ed0b79-5b83-4cef-ad4a-51367aa78577
 :CREATED: [2026-04-28 Tue 11:57]
+:STARTED: [2026-04-28 Tue 13:36]
 :END:
+Implementation note: collapsed =J= and =shift-J= into a single =J=
+binding (they’re the same key on the wire). =J= now opens up to 5
+resolvable URLs at once, with notifications for over-cap and
+unresolvable-token cases. Also fixed =test.sh= to fall back to
+=npx tsx= when =tsx= isn’t on PATH.
 Native, tracker-agnostic support added to =tasks=' parser, overlay,
 and key handler.
 - =parser.ts= helpers:
@@ -268,10 +280,12 @@ and key handler.
   on a fixture task with =MBFW-123 [[https://example/x][x]]= shows
   two badges and =J= opens both URLs in turn.
 
-*** TODO [#A] Update the =tasks= README for =:LINKED_ISSUES:= + =J=
+*** DONE [#A] Update the =tasks= README for =:LINKED_ISSUES:= + =J=
+CLOSED: [2026-04-28 Tue 13:40]
 :PROPERTIES:
 :ID: b294a427-31ad-42ad-8e18-cc440913c2e9
 :CREATED: [2026-04-28 Tue 11:57]
+:STARTED: [2026-04-28 Tue 13:39]
 :END:
 - New section "Linked external issues" in
   =agents/pi/extensions/tasks/README.md=.

@@ -10,14 +10,22 @@ import {
   wrapTextWithAnsi,
   type TUI,
 } from "@mariozechner/pi-tui";
-import type { Task } from "./parser.ts";
+import type { LinkedIssue, Task } from "./parser.ts";
 import {
   formatOrgTimestamp,
+  getFileKeyword,
+  getLinkedIssues,
   getTaskId,
   serializeTasksPreservingFile,
   taskHasStartedProperty,
 } from "./parser.ts";
-import { colorLocal, colorPriority, colorStatus, colorTags } from "./status-colors.ts";
+import {
+  colorIssues,
+  colorLocal,
+  colorPriority,
+  colorStatus,
+  colorTags,
+} from "./status-colors.ts";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -57,6 +65,13 @@ export class TasksOverlay {
 
   private collapsedSet = new WeakSet<Task>();
 
+  /**
+   * Cache of `#+ISSUE_URL_BASE` per source-file content. Keyed by the
+   * `sourceContent` string identity (different files have different
+   * content strings). Reset on `refreshTasks`.
+   */
+  private urlBaseCache = new Map<string, string | null>();
+
   /** UUID of the currently selected task (from TASKS.local.org), or null. */
   private selectedId: string | null;
 
@@ -87,6 +102,10 @@ export class TasksOverlay {
     selectedId: string | null = null,
     /** Called when the user toggles selection; should write TASKS.local.org. */
     private onSelectionChange?: (id: string | null) => Promise<void>,
+    /** Called when the user presses `J` to open linked-issue URLs. */
+    private onOpenUrls?: (urls: string[]) => Promise<void>,
+    /** Display a one-shot notification (status footer / toast). */
+    private onNotify?: (message: string, kind?: "info" | "warn" | "error") => void,
   ) {
     this.theme = theme;
     this.done = done;
@@ -113,6 +132,7 @@ export class TasksOverlay {
       : null;
 
     this.tasks = newTasks;
+    this.urlBaseCache = new Map();
     this.applyDefaultCollapseView();
     this.rebuildRows();
 
@@ -180,6 +200,26 @@ export class TasksOverlay {
 
   private taskChildren(task: Task): Task[] {
     return [...task.children, ...(task.importChildren ?? [])];
+  }
+
+  /**
+   * Resolve `#+ISSUE_URL_BASE` for a task by reading its `sourceContent`.
+   * Memoised per-content-string to avoid re-scanning on every render.
+   */
+  private urlBaseFor(task: Task): string | null {
+    const content = task.sourceContent ?? "";
+    if (!content) return null;
+    if (this.urlBaseCache.has(content)) {
+      return this.urlBaseCache.get(content) ?? null;
+    }
+    const value = getFileKeyword(content, "ISSUE_URL_BASE");
+    this.urlBaseCache.set(content, value);
+    return value;
+  }
+
+  /** Resolve `:LINKED_ISSUES:` for a task using cached `#+ISSUE_URL_BASE`. */
+  private linkedIssuesFor(task: Task): LinkedIssue[] {
+    return getLinkedIssues(task, this.urlBaseFor(task));
   }
 
   // ── Input ───────────────────────────────────────────────────────────
@@ -288,6 +328,13 @@ export class TasksOverlay {
     // Toggle :selected: on the task under the cursor
     if (matchesKey(data, "s")) {
       this.toggleSelect();
+      return;
+    }
+
+    // Open all linked-issue URLs for the cursor task in the browser.
+    // Capped at 5 with a notification when exceeded, to avoid foot-guns.
+    if (matchesKey(data, "J")) {
+      this.openLinkedIssues();
       return;
     }
 
@@ -440,6 +487,47 @@ export class TasksOverlay {
       if (found) return found;
     }
     return null;
+  }
+
+  /**
+   * Open every URL in the cursor task's `:LINKED_ISSUES:` in the user's
+   * browser via `onOpenUrls`. Caps at 5 to avoid spawning a tab storm.
+   * Bare tokens with no `#+ISSUE_URL_BASE` template are skipped with a
+   * notification pointing the user at the missing keyword.
+   */
+  private openLinkedIssues(): void {
+    const row = this.rows[this.cursor];
+    if (!row) return;
+    const issues = this.linkedIssuesFor(row.task);
+    if (issues.length === 0) return; // silent no-op when property absent
+
+    const resolvable = issues.filter((i) => i.url !== null);
+    const unresolvable = issues.length - resolvable.length;
+    if (resolvable.length === 0) {
+      this.onNotify?.(
+        "Set #+ISSUE_URL_BASE in TASKS.org to enable browser-open for bare keys.",
+        "warn",
+      );
+      return;
+    }
+
+    const CAP = 5;
+    const toOpen = resolvable.slice(0, CAP).map((i) => i.url!);
+    if (resolvable.length > CAP) {
+      this.onNotify?.(
+        `Opening first ${CAP} of ${resolvable.length} linked issues.`,
+        "info",
+      );
+    } else if (unresolvable > 0) {
+      this.onNotify?.(
+        `Opening ${resolvable.length} linked issues; ${unresolvable} skipped (no #+ISSUE_URL_BASE).`,
+        "info",
+      );
+    }
+
+    if (this.onOpenUrls) {
+      void this.onOpenUrls(toOpen);
+    }
   }
 
   private toggleSelect(): void {
@@ -647,12 +735,15 @@ export class TasksOverlay {
           : (r.hasChildren ? (r.collapsed ? "▶ " : "▼ ") : "• ");
 
         const visibleTags = r.task.tags;
+        const linkedIssues = this.linkedIssuesFor(r.task);
+        const issueLabels = linkedIssues.map((li) => li.label);
 
         let statusStr: string;
         let prioStr: string;
         let selectMark: string;
         let summaryStr: string;
         let tagsStr: string;
+        let issuesStr: string;
         let indentStr: string;
         let treeStr: string;
 
@@ -669,6 +760,9 @@ export class TasksOverlay {
           tagsStr = visibleTags.length > 0
             ? " " + th.fg("dim", colorTags(visibleTags))
             : "";
+          issuesStr = issueLabels.length > 0
+            ? " " + th.fg("dim", colorIssues(issueLabels))
+            : "";
         } else {
           indentStr = indent;
           treeStr = isLocal ? colorLocal(treeMark) : treeMark;
@@ -676,6 +770,7 @@ export class TasksOverlay {
           prioStr = r.task.priority ? colorPriority(r.task.priority) + " " : "";
           selectMark = r.isSelectedTask ? th.fg("accent", "★ ") : "";
           tagsStr = visibleTags.length > 0 ? " " + colorTags(visibleTags) : "";
+          issuesStr = issueLabels.length > 0 ? " " + colorIssues(issueLabels) : "";
 
           // Cursor > selected task > in-selection > local > plain.
           if (isCursor) {
@@ -700,16 +795,19 @@ export class TasksOverlay {
               ? th.fg("accent", "│")
               : " ";
         const contentWidth = Math.max(0, leftW - visibleWidth(pointer));
-        const content = tagsStr
+        // Suffix = issues + tags (right-aligned). Issues come first so tags
+        // remain at the far right where the eye expects them.
+        const suffixStr = `${issuesStr}${tagsStr}`;
+        const content = suffixStr
           ? (() => {
-              const tagWidth = visibleWidth(tagsStr);
-              const bodyWidth = Math.max(0, contentWidth - tagWidth - 1);
+              const suffixWidth = visibleWidth(suffixStr);
+              const bodyWidth = Math.max(0, contentWidth - suffixWidth - 1);
               const clippedBody = truncateToWidth(body, bodyWidth);
               const gap = Math.max(
                 1,
-                contentWidth - visibleWidth(clippedBody) - tagWidth,
+                contentWidth - visibleWidth(clippedBody) - suffixWidth,
               );
-              return `${clippedBody}${" ".repeat(gap)}${tagsStr}`;
+              return `${clippedBody}${" ".repeat(gap)}${suffixStr}`;
             })()
           : body;
         leftLines.push(truncateToWidth(pointer + content, leftW));

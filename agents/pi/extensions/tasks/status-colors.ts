@@ -16,6 +16,7 @@ const BLUE = "\x1b[34m";
 const MAGENTA = "\x1b[35m";
 const RED = "\x1b[31m";
 const ORANGE = "\x1b[38;5;208m";
+const CYAN = "\x1b[36m";
 
 export const STATUS_ANSI: Record<string, string> = {
   TODO: YELLOW,
@@ -60,4 +61,16 @@ export function colorLocal(text: string): string {
 export function colorTags(tags: string[]): string {
   if (tags.length === 0) return "";
   return `${DIM}${ITALIC}${MAGENTA}:${tags.join(":")}:${RESET}`;
+}
+
+/**
+ * Return a styled run for `:LINKED_ISSUES:` badges, one per item, using the
+ * canonical CYAN hue. Each badge is prefixed with the ⤴ glyph to make the
+ * group visually distinct from tags. Pass an empty array to get an empty
+ * string (callers should suppress when the property is absent).
+ */
+export function colorIssues(labels: string[]): string {
+  if (labels.length === 0) return "";
+  const parts = labels.map((label) => `⤴${label}`);
+  return `${CYAN}${parts.join(" ")}${RESET}`;
 }

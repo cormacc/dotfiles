@@ -35,9 +35,10 @@ Some introductory text
 - [[#housekeeping][Housekeeping]]
 
 * Improvements
-** TODO [#C] Add some sort of Jira integration for the tasks extension
+** STARTED [#C] Add some sort of Jira integration for the tasks extension
 :PROPERTIES:
 :ID: 0276a6c7-0ca8-4c39-a90a-05587ad64698
+:STARTED: [2026-04-28 Tue 13:27]
 :END:
 #+IMPORT: [[file:design/log/2026-04-28-jira-integration.org]]
 *** TODO [#C] Setup Jira access

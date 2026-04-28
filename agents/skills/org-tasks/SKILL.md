@@ -193,6 +193,36 @@ semantic section (e.g. `* Improvements`) and the first actionable
 `TODO` with `:ID:` and `:CREATED:` properties. Detailed work items go
 in an included change-record under `#+DEFAULT_PLAN_DIR`.
 
+## Extension points
+
+Third-party skills and pi extensions can build on the task graph by
+attaching their own data without modifying this protocol:
+
+- **Unknown `#+` keywords** in `TASKS.org` and `TASKS.local.org`
+  preambles round-trip through the parser/serializer untouched. Other
+  skills or extensions may claim them for their own use.
+- **Unknown drawer properties** on task headings round-trip untouched.
+  Other skills or extensions may claim them for per-task data.
+- **Naming convention**: third-party properties and keywords should
+  use an `UPPERCASE_NAMESPACE_` prefix (e.g. `:NAMESPACE_FOO:`,
+  `#+NAMESPACE_BAR`) so they don't collide with first-party
+  metadata.
+- **`TASKS.local.org` keyword overrides** are last-write-wins,
+  mirroring the existing `#+SELECTED:` rule. A keyword present in both
+  files takes its value from `TASKS.local.org`.
+
+First-party generic extension features in the `tasks` extension itself
+(documented in `agents/pi/extensions/tasks/README.md`):
+
+- **`:LINKED_ISSUES:`** drawer property — multi-valued list of
+  external-tracker references; rendered as badges on task rows.
+- **`#+ISSUE_URL_BASE:`** keyword — URL template used to resolve bare
+  keys in `:LINKED_ISSUES:` to clickable URLs.
+
+These two features are tracker-agnostic; tracker-specific behaviour
+(workflow names, MCP routing, slash commands) lives in companion
+extensions and skills, not in this protocol.
+
 ## Tooling
 
 The pi tasks extension and the `tasks-org` Emacs minor mode automate
