@@ -114,7 +114,6 @@ helper exposed by the =tasks= extension, consumable by
 =jira_clone_apply= and any future cross-tracker integration.  See
 =* Context= for the rationale; this plan tightens scope to two
 executable units below.
-
 *** DONE [#A] Scaffold ~tasks.insertTask~ helper API + tests :tasks:
 CLOSED: [2026-04-28 Tue 16:42]
 :PROPERTIES:
@@ -144,7 +143,6 @@ file I/O at this stage — all I/O lives in the next task.
 
 Acceptance: =bash agents/pi/extensions/tasks/test.sh= passes the new
 assertions; existing assertions unchanged.
-
 *** DONE [#A] Implement file-side ~tasks.insertTask~ + idempotency :tasks:
 CLOSED: [2026-04-28 Tue 16:44]
 :PROPERTIES:
@@ -181,7 +179,6 @@ Acceptance:
   section (with both refuse and create-section paths).
 - A throwaway script in =.agents/tmp/= drives the tool against a
   scratch =TASKS.org= and asserts the resulting file matches a fixture.
-
 ** DONE [#A] Emission-side clone tool (re-scoped from two-step+cache) :jira:
 CLOSED: [2026-04-28 Tue 16:50]
 :PROPERTIES:
@@ -194,7 +191,6 @@ extension-side fetch wrapper with a per-session cache.  That path is
 This task therefore narrows to the emission-side win only —
 =jira_clone_apply= structured-args tool plus a two-step =/jira clone=
 dispatch.
-
 *** DONE [#A] Implement ~jira_clone_apply~ tool :jira:
 CLOSED: [2026-04-28 Tue 16:48]
 :PROPERTIES:
@@ -225,7 +221,6 @@ Performs Jira-specific transforms then delegates the org write to
 Acceptance: jira-side tests cover args validation + delegation.  No
 new pure-function tests for org rendering — that's covered in
 tasks-side tests.
-
 *** DONE [#B] Two-step ~/jira clone~ dispatch :jira:
 CLOSED: [2026-04-28 Tue 16:50]
 :PROPERTIES:
@@ -254,7 +249,6 @@ Acceptance: =bash agents/pi/extensions/jira/test.sh= passes; manual
 SAND smoke test confirms a realistic body-heavy issue clones with
 visibly fewer model emissions (rough token measurement noted in
 =* Implementation=).
-
 ** DONE [#C] ~/jira get KEY~ ergonomics subcommand :jira:
 CLOSED: [2026-04-28 Tue 16:52]
 :PROPERTIES:
@@ -283,7 +277,6 @@ command only.
 Acceptance: prompt-builder snapshot test covers single-key + multi-key
 forms; help string updated; manual try against a SAND issue confirms
 the rendered block is human-readable.
-
 ** DONE [#C] Documentation + retrospective measurement :docs:
 CLOSED: [2026-04-28 Tue 16:54]
 :PROPERTIES:
@@ -313,7 +306,6 @@ New plan-only work unit (no TASKS.org analogue under =4ad4bb1b=).
 
 Acceptance: README diffs reviewed; skill diff reviewed; one-paragraph
 measurement note in =* Implementation=.
-
 * Open questions
 
 - /Empirical token-reduction measurement./ The qualitative argument is
