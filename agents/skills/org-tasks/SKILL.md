@@ -3,7 +3,7 @@ name: org-tasks
 description: "Use when maintaining or resuming project work stored in TASKS.org and linked change-record files. Covers the org task-memory protocol: TODO states, IDs, IMPORT links, change-records (proactive and retrospective), status discipline, archiving, and resume workflows."
 ---
 
-# Org Memory
+# Org-mode task management and memory protocol
 
 Use this skill when the user asks to work from, update, resume, or review
 tasks. The canonical project memory index is `TASKS.org` in the project
@@ -179,7 +179,7 @@ and the planning workflow.
 ## Archiving
 
 Only top-level `DONE`/`CANCELLED` tasks are archived. Archiving moves
-the complete subtree to `TASKS.ARCHIVE.org` in the project root,
+the complete subtree to `TASKS.archive.org` in the project root,
 preserves `:ID:` and content, and adds an `:ARCHIVED: [timestamp]`
 property. The `#+IMPORT:` link is preserved; plan file contents are
 not inlined.

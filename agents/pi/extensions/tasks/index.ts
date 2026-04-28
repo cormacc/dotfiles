@@ -57,7 +57,7 @@ const EXT_NAME = getExtensionName(import.meta.url);
 const TASKS_FILE = "TASKS.org";
 /** Gitignored local file that stores per-contributor selection state. */
 const TASKS_LOCAL_FILE = "TASKS.local.org";
-const TASKS_ARCHIVE_FILE = "TASKS.ARCHIVE.org";
+const TASKS_ARCHIVE_FILE = "TASKS.archive.org";
 const DEFAULT_PLANS_DIR = "./design/log";
 const DEFAULT_PLAN_DIR_KEYWORD_RE = /^\s*#\+DEFAULT_PLAN_DIR:\s*(.*?)\s*$/im;
 const CLOSED_STATUSES = new Set<string>(["DONE", "CANCELLED"]);
@@ -718,6 +718,33 @@ export default function (pi: ExtensionAPI) {
           continue;
         }
 
+        // The overlay may have refreshed its task tree from disk while it
+        // was open (e.g. via the file watcher after a selection write or an
+        // Emacs save), so `request.task` can be a reference into a different
+        // tree than the outer `tasks` variable. Resolve every stale
+        // reference back to the freshly loaded tree by `:ID:` before any
+        // mutating workflow runs.
+        const resolveStale = (stale: Task | null): Task | null => {
+          if (!stale) return null;
+          const id = getTaskId(stale);
+          if (!id) return null;
+          return findTaskById(tasks, id);
+        };
+        const reloadAndResolve = async (
+          stale: Task,
+          verb: string,
+        ): Promise<Task | null> => {
+          tasks = await loadTasks(ctx.cwd);
+          const fresh = resolveStale(stale);
+          if (!fresh) {
+            ctx.ui.notify(
+              `Cannot ${verb}: task no longer exists on disk.`,
+              "error",
+            );
+          }
+          return fresh;
+        };
+
         if (request.type === "edit") {
           await openTaskInEmacs(pi, ctx, request.task);
           reopen = false;
@@ -725,23 +752,40 @@ export default function (pi: ExtensionAPI) {
           await handlePlanEdit(pi, ctx, request.task);
           reopen = false;
         } else if (request.type === "archive") {
-          await archiveTopLevel(ctx, tasks, request.task);
+          const fresh = await reloadAndResolve(request.task, "archive");
+          if (fresh) await archiveTopLevel(ctx, tasks, fresh);
           tasks = await loadTasks(ctx.cwd);
           reopen = true;
         } else if (request.type === "publish") {
-          await publishTask(ctx, tasks, request.task);
+          const fresh = await reloadAndResolve(request.task, "publish");
+          if (fresh) await publishTask(ctx, tasks, fresh);
           tasks = await loadTasks(ctx.cwd);
           reopen = true;
         } else if (request.type === "unpublish") {
-          await unpublishTask(ctx, tasks, request.task);
+          const fresh = await reloadAndResolve(request.task, "unpublish");
+          if (fresh) await unpublishTask(ctx, tasks, fresh);
           tasks = await loadTasks(ctx.cwd);
           reopen = true;
         } else if (request.type === "changeRecord") {
-          await handlePlanEdit(pi, ctx, request.task, "retrospective");
+          const fresh = await reloadAndResolve(request.task, "create change-record for");
+          if (fresh) await handlePlanEdit(pi, ctx, fresh, "retrospective");
           tasks = await loadTasks(ctx.cwd);
           reopen = true;
         } else if (request.type === "create") {
-          await createTask(ctx, tasks, ctx.cwd, request.parent, request.insertAfter);
+          // Reload first; then resolve parent/insertAfter against the fresh
+          // tree. A stale parent/insertAfter ID that no longer resolves is a
+          // soft failure: warn and fall back to a top-level append rather
+          // than refuse the create outright.
+          tasks = await loadTasks(ctx.cwd);
+          const freshParent = resolveStale(request.parent);
+          const freshInsertAfter = resolveStale(request.insertAfter);
+          if (request.parent && !freshParent) {
+            ctx.ui.notify(
+              "Parent task no longer exists; appending at top level.",
+              "warning",
+            );
+          }
+          await createTask(ctx, tasks, ctx.cwd, freshParent, freshInsertAfter);
           tasks = await loadTasks(ctx.cwd);
           reopen = true;
         }
@@ -1293,7 +1337,7 @@ function sortArchivedTasks(tasks: Task[]): Task[] {
 }
 
 /**
- * Archive a top-level TASKS.org task to TASKS.ARCHIVE.org.
+ * Archive a top-level TASKS.org task to TASKS.archive.org.
  *
  * Rules (per the plan):
  *   - Only CLOSED-state (`DONE`/`CANCELLED`) top-level tasks can be archived.

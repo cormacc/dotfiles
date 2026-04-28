@@ -122,8 +122,8 @@ Pressing `A` (shift-a) archives the top-level task containing the cursor's task.
 - Requires the top-level task's status to be `DONE` or `CANCELLED` — other statuses are refused with a notification, to avoid archiving active work by accident.
 - Prompts for confirmation before writing anything.
 - Removes the task (and all its subtasks and content) from `TASKS.org`.
-- Transfers the task as-is into `TASKS.ARCHIVE.org`, preserving its `#+IMPORT:` link. Plan file contents are not inlined.
-- Re-sorts `TASKS.ARCHIVE.org` by `CLOSED:` time on each archive operation, falling back to `:ARCHIVED:` time when a task has no `CLOSED:` stamp.
+- Transfers the task as-is into `TASKS.archive.org`, preserving its `#+IMPORT:` link. Plan file contents are not inlined.
+- Re-sorts `TASKS.archive.org` by `CLOSED:` time on each archive operation, falling back to `:ARCHIVED:` time when a task has no `CLOSED:` stamp.
 - Adds an `:ARCHIVED: [timestamp]` property to the archived heading. The timestamp uses the task's `CLOSED` value when present, otherwise the current time.
 - Clears `TASKS.local.org` selection when the selected task is archived, so the compact widget doesn't point at a task that no longer exists.
 - Preserves the `#+IMPORT:` link in the archived copy; plan file contents are **not** inlined. The archive entry is a faithful copy of the task as it stood in `TASKS.org`.
