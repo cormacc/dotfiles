@@ -78,19 +78,6 @@ Do things like...
 :PROPERTIES:
 :ID: cfc094b3-870c-4c93-833b-f5a05d478d4a
 :END:
-** DONE [#B] Refine org-memory protocol :emacs:pi:skills:
-CLOSED: [2026-04-28 Tue 11:12]
-:PROPERTIES:
-:ID: 80ea589b-501c-42d9-86e7-4d414c0c314e
-:CREATED: [2026-04-28 Tue 10:49]
-:STARTED: [2026-04-28 Tue 10:57]
-:END:
-#+IMPORT: [[file:design/log/2026-04-28-org-memory-refinement.org]]
-Review of skills + tasks extension + tasks-org Emacs minor mode
-identified consistency gaps, repetition, and verbosity. This task tracks
-refining the org-memory protocol into a single source of truth, closing
-Emacs-side parity gaps, and aligning =CLOSED:= placement with the standard
-org convention (before the properties drawer).
 ** TODO [#D] tasks-org: subtask absorption on plan create :emacs:pi:
 :PROPERTIES:
 :ID: f4a2c819-3e7d-4b08-a901-6d7c0e5b2f38
@@ -107,6 +94,9 @@ editor and CLI.
 Currently the skills and extensions are embedded in this repo.
 Good to either extract them, or come up with a packaging/deployment strategy to facilitate sharing them with the team / other
 interested parties.
+Ideally the approach would allow me to continue editing skills/extensions live and reloading without having to go through a
+rebuild install step.
+
 * Fixes
 ** TODO [#B] Update keybindings extension to handle capital letter properly
 :PROPERTIES:
@@ -114,10 +104,13 @@ interested parties.
 :END:
 #+IMPORT: [[file:design/log/2026-04-27-keybindings-capital-letters.org]]
 Currently a key sequence SPACE t A isn't activated as expected. The keybindings extension toggles on the sequence SPACE t SHIFT a.
-** TODO [#B] Tasks extension - archive function mistakenly won't archive some issues
+** DONE [#B] Tasks extension - archive function mistakenly won't archive some issues
+CLOSED: [2026-04-28 Tue 11:38]
 :PROPERTIES:
 :ID: 84085b11-837b-449a-8cf8-190c607f480c
+:STARTED: [2026-04-28 Tue 11:00]
 :END:
+#+IMPORT: [[file:design/log/2026-04-28-tasks-archive-fix.org]]
 * Housekeeping
 
 ** WAITING [#C] Update nixGL flake URL :nix:
