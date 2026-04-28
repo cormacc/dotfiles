@@ -18,11 +18,13 @@ in
   # npm's default global prefix points into the (read-only) Nix store when node
   # comes from nixpkgs. Redirect it to a writable location so `pi install` works.
   # This is philosophically unsound w.r.t. Nix, but a necessary hypocrisy...
-  programs.npm = {
-    enable = true;
-    package = null; # nodejs is managed separately
-    settings.prefix = "${npmCache}";
-  };
+  #
+  # Written as a raw ~/.npmrc rather than via `programs.npm` so this module
+  # works on home-manager release-25.11 (used by darwin per flake.nix) where
+  # `programs.npm` doesn't yet exist, *and* on home-manager master.
+  home.file.".npmrc".text = ''
+    prefix=${npmCache}
+  '';
   home.sessionPath = [ "${npmCache}/bin" ];
 
   home.packages = [

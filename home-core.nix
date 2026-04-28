@@ -34,7 +34,10 @@ in
   # You can update Home Manager without changing this value. See
   # the Home Manager release notes for a list of state version
   # changes in each release.
-  home.stateVersion = "26.05";
+  # Capped at 25.11 because the darwin configuration is pinned to home-manager
+  # release-25.11 (see flake.nix nixpkgs-darwin pin / nixpkgs#507531). Lowering
+  # the stateVersion is safe: it just keeps older Home Manager defaults active.
+  home.stateVersion = "25.11";
 
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
