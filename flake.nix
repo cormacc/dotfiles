@@ -31,14 +31,6 @@
       url = "github:numtide/llm-agents.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # Meridian: reverse-proxy/relay that lets Claude Code and claude-desktop
-    # use a shared Claude subscription rather than requiring individual API keys.
-    # See https://github.com/rynfar/meridian
-    meridian = {
-      url = "github:rynfar/meridian";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     claude-desktop = {
       url = "github:aaddrick/claude-desktop-debian";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -73,7 +65,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, home-manager, nix-darwin, nixgl, microchip, claude-desktop, rust-overlay, nur, llm-agents, meridian, ... } @inputs:
+  outputs = { self, nixpkgs, home-manager, nix-darwin, nixgl, microchip, claude-desktop, rust-overlay, nur, llm-agents, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -95,7 +87,6 @@
           rust-overlay.overlays.default
           nur.overlays.default
           llm-agents.overlays.default
-          meridian.overlays.default
           claude-desktop.overlays.default
         ];
       };

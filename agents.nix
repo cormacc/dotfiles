@@ -32,7 +32,6 @@ in
     pkgs.typescript-language-server
     #Claude code + deps
     pkgs.llm-agents.claude-code
-    pkgs.meridian
     pkgs.llm-agents.codex
   ];
 

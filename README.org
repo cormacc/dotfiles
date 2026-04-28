@@ -1,9 +1,9 @@
 #+TITLE: TRFKACD (The Repo Formerly Known As CormacC's Dotfiles)
 #+AUTHOR: Cormac Cannon
-#+EMAIL: cormac.cannon@neuromoddevices.com
+#+EMAIL: cormacc@gmail.com
 #+LANGUAGE: en
-#+COPYRIGHT: Neuromod Devices Ltd. 2023
-#+DATE: 2023-10-27
+#+COPYRIGHT: Cormac Cannon, 2023-2026
+#+DATE: 2026-04-28
 
 # HTML EXPORT SETUP
 # 1. Apply a theme
@@ -20,10 +20,23 @@
 #+STARTUP:: latexpreview
 
 
-Some introductory text
+A Nix flake managing my home directory (via Home Manager), a handful of NixOS
+hosts, and a macOS system config (via nix-darwin). Daily-driver platform is
+Arch Linux + nix + home-manager; NixOS runs on a few machines and nix-darwin
+on macOS.
+
+See [[#repository-layout--architecture][Repository layout / architecture]] for the lay of the land, or jump
+straight to [[#provisioning-a-new-accountinstallation][Provisioning a new account/installation]] if you're setting up a
+fresh machine.
 
 * Table of Contents                                         :TOC_4_gh:noexport:
 - [[#overview][Overview]]
+- [[#repository-layout--architecture][Repository layout / architecture]]
+  - [[#flake-outputs][Flake outputs]]
+  - [[#nixos-module-layering][NixOS module layering]]
+  - [[#home-manager-module-layering][Home Manager module layering]]
+  - [[#environment-variables-consumed-on-first-apply][Environment variables consumed on first apply]]
+  - [[#key-directories][Key directories]]
 - [[#known-issues--limitations][Known issues / limitations]]
   - [[#opengl-applications-on-non-nixos][OpenGL applications on non-NixOS]]
 - [[#provisioning-a-new-accountinstallation][Provisioning a new account/installation]]
@@ -38,6 +51,7 @@ Some introductory text
     - [[#amend-nixos-config-to-allow-flakes-install-git-etc][Amend NixOS config to allow flakes, install git etc.]]
     - [[#clone-dotfiles-repo][Clone dotfiles repo]]
     - [[#integrate-host-hardware-configuration-and-apply-nixos-config-from-flake][Integrate host hardware configuration and apply NixOS config from flake]]
+  - [[#macos-nix-darwin][macOS (nix-darwin)]]
   - [[#setup-your-home-environment][Setup your home environment]]
     - [[#clone-this-repository][Clone this repository]]
     - [[#set-git-name-and-e-mail][Set Git name and e-mail]]
@@ -51,6 +65,7 @@ Some introductory text
       - [[#printing-cups-avahi-etc][Printing (CUPS, Avahi etc.)]]
       - [[#microchip-mplab-x][Microchip MPLAB-X]]
 - [[#maintenance][Maintenance]]
+  - [[#shell-aliases][Shell aliases]]
   - [[#updating-packages][Updating packages]]
   - [[#managing-generations][Managing generations]]
     - [[#list-generations][List generations]]
@@ -69,17 +84,83 @@ Some introductory text
       - [[#test-the-configuration][Test the configuration]]
       - [[#activate-new-configuration][Activate new configuration]]
       - [[#delete-old-generations][Delete old generations]]
-    - [[#system-updates-channel-management][System updates (channel management)]]
-      - [[#update-packages-channel-updates][Update packages (channel updates)]]
-      - [[#switching-channels][Switching channels]]
 
 * Overview
-My homefolder configuration, now managed as a Nix flake using Home Manager.
+My homefolder configuration, managed as a Nix flake using Home Manager.
 Formerly managed using the [[https://github.com/cormacc/dotmodule][dotmodule]] gem.
 
-This repository also includes NixOS configuration for a couple of hosts, however the golden path for development machines is currently Arch linux + nix + home-manager rather than NixOS + nix due to difficulties packaging some toolchains required for embedded development, specifically....
+The flake covers three deployment shapes:
+- *Home Manager* (standalone) on Arch / hybrid Linux installs and on macOS via nix-darwin -- this is the primary daily-driver path.
+- *NixOS* system configurations for several hosts (=xps15=, =t470p=, =t580=, =t470-nas=, =nas=). =xps15= is the canonical pattern (system config + standalone home-manager applied separately); the others mostly predate that split.
+- *nix-darwin* system configuration for =Cormacs-MacBook-Air= (with home-manager included as a darwin module).
+
+The golden path for development machines is currently Arch Linux + nix + home-manager rather than full NixOS, due to difficulties packaging some toolchains required for embedded development, specifically:
 - ZephyrOS toolchain (incorporates some dynamically linked binaries)
 - Microchip compilers (dynamically linked binaries + license to be applied post-installation)
+
+Progress on the Microchip side lives under [[./microchip/]] and the [[https://github.com/cormacc/nix-microchip][nix-microchip]] flake input.
+
+* Repository layout / architecture
+
+** Flake outputs
+[[./flake.nix]] defines three output groups:
+- =nixosConfigurations= -- one per host: =xps15=, =t470p=, =t580=, =t470-nas=, =nas= (currently the odroid-h4).
+- =homeConfigurations= -- =default= (full Linux workstation, imports [[./home.nix]]) and =minimal= (server / WSL, imports [[./home-linux.nix]]).
+- =darwinConfigurations."Cormacs-MacBook-Air"= -- macOS system config with home-manager bundled as a darwin module.
+
+Key flake inputs: =nixpkgs= (unstable), =home-manager=, =nix-darwin=, =nixGL=, =nix-microchip=, =rust-overlay=, =NUR=, =llm-agents=, =meridian= and =claude-desktop=. =allowUnfree = true= is set globally; =--impure= is required on all builds (the flake reads identity env vars).
+
+** NixOS module layering
+[[./nixos-workstation.nix]] imports [[./nixos-base.nix]] and adds workstation concerns (audio, display, sway, hyprland). Host-specific configs live in =hosts/<hostname>/=. Optional mixins:
+- [[./nixos-nvidia.nix]] / [[./nixos-nvidia-legacy.nix]] -- GPU drivers
+- [[./nixos-gaming.nix]] -- Steam and gaming packages
+- [[./nixos-llm.nix]] -- ollama / LLM setup
+- [[./nixos-server.nix]] -- server-only config
+- [[./nixos-boot-default.nix]] -- standard systemd-boot setup
+- [[./nixos-bootstrap.nix]] -- minimal config dropped onto a fresh install via [[./bootstrap.sh]]
+
+** Home Manager module layering
+#+begin_example
+home-core.nix  ->  shell/shell.nix
+      ^
+home-linux.nix
+      ^
+home.nix (full Linux workstation, adds:)
+      |-- editors/editors.nix    (emacs configs: corgi, doom, spacemacs)
+      |-- dev/dev.nix            (dev tooling, clojure)
+      |-- dev/dev-linux.nix
+      |-- desktop/{web,audio,office}.nix
+      |-- wayland/wayland.nix    (foot, rofi, fontconfig)
+      |-- wayland/sway/sway.nix
+      |-- wayland/hypr/hypr.nix
+      |-- nmd/nmd.nix            (OneDrive / work tooling)
+      \-- agents.nix             (pi + claude-code)
+
+home-darwin.nix  ->  home-core.nix  (macOS, adds: editors, dev, agents)
+#+end_example
+
+[[./home-core.nix]] owns shell config, direnv, git, ssh, vim, fonts, XDG, and defines the =hms= / =nos= / =drs= shell aliases.
+
+** Environment variables consumed on first apply
+The flake uses =builtins.getEnv= for identity and a couple of secrets, hence =--impure=. Persisted to the shell session after first apply, so you only need to set them once per installation:
+- =NAME=, =EMAIL=, =USER=, =HOME= -- identity and paths
+- =GITLAB= -- self-hosted gitlab TLD for SSH config (optional)
+- =OPENAI_API_KEY=, =ANTHROPIC_API_KEY= -- propagated to the shell env (optional)
+
+** Key directories
+| Path | Purpose |
+|------+---------|
+| =hosts/= | Per-host =hardware-configuration.nix= and NixOS overrides |
+| =shell/= | Shell config (fish, zsh, bash), direnv, babashka scripts |
+| =editors/= | Editor configs (emacs: corgi / doom / spacemacs) |
+| =dev/= | Development tooling (clojure, linux-specific dev) |
+| =desktop/= | Desktop app modules (web, audio, office, entertainment) |
+| =wayland/= | Wayland compositor configs (sway, hyprland, foot, rofi) |
+| =nmd/= | Work-specific tooling (OneDrive etc.) |
+| =agents/= | AI / coding agent config: pi extensions, prompts, skills |
+| =microchip/= | Microchip embedded dev tooling (see [[./microchip/README.org]]) |
+| =legacy/= | Deprecated configs (ruby, matlab, cdrip) |
+| =darwin-configuration.nix= | macOS system config (nix-darwin) |
 
 * Known issues / limitations
 
@@ -125,15 +206,48 @@ Paraphrased from the [[https://nix-community.github.io/home-manager/index.html#c
 
 ** NixOS
 NixOS allows home-manager to be included as a module and for the OS- and user-level configurations to be applied together.
-However it feels more appropriate to separate the OS (low churn) and user (higher churn) aspects
+The =t470p= configuration takes that approach (legacy), but the preferred pattern -- demonstrated by =xps15= -- is to keep the NixOS config minimal and apply home-manager standalone, since user-level config churns much faster than the OS-level.
 
-*** TODO Install NixOS
+*** Install NixOS
+Use the official ISO installer. After install, =/etc/nixos/configuration.nix= and =hardware-configuration.nix= are generated for the host.
 
-*** TODO Amend NixOS config to allow flakes, install git etc.
+*** Amend NixOS config to allow flakes, install git etc.
+Enable flakes and add =git= so that the repo can be cloned and the flake evaluated:
+#+begin_src nix
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  environment.systemPackages = with pkgs; [ git ];
+#+end_src
+Then rebuild with =sudo nixos-rebuild switch=.
 
-*** TODO Clone dotfiles repo
+[[./nixos-bootstrap.nix]] is a checked-in minimal config that does roughly this. [[./bootstrap.sh]] copies it over =/etc/nixos/configuration.nix= and rebuilds.
 
-*** TODO Integrate host hardware configuration and apply NixOS config from flake
+*** Clone dotfiles repo
+#+begin_src shell
+  git clone https://github.com/cormacc/dotfiles ~/dotfiles
+#+end_src
+
+*** Integrate host hardware configuration and apply NixOS config from flake
+For a brand new host:
+1. Create =hosts/<hostname>/= and copy =/etc/nixos/hardware-configuration.nix= into it.
+2. (Optionally) add a =hosts/<hostname>/nixos-configuration.nix= for host-specific overrides (see =hosts/xps15/= for an example).
+3. Add a new =nixosConfigurations.<hostname>= entry to [[./flake.nix]] importing the relevant mixins (workstation / server / nvidia / gaming etc.).
+4. Apply:
+   #+begin_src shell
+     sudo nixos-rebuild switch --flake .#<hostname> --impure
+   #+end_src
+
+After the first successful apply, the =nos= shell alias (defined in [[./home-core.nix]]) auto-detects the hostname for subsequent rebuilds.
+
+** macOS (nix-darwin)
+Install Nix using the [[https://zero-to-nix.com/start/install][Determinate Systems installer]] as per the non-NixOS section.
+
+Install nix-darwin per the [[https://github.com/nix-darwin/nix-darwin][official instructions]], then apply the flake:
+#+begin_src shell
+  export NAME="<Your Name>"
+  export EMAIL="<your.email>@<domain.com>"
+  sudo darwin-rebuild switch --flake "$HOME/dotfiles#Cormacs-MacBook-Air" --impure
+#+end_src
+The darwin config bundles home-manager as a module (using the =minimal= cfgName, plus editors / dev / agents) -- so a separate =home-manager switch= is not required on macOS. The =drs= alias is wired up after the first apply.
 
 ** Setup your home environment
 
@@ -144,15 +258,20 @@ N.B. This repository is public -- i.e. can be cloned prior to configuring your s
 #+end_src
 
 *** Set Git name and e-mail
-The flake expects your e-mail address and full name to be specified as environment variables on initial application.
-These are automatically propagated to the shell config for future updates/re-application -- i.e. you only need to set once per installation.
+The flake reads identity from environment variables on initial application via =builtins.getEnv= (hence the =--impure= flag on all rebuild commands).
+These are automatically propagated to the shell config for future updates / re-application -- i.e. you only need to set them once per installation.
 
 Adapt and enter the following in your shell session to set them:
 #+begin_src shell
   export NAME="<Your Name>"
   export EMAIL="<your.email>@<domain.com>"
+  # Optional -- self-hosted gitlab TLD for SSH host alias
+  export GITLAB="<gitlab.example.com>"
+  # Optional -- propagated to your shell env after first apply
+  export OPENAI_API_KEY="<...>"
+  export ANTHROPIC_API_KEY="<...>"
 #+end_src
-N.B. the flake also relies on the USER environment variable for username, but that should be automatically set at login.
+N.B. the flake also relies on the =USER= and =HOME= environment variables, but those are automatically set at login.
 
 *** SSH keys / host aliases
 On my work machines, I typically setup two ssh keys -- one for my work identity/e-mail, and the other for my personal e-mail address which I use for open source contributions etc. (github and gitlab.com).
@@ -179,7 +298,7 @@ Use the full configuration for a developer workstation.
   home-manager switch --flake './dotfiles#default' --impure -b backup
 #+end_src
 
-N.B. applying this flake defines a 'hms' (as in home-manager switch) alias to the above command for convenience when applying subsequent updates.
+N.B. applying this flake defines =hms= (home-manager switch), =nos= (nixos-rebuild switch, auto-detects hostname) and =drs= (darwin-rebuild switch) shell aliases for convenience when applying subsequent updates.
 
 ** Post-installation activities
 
@@ -204,6 +323,18 @@ I've made some progress (building on other people's work) to getting a nix-based
 MPLAB-X requires some funky setup -- see [[./microchip/README.org]] for instructions and further info.
 
 * Maintenance
+
+** Shell aliases
+Defined in [[./home-core.nix]] and available after the first successful apply:
+| Alias | Expands to |
+|-------+------------|
+| =hms= | =home-manager switch --flake './dotfiles#<cfgName>' --impure= |
+| =hmb= | =home-manager build --flake './dotfiles#<cfgName>' --impure= |
+| =nos= | =sudo nixos-rebuild switch --flake './dotfiles#$(hostname)' --impure= |
+| =nob= | =nixos-rebuild build --flake './dotfiles#$(hostname)' --impure= |
+| =drs= | =sudo darwin-rebuild switch --flake './dotfiles#<host>' --impure= |
+
+The top-level [[./rebuild]] script is hardcoded for the =xps15= NixOS rebuild only -- prefer =nos= on other hosts.
 
 ** Updating packages
 Nix freezes the revision of nixpkgs used initially (in [[./flake.lock]]) to ensure the build is reproducible.
@@ -244,7 +375,11 @@ To activate:
 3. Run the `activate` script in that folder
 4. (Optionally) remove (delete) any later unwanted generations.
 
-** TODO Updating NixOS
+** Updating NixOS
+For flake-based hosts:
+1. =nix flake update= to bump the locked inputs.
+2. =nos= (or =sudo nixos-rebuild switch --flake .#<hostname> --impure= explicitly).
+3. Optionally =sudo nix-collect-garbage -d= afterwards to reclaim space (also drops obsolete kernels from =/boot= on the next rebuild).
 
 
 * Links
@@ -266,64 +401,37 @@ To activate:
 - Nice series of intro articles :: https://xeiaso.net/blog/nix-flakes-1-2022-02-21
 
 ** NixOS
-All operations as root...
+The flake handles all NixOS hosts -- there's no longer a hand-managed symlink under =/etc/nixos/=.
+All system rebuilds use =sudo nixos-rebuild switch --flake .#<hostname> --impure= (or the =nos= alias).
 
 *** Configuration
-Configuration in [[/etc/nixos/configuration.nix]]
-This is currently a symlink to [[~/sync/dotfiles/nixos/hosts/t470p.nix]]
-
+Host-specific config lives in [[./hosts/]] (e.g. [[./hosts/xps15/nixos-configuration.nix]]). Shared concerns are in the top-level =nixos-*.nix= modules and composed per-host in [[./flake.nix]].
 
 *** Configuration updates
-After updating the configuration file:
+After editing a config file:
 
 **** Test the configuration
-To make sure the configuration is buildable...
+To make sure the configuration is buildable without activating it:
 #+begin_src shell
-nixos rebuild test
+  sudo nixos-rebuild test --flake .#<hostname> --impure
 #+end_src
 
 **** Activate new configuration
 #+begin_src shell
-nixos rebuild switch
+  sudo nixos-rebuild switch --flake .#<hostname> --impure
+  # ... or, post first apply:
+  nos
 #+end_src
 
 **** Delete old generations
-NixOS keeps all previously built iterations of the system (generations) until purged explicitly.
-Garbage collection needs to be run manually (or scheduled using cron), but flushes generations more than a week old.
+NixOS keeps all previously built generations until purged explicitly.
+Garbage collection needs to be run manually (or scheduled), but =--delete-old= flushes generations more than a week old.
 
 #+begin_src shell
-  nix-collect-garbage  --delete-old
+  nix-collect-garbage --delete-old
 
-  # recommeneded to sometimes run as sudo to collect additional garbage
+  # Sometimes worth running as sudo to collect additional garbage
   sudo nix-collect-garbage -d
 
-  # Obsolete kernels etc will get deleted from /boot on next nixos rebuild switch
-
+  # Obsolete kernels etc. get deleted from /boot on next nixos-rebuild switch
 #+end_src
-
-*** System updates (channel management)
-
-N.B. these commands apply at root level for NixOS, and at user level for home-manager.
-N.B. these are NOT relevant for flake based configurations -- flake.lock replaces the channels (defined as inputs in flake.nix)
-
-**** Update packages (channel updates)
-nix/nixos pin your package sets at a channel revision. To upgrade packages, you need to update the channel before building/rebuilding using the commands provided in the next section.
-
-#+begin_src shell
-nix-channel --update
-#+end_src
-
-**** Switching channels
-To track the bleeding edge ...
-#+begin_src shell
-nix-channel --add https://channels.nixos.org/nixos-unstable nixos
-#+end_src
-
-... or the current stable release ...
-#+begin_src shell
-nix-channel --add https://channels.nixos.org/nixos-23.05 nixos
-#+end_src
-
-#+begin_notes
-These can be set separately at nixos(root) level and home-manager (user) level -- e.g. currently tracking 23.05 for nixos and unstable for home-manager...
-#+end_notes
