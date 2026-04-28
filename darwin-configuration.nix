@@ -43,9 +43,11 @@
   system.stateVersion = 6;
 
   # The platform the configuration will be used on.
+  # Note: `nixpkgs.config.allowUnfree` is *not* set here because flake.nix
+  # passes a pre-built `nixpkgs.pkgs` for the darwin pin (see
+  # nixpkgs-darwin in flake.nix); allowUnfree is baked into that instance.
   nixpkgs = {
     hostPlatform = "aarch64-darwin";
-    config.allowUnfree = true;
   };
 
   # Fingerprint sudo

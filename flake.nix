@@ -5,9 +5,28 @@
   inputs = {
     # nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    # Darwin-specific nixpkgs pin.
+    #
+    # nixos-unstable / release-25.11 are currently broken on darwin: the
+    # libarchive 3.8.4 -> 3.8.6 backport (PR #501903, merge commit
+    # 32e655fe5c81a476c2c2d6fca6b41284f1d5196e) causes direnv's checkPhase
+    # (test-fish) to be killed, and the same bump is downstream of many
+    # darwin builds. See https://github.com/NixOS/nixpkgs/issues/507531.
+    #
+    # Pin to the last bisect-verified-good commit on release-25.11 (the
+    # siyuan 3.6.2 backport, immediately before the libarchive merge) until
+    # upstream lands a fix. Bump or remove this once the issue is closed.
+    nixpkgs-darwin.url = "github:nixos/nixpkgs/e6505dfb286ba3c2fd9226397c029f589e3ea713";
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+    # home-manager release-25.11 to match nixpkgs-darwin / nix-darwin pins.
+    # Used only by darwinConfigurations. Bump together with nixpkgs-darwin
+    # once https://github.com/NixOS/nixpkgs/issues/507531 is fixed.
+    home-manager-darwin = {
+      url = "github:nix-community/home-manager/release-25.11";
+      inputs.nixpkgs.follows = "nixpkgs-darwin";
     };
     nixgl = {
       # url = "github:nix-community/nixGL";
@@ -24,8 +43,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-darwin = {
-      url = "github:nix-darwin/nix-darwin/master";
-      inputs.nixpkgs.follows = "nixpkgs";
+      # Pinned to release-25.11 to match nixpkgs-darwin (also release-25.11).
+      # nix-darwin enforces matching nixpkgs/nix-darwin release branches; bump
+      # this together with nixpkgs-darwin once #507531 is fixed upstream.
+      url = "github:nix-darwin/nix-darwin/nix-darwin-25.11";
+      inputs.nixpkgs.follows = "nixpkgs-darwin";
     };
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
@@ -65,7 +87,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, home-manager, nix-darwin, nixgl, microchip, claude-desktop, rust-overlay, nur, llm-agents, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nixgl, microchip, claude-desktop, rust-overlay, nur, llm-agents, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -209,27 +231,38 @@
 
       # Build darwin config using:
       # $ darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure
-      darwinConfigurations."Cormacs-MacBook-Air" = nix-darwin.lib.darwinSystem {
-        specialArgs = { inherit self inputs; };
-        modules = [
-          ./darwin-configuration.nix
-          home-manager.darwinModules.home-manager
-          {
-            home-manager.useGlobalPkgs = true;
-            home-manager.useUserPackages = true;
-            home-manager.users.cormacc = import ./home-darwin.nix;
-            home-manager.extraSpecialArgs = {
-              cfgName = "minimal";
-              inherit inputs;
-            };
-            nixpkgs.overlays = [
+      #
+      # Uses nixpkgs-darwin / home-manager-darwin (pinned to release-25.11
+      # last-known-good) instead of nixos-unstable. See input comment above
+      # and https://github.com/NixOS/nixpkgs/issues/507531.
+      darwinConfigurations."Cormacs-MacBook-Air" =
+        let
+          darwinPkgs = import nixpkgs-darwin {
+            system = "aarch64-darwin";
+            config.allowUnfree = true;
+            overlays = [
               llm-agents.overlays.default
-              meridian.overlays.default
               claude-desktop.overlays.default
             ];
-          }
-        ];
-      };
+          };
+        in
+        nix-darwin.lib.darwinSystem {
+          specialArgs = { inherit self inputs; };
+          modules = [
+            { nixpkgs.pkgs = darwinPkgs; }
+            ./darwin-configuration.nix
+            home-manager-darwin.darwinModules.home-manager
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              home-manager.users.cormacc = import ./home-darwin.nix;
+              home-manager.extraSpecialArgs = {
+                cfgName = "minimal";
+                inherit inputs;
+              };
+            }
+          ];
+        };
     };
 
 }
