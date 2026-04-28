@@ -16,42 +16,88 @@
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { getExtensionName } from "../lib/pi-utils.ts";
 import {
+  buildClaimPrompt,
   buildClonePrompt,
+  buildCommentPrompt,
+  buildCreatePrompt,
+  buildTransitionPrompt,
   getFileKeyword,
+  parseCreateArgs,
   resolveKey,
   type JiraConfig,
 } from "./utils.ts";
 
 export { getFileKeyword, resolveKey } from "./utils.ts";
 
+/** User-overridable settings file. */
+const USER_SETTINGS_PATH = join(homedir(), ".pi", "agent", "jira-ext.json");
+
+interface UserSettings {
+  /** Mirror local TODO→STARTED→DONE on linked Jira issues. Default: false. */
+  autoTransition: boolean;
+}
+
+function loadUserSettings(): UserSettings {
+  const defaults: UserSettings = { autoTransition: false };
+  try {
+    if (!existsSync(USER_SETTINGS_PATH)) return defaults;
+    const raw = readFileSync(USER_SETTINGS_PATH, "utf-8");
+    const parsed = JSON.parse(raw) as Partial<UserSettings>;
+    return {
+      autoTransition:
+        typeof parsed.autoTransition === "boolean"
+          ? parsed.autoTransition
+          : defaults.autoTransition,
+    };
+  } catch {
+    return defaults;
+  }
+}
+
 const EXT_NAME = getExtensionName(import.meta.url);
 
-/** Prefix every tool the Atlassian MCP server registers shares. */
+/** Prefix every tool the Atlassian MCP server registers shares (direct-tools mode). */
 const ATLASSIAN_TOOL_PREFIX = "atlassian_";
+/** Name of the unified MCP proxy tool (default pi-mcp-adapter mode). */
+const MCP_PROXY_TOOL = "mcp";
 
 /** File-name conventions matching the tasks extension. */
 const TASKS_FILE = "TASKS.org";
 const TASKS_LOCAL_FILE = "TASKS.local.org";
 
 /**
- * Returns the list of currently configured Atlassian MCP tool names, or [].
- * Used as a cheap proxy for "is the MCP server connected?". When a user
- * has not run `/mcp reconnect atlassian` (or the server is down), no
- * `atlassian_*` tools are registered.
+ * Inspect the Atlassian MCP availability surface.
+ *
+ * pi-mcp-adapter operates in two modes:
+ *   - direct-tools: each MCP tool is registered with pi (e.g. `atlassian_*`).
+ *   - proxy (default): a single unified `mcp` tool is registered and the
+ *     agent invokes underlying tools through it.
+ *
+ * We treat MCP as "available" if we see either direct `atlassian_*` tools
+ * or the `mcp` proxy. The proxy alone doesn't *prove* the atlassian server
+ * is configured, but it's a much better signal than the previous check
+ * (which always reported disconnected under the default proxy mode).
  */
-function listAtlassianTools(pi: ExtensionAPI): string[] {
+function getAtlassianAvailability(pi: ExtensionAPI): {
+  direct: string[];
+  proxy: boolean;
+  isAvailable: boolean;
+} {
   try {
-    return pi
-      .getAllTools()
-      .map((t) => t.name)
+    const names = pi.getAllTools().map((t) => t.name);
+    const direct = names
       .filter((name) => name.startsWith(ATLASSIAN_TOOL_PREFIX))
       .sort();
+    const proxy = names.includes(MCP_PROXY_TOOL);
+    return { direct, proxy, isAvailable: direct.length > 0 || proxy };
   } catch {
-    return [];
+    return { direct: [], proxy: false, isAvailable: false };
   }
 }
 
@@ -92,6 +138,20 @@ async function loadJiraConfig(cwd: string): Promise<JiraConfig> {
 // `JiraConfig` type live in `./utils.ts` so the test suite can import
 // them without pulling in pi-tui via `../lib/pi-utils.ts`.
 
+/**
+ * Read `#+SELECTED:` from TASKS.local.org. Returns null when the file
+ * is absent, the keyword is missing, or the value is empty.
+ */
+async function readSelectedId(cwd: string): Promise<string | null> {
+  try {
+    const content = await readFile(join(cwd, TASKS_LOCAL_FILE), "utf-8");
+    const value = getFileKeyword(content, "SELECTED");
+    return value && value.length > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function (pi: ExtensionAPI) {
   pi.registerCommand("jira", {
     description:
@@ -101,8 +161,8 @@ export default function (pi: ExtensionAPI) {
       const parts = trimmed.length === 0 ? [] : trimmed.split(/\s+/);
       const subcommand = (parts[0] ?? "status").toLowerCase();
       const rest = parts.slice(1);
-      const tools = listAtlassianTools(pi);
-      const isConnected = tools.length > 0;
+      const availability = getAtlassianAvailability(pi);
+      const isConnected = availability.isAvailable;
 
       if (subcommand === "status") {
         if (!isConnected) {
@@ -112,12 +172,22 @@ export default function (pi: ExtensionAPI) {
           );
           return;
         }
-        const sample = tools.slice(0, 3).join(", ");
-        const more = tools.length > 3 ? `, +${tools.length - 3} more` : "";
-        ctx.ui.notify(
-          `Atlassian MCP: connected (${tools.length} tools available — ${sample}${more}).`,
-          "info",
-        );
+        if (availability.direct.length > 0) {
+          const sample = availability.direct.slice(0, 3).join(", ");
+          const more =
+            availability.direct.length > 3
+              ? `, +${availability.direct.length - 3} more`
+              : "";
+          ctx.ui.notify(
+            `Atlassian MCP: connected via direct tools (${availability.direct.length} — ${sample}${more}).`,
+            "info",
+          );
+        } else {
+          ctx.ui.notify(
+            "Atlassian MCP: connected via proxy tool (`mcp`). Run `/mcp` to inspect server status.",
+            "info",
+          );
+        }
         return;
       }
 
@@ -165,12 +235,182 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
+      if (subcommand === "claim") {
+        if (!isConnected) {
+          ctx.ui.notify(
+            "Atlassian MCP: disconnected. Run /mcp reconnect atlassian first.",
+            "warn",
+          );
+          return;
+        }
+        const cfg = await loadJiraConfig(ctx.cwd);
+        const selectedId = await readSelectedId(ctx.cwd);
+        if (!selectedId) {
+          ctx.ui.notify(
+            "No selected task. Press `s` on a task in /tasks first, or set #+SELECTED: in TASKS.local.org.",
+            "warn",
+          );
+          return;
+        }
+        const prompt = buildClaimPrompt(
+          cfg,
+          ctx.cwd,
+          TASKS_FILE,
+          TASKS_LOCAL_FILE,
+          selectedId,
+        );
+        pi.sendUserMessage(prompt);
+        ctx.ui.notify(
+          `Dispatched /jira claim for the selected task.`,
+          "info",
+        );
+        return;
+      }
+
+      if (subcommand === "comment") {
+        if (!isConnected) {
+          ctx.ui.notify(
+            "Atlassian MCP: disconnected. Run /mcp reconnect atlassian first.",
+            "warn",
+          );
+          return;
+        }
+        const body = rest.join(" ").trim();
+        if (!body) {
+          ctx.ui.notify(
+            "Usage: /jira comment <markdown body>   (operates on the selected task's :LINKED_ISSUES:)",
+            "warn",
+          );
+          return;
+        }
+        const cfg = await loadJiraConfig(ctx.cwd);
+        const selectedId = await readSelectedId(ctx.cwd);
+        if (!selectedId) {
+          ctx.ui.notify(
+            "No selected task. Press `s` on a task in /tasks first, or set #+SELECTED: in TASKS.local.org.",
+            "warn",
+          );
+          return;
+        }
+        const prompt = buildCommentPrompt(
+          body,
+          cfg,
+          ctx.cwd,
+          TASKS_FILE,
+          TASKS_LOCAL_FILE,
+          selectedId,
+        );
+        pi.sendUserMessage(prompt);
+        ctx.ui.notify(
+          `Dispatched /jira comment for the selected task.`,
+          "info",
+        );
+        return;
+      }
+
+      if (subcommand === "create") {
+        if (!isConnected) {
+          ctx.ui.notify(
+            "Atlassian MCP: disconnected. Run /mcp reconnect atlassian first.",
+            "warn",
+          );
+          return;
+        }
+        const opts = parseCreateArgs(rest);
+        const cfg = await loadJiraConfig(ctx.cwd);
+        if (!opts.project && !cfg.project) {
+          ctx.ui.notify(
+            "Usage: /jira create [PROJECT] [--type Task|Story|Bug|Epic]   (or set #+JIRA_PROJECT in TASKS.org)",
+            "warn",
+          );
+          return;
+        }
+        const selectedId = await readSelectedId(ctx.cwd);
+        if (!selectedId) {
+          ctx.ui.notify(
+            "No selected task. Press `s` on a task in /tasks first, or set #+SELECTED: in TASKS.local.org.",
+            "warn",
+          );
+          return;
+        }
+        const prompt = buildCreatePrompt(
+          opts,
+          cfg,
+          ctx.cwd,
+          TASKS_FILE,
+          TASKS_LOCAL_FILE,
+          selectedId,
+        );
+        pi.sendUserMessage(prompt);
+        ctx.ui.notify(
+          `Dispatched /jira create for project ${opts.project ?? cfg.project} (type ${opts.type}).`,
+          "info",
+        );
+        return;
+      }
+
       ctx.ui.notify(
-        `Unknown subcommand "${subcommand}". Available: status, clone. Planned: claim, comment, create.`,
+        `Unknown subcommand "${subcommand}". Available: status, clone, claim, comment, create.`,
         "warn",
       );
     },
   });
+
+  // ── Auto-transition ────────────────────────────────────────────────
+  //
+  // Listen for `tasks:status-changed` events from the `tasks` extension.
+  // When the user toggles a task to STARTED or DONE and the
+  // `autoTransition` setting is enabled, dispatch an agent prompt that
+  // mirrors the change on every Jira-shaped issue linked from the task.
+  //
+  // Disabled by default — set `{ "autoTransition": true }` in
+  // ~/.pi/agent/jira-ext.json to enable.
+
+  pi.events.on(
+    "tasks:status-changed",
+    async (payload: {
+      id: string | null;
+      status: string;
+      prevStatus: string;
+      summary: string;
+      closed: boolean;
+    }) => {
+      const settings = loadUserSettings();
+      if (!settings.autoTransition) return;
+      if (!payload || !payload.id) return;
+      // Only mirror two transitions: TODO→STARTED and →DONE.
+      const newStatus =
+        payload.status === "STARTED"
+          ? "STARTED"
+          : payload.status === "DONE"
+            ? "DONE"
+            : null;
+      if (!newStatus) return;
+      // No-op when the MCP isn't connected; user surfaces a notification
+      // via `/jira status` if they want to know.
+      if (!getAtlassianAvailability(pi).isAvailable) return;
+
+      // The `tasks` event payload doesn't include the cwd; fall back to
+      // process.cwd() at the time of the event. The vast majority of pi
+      // sessions run with a stable cwd, and cross-cwd auto-transition
+      // would need a richer event.
+      const proc = (globalThis as { [key: string]: unknown })["process"] as
+        | { cwd?: () => string }
+        | undefined;
+      const cwd = proc?.cwd?.() ?? ".";
+      const cfg = await loadJiraConfig(cwd);
+      const prompt = buildTransitionPrompt(
+        newStatus,
+        payload.id,
+        payload.summary,
+        cfg,
+        cwd,
+        TASKS_FILE,
+        TASKS_LOCAL_FILE,
+      );
+      pi.sendUserMessage(prompt);
+    },
+  );
 
   // Hook for follow-up tasks: the keybindings extension can be advised
   // here that this extension exists, but no menu entries are contributed

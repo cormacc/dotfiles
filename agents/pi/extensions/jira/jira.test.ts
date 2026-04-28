@@ -10,7 +10,16 @@
  * Run: `tsx jira.test.ts` (or via `./test.sh`).
  */
 
-import { buildClonePrompt, getFileKeyword, resolveKey } from "./utils.ts";
+import {
+  buildClaimPrompt,
+  buildClonePrompt,
+  buildCommentPrompt,
+  buildCreatePrompt,
+  buildTransitionPrompt,
+  getFileKeyword,
+  parseCreateArgs,
+  resolveKey,
+} from "./utils.ts";
 
 let passed = 0;
 let failed = 0;
@@ -176,6 +185,265 @@ assertEqual(
     failed++;
     console.log(
       "not ok - buildClonePrompt: should instruct cloudId resolution when keyword absent",
+    );
+  }
+}
+
+// ── buildClaimPrompt ──────────────────────────────────────────────────
+
+{
+  const prompt = buildClaimPrompt(
+    {
+      cloudId: "abc",
+      project: "SAND",
+      baseUrl: "https://your-org.atlassian.net",
+    },
+    "/tmp/proj",
+    "TASKS.org",
+    "TASKS.local.org",
+    "01234567-89ab-4def-8123-456789abcdef",
+  );
+  if (prompt.includes("atlassian_atlassianUserInfo")) {
+    passed++;
+    console.log(
+      "ok - buildClaimPrompt: references the user-info MCP tool",
+    );
+  } else {
+    failed++;
+    console.log(
+      "not ok - buildClaimPrompt: should reference atlassian_atlassianUserInfo",
+    );
+  }
+  if (prompt.includes("atlassian_editJiraIssue")) {
+    passed++;
+    console.log(
+      "ok - buildClaimPrompt: references atlassian_editJiraIssue",
+    );
+  } else {
+    failed++;
+    console.log(
+      "not ok - buildClaimPrompt: should reference atlassian_editJiraIssue",
+    );
+  }
+  if (prompt.includes("your-org.atlassian.net")) {
+    passed++;
+    console.log(
+      "ok - buildClaimPrompt: includes the Jira host for org-link filtering",
+    );
+  } else {
+    failed++;
+    console.log(
+      "not ok - buildClaimPrompt: should include the Jira host",
+    );
+  }
+  if (prompt.includes("01234567-89ab-4def-8123-456789abcdef")) {
+    passed++;
+    console.log("ok - buildClaimPrompt: identifies the selected task ID");
+  } else {
+    failed++;
+    console.log(
+      "not ok - buildClaimPrompt: should identify the selected task ID",
+    );
+  }
+}
+
+// ── buildCommentPrompt ───────────────────────────────────────────────
+
+{
+  const prompt = buildCommentPrompt(
+    "Looks good to me \u2014 ready to merge.",
+    { cloudId: "abc", project: "SAND", baseUrl: null },
+    "/tmp/proj",
+    "TASKS.org",
+    "TASKS.local.org",
+    "some-uuid",
+  );
+  if (prompt.includes("atlassian_addCommentToJiraIssue")) {
+    passed++;
+    console.log(
+      "ok - buildCommentPrompt: references atlassian_addCommentToJiraIssue",
+    );
+  } else {
+    failed++;
+    console.log(
+      "not ok - buildCommentPrompt: should reference the MCP tool",
+    );
+  }
+  if (prompt.includes("Looks good to me")) {
+    passed++;
+    console.log("ok - buildCommentPrompt: embeds the comment body verbatim");
+  } else {
+    failed++;
+    console.log("not ok - buildCommentPrompt: should embed the body");
+  }
+}
+
+// ── buildCreatePrompt + parseCreateArgs ────────────────────────────────
+
+assertEqual(
+  parseCreateArgs([]),
+  { project: null, type: "Task" },
+  "parseCreateArgs: empty args defaults to null project + Task type",
+);
+assertEqual(
+  parseCreateArgs(["SAND"]),
+  { project: "SAND", type: "Task" },
+  "parseCreateArgs: positional project",
+);
+assertEqual(
+  parseCreateArgs(["--type", "Story"]),
+  { project: null, type: "Story" },
+  "parseCreateArgs: --type with separate value",
+);
+assertEqual(
+  parseCreateArgs(["SAND", "--type=Bug"]),
+  { project: "SAND", type: "Bug" },
+  "parseCreateArgs: --type=value form",
+);
+assertEqual(
+  parseCreateArgs(["SAND", "--type", "Epic"]),
+  { project: "SAND", type: "Epic" },
+  "parseCreateArgs: project + --type combo",
+);
+
+{
+  const prompt = buildCreatePrompt(
+    { project: "SAND", type: "Story" },
+    { cloudId: "abc", project: null, baseUrl: null },
+    "/tmp/proj",
+    "TASKS.org",
+    "TASKS.local.org",
+    "sel-uuid",
+  );
+  if (
+    prompt.includes("atlassian_createJiraIssue") &&
+    prompt.includes("atlassian_getJiraProjectIssueTypesMetadata")
+  ) {
+    passed++;
+    console.log(
+      "ok - buildCreatePrompt: references the create + types-metadata tools",
+    );
+  } else {
+    failed++;
+    console.log(
+      "not ok - buildCreatePrompt: should reference create + types-metadata tools",
+    );
+  }
+  if (prompt.includes("`SAND`") && prompt.includes("`Story`")) {
+    passed++;
+    console.log("ok - buildCreatePrompt: pins down project + type");
+  } else {
+    failed++;
+    console.log("not ok - buildCreatePrompt: should pin project + type");
+  }
+  if (prompt.includes(":LINKED_ISSUES:")) {
+    passed++;
+    console.log(
+      "ok - buildCreatePrompt: instructs writing the new key back to :LINKED_ISSUES:",
+    );
+  } else {
+    failed++;
+    console.log(
+      "not ok - buildCreatePrompt: should instruct :LINKED_ISSUES: writeback",
+    );
+  }
+}
+
+{
+  // Refuses with no project from either source.
+  const prompt = buildCreatePrompt(
+    { project: null, type: "Task" },
+    { cloudId: "abc", project: null, baseUrl: null },
+    "/tmp/proj",
+    "TASKS.org",
+    "TASKS.local.org",
+    "sel-uuid",
+  );
+  if (
+    prompt.toLowerCase().includes("refuse") &&
+    prompt.includes("#+JIRA_PROJECT")
+  ) {
+    passed++;
+    console.log(
+      "ok - buildCreatePrompt: refuses when no project resolvable",
+    );
+  } else {
+    failed++;
+    console.log(
+      "not ok - buildCreatePrompt: should refuse with no project",
+    );
+  }
+}
+
+// ── buildTransitionPrompt ───────────────────────────────────────────
+
+{
+  const promptStarted = buildTransitionPrompt(
+    "STARTED",
+    "abc-123",
+    "Refactor stim driver",
+    { cloudId: "abc", project: "SAND", baseUrl: null },
+    "/tmp/proj",
+    "TASKS.org",
+    "TASKS.local.org",
+  );
+  if (
+    promptStarted.includes("Start Progress") &&
+    promptStarted.includes("In Progress")
+  ) {
+    passed++;
+    console.log(
+      "ok - buildTransitionPrompt: STARTED uses Start Progress / In Progress",
+    );
+  } else {
+    failed++;
+    console.log(
+      "not ok - buildTransitionPrompt: STARTED should pick Start Progress / In Progress",
+    );
+  }
+  if (promptStarted.includes("abc-123")) {
+    passed++;
+    console.log("ok - buildTransitionPrompt: includes the task UUID");
+  } else {
+    failed++;
+    console.log(
+      "not ok - buildTransitionPrompt: should include the task UUID",
+    );
+  }
+
+  const promptDone = buildTransitionPrompt(
+    "DONE",
+    "abc-123",
+    "Refactor",
+    { cloudId: "abc", project: "SAND", baseUrl: null },
+    "/tmp/proj",
+    "TASKS.org",
+    "TASKS.local.org",
+  );
+  if (
+    promptDone.includes("Done") &&
+    promptDone.includes("Closed") &&
+    promptDone.includes("Resolved")
+  ) {
+    passed++;
+    console.log(
+      "ok - buildTransitionPrompt: DONE uses Done / Closed / Resolved",
+    );
+  } else {
+    failed++;
+    console.log(
+      "not ok - buildTransitionPrompt: DONE should list Done / Closed / Resolved",
+    );
+  }
+  if (promptDone.includes("atlassian_transitionJiraIssue")) {
+    passed++;
+    console.log(
+      "ok - buildTransitionPrompt: references atlassian_transitionJiraIssue",
+    );
+  } else {
+    failed++;
+    console.log(
+      "not ok - buildTransitionPrompt: should reference atlassian_transitionJiraIssue",
     );
   }
 }

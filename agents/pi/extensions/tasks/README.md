@@ -229,6 +229,27 @@ extensions like `jira` that contribute slash commands and use
 `getDrawerProperty` / `setDrawerProperty` / `getLinkedIssues` from this
 extension's parser to read and write the property.
 
+## Cross-extension events
+
+The extension emits a small set of events on the shared pi event bus
+(`pi.events.emit/on`) so other extensions can react without coupling:
+
+| Event                   | Payload                                                              | When                                                |
+| ----------------------- | -------------------------------------------------------------------- | --------------------------------------------------- |
+| `tasks:status-changed`  | `{ id, status, prevStatus, summary, closed }`                        | A task's status is cycled via `→`/`←` / `l`/`h`.    |
+| `emacs:open`            | `{ file, line }`                                                     | The user presses `e` or `p` to edit in Emacs.       |
+
+`tasks:status-changed` is intended for integrations like `jira`'s
+auto-transition: it fires after the on-disk update is persisted so
+file-watcher listeners see the new state before consumers act. The
+payload is a plain JSON-serialisable object — consumers must not
+mutate it.
+
+External edits to TASKS.org / TASKS.local.org (e.g. via Emacs) trigger
+a file-watcher reload but do *not* currently emit
+`tasks:status-changed`; this event reflects in-overlay status cycles
+only. Diff-based detection on reload is a possible future addition.
+
 ## File format
 
 File-format details (heading syntax, properties, `#+IMPORT:`,

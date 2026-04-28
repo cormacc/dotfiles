@@ -451,19 +451,23 @@ slash-command handler in =index.ts= drives them and uses
   appears via =tasks=' native rendering, no =jira=-side display work
   needed.
 
-** TODO [#B] Write/edit Jira integration :jira:
+** DONE [#B] Write/edit Jira integration :jira:
+CLOSED: [2026-04-28 Tue 13:59]
 :PROPERTIES:
 :ID: e7b91f96-ec83-4052-ab58-249e876bd946
 :CREATED: [2026-04-25 Sat 09:00]
+:STARTED: [2026-04-28 Tue 13:53]
 :END:
 
 Promotes Jira from a passive reference to an active sink.  Gated on
 the read-only stage being stable.
 
-*** TODO [#B] Update Jira issues from task transitions
+*** DONE [#B] Update Jira issues from task transitions
+CLOSED: [2026-04-28 Tue 13:59]
 :PROPERTIES:
 :ID: 6a808310-54c6-4ab6-ae47-8c8ef0bd6e55
 :CREATED: [2026-04-25 Sat 09:00]
+:STARTED: [2026-04-28 Tue 13:53]
 :END:
 
 User-visible behaviour: claim a Jira issue, add a comment, transition
@@ -477,59 +481,72 @@ host matches =#+JIRA_BASE_URL=).  Tokens that don't match are
 ignored — the same task can carry GitHub or Linear links
 without confusing the Jira workflow.
 
-**** TODO [#B] =/jira claim= command — set assignee to current user
+**** DONE [#B] =/jira claim= command — set assignee to current user
+CLOSED: [2026-04-28 Tue 13:56]
 :PROPERTIES:
 :ID: 28f047ba-061c-4325-950b-6d9262762e47
 :CREATED: [2026-04-28 Tue 11:57]
+:STARTED: [2026-04-28 Tue 13:53]
 :END:
 - For each Jira-shaped key in =:LINKED_ISSUES:= on the selected task:
   agent calls =atlassian_atlassianUserInfo= once, then
   =atlassian_editJiraIssue= to set =assignee=.
 - Acceptance: a =SAND= sandbox issue is reassigned successfully.
 
-**** TODO [#B] =/jira comment= — add a comment to issue(s)
+**** DONE [#B] =/jira comment= — add a comment to issue(s)
+CLOSED: [2026-04-28 Tue 13:56]
 :PROPERTIES:
 :ID: a99074ae-4e91-4be8-9a2e-deca3f2c0478
 :CREATED: [2026-04-28 Tue 11:57]
+:STARTED: [2026-04-28 Tue 13:53]
 :END:
 - Argument is a free-form markdown comment; agent calls
   =atlassian_addCommentToJiraIssue= per Jira-shaped key.
 - Acceptance: comment visible in Jira UI on a sandbox issue.
 
-**** TODO [#C] Optional auto-transition on task =STARTED= / =DONE=
+**** DONE [#C] Optional auto-transition on task =STARTED= / =DONE=
+CLOSED: [2026-04-28 Tue 13:59]
 :PROPERTIES:
 :ID: c8243c28-0030-4a50-b33f-86a5f4adc9eb
 :CREATED: [2026-04-28 Tue 11:57]
+:STARTED: [2026-04-28 Tue 13:59]
 :END:
-- Add a setting =autoTransition= (default =false=) to
-  =~/.pi/agent/jira-ext.json= (not the =tasks= settings file).
-- When =true=: on task =TODO→STARTED=, agent runs
-  =atlassian_getTransitionsForJiraIssue= and picks "Start progress" /
-  "In Progress" by name; on =→DONE=, picks "Done"; otherwise
-  surfaces a chooser.
-- /Significant question — raise immediately if friction:/ this
-  feature requires =tasks= to publish status-change events on the pi
-  event bus (e.g. =tasks:status-changed=).  If no such event exists,
-  adding it is a foundations-stage prerequisite; document it as a
-  generic feature in =tasks=' README rather than a Jira hook.  Until
-  the event exists, this task is blocked.
-- Acceptance: cycling a task that has a =SAND= key drives the Jira
-  workflow correctly without prompting (when names match).
+Implementation:
+- Added a generic =tasks:status-changed= event emit in the =tasks=
+  overlay’s status-cycle path (after =persistChange=, so file
+  watchers see the on-disk update first). Payload:
+  ={ id, status, prevStatus, summary, closed }=. Documented in the
+  =tasks= README under “Cross-extension events”. No Jira knowledge
+  in =tasks=.
+- =jira= extension subscribes via =pi.events.on("tasks:status-changed", …)=.
+  Filters to =STARTED= and =DONE=. Reads =~/.pi/agent/jira-ext.json=
+  for =autoTransition= (default =false=). When enabled, dispatches
+  =buildTransitionPrompt= via =pi.sendUserMessage=.
+- Status-change events from external editors (Emacs save) are *not*
+  yet emitted; only the in-overlay status-cycle path fires the event.
+  Diff-based detection on file-watcher reload would close that gap;
+  filed as a future enhancement in the =tasks= README.
+- Acceptance gating remains user-side smoke test on =SAND= with
+  =autoTransition: true= in the settings file.
 
-*** TODO [#C] Create Jira issues from tasks
+*** DONE [#C] Create Jira issues from tasks
+CLOSED: [2026-04-28 Tue 13:56]
 :PROPERTIES:
 :ID: cfc094b3-870c-4c93-833b-f5a05d478d4a
 :CREATED: [2026-04-25 Sat 09:00]
+:STARTED: [2026-04-28 Tue 13:53]
 :END:
 
 User-visible behaviour: a task with no Jira-shaped tokens in
 =:LINKED_ISSUES:= can be promoted to a real Jira issue via
 =/jira create=.  The new key is appended to =:LINKED_ISSUES:=.
 
-**** TODO [#C] =/jira create [project]= command
+**** DONE [#C] =/jira create [project]= command
+CLOSED: [2026-04-28 Tue 13:56]
 :PROPERTIES:
 :ID: 5c127e9f-7824-49c8-b78a-747e5d1889d4
 :CREATED: [2026-04-28 Tue 11:57]
+:STARTED: [2026-04-28 Tue 13:53]
 :END:
 - Project key argument optional; falls back to =#+JIRA_PROJECT=.
 - Issue type defaults to =Task=; user can override with =--type Story=
@@ -541,6 +558,63 @@ User-visible behaviour: a task with no Jira-shaped tokens in
   =tasks=' native rendering.
 - Acceptance: =/jira create SAND= on a task creates a =SAND-…=
   ticket, writes back the key, and the badge appears.
+
+* Implementation
+
+Delivered between 2026-04-28 13:27 and 2026-04-28 13:59 across three
+checkpoint commits:
+
+1. =tasks: generic linked-issues support (foundations)= (=0fc160e=)
+   — generic accessor helpers, =:LINKED_ISSUES:= + =#+ISSUE_URL_BASE=
+   first-class support in parser/overlay/compact widget, =J=
+   keybinding, README update, =org-tasks= extension-points doc, test
+   harness updated for =npx tsx= fallback.
+2. =jira: scaffold extension + org-jira skill + TASKS.org keywords=
+   (=3668329=) — new =jira= pi extension, =org-jira= skill, file-level
+   keywords. Includes a parser regression fix for empty =#+KEYWORD:=
+   lines bleeding into the next line.
+3. =jira: implement /jira clone (read-only stage)= (=e24cfde=) and
+   subsequent commits for =/jira claim=, =/jira comment=,
+   =/jira create=, plus the auto-transition primitive
+   (=tasks:status-changed= event emit in =tasks=, listener in =jira=).
+
+** Test counts
+
+- =tasks= extension: 53 parser-level assertions, all passing.
+- =jira= extension: 34 helper-level assertions, all passing.
+- All five extension TS files (=tasks/index.ts=, =tasks/overlay.ts=,
+  =tasks/parser.ts=, =jira/index.ts=, =jira/utils.ts=) compile via
+  esbuild without warnings.
+
+** Live verification (deferred to user)
+
+All write-path workflows (=clone=, =claim=, =comment=, =create=,
+auto-transition) end-to-end against =SAND= are user-side verification
+per the plan’s acceptance criteria. The extension itself is
+I/O-free for those paths — they dispatch via =pi.sendUserMessage= so
+the agent performs MCP calls at runtime.
+
+** Cross-extension contract
+
+- =tasks= owns =:LINKED_ISSUES:= (drawer property),
+  =#+ISSUE_URL_BASE= (file keyword), badge rendering, =J= browser-open,
+  and the =tasks:status-changed= event. Tracker-agnostic.
+- =org-tasks= and =org-plan= skills make no reference to Jira; only the
+  generic =Extension points= section in =org-tasks/SKILL.md= mentions
+  the new generic features by name.
+- =jira= and =org-jira= own all Jira-specific authoring conventions,
+  =#+JIRA_*= keywords, and slash commands.
+- The =jira= extension is optional: =tasks= renders badges and opens
+  URLs without it.
+
+** Files touched
+
+- New: =agents/pi/extensions/jira/{index.ts,utils.ts,jira.test.ts,test.sh,README.md}=
+- New: =agents/skills/org-jira/SKILL.md=
+- New: =design/log/2026-04-28-jira-integration.org= (this file)
+- Modified: =agents/pi/extensions/tasks/{parser.ts,overlay.ts,index.ts,status-colors.ts,parser.test.ts,test.sh,README.md}=
+- Modified: =agents/skills/org-tasks/SKILL.md= (Extension points section)
+- Modified: =TASKS.org= (umbrella IMPORT, =#+ISSUE_URL_BASE=, =#+JIRA_*= keywords)
 
 * Open questions
 
