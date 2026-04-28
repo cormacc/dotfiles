@@ -77,7 +77,6 @@ const match = node.children?.find((c) => matchesKey(data, c.key));
 Acceptance: pressing =A= fires a leader-menu entry whose =key= is either
 ="A"= or ="shift+a"=; pressing =a= (lowercase) does not fire the capital
 entry.
-
 ** TODO [#A] Fix mergeChildren to use matchesKey for clash detection
 :PROPERTIES:
 :ID: e1f2a3b4-0002-4000-8000-200000000002
@@ -94,7 +93,6 @@ const idx = existing.findIndex((c) => matchesKey(child.key, c.key));
 Acceptance: a suggested binding with =key: "shift+a"= is treated as
 clashing with an existing =key: "A"= entry (and vice-versa), and the
 warning is emitted rather than silently adding a duplicate.
-
 ** TODO [#B] Fix warnClashingLeaderKeys to use matchesKey
 :PROPERTIES:
 :ID: e1f2a3b4-0003-4000-8000-200000000003
@@ -116,7 +114,6 @@ if (clashes) { ... }
 
 Acceptance: a leader root key specified as ="shift+a"= correctly
 produces a "clashes with normal-mode vim binding" warning.
-
 ** TODO [#C] Add #+A / #+P / #+U to tasks leader menu and update docs
 :PROPERTIES:
 :ID: e1f2a3b4-0004-4000-8000-200000000004
@@ -136,7 +133,6 @@ implementation: just open =/tasks= so the user can then press the key
 inside the overlay.)
 
 Update the keybindings README and the tasks extension README.md.
-
 * Implementation
 
 ** Failed attempts (2026-04-27)

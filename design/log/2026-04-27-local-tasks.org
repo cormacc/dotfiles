@@ -90,7 +90,6 @@ Replace the full-overwrite with a read-modify-write:
 
 Acceptance: toggling selection in the extension when =TASKS.local.org=
 contains task headings leaves those headings intact.
-
 ** DONE [#A] Add isLocal flag to Task interface and loader
 CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
@@ -106,7 +105,6 @@ CLOSED: [2026-04-27 Mon 22:32]
 
 Acceptance: =/tasks= overlay shows the "Take over the world" task from the
 demo =TASKS.local.org=.
-
 ** DONE [#B] Render local tasks with visual distinction
 CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
@@ -125,7 +123,6 @@ In =status-colors.ts=:
 
 Acceptance: local tasks are visually distinct; separator line appears only
 when at least one local task exists; shared tasks are unaffected.
-
 ** DONE [#B] Publish action (local → shared)
 CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
@@ -145,7 +142,6 @@ Flow:
 
 Acceptance: published task disappears from the local section, appears as a
 new top-level entry in =TASKS.org=, and the file on disk reflects both changes.
-
 ** DONE [#B] Unpublish action (shared → local)
 CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
@@ -166,7 +162,6 @@ Flow:
 
 Acceptance: task disappears from shared list, reappears in local section,
 =TASKS.org= no longer contains it.
-
 ** DONE [#C] Archive guard for local tasks
 CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
@@ -177,7 +172,6 @@ cannot be archived — publish first" and return false.
 
 Acceptance: pressing =A= on a local task shows the notification; no file
 changes occur.
-
 ** DONE [#C] New-task routing for local tasks
 CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
@@ -191,7 +185,6 @@ whether the new task should be local.
 
 Acceptance: pressing =n= while on a local task creates a new local task in
 =TASKS.local.org=; pressing =n= on a shared task still writes to =TASKS.org=.
-
 ** DONE [#C] Emacs-side publish/unpublish commands
 CLOSED: [2026-04-27 Mon 22:35]
 :PROPERTIES:
@@ -213,7 +206,6 @@ Update =README.org= for the layer.
 
 Acceptance: both commands work on tasks in Emacs; file contents on disk match
 the extension's view after a reload.
-
 ** DONE [#C] Update docs and help text
 CLOSED: [2026-04-27 Mon 22:32]
 :PROPERTIES:
@@ -224,7 +216,6 @@ CLOSED: [2026-04-27 Mon 22:32]
   coexist; tasks follow the same heading syntax as =TASKS.org=).
 - Update =org-memory= SKILL.md to document local tasks and
   publish/unpublish semantics.
-
 * Open questions
 
 1. *Separator row navigability* → render-time injection only.  The row array

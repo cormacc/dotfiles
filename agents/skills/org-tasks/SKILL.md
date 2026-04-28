@@ -1,5 +1,5 @@
 ---
-name: org-memory
+name: org-tasks
 description: "Use when maintaining or resuming project work stored in TASKS.org and linked change-record files. Covers the org task-memory protocol: TODO states, IDs, IMPORT links, change-records (proactive and retrospective), status discipline, archiving, and resume workflows."
 ---
 
@@ -18,8 +18,8 @@ This skill owns the durable file protocol:
 - task notes, status discipline, archiving, bootstrap, and resume workflows.
 
 The section structure of change-record files (`* Context`, `* Plan`,
-`* Implementation`, `* Open questions`) is owned by the plan skill
-(`../plan/SKILL.md`); this skill defers there for layout details.
+`* Implementation`, `* Open questions`) is owned by the `org-plan` skill
+(`../org-plan/SKILL.md`); this skill defers there for layout details.
 
 
 ## Core file protocol
@@ -90,7 +90,7 @@ Waiting on upstream merge.
 ```
 
 Keep `TASKS.org` high-level. Put detailed checklists/history in change-record
-files. The plan skill defines the section layout (`* Context`, `* Plan`,
+files. The `org-plan` skill defines the section layout (`* Context`, `* Plan`,
 `* Implementation`, optional `* Open questions`).
 
 ## Selection state
@@ -140,7 +140,7 @@ Protocol rules:
 ## Change-records
 
 A *change-record* is a separate org file linked from a task via `#+IMPORT:`,
-with the section layout owned by the plan skill (`* Context`, `* Plan`,
+with the section layout owned by the `org-plan` skill (`* Context`, `* Plan`,
 `* Implementation`, optional `* Open questions`).  The file shape is the
 same regardless of when it is authored.
 
@@ -150,8 +150,8 @@ There are two authoring flows:
    agent helps the user draft `* Context` and `* Plan` up front, then the
    user (or agent) executes the plan, marking each `* Plan` task `DONE` and
    filling in `* Implementation` as work lands.  This is the flow the pi
-   tasks extension's `p` keybinding produces, and the flow the plan skill
-   primarily describes.
+   tasks extension's `p` keybinding produces, and the flow the `org-plan`
+   skill primarily describes.
 2. **Retrospective** — the change-record is created after the parent task
    has already closed.  The agent uses the parent task's `:STARTED:` and
    `CLOSED:` timestamps to scope `git log`, then drafts `* Context` and
@@ -278,5 +278,5 @@ any `TODO` ancestors in `TASKS.org` to `STARTED` manually.
 
 ## Interop
 
-For planning methodology and canonical plan file sections, see the plan skill:
-`../plan/SKILL.md`.
+For planning methodology and canonical change-record sections, see the
+`org-plan` skill: `../org-plan/SKILL.md`.

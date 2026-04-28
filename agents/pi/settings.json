@@ -3,7 +3,7 @@
   "hideThinkingBlock": true,
   "defaultThinkingLevel": "high",
   "defaultProvider": "anthropic",
-  "defaultModel": "claude-sonnet-4-6",
+  "defaultModel": "claude-opus-4-7",
   "packages": [
     "npm:@gotgenes/pi-anthropic-auth"
   ]
