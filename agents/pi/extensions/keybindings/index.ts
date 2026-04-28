@@ -35,24 +35,31 @@ const USER_SETTINGS_PATH = join(homedir(), ".pi", "agent", "keybindings-ext.json
 
 interface UserSettings {
   modal: boolean;
+  /** When true, the keybindings extension logs every key press to the
+   *  pi notification console. Temporary debugging aid — see AGENTS.md. */
+  debug: boolean;
 }
 
 function loadUserSettings(): UserSettings {
   try {
     if (existsSync(USER_SETTINGS_PATH)) {
       const parsed = JSON.parse(readFileSync(USER_SETTINGS_PATH, "utf-8"));
-      return { modal: !!parsed?.modal };
+      return { modal: !!parsed?.modal, debug: !!parsed?.debug };
     }
   } catch {}
-  return { modal: false };
+  return { modal: false, debug: false };
 }
 
-function saveUserSettings(settings: UserSettings): void {
+function saveUserSettings(settings: Partial<UserSettings>): void {
   try {
     mkdirSync(dirname(USER_SETTINGS_PATH), { recursive: true });
+    // Merge with existing on disk so partial updates (e.g. just `modal`)
+    // don't clobber unrelated keys (e.g. `debug`).
+    const existing = loadUserSettings();
+    const merged: UserSettings = { ...existing, ...settings };
     writeFileSync(
       USER_SETTINGS_PATH,
-      JSON.stringify(settings, null, 2) + "\n",
+      JSON.stringify(merged, null, 2) + "\n",
     );
   } catch {}
 }
@@ -337,6 +344,14 @@ class VimEditor extends CustomEditor {
 
   setLeaderOverlayDelay(ms: number) {
     this.leaderOverlayDelay = ms;
+  }
+
+  /** [DEBUG] When true, every key press is reported via ctx.ui.notify. */
+  private debugEnabled: boolean = false;
+
+  /** [DEBUG] Toggle the per-keypress notification logger. */
+  setDebugEnabled(enabled: boolean): void {
+    this.debugEnabled = enabled;
   }
 
   /** Toggle modal (vim-style) editing. Default false. */
@@ -1211,6 +1226,11 @@ class VimEditor extends CustomEditor {
   // ─── Main input handler ──────────────────────────────────────────────
 
   handleInput(data: string): void {
+    // [DEBUG] Temporary: log every key press to the pi console so we can
+    // visually inspect what bytes the terminal is delivering. Remove once
+    // the capital-letter leader-key issue is understood.
+    this.debugLogKey(data);
+
     // When modal editing is enabled, alt+escape replaces bare escape as
     // the abort/interrupt key (bare escape switches to Normal / clears
     // pending state). When modal is disabled, bare escape falls through
@@ -1238,6 +1258,29 @@ class VimEditor extends CustomEditor {
         this.handleVisualMode(data);
         break;
     }
+  }
+
+  /** [DEBUG] Render a key-press as "raw" + hex + length + mode and notify. */
+  private debugLogKey(data: string): void {
+    if (!this.debugEnabled) return;
+    const escaped = data
+      .split("")
+      .map((ch) => {
+        const code = ch.charCodeAt(0);
+        if (ch === "\x1b") return "\\e";
+        if (ch === "\r") return "\\r";
+        if (ch === "\n") return "\\n";
+        if (ch === "\t") return "\\t";
+        if (ch === "\\") return "\\\\";
+        if (code < 0x20 || code === 0x7f) return `\\x${code.toString(16).padStart(2, "0")}`;
+        return ch;
+      })
+      .join("");
+    const hex = Array.from(data)
+      .map((ch) => ch.charCodeAt(0).toString(16).padStart(2, "0"))
+      .join(" ");
+    const msg = `kb: "${escaped}" [${hex}] len=${data.length} mode=${this.mode}`;
+    this.ctx?.ui?.notify?.(msg, "info");
   }
 
   /** Keys that always pass through to pi regardless of mode */
@@ -2398,7 +2441,9 @@ export default function (pi: ExtensionAPI) {
         editor.events = pi.events;
         editor.setContext(ctx);
         editor.loadKeybindings(sessionNotify ?? undefined);
-        editor.setModalEnabled(loadUserSettings().modal);
+        const settings = loadUserSettings();
+        editor.setModalEnabled(settings.modal);
+        editor.setDebugEnabled(settings.debug);
         activeEditor = editor;
 
         // Clear pending suggestions — the ready event below will cause

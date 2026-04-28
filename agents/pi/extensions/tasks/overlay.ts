@@ -27,7 +27,26 @@ import {
   colorTags,
 } from "./status-colors.ts";
 import { readFile, writeFile } from "node:fs/promises";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
+
+/**
+ * [DEBUG] Read the shared keybindings-ext.json `debug` flag so this overlay
+ * can be toggled in lock-step with the keybindings extension's per-keypress
+ * logger. See keybindings/index.ts (`loadUserSettings`) — same file, same
+ * key, single source of truth. Failures are silently treated as "off".
+ */
+function loadKeybindingsDebugFlag(): boolean {
+  try {
+    const path = join(homedir(), ".pi", "agent", "keybindings-ext.json");
+    if (!existsSync(path)) return false;
+    const parsed = JSON.parse(readFileSync(path, "utf-8"));
+    return !!parsed?.debug;
+  } catch {
+    return false;
+  }
+}
 
 const STATUS_CYCLE = [
   "TODO",
@@ -64,6 +83,10 @@ export class TasksOverlay {
   private cachedLines?: string[];
 
   private collapsedSet = new WeakSet<Task>();
+
+  /** [DEBUG] Mirrors keybindings extension's `debugEnabled` — see
+   *  loadKeybindingsDebugFlag above. Read once at construction time. */
+  private debugEnabled: boolean = loadKeybindingsDebugFlag();
 
   /**
    * Cache of `#+ISSUE_URL_BASE` per source-file content. Keyed by the
@@ -226,10 +249,48 @@ export class TasksOverlay {
 
   // ── Input ───────────────────────────────────────────────────────────
 
+  /** [DEBUG] Render a key-press as "raw" + hex + length (+ matched action)
+   *  and notify. Mirrors keybindings/index.ts `debugLogKey`, prefixed so the
+   *  two streams are easy to tell apart. `action` is the label returned by
+   *  `dispatchInput` — "unhandled" when no branch consumed the key. */
+  private debugLogKey(data: string, action: string): void {
+    if (!this.debugEnabled) return;
+    const escaped = data
+      .split("")
+      .map((ch) => {
+        const code = ch.charCodeAt(0);
+        if (ch === "\x1b") return "\\e";
+        if (ch === "\r") return "\\r";
+        if (ch === "\n") return "\\n";
+        if (ch === "\t") return "\\t";
+        if (ch === "\\") return "\\\\";
+        if (code < 0x20 || code === 0x7f)
+          return `\\x${code.toString(16).padStart(2, "0")}`;
+        return ch;
+      })
+      .join("");
+    const hex = Array.from(data)
+      .map((ch) => ch.charCodeAt(0).toString(16).padStart(2, "0"))
+      .join(" ");
+    this.onNotify?.(
+      `tasks-overlay: "${escaped}" [${hex}] len=${data.length} → ${action}`,
+      "info",
+    );
+  }
+
   handleInput(data: string): void {
+    const action = this.dispatchInput(data);
+    this.debugLogKey(data, action);
+  }
+
+  /** Dispatch a key press to the appropriate handler. Returns a short label
+   *  describing the action consumed (or "unhandled"). The label exists
+   *  purely for the debug logger — callers other than `handleInput` should
+   *  not depend on its exact wording. */
+  private dispatchInput(data: string): string {
     if (matchesKey(data, "escape") || matchesKey(data, "q")) {
       this.done(undefined);
-      return;
+      return "close";
     }
 
     if (matchesKey(data, "up") || matchesKey(data, "k")) {
@@ -237,8 +298,9 @@ export class TasksOverlay {
         this.cursor--;
         this.descScrollOffset = 0;
         this.invalidate();
+        return "cursor-up";
       }
-      return;
+      return "cursor-up (at top)";
     }
 
     if (matchesKey(data, "down") || matchesKey(data, "j")) {
@@ -246,35 +308,35 @@ export class TasksOverlay {
         this.cursor++;
         this.descScrollOffset = 0;
         this.invalidate();
+        return "cursor-down";
       }
-      return;
+      return "cursor-down (at bottom)";
     }
 
     // Cycle status forward
     if (matchesKey(data, "right") || matchesKey(data, "l")) {
       this.cycleStatus(1);
-      return;
+      return "status-cycle-fwd";
     }
 
     // Cycle status backward
     if (matchesKey(data, "left") || matchesKey(data, "h")) {
       this.cycleStatus(-1);
-      return;
+      return "status-cycle-back";
     }
 
     // Scroll description pane
     if (matchesKey(data, "ctrl+d")) {
       this.descScrollOffset += 5;
       this.invalidate();
-      return;
+      return "desc-scroll-down";
     }
     if (matchesKey(data, "ctrl+u")) {
       this.descScrollOffset = Math.max(0, this.descScrollOffset - 5);
       this.invalidate();
-      return;
+      return "desc-scroll-up";
     }
 
-    // Open in Emacs at the task under the cursor
     // Edit the linked plan (if any) for the task under the cursor.
     // Delegates creation/approval of a new plan file to the command handler.
     if (matchesKey(data, "p")) {
@@ -282,62 +344,65 @@ export class TasksOverlay {
       if (row && this.onEditPlan) {
         this.onEditPlan(row.task);
         this.done(undefined);
+        return "edit-plan";
       }
-      return;
+      return "edit-plan (no-op)";
     }
 
+    // Open in Emacs at the task under the cursor
     if (matchesKey(data, "e")) {
       const row = this.rows[this.cursor];
       if (row && this.onEdit) {
         this.onEdit(row.task);
         this.done(undefined);
+        return "edit";
       }
-      return;
+      return "edit (no-op)";
     }
 
     // Archive the top-level task containing the cursor's task.
     // Only closed top-level tasks (DONE/CANCELLED) are archivable. Uses
     // shift+A so it's harder to hit by accident than lowercase 'a'.
-    if (matchesKey(data, "A")) {
+    if (matchesKey(data, "shift+a")) {
       this.archive();
-      return;
+      return "archive";
     }
 
     // Publish local task → TASKS.org  (shift-P, local tasks only)
-    if (matchesKey(data, "P")) {
+    if (matchesKey(data, "shift+p")) {
       this.publish();
-      return;
+      return "publish";
     }
 
     // Unpublish shared task → TASKS.local.org  (shift-U, top-level shared only)
-    if (matchesKey(data, "U")) {
+    if (matchesKey(data, "shift+u")) {
       this.unpublish();
-      return;
+      return "unpublish";
     }
 
     // New sibling task at the cursor's hierarchy level.
     if (matchesKey(data, "n")) {
       this.createNewTask(false);
-      return;
+      return "new-sibling";
     }
 
     // New child (subtask) under the task at the cursor.
-    if (matchesKey(data, "N")) {
+    if (matchesKey(data, "shift+n")) {
       this.createNewTask(true);
-      return;
+      return "new-child";
     }
 
     // Toggle :selected: on the task under the cursor
     if (matchesKey(data, "s")) {
       this.toggleSelect();
-      return;
+      return "toggle-select";
     }
 
     // Open all linked-issue URLs for the cursor task in the browser.
     // Capped at 5 with a notification when exceeded, to avoid foot-guns.
-    if (matchesKey(data, "J")) {
+    if (matchesKey(data, "shift+j")) {
       this.openLinkedIssues();
-      return;
+      return "open-linked-issues";
     }
 
     // Toggle collapse
@@ -355,9 +420,12 @@ export class TasksOverlay {
         }
         this.rebuildRows();
         this.invalidate();
+        return "toggle-collapse";
       }
-      return;
+      return "toggle-collapse (no children)";
     }
+
+    return "unhandled";
   }
 
   private cycleStatus(direction: 1 | -1): void {

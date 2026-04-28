@@ -131,12 +131,6 @@ interested parties.
 Ideally the approach would allow me to continue editing skills/extensions live and reloading without having to go through a
 rebuild install step.
 * Fixes
-** TODO [#B] Update keybindings extension to handle capital letter properly
-:PROPERTIES:
-:ID: d9789ed7-ff34-490a-a818-bf7a79fa1180
-:END:
-#+IMPORT: [[file:design/log/2026-04-27-keybindings-capital-letters.org]]
-Currently a key sequence SPACE t A isn't activated as expected. The keybindings extension toggles on the sequence SPACE t SHIFT a.
 * Housekeeping
 
 ** WAITING [#C] Update nixGL flake URL :nix:
