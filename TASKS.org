@@ -90,6 +90,61 @@ Do things like...
 :PROPERTIES:
 :ID: cfc094b3-870c-4c93-833b-f5a05d478d4a
 :END:
+** TODO [#C] Token-efficient Jira clone workflow
+:PROPERTIES:
+:ID: 4ad4bb1b-9e74-48a0-9ce4-2d69639a8bc8
+:CREATED: 2026-04-28 Tue 15:16
+:END:
+Follow-up to the read-only Jira integration. Today's `/jira clone` round-trips the
+entire `atlassian_getJiraIssue` JSON and the rendered org body through the model,
+which is wasteful (~17KB ingested for ~6 fields used). Step 1 (field-list filter
+in the prompt) shipped on 2026-04-28. The remaining wins below are tracked here.
+
+*** TODO [#C] Two-step clone with per-session cache
+:PROPERTIES:
+:ID: 5a0b8c2e-f1a3-4d24-b6e8-6c1c2e9b1a01
+:END:
+Replace the single all-in-one prompt with a fetch + apply pair:
+- ~jira_clone_fetch(key)~ — extension-registered tool. Wraps the MCP
+  ~atlassian_getJiraIssue~ call with the field-list filter, persists the
+  filtered result in a per-session cache keyed by issue key, and returns a
+  compact preview (summary, priority, label list, body length, ambiguities) to
+  the model. The full body never enters the model context unless requested.
+- ~jira_clone_apply(key, file, section, overrides?)~ — extension-registered
+  tool. Reads the cached issue, performs deterministic transforms (priority
+  mapping, UUID, ~CREATED~ timestamp, ~:LINKED_ISSUES:~ drawer, label tagging,
+  body insertion), and writes the org file via the tasks-extension helper
+  (see sibling task). Body text never appears in model-emitted tool args.
+- Goal: ~70% token reduction on body-heavy issues. Model is only involved in
+  judgement decisions (file/section placement, summary surgery, table cleanup
+  on broken ADF→markdown round-trips).
+- Open question: cache lifetime + invalidation. Probably session-scoped + an
+  explicit ~jira_clone_refresh~ escape hatch.
+- Architectural caveat: pi-mcp-adapter currently routes MCP through the LLM
+  in proxy mode; extensions can't directly call MCP from JS. The fetch step
+  therefore stays model-driven (single small tool call), but its *output* is
+  captured into the cache by the registered tool wrapper rather than echoed
+  through the conversation. Verify this is achievable with the current
+  ExtensionAPI before committing to the design.
+
+*** TODO [#C] Shared ~tasks.insertTask~ API
+:PROPERTIES:
+:ID: 6c2d4f8b-3a91-4e57-b04c-9d7d8a3a9b02
+:END:
+Factor the org-task rendering + file-insertion logic out of the (future) jira
+clone path into a shared helper exposed by the tasks extension:
+- Inputs: ~{ file, section, summary, priorityName, body, linkedIssues, labels,
+  tags?, parentId? }~.
+- Owns: priority mapping (Highest..Lowest → #A..#D), UUID generation, ~CREATED~
+  timestamp via ~date +"%Y-%m-%d %a %H:%M"~, drawer assembly, section creation
+  guard rails, idempotency on re-clone of the same key.
+- Consumers: jira clone, future github/linear/gitlab integrations, and
+  potentially ~/jira create~ on the reverse direction.
+- Side benefit: removes the duplicated drawer/UUID/priority logic that's
+  already drifting between the jira prompt template and the extension code.
+- Acceptance: the jira ~clone_apply~ tool above implemented purely on top of
+  this helper, with no org-mode string assembly inside the jira extension.
+
 ** TODO [#D] Package org-memory protocol / extensions
 :PROPERTIES:
 :ID: 79d6f4f5-70f9-404d-9b4c-0cf0ef0e7adb

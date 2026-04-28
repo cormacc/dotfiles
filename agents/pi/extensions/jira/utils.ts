@@ -85,7 +85,7 @@ export function buildClonePrompt(
     "",
     "Steps for each key:",
     `1. ${cloudIdLine}`,
-    "2. Call `atlassian_getJiraIssue` with the resolved cloudId and the issue key.",
+    "2. Call `atlassian_getJiraIssue` with the resolved cloudId, the issue key, and `fields=\"summary,priority,labels,description,issuetype,parent,subtasks\"` to keep the response small. Do not request `*all` or expand customfields.",
     "3. Map the issue's priority name to an org priority:",
     "   - `Highest` → `[#A]`",
     "   - `High`    → `[#B]`",
