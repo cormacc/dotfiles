@@ -65,7 +65,7 @@ reachable without Shift, with no unbinding gymnastics required.
 | Key       | Command                            | Description                                                   |
 |-----------+------------------------------------+---------------------------------------------------------------|
 | =, ; s=   | =tasks-org-toggle-selected=        | Toggle =#+SELECTED:= on the current task (single-selection)   |
-| =, ; p=   | =tasks-org-open-plan=              | Open the =#+IMPORT:= linked from the current task, or create one |
+| =, ; p=   | =tasks-org-open-plan=              | Open the =#+IMPORT:='d change-record (errors if absent)       |
 | =, ; P=   | =tasks-org-open-plan-other-window= | Same, but open in another window                              |
 | =, ; t=   | =tasks-org-jump-to-parent-task=    | Jump to the task in =TASKS.org= whose =#+IMPORT:= is this file   |
 | =, ; L p= | =tasks-org-publish-task=           | Publish local task → =TASKS.org= (moves subtree, saves both)  |
@@ -73,44 +73,42 @@ reachable without Shift, with no unbinding gymnastics required.
 
 The mode lighter is =Tasks=.
 
+** Scope
+
+This package is for *review, edit, and reorganisation* of existing
+task graphs and change-records. Plan creation and task creation are
+the remit of the agent harness (the pi tasks extension's `/tasks new',
+=n=, =N=, and =p= keybindings); =tasks-org-open-plan= opens an
+existing =#+IMPORT:= linked file but does not scaffold a new one.
+
 ** Protocol conventions
 
-The package maintains four conventions:
+See =agents/skills/org-tasks/SKILL.md= for the canonical file
+protocol (TODO cycle, properties, =#+IMPORT:=, =#+DEFAULT_PLAN_DIR:=,
+=#+SELECTED:=). Emacs-side specifics:
 
-- =:ID:= property :: UUID v4 stable identifier per task heading.
-  Backfill of missing IDs is handled automatically by the pi tasks
-  extension (on load) and by the agent org-memory skill (on resume).
-  Emacs-side backfill commands are intentionally absent to avoid
-  duplicating that responsibility; plan creation assigns an ID to any
-  new task automatically.
+- =:ID:= backfill is the responsibility of the pi tasks extension
+  and the agent org-memory skill; this package does not scan or
+  mutate IDs, except to assign one when a task is selected via
+  =tasks-org-toggle-selected=.
 
-- =:selected:= tag :: Reserved tag marking the single currently
-  selected task across the project. Toggling clears any other
-  selection across =TASKS.org= and any =#+IMPORT:='d files first to
-  enforce single-selection.
+- =#+SELECTED:= is written to the gitignored =TASKS.local.org= as a
+  single =#+SELECTED: <UUID>= keyword. Deselecting clears the value
+  but retains the file (it may carry local drafts or =#+IMPORT:=
+  keywords alongside the selection).
 
-- =#+IMPORT:= keyword :: Org file link to a detailed plan or task file; written
-  in the task body after the =:END:= drawer line
-  for the task. =tasks-org-open-plan= opens an existing plan or
-  scaffolds a new one (=#+TITLE=, =#+DATE=, =#+TODO=, =* Context=,
-  =* Plan=) and writes the property as =[[file:...]]= for clickability
-  in Emacs. Bare paths and labelled link forms are also recognised
-  when reading.
-
-- =#+DEFAULT_PLAN_DIR:= keyword (recognised, not yet auto-set) :: Top-level
-  pointer to the project's plans directory. Defaults to =design/log=
-  via =tasks-org-plans-directory=.
+- =#+DEFAULT_PLAN_DIR:= is read from =TASKS.org= and used as an
+  auto-enable hint so plan files inside the project's change-record
+  directory pick up =tasks-org-mode= automatically.
+  =tasks-org-plans-directory= (default: =design/log=) is the
+  fallback when the keyword is absent.
 
 ** Relationship to the pi tasks extension
 
 Both consumers share the same plain-org files. Pi's file watchers
 pick up Emacs saves automatically; the compact widget and overlay
-refresh without manual intervention.
-
-Subtask absorption (moving local subtasks into a newly-created plan
-while leaving a parent summary) is intentionally not implemented in
-this package's v1 — it's tracked as a separate workstream to be done
-in collaboration with the pi extension's parser.
+refresh without manual intervention. Plan/task creation lives on
+the pi side; Emacs is the reading and refactoring environment.
 
 * Key bindings
 

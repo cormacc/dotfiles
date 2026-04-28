@@ -5,57 +5,46 @@ description: Use when asked to draft, review, or execute an implementation plan.
 
 # Plan
 
-Use this skill when the user asks for a plan.
-A plan is the leading content of a *change-record* — the artefact
-owned by the `org-tasks` skill, linked from a task via `#+IMPORT:`.
-The change-record begins life as a plan and becomes a record of what
+Use this skill when the user asks for a plan. A plan is the leading
+content of a *change-record* — the artefact owned by the `org-tasks`
+skill (`../org-tasks/SKILL.md`), linked from a task via `#+IMPORT:`.
+A change-record begins life as a plan and becomes a record of what
 shipped as work proceeds.
 
-This skill owns planning methodology and change-record section conventions;
-the `org-tasks` skill owns file-format and persistence rules:
-`../org-tasks/SKILL.md`.
-
-A change-record may also be authored *retrospectively*, after a task has
-closed without a prior plan.  The `org-tasks` skill describes the
-retrospective flow; the section structure below applies to both.
+This skill owns planning methodology and section conventions;
+`org-tasks` owns file format and persistence rules.
 
 ## Planning principles
 
-- Prefer a plan that can be executed and verified task-by-task.
+- Prefer plans that can be executed and verified task-by-task.
 - Separate outcomes from implementation details.
 - Include validation criteria for non-trivial tasks.
-- Keep completed history when drafting retrospective plans; it helps future
-  agents resume context.
-- Capture important design decisions in context or implementation notes so later
-  sessions understand why work was shaped this way.
-- Do not plan endlessly. Once the plan is good enough and the user wants action,
-  start executing the next task.
+- Capture important design decisions in `* Context` so later sessions
+  understand why work was shaped this way.
+- Do not plan endlessly. Once the plan is good enough and the user
+  wants action, start executing.
 
 ## Change-record sections
 
-Change-records follow the file protocol owned by `org-tasks` and add the
-planning-oriented section convention below:
+Required:
 
-Required sections:
+- `* Context` — self-contained summary: background, motivation, scope,
+  rationale. Use `** Design decisions` when alternatives, constraints,
+  or trade-offs matter.
+- `* Plan` — executable org TODO headings. Top-level plan tasks are
+  `** TODO …` so they live under `* Plan` while remaining parseable
+  by task tooling. May be empty in a retrospective change-record.
+- `* Implementation` — notes on decisions, tricky details, validation
+  outcomes, and maintenance context discovered while executing.
+  Filled in as work lands (proactive flow) or drafted from `git log`
+  (retrospective flow).
 
-- `* Context` :: A self-contained summary: background, motivation, scope, and
-  rationale sufficient for an agent or reviewer to understand the work without
-  reading the full plan. Use optional `** Design decisions` when alternatives,
-  constraints, or trade-offs matter.
-- `* Plan` :: Executable org TODO headings. Use `** TODO ...` for top-level plan
-  tasks so they live under `* Plan` while remaining parseable by task tooling.
-  May be empty in a retrospective change-record where no work was planned
-  ahead of time.
-- `* Implementation` :: Notes on decisions, tricky details, validation outcomes,
-  and maintenance context discovered while executing. Filled in as work lands
-  in the proactive flow, or drafted from `git log` in the retrospective flow.
+Optional:
 
-Optional sections:
+- `* Open questions` — questions deferred for batch review rather
+  than interrupting implementation.
 
-- `* Open questions` :: Questions deferred for batch review rather than
-  interrupting implementation.
-
-Minimal skeleton:
+### Minimal skeleton
 
 ```org
 #+TITLE: Descriptive change-record title
@@ -73,6 +62,7 @@ Brief self-contained summary.
 ** TODO [#A] First executable step :area:
 :PROPERTIES:
 :ID: 89abcdef-0123-4567-89ab-cdef01234567
+:CREATED: [2026-04-25 Sat 09:10]
 :END:
 Acceptance criteria.
 
@@ -81,55 +71,50 @@ Acceptance criteria.
 * Open questions
 ```
 
-Task headings may nest deeper than level 2. Keep parent statuses meaningful;
-see `org-tasks` for status rules.
+Plan task headings may nest deeper than level 2. Status discipline
+(including parent propagation, `:STARTED:`, `CLOSED:`) is owned by
+`org-tasks`.
 
 ## Retrospective change-records
 
-When drafting a change-record for work already started or completed:
+When drafting after work has started or completed:
 
-- Mark completed work as `DONE`.
-- Record key implementation outcomes and verification notes in `* Implementation`.
-- Add remaining follow-up work as `TODO`.
-- Mark current in-progress work `STARTED`.
-- Avoid rewriting history to make it look planned in advance; label
+- Mark already-completed work `DONE`; mark current work `STARTED`;
+  add remaining follow-ups as `TODO`.
+- Record key implementation outcomes and verification notes in
+  `* Implementation`.
+- Do not rewrite history to look planned in advance. Label
   retrospective context clearly when useful.
 
-When the work is *fully* closed and there was no prior plan, the harness
-may scaffold an empty change-record and ask the agent to populate
-`* Context` and `* Implementation` from `git log` scoped to the parent
-task's `:STARTED:` and `CLOSED:` timestamps.  See `../org-tasks/SKILL.md`
-for the retrospective protocol; the section structure above still applies.
+When the work is *fully* closed and there was no prior plan, the
+harness may scaffold an empty change-record and ask the agent to
+populate `* Context` and `* Implementation` from `git log` scoped to
+the parent task's `:STARTED:` and `CLOSED:` timestamps. The section
+structure above still applies. See `../org-tasks/SKILL.md` for the
+retrospective trigger and timestamp protocol.
 
 ## Executing from a change-record
 
-Before starting implementation:
+Before starting: ask whether questions should be batched in
+`* Open questions` for final review or raised immediately.
 
-1. Ask whether questions should be batched in `* Open questions` for final
-   review or raised immediately as they arise.
-2. Read the relevant change-record file.
-3. Identify the next actionable `TODO` or `STARTED` task.
-4. Respect the current `#+SELECTED:` pointer in `TASKS.local.org` as the
-   active task signal. Do not write or clear it directly unless explicitly
-   asked or acting through a task-selection tool.
-5. Mark the task `STARTED` if beginning work now. See `org-tasks` for parent
-   status discipline.
-6. Implement the smallest change that satisfies the task.
-7. Verify the change.
-8. Mark the task `DONE` and add a short result note if useful.
-9. Add newly discovered follow-up work as new `TODO` tasks.
-10. Handle questions according to the agreed mode: append to `* Open questions`
-    or raise immediately.
+Resume the active task following `org-tasks` § "Starting or resuming
+work", then for each plan task:
+
+1. Mark it `STARTED` if beginning now (parent status follows from
+   `org-tasks` rules).
+2. Implement the smallest change that satisfies the task.
+3. Verify the change.
+4. Mark it `DONE` and add a short result note if useful.
+5. Add newly discovered follow-up work as new `TODO` tasks under
+   `* Plan` rather than as inline prose.
+6. Handle questions per the agreed mode: append to
+   `* Open questions` or raise immediately.
 
 ## Updating change-records after discoveries
 
-Update the change-record when implementation reveals:
-
-- a prerequisite task,
-- an architectural decision,
-- a validation gap,
-- a follow-up refactor,
-- a blocked dependency,
-- an unanswered question that should be reviewed later.
-
-Keep additions concise and actionable. Prefer one task per concrete outcome.
+Update the change-record when implementation reveals a prerequisite
+task, an architectural decision, a validation gap, a follow-up
+refactor, a blocked dependency, or a question that should be
+reviewed later. Keep additions concise and actionable. Prefer one
+task per concrete outcome.

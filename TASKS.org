@@ -32,43 +32,65 @@ Some introductory text
 * Table of Contents                                         :TOC_1_gh:noexport:
 - [[#improvements][Improvements]]
 - [[#fixes][Fixes]]
-- [[#dependencies][Dependencies]]
 - [[#housekeeping][Housekeeping]]
 
 * Improvements
-** DONE [#B] Update tasks extension to include local tasks
-CLOSED: [2026-04-27 Mon 22:32]
-:PROPERTIES:
-:ID: 6bee9f80-d1b5-4121-ab9c-f795e4884d3e
-:END:
-#+IMPORT: [[file:design/log/2026-04-27-local-tasks.org]]
-If TASKS.local.org includes tasks, consider these local/draft/gitignored tasks.
-Not checked in, but surfaced in the extension UI.
-Update task extension and emacs plugins to include publish/unpublish bindings -- promoting
-a local task from TASKS.local.org and vice versa.
 ** TODO [#C] Add some sort of Jira integration for the tasks extension
 :PROPERTIES:
 :ID: 0276a6c7-0ca8-4c39-a90a-05587ad64698
 :END:
-*** TODO [#C] Setup Jira infrastructure
+*** TODO [#C] Setup Jira access
 :PROPERTIES:
 :ID: d618bcc1-9481-4431-a572-8a1f17612e4f
 :END:
-Setup appropriate tools and docs around Jira connection.
-- Login (?Oauth?)
-- List projects, issues etc. Maybe piggyback on JQL support provided by ?various vendors?.
-*** TODO [#C] Claim Jira tasks
+The atlassian mcp server has been setup - connect using /mcp reconnect atlassian.
+Consider what should be implemented via a jira extension to
+*** TODO [#A] Read-only Jira integration
 :PROPERTIES:
-:ID: edbea049-3a56-40ad-9aa5-660843364524
+:ID: 0d3431c4-d997-41ef-8e6d-0925a386ea6b
 :END:
-Ideally we'd be able to pull an item from Jira and create a task here...
-*** TODO [#C] Reference jira tasks
+**** TODO [#A] Reference jira issues
 :PROPERTIES:
 :ID: 097a6e4f-6752-4f97-8b41-f416f8b47384
 :END:
 Update the tasks extension and related skills to allow us to reference jira issue types.
-The most ergonomic approach from a user perspective would be to just include issue IDS -- but where -- in properties?
-And maybe embed a Jira URL in TASKS.org header metadata....
+The mapping is not one-to-one -- a single task here may link to one-to-many Jira issues.
+The most ergonomic approach from a user perspective would be to just include issue IDS -- in the properties drawer?
+And maybe embed a Jira URL and default project in TASKS.org header metadata.
+**** TODO [#B] Clone Jira issues
+:PROPERTIES:
+:ID: edbea049-3a56-40ad-9aa5-660843364524
+:END:
+Pull an item from Jira and create a task here.
+*** TODO [#B] Write/edit Jira integration
+:PROPERTIES:
+:ID: e7b91f96-ec83-4052-ab58-249e876bd946
+:END:
+**** TODO [#B] Update Jira issues
+:PROPERTIES:
+:ID: 6a808310-54c6-4ab6-ae47-8c8ef0bd6e55
+:END:
+Do things like...
+- Claim task (update assignee)
+- Add comments
+- Transition through workflow
+**** TODO [#C] Create Jira issues
+:PROPERTIES:
+:ID: cfc094b3-870c-4c93-833b-f5a05d478d4a
+:END:
+** DONE [#B] Refine org-memory protocol :emacs:pi:skills:
+CLOSED: [2026-04-28 Tue 11:12]
+:PROPERTIES:
+:ID: 80ea589b-501c-42d9-86e7-4d414c0c314e
+:CREATED: [2026-04-28 Tue 10:49]
+:STARTED: [2026-04-28 Tue 10:57]
+:END:
+#+IMPORT: [[file:design/log/2026-04-28-org-memory-refinement.org]]
+Review of skills + tasks extension + tasks-org Emacs minor mode
+identified consistency gaps, repetition, and verbosity. This task tracks
+refining the org-memory protocol into a single source of truth, closing
+Emacs-side parity gaps, and aligning =CLOSED:= placement with the standard
+org convention (before the properties drawer).
 ** TODO [#D] tasks-org: subtask absorption on plan create :emacs:pi:
 :PROPERTIES:
 :ID: f4a2c819-3e7d-4b08-a901-6d7c0e5b2f38
@@ -78,6 +100,13 @@ offer to move those subtasks into the new plan file (preserving =:ID:=
 properties and leaving a summary under the parent). Coordinate behaviour
 with the pi tasks extension's parser so results are consistent across
 editor and CLI.
+** TODO [#D] Package org-memory protocol / extensions
+:PROPERTIES:
+:ID: 79d6f4f5-70f9-404d-9b4c-0cf0ef0e7adb
+:END:
+Currently the skills and extensions are embedded in this repo.
+Good to either extract them, or come up with a packaging/deployment strategy to facilitate sharing them with the team / other
+interested parties.
 * Fixes
 ** TODO [#B] Update keybindings extension to handle capital letter properly
 :PROPERTIES:
@@ -85,12 +114,10 @@ editor and CLI.
 :END:
 #+IMPORT: [[file:design/log/2026-04-27-keybindings-capital-letters.org]]
 Currently a key sequence SPACE t A isn't activated as expected. The keybindings extension toggles on the sequence SPACE t SHIFT a.
-* Dependencies
-** TODO Evaluate pi-lens as a replacement for the in-repo lsp tool
+** TODO [#B] Tasks extension - archive function mistakenly won't archive some issues
 :PROPERTIES:
-:ID: bd58da61-36bb-4bed-a6d3-ac0024293676
+:ID: 84085b11-837b-449a-8cf8-190c607f480c
 :END:
-Seems more comprehensive...
 * Housekeeping
 
 ** WAITING [#C] Update nixGL flake URL :nix:

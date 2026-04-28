@@ -50,6 +50,7 @@ import {
   taskHasId,
   type Task,
 } from "./parser.ts";
+import { insertTasksIntoPlanSection, scaffoldPlan } from "./scaffold.ts";
 import { colorPriority, colorStatus, colorTags } from "./status-colors.ts";
 
 const EXT_NAME = getExtensionName(import.meta.url);
@@ -853,29 +854,6 @@ async function suggestPlanPath(task: Task, cwd: string): Promise<string> {
   return joinPlanDir(plansDir, filename);
 }
 
-/** Scaffold a minimal change-record body consistent with the `org-plan` skill. */
-function scaffoldPlan(task: Task, planTasks: Task[] = []): string {
-  const parentId = getTaskId(task);
-  // Standard change-record skeleton: same shape for proactive and
-  // retrospective flows.  * Implementation is included so retrospective
-  // drafts have a section to land in without restructuring the file.
-  const content = [
-    `#+TITLE: ${task.summary}`,
-    `#+DATE: ${formatOrgTimestamp()}`,
-    parentId ? `#+PARENT_ID: ${parentId}` : null,
-    "#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)",
-    "",
-    "* Context",
-    "",
-    "* Plan",
-    "",
-    "* Implementation",
-    "",
-    "",
-  ].filter((line): line is string => line !== null).join("\n");
-  return insertTasksIntoPlanSection(content, planTasks);
-}
-
 function taskLabel(task: Task): string {
   const priority = task.priority ? ` [#${task.priority}]` : "";
   const tags = task.tags.length > 0 ? ` :${task.tags.join(":")}:` : "";
@@ -920,36 +898,6 @@ function cloneTaskForPlan(task: Task, level: number): Task {
 
 function cloneSubtasksForPlan(task: Task): Task[] {
   return task.children.map((child) => cloneTaskForPlan(child, 2));
-}
-
-function insertTasksIntoPlanSection(content: string, tasks: Task[]): string {
-  if (tasks.length === 0) return content;
-
-  const block = serializeTasks(tasks).trimEnd();
-  const blockLines = block.split("\n");
-  const normalized = content.replace(/\n*$/, "\n");
-  const lines = normalized.split("\n");
-  const planIdx = lines.findIndex((line) => /^\*\s+Plan\s*$/.test(line));
-
-  if (planIdx === -1) {
-    return `${normalized.trimEnd()}\n\n* Plan\n${block}\n`;
-  }
-
-  let insertIdx = lines.length - 1;
-  for (let i = planIdx + 1; i < lines.length; i++) {
-    if (/^\*\s+\S/.test(lines[i] ?? "")) {
-      insertIdx = i;
-      break;
-    }
-  }
-
-  const insertLines: string[] = [];
-  if (insertIdx > 0 && lines[insertIdx - 1] !== "") insertLines.push("");
-  insertLines.push(...blockLines);
-  if ((lines[insertIdx] ?? "") !== "") insertLines.push("");
-
-  lines.splice(insertIdx, 0, ...insertLines);
-  return lines.join("\n").replace(/\n*$/, "\n");
 }
 
 class PrefilledInputPrompt implements Component, Focusable {
@@ -1078,7 +1026,7 @@ function buildProactiveChangeRecordPrompt(
       ? "Existing TASKS.org subtasks were moved into the linked change-record under * Plan, and the parent task now retains a plain-text summary of the extracted subtasks."
       : "The parent task had no local subtasks to absorb.",
     "",
-    "Use the `org-plan` and `org-tasks` skills. Start by asking me any scoping questions needed to develop the plan. Once the plan is agreed, write the final org content to the change-record file above. After writing it, offer to open the file in Emacs.",
+    "Use the `org-plan` and `org-tasks` skills. Start by asking me any scoping questions needed to develop the plan. Once the plan is agreed, write the final org content to the change-record file above. New `** TODO` plan tasks must include `:ID:` and `:CREATED: [YYYY-MM-DD Day HH:MM]` properties (use `date +'%Y-%m-%d %a %H:%M'` to obtain the timestamp). After writing it, offer to open the file in Emacs.",
   ].join("\n");
 }
 
@@ -1262,7 +1210,10 @@ async function createTask(
     tags: [],
     description: "",
     children: [],
-    propertyLines: [`:ID: ${randomUUID()}`],
+    propertyLines: [
+      `:ID: ${randomUUID()}`,
+      `:CREATED: [${formatOrgTimestamp()}]`,
+    ],
     importPath: null,
     importRaw: null,
     importChildren: undefined,
