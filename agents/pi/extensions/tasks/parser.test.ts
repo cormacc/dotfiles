@@ -253,6 +253,18 @@ function assertContains(haystack: string, needle: string, message: string): void
     "getFileKeyword tolerates no-space-after-colon");
   assertEqual(getFileKeyword(content, "MISSING"), null,
     "getFileKeyword returns null for absent keyword");
+
+  // Regression: an empty #+KEYWORD: line must not leak into the next line.
+  const withBlank = [
+    "#+JIRA_CLOUDID: abc-123",
+    "#+JIRA_PROJECT:",
+    "#+JIRA_BASE_URL: https://example.com",
+    "",
+  ].join("\n");
+  assertEqual(getFileKeyword(withBlank, "JIRA_PROJECT"), "",
+    "getFileKeyword: empty value yields empty string, not next-line content");
+  assertEqual(getFileKeyword(withBlank, "JIRA_BASE_URL"), "https://example.com",
+    "getFileKeyword: line after empty keyword still resolvable");
 }
 
 // ── getDrawerProperty / setDrawerProperty helpers ────────────────────

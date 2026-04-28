@@ -289,15 +289,27 @@ export function setDrawerProperty(
  * First occurrence wins; callers wanting `TASKS.local.org` to override
  * `TASKS.org` should call this on each file separately and prefer the
  * local value when present.
+ *
+ * The value is whatever appears after `:` on the same line, trimmed.
+ * Empty values (e.g. `#+JIRA_PROJECT:`) yield the empty string `""` —
+ * distinct from null (keyword absent). Only horizontal whitespace
+ * (` `, `\t`) is allowed between the colon and the value, so a blank
+ * keyword line never leaks into the next line.
  */
 export function getFileKeyword(
   content: string,
   name: string,
 ): string | null {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`^\\s*#\\+${escaped}\\s*:\\s*(.*?)\\s*$`, "im");
+  // Use [\t ]* (horizontal whitespace only) around the captured value
+  // so an empty `#+NAME:` line doesn't consume the following newline
+  // and bleed into the next line's content.
+  const re = new RegExp(
+    `^[\\t ]*#\\+${escaped}[\\t ]*:[\\t ]*(.*?)[\\t ]*$`,
+    "im",
+  );
   const m = re.exec(content);
-  return m?.[1]?.trim() ?? null;
+  return m?.[1] ?? null;
 }
 
 // ── Linked external issues (`:LINKED_ISSUES:` + `#+ISSUE_URL_BASE`) ───────

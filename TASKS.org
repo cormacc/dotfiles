@@ -5,6 +5,15 @@
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 #+DEFAULT_PLAN_DIR: [[file:./design/log]]
 
+# Tracker linkage (consumed by the `tasks` extension for badge rendering
+# and `J` browser-open of bare keys in `:LINKED_ISSUES:`).
+#+ISSUE_URL_BASE: https://your-org.atlassian.net/browse/{ID}
+
+# Jira-specific keywords (consumed by the `jira` extension only).
+#+JIRA_CLOUDID: 00000000-0000-4000-8000-000000000000
+#+JIRA_PROJECT:
+#+JIRA_BASE_URL: https://your-org.atlassian.net
+
 
 # EXPORT SETUP
 
