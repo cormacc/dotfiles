@@ -460,7 +460,6 @@ CLOSED: [2026-04-28 Tue 11:38]
 :ARCHIVED: [2026-04-28 Tue 11:38]
 :END:
 #+IMPORT: [[file:design/log/2026-04-28-tasks-archive-fix.org]]
-
 ** DONE [#D] tasks-org: subtask absorption on plan create :emacs:pi:
 CLOSED: [2026-04-28 Tue 11:52]
 :PROPERTIES:
@@ -474,3 +473,12 @@ offer to move those subtasks into the new plan file (preserving =:ID:=
 properties and leaving a summary under the parent). Coordinate behaviour
 with the pi tasks extension's parser so results are consistent across
 editor and CLI.
+
+** DONE [#C] Add some sort of Jira integration for the tasks extension
+CLOSED: [2026-04-28 Tue 14:00]
+:PROPERTIES:
+:ID: 0276a6c7-0ca8-4c39-a90a-05587ad64698
+:STARTED: [2026-04-28 Tue 13:27]
+:ARCHIVED: [2026-04-28 Tue 14:00]
+:END:
+#+IMPORT: [[file:design/log/2026-04-28-jira-integration.org]]

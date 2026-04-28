@@ -44,62 +44,16 @@ Some introductory text
 - [[#housekeeping][Housekeeping]]
 
 * Improvements
-** DONE [#C] Add some sort of Jira integration for the tasks extension
-CLOSED: [2026-04-28 Tue 14:00]
-:PROPERTIES:
-:ID: 0276a6c7-0ca8-4c39-a90a-05587ad64698
-:STARTED: [2026-04-28 Tue 13:27]
-:END:
-#+IMPORT: [[file:design/log/2026-04-28-jira-integration.org]]
-*** TODO [#C] Setup Jira access
-:PROPERTIES:
-:ID: d618bcc1-9481-4431-a572-8a1f17612e4f
-:END:
-The atlassian mcp server has been setup - connect using /mcp reconnect atlassian.
-Consider what should be implemented via a jira extension to
-*** TODO [#A] Read-only Jira integration
-:PROPERTIES:
-:ID: 0d3431c4-d997-41ef-8e6d-0925a386ea6b
-:END:
-**** TODO [#A] Reference jira issues
-:PROPERTIES:
-:ID: 097a6e4f-6752-4f97-8b41-f416f8b47384
-:END:
-Update the tasks extension and related skills to allow us to reference jira issue types.
-The mapping is not one-to-one -- a single task here may link to one-to-many Jira issues.
-The most ergonomic approach from a user perspective would be to just include issue IDS -- in the properties drawer?
-And maybe embed a Jira URL and default project in TASKS.org header metadata.
-**** TODO [#B] Clone Jira issues
-:PROPERTIES:
-:ID: edbea049-3a56-40ad-9aa5-660843364524
-:END:
-Pull an item from Jira and create a task here.
-*** TODO [#B] Write/edit Jira integration
-:PROPERTIES:
-:ID: e7b91f96-ec83-4052-ab58-249e876bd946
-:END:
-**** TODO [#B] Update Jira issues
-:PROPERTIES:
-:ID: 6a808310-54c6-4ab6-ae47-8c8ef0bd6e55
-:END:
-Do things like...
-- Claim task (update assignee)
-- Add comments
-- Transition through workflow
-**** TODO [#C] Create Jira issues
-:PROPERTIES:
-:ID: cfc094b3-870c-4c93-833b-f5a05d478d4a
-:END:
 ** TODO [#C] Token-efficient Jira clone workflow
 :PROPERTIES:
 :ID: 4ad4bb1b-9e74-48a0-9ce4-2d69639a8bc8
 :CREATED: 2026-04-28 Tue 15:16
 :END:
+#+IMPORT: [[file:design/log/2026-04-28-jira-clone-token-efficiency.org]]
 Follow-up to the read-only Jira integration. Today's `/jira clone` round-trips the
 entire `atlassian_getJiraIssue` JSON and the rendered org body through the model,
 which is wasteful (~17KB ingested for ~6 fields used). Step 1 (field-list filter
 in the prompt) shipped on 2026-04-28. The remaining wins below are tracked here.
-
 *** TODO [#C] Two-step clone with per-session cache
 :PROPERTIES:
 :ID: 5a0b8c2e-f1a3-4d24-b6e8-6c1c2e9b1a01
@@ -126,7 +80,24 @@ Replace the single all-in-one prompt with a fetch + apply pair:
   captured into the cache by the registered tool wrapper rather than echoed
   through the conversation. Verify this is achievable with the current
   ExtensionAPI before committing to the design.
-
+*** TODO [#D] ~/jira get KEY~ discovery subcommand
+:PROPERTIES:
+:ID: 8a7d832c-03e0-443d-b359-f158e8e47983
+:END:
+User-facing inspection helper, not part of the workflow internals.
+- Add ~/jira get KEY [KEY...]~ as a sibling subcommand.
+- Validate keys (PROJ-NNN regex; bare-number resolution against
+  ~#+JIRA_PROJECT~) via the existing ~resolveKey~ helper.
+- Resolve cloudId from ~#+JIRA_CLOUDID~ automatically.
+- Reuse the field-list constant introduced for ~buildClonePrompt~ so the
+  payload shape stays consistent across the extension.
+- Emit a prompt instructing the agent to fetch via ~atlassian_getJiraIssue~
+  (or ~jira_get_issue~ once the tool lands) and render a compact
+  human-readable summary: heading, priority/status, labels, parent,
+  subtasks, description preview — not raw JSON.
+- Update README + the /jira help description to list the new subcommand.
+- Ship together with the ~jira_get_issue~ tool from the sibling subtask so
+  the slash command and the underlying primitive land in one change.
 *** TODO [#C] Shared ~tasks.insertTask~ API
 :PROPERTIES:
 :ID: 6c2d4f8b-3a91-4e57-b04c-9d7d8a3a9b02
@@ -144,7 +115,6 @@ clone path into a shared helper exposed by the tasks extension:
   already drifting between the jira prompt template and the extension code.
 - Acceptance: the jira ~clone_apply~ tool above implemented purely on top of
   this helper, with no org-mode string assembly inside the jira extension.
-
 ** TODO [#D] Package org-memory protocol / extensions
 :PROPERTIES:
 :ID: 79d6f4f5-70f9-404d-9b4c-0cf0ef0e7adb

@@ -178,7 +178,6 @@ CLOSED: [2026-04-28 Tue 13:47]
 :CREATED: [2026-04-25 Sat 09:00]
 :STARTED: [2026-04-28 Tue 13:27]
 :END:
-
 Two strands of foundation work:
 1. /Tracker-agnostic/ external-issue support added to the =tasks=
    extension and documented as a stable contract.
@@ -187,7 +186,6 @@ Two strands of foundation work:
 
 No MCP traffic in this stage.  No Jira-specific code lands in =tasks=
 or =org-tasks=.
-
 *** DONE [#A] Document extension-point conventions in =org-tasks/SKILL.md=
 CLOSED: [2026-04-28 Tue 13:29]
 :PROPERTIES:
@@ -211,7 +209,6 @@ CLOSED: [2026-04-28 Tue 13:29]
   README), but do /not/ mention any specific tracker.
 - Acceptance: skill renders cleanly, references no third-party
   integrations by name; harness still loads it.
-
 *** DONE [#A] Lock in generic round-trip in =tasks=' parser
 CLOSED: [2026-04-28 Tue 13:36]
 :PROPERTIES:
@@ -230,7 +227,6 @@ Lock it in before anything else depends on it.
   =setDrawerProperty(task, name, value): void=,
   =getFileKeyword(parsed, name): string | null=.
 - Acceptance: =./test.sh= passes with the new test; helpers exported.
-
 *** DONE [#A] First-class =:LINKED_ISSUES:= + =#+ISSUE_URL_BASE= in =tasks=
 CLOSED: [2026-04-28 Tue 13:39]
 :PROPERTIES:
@@ -280,7 +276,6 @@ and key handler.
 - Acceptance: =./test.sh= passes with new tests; manual smoke test
   on a fixture task with =MBFW-123 [[https://example/x][x]]= shows
   two badges and =J= opens both URLs in turn.
-
 *** DONE [#A] Update the =tasks= README for =:LINKED_ISSUES:= + =J=
 CLOSED: [2026-04-28 Tue 13:40]
 :PROPERTIES:
@@ -298,7 +293,6 @@ CLOSED: [2026-04-28 Tue 13:40]
   create) live in companion extensions like =jira=.
 - Acceptance: README rendered and reviewed; cross-link from
   =org-tasks/SKILL.md= "Extension points" section.
-
 *** DONE [#A] Scaffold the =jira= pi extension
 CLOSED: [2026-04-28 Tue 13:44]
 :PROPERTIES:
@@ -320,7 +314,6 @@ status check. Connection visible at
 - Acceptance: =/jira= prints the right line in both states; the
   extension installs cleanly via the existing =agents.nix= symlink
   rule.
-
 *** DONE [#A] Scaffold =agents/skills/org-jira/SKILL.md=
 CLOSED: [2026-04-28 Tue 13:46]
 :PROPERTIES:
@@ -350,7 +343,6 @@ Documents:
 - Offline-degradation contract.
 - Acceptance: skill listed in the harness's available-skills index on
   the next session.
-
 *** DONE [#A] Add file-level keywords to =TASKS.org=
 CLOSED: [2026-04-28 Tue 13:47]
 :PROPERTIES:
@@ -371,7 +363,6 @@ Added a regression test.
 - Acceptance: covered by the round-trip test from the foundations
   task; visual check that the keywords survive a save-from-Emacs
   cycle.
-
 ** DONE [#A] Read-only Jira integration :jira:
 CLOSED: [2026-04-28 Tue 13:52]
 :PROPERTIES:
@@ -379,14 +370,12 @@ CLOSED: [2026-04-28 Tue 13:52]
 :CREATED: [2026-04-25 Sat 09:00]
 :STARTED: [2026-04-28 Tue 13:48]
 :END:
-
 The display half ("see and click my Jira tickets from a task") falls
 out of the foundations stage — generic =:LINKED_ISSUES:= rendering
 in =tasks=, with =#+ISSUE_URL_BASE= pointing at the day-job Jira
 instance, gives us badges and =J= for free.  This stage covers the
 remaining read-only Jira-specific work: pulling new tasks from Jira
 and codifying the Jira-shape conventions in =org-jira=.
-
 *** DONE [#A] Document Jira reference conventions in =org-jira=
 CLOSED: [2026-04-28 Tue 13:48]
 :PROPERTIES:
@@ -407,7 +396,6 @@ Skill-level documentation (no code).
 - /No code work in this task./
 - Acceptance: skill content reviewed; matches the actual behaviour of
   the foundations stage.
-
 *** DONE [#B] Clone Jira issues into tasks
 CLOSED: [2026-04-28 Tue 13:52]
 :PROPERTIES:
@@ -415,12 +403,10 @@ CLOSED: [2026-04-28 Tue 13:52]
 :CREATED: [2026-04-25 Sat 09:00]
 :STARTED: [2026-04-28 Tue 13:48]
 :END:
-
 User-visible behaviour: a slash command =/jira clone <KEY>= creates a
 new task seeded from the Jira issue.  Whether the new task lands in
 =TASKS.org= or =TASKS.local.org= follows the existing tasks-extension
 new-task rule (cursor context); the Jira flow itself does not care.
-
 **** DONE [#B] =/jira clone= slash command (agent-driven)
 CLOSED: [2026-04-28 Tue 13:52]
 :PROPERTIES:
@@ -450,7 +436,6 @@ slash-command handler in =index.ts= drives them and uses
   right ID, summary, body, priority, and =:LINKED_ISSUES:=.  Badge
   appears via =tasks=' native rendering, no =jira=-side display work
   needed.
-
 ** DONE [#B] Write/edit Jira integration :jira:
 CLOSED: [2026-04-28 Tue 13:59]
 :PROPERTIES:
@@ -458,10 +443,8 @@ CLOSED: [2026-04-28 Tue 13:59]
 :CREATED: [2026-04-25 Sat 09:00]
 :STARTED: [2026-04-28 Tue 13:53]
 :END:
-
 Promotes Jira from a passive reference to an active sink.  Gated on
 the read-only stage being stable.
-
 *** DONE [#B] Update Jira issues from task transitions
 CLOSED: [2026-04-28 Tue 13:59]
 :PROPERTIES:
@@ -469,7 +452,6 @@ CLOSED: [2026-04-28 Tue 13:59]
 :CREATED: [2026-04-25 Sat 09:00]
 :STARTED: [2026-04-28 Tue 13:53]
 :END:
-
 User-visible behaviour: claim a Jira issue, add a comment, transition
 it through its workflow.  Triggered by explicit slash commands and
 optionally by task status cycling.
@@ -480,7 +462,6 @@ matching =/^[A-Z][A-Z0-9_]+-\d+$/=, or org-link tokens whose target
 host matches =#+JIRA_BASE_URL=).  Tokens that don't match are
 ignored — the same task can carry GitHub or Linear links
 without confusing the Jira workflow.
-
 **** DONE [#B] =/jira claim= command — set assignee to current user
 CLOSED: [2026-04-28 Tue 13:56]
 :PROPERTIES:
@@ -492,7 +473,6 @@ CLOSED: [2026-04-28 Tue 13:56]
   agent calls =atlassian_atlassianUserInfo= once, then
   =atlassian_editJiraIssue= to set =assignee=.
 - Acceptance: a =SAND= sandbox issue is reassigned successfully.
-
 **** DONE [#B] =/jira comment= — add a comment to issue(s)
 CLOSED: [2026-04-28 Tue 13:56]
 :PROPERTIES:
@@ -503,7 +483,6 @@ CLOSED: [2026-04-28 Tue 13:56]
 - Argument is a free-form markdown comment; agent calls
   =atlassian_addCommentToJiraIssue= per Jira-shaped key.
 - Acceptance: comment visible in Jira UI on a sandbox issue.
-
 **** DONE [#C] Optional auto-transition on task =STARTED= / =DONE=
 CLOSED: [2026-04-28 Tue 13:59]
 :PROPERTIES:
@@ -528,7 +507,6 @@ Implementation:
   filed as a future enhancement in the =tasks= README.
 - Acceptance gating remains user-side smoke test on =SAND= with
   =autoTransition: true= in the settings file.
-
 *** DONE [#C] Create Jira issues from tasks
 CLOSED: [2026-04-28 Tue 13:56]
 :PROPERTIES:
@@ -536,11 +514,9 @@ CLOSED: [2026-04-28 Tue 13:56]
 :CREATED: [2026-04-25 Sat 09:00]
 :STARTED: [2026-04-28 Tue 13:53]
 :END:
-
 User-visible behaviour: a task with no Jira-shaped tokens in
 =:LINKED_ISSUES:= can be promoted to a real Jira issue via
 =/jira create=.  The new key is appended to =:LINKED_ISSUES:=.
-
 **** DONE [#C] =/jira create [project]= command
 CLOSED: [2026-04-28 Tue 13:56]
 :PROPERTIES:
@@ -558,7 +534,6 @@ CLOSED: [2026-04-28 Tue 13:56]
   =tasks=' native rendering.
 - Acceptance: =/jira create SAND= on a task creates a =SAND-…=
   ticket, writes back the key, and the badge appears.
-
 * Implementation
 
 Delivered between 2026-04-28 13:27 and 2026-04-28 13:59 across three
