@@ -139,3 +139,10 @@ rebuild install step.
 :BLOCKED-BY: url:https://github.com/nix-community/nixGL/pull/187
 :END:
 Waiting on an upstream fix for an nvidia-open issue
+* STARTED Create self-improvement skill
+:PROPERTIES:
+:ID: 2262ed25-f0fc-40fd-9d21-41a0b16fb3a1
+:CREATED: [2026-04-29 Wed 00:55]
+:STARTED: [2026-04-29 Wed 08:00]
+:END:
+#+IMPORT: [[file:design/log/2026-04-28-create-self-improvement-skill.org]]
