@@ -1473,7 +1473,11 @@ async function createTask(
     endLine: 0,
   };
 
-  const container: Task[] = parentTask ? parentTask.children : tasks;
+  // For top-level inserts, push into `targetRoot` (the filtered slice that
+  // gets serialized below). Pushing into `tasks` instead would mutate the
+  // combined shared+local array but leave `targetRoot` — the array we
+  // actually write — untouched, silently dropping the new task.
+  const container: Task[] = parentTask ? parentTask.children : targetRoot;
   if (insertAfterTask) {
     const idx = container.indexOf(insertAfterTask);
     if (idx >= 0) {
