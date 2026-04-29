@@ -49,6 +49,69 @@ mistakes, taste disagreements, or ordinary user direction
 changes. When unsure, ask the user once whether to log it; their
 answer is itself a useful signal.
 
+### Trigger gate after every user correction
+
+After any user correction of agent behaviour, *before* moving on,
+briefly evaluate the four self-proposal triggers above. If any
+fit, choose a loop (next section) and act. Skipping this gate is
+how durable lessons get lost.
+
+## Two improvement loops
+
+Not every observation deserves a `TASKS.org` entry. The skill
+has two loops; pick the right one before doing anything else.
+
+### Tight loop — incremental correction
+
+For small, obvious, doc-only fixes the agent proposes a minimal
+diff inline, the user approves, and the change is committed
+immediately. No `TASKS.org` entry, no change-record, no
+planning. The git history *is* the record.
+
+Use the tight loop when **all** of these hold:
+
+- The affected artefact lives in the *current session's repo*
+  (no cross-repo round-trip).
+- The fix is a small, self-contained edit to a *doc / guideline*
+  artefact: `AGENTS.md`, a `SKILL.md` prose section, a README,
+  an inline comment. One- to a few-line additions, a typo, a
+  missing example, a clarifying sentence.
+- The location *and* the exact wording are obvious enough to
+  draft in one pass without design choices.
+- No code change in extensions, scripts, or executables.
+- No cross-cutting implications, no scope debate, no
+  alternatives worth weighing.
+
+Tight-loop flow:
+
+1. Draft the proposed edit as an exact before/after diff.
+2. Show it to the user with a one-line rationale.
+3. On approval: apply the edit and commit immediately with a
+   message that follows the *target repo's* commit style
+   (inspect `git log --oneline` for the dominant pattern).
+4. On any pushback ("can we discuss", "not sure that's the
+   right wording", "this affects more than I thought"): fall
+   back to the slow loop.
+
+### Slow loop — larger-impact changes
+
+Default for everything else. Files an entry under
+`* Agent feedback` so the work can be triaged, deduped, and
+optionally promoted to a planned change-record.
+
+Use the slow loop when **any** of these hold:
+
+- Code change to skills, pi extensions, scripts.
+- A new skill, file, restructure, or rename.
+- The fix has multiple plausible designs.
+- The fix touches another repo (cross-tier hand-off via
+  pi-intercom).
+- The user wants to think about it before committing.
+- You're not certain — when in doubt, slow loop.
+
+The slow-loop pipeline (routing, transport, triage routine,
+entry conventions) is documented in the rest of this file.
+
 ## Routing: project-local vs dotfiles-global
 
 Before doing anything else, classify the affected artefact's
@@ -78,11 +141,13 @@ If they decline to disambiguate, default to the **current
 project** (least disruptive) and add the tag `:tier-unknown:` to
 the entry so it can be re-routed later.
 
-## Two flows
+## Slow-loop transport: two flows
 
-The routing decision selects one of two flows. Triage logic
-(classify affected target, dedupe, draft entry, confirm, insert,
-prompt) is identical between them — only the *transport* differs.
+In the slow loop, the routing decision selects one of two
+transport flows. Triage logic (classify affected target, dedupe,
+draft entry, confirm, insert, prompt) is identical between them
+— only the *transport* differs. The tight loop bypasses both:
+it edits the file in the current session's repo and commits.
 
 ### Flow A: project-local (no transport)
 
@@ -262,7 +327,30 @@ When the entry is ready to be planned, follow the standard
 linked from the task via `#+IMPORT:`. Nothing about this skill
 short-circuits that flow.
 
-## Worked example
+## Worked examples
+
+### Tight loop
+
+The user corrects the agent's commit headline to follow
+Conventional Commits. AGENTS.md doesn't document the convention
+(trigger 2 + 3 fit). The current session is in the dotfiles
+repo; the fix is a one-line addition to `agents/AGENTS.md`. All
+tight-loop preconditions hold:
+
+1. Agent drafts the diff:
+   ```
+   + - Match the existing commit style of the target repo.
+   +   Inspect `git log --oneline` for the dominant pattern
+   +   (e.g. Conventional Commits with `type(scope): subject`).
+   ```
+2. Shows the user with rationale: "missing guideline; just
+   corrected me on this."
+3. User approves → agent applies edit and commits immediately
+   with `docs(agents): note repo commit-style convention` (a
+   message that itself respects the convention being added).
+4. Done. No `TASKS.org` entry needed.
+
+### Slow loop
 
 A user in `~/code/some-project` corrects the agent's misuse of
 `tasks_insert_task` (the agent forgot `allowCreateSection`).
