@@ -14,9 +14,10 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { readFile, realpath, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import {
+  createdLogEntry,
   getDrawerProperty,
   getTaskId,
   formatOrgTimestamp,
@@ -186,7 +187,7 @@ export function buildTaskBlock(args: BuildTaskArgs): BuiltTaskBlock {
 
   const body = (args.body ?? "").replace(/^\n+/, "").replace(/\n+$/, "");
 
-  const blockLines = [heading, drawer];
+  const blockLines = [heading, drawer, ":LOGBOOK:", createdLogEntry(createdAt), ":END:"];
   if (body.length > 0) blockLines.push(body);
   const block = blockLines.join("\n") + "\n";
 
@@ -210,7 +211,8 @@ export type InsertErrorReason =
   | "duplicate"
   | "section_not_found"
   | "empty_summary"
-  | "file_unreadable";
+  | "file_unreadable"
+  | "path_outside_project";
 
 /** Args accepted by {@link insertTaskIntoFile}. */
 export interface InsertTaskArgs extends BuildTaskArgs {
@@ -243,6 +245,8 @@ export interface InsertTaskArgs extends BuildTaskArgs {
    * recursively walked.
    */
   alsoScan?: string[];
+  /** Project root used to sandbox target and scan paths. Defaults to cwd. */
+  projectRoot?: string;
 }
 
 /** Successful insertion result. */
@@ -326,8 +330,34 @@ async function readMaybe(path: string): Promise<string | null> {
  * Returns an array of `{ task, file }` pairs so callers can attribute
  * collisions back to the originating file.
  */
+function isWithinRoot(path: string, root: string): boolean {
+  const rel = relative(root, path);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+async function resolveExistingOrParent(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch {
+    try {
+      const parent = await realpath(dirname(path));
+      return resolve(parent, path.split(/[\\/]/).pop() ?? "");
+    } catch {
+      return resolve(path);
+    }
+  }
+}
+
+async function sandboxPath(path: string, projectRoot: string): Promise<{ ok: true; path: string } | { ok: false; path: string }> {
+  const root = await resolveExistingOrParent(projectRoot);
+  const abs = isAbsolute(path) ? path : resolve(root, path);
+  const real = await resolveExistingOrParent(abs);
+  return isWithinRoot(real, root) ? { ok: true, path: real } : { ok: false, path: real };
+}
+
 async function collectAllTasks(
   paths: string[],
+  projectRoot: string,
   visited = new Set<string>(),
 ): Promise<{ task: Task; file: string }[]> {
   const out: { task: Task; file: string }[] = [];
@@ -344,29 +374,30 @@ async function collectAllTasks(
     // recurse mid-iteration. Ordering doesn't matter for the duplicate
     // check itself — first hit wins.
     const walkLater: string[] = [];
-    const recurseTasks = (ts: Task[]) => {
+    const recurseTasks = async (ts: Task[]) => {
       for (const t of ts) {
         out.push({ task: t, file: absPath });
-        recurseTasks(t.children);
+        await recurseTasks(t.children);
         if (t.importPath) {
           const importAbs = isAbsolute(t.importPath)
             ? t.importPath
             : resolve(dir, t.importPath);
-          walkLater.push(importAbs);
+          const sandboxed = await sandboxPath(importAbs, projectRoot);
+          if (sandboxed.ok) walkLater.push(sandboxed.path);
         }
       }
     };
-    recurseTasks(tasks);
+    await recurseTasks(tasks);
     for (const fp of fileImports) {
       const importAbs = isAbsolute(fp) ? fp : resolve(dir, fp);
-      walkLater.push(importAbs);
+      const sandboxed = await sandboxPath(importAbs, projectRoot);
+      if (sandboxed.ok) walkLater.push(sandboxed.path);
     }
     for (const next of walkLater) await walk(next);
   };
 
   for (const p of paths) {
-    const absP = isAbsolute(p) ? p : resolve(p);
-    await walk(absP);
+    await walk(p);
   }
   return out;
 }
@@ -486,14 +517,35 @@ export async function insertTaskIntoFile(
     };
   }
 
-  const targetAbs = isAbsolute(args.file) ? args.file : resolve(args.file);
-  const scanPaths = [targetAbs, ...(args.alsoScan ?? []).map((p) =>
-    isAbsolute(p) ? p : resolve(p),
-  )];
+  const projectRoot = isAbsolute(args.projectRoot ?? "")
+    ? args.projectRoot!
+    : resolve(args.projectRoot ?? ".");
+  const targetSandbox = await sandboxPath(args.file, projectRoot);
+  if (!targetSandbox.ok) {
+    return {
+      status: "error",
+      reason: "path_outside_project",
+      message: `Target file resolves outside project root: ${targetSandbox.path}`,
+    };
+  }
+  const targetAbs = targetSandbox.path;
+
+  const scanPaths = [targetAbs];
+  for (const p of args.alsoScan ?? []) {
+    const scanSandbox = await sandboxPath(p, projectRoot);
+    if (!scanSandbox.ok) {
+      return {
+        status: "error",
+        reason: "path_outside_project",
+        message: `Scan file resolves outside project root: ${scanSandbox.path}`,
+      };
+    }
+    scanPaths.push(scanSandbox.path);
+  }
 
   const tokens = (args.linkedIssues ?? []).filter((t) => t && t.length > 0);
   if (tokens.length > 0) {
-    const collected = await collectAllTasks(scanPaths);
+    const collected = await collectAllTasks(scanPaths, projectRoot);
     const duplicate = findDuplicate(collected, tokens);
     if (duplicate) return duplicate;
   }

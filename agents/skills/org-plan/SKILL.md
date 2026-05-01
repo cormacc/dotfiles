@@ -64,6 +64,9 @@ Brief self-contained summary.
 :ID: 89abcdef-0123-4567-89ab-cdef01234567
 :CREATED: [2026-04-25 Sat 09:10]
 :END:
+:LOGBOOK:
+- Created [2026-04-25 Sat 09:10]
+:END:
 Acceptance criteria.
 
 * Implementation
@@ -72,31 +75,65 @@ Acceptance criteria.
 ```
 
 Plan task headings may nest deeper than level 2. Status discipline
-(including parent propagation, `:STARTED:`, `CLOSED:`) is owned by
-`org-tasks`.
+(including parent propagation, `:STARTED:`, `CLOSED:`, and
+`:LOGBOOK:` lifecycle entries) is owned by `org-tasks`.
 
-### UUID mirroring with TASKS.org
+The `:LOGBOOK:` drawer shown above is optional in hand-authored
+skeletons until the first automated status write. When present, it
+lives after `:PROPERTIES:` and before task body text. Prefer changing
+status through tooling so the heading status, `:STARTED:`, `CLOSED:`,
+parent propagation, and lifecycle log remain synchronized.
 
-When the parent task in `TASKS.org` already has subtasks, the
-proactive plan's *level-2* `* Plan` headings **reuse** those
-subtask `:ID:` values one-to-one. Heading text, priority, and tags
-may be refined as the plan tightens scope; the `:ID:` is the
-durable link.
+### Subtask migration from TASKS.org
+
+When a task in `TASKS.org` already has subtasks and a proactive
+change-record is created, those subtask trees are **moved** into the
+change-record under `* Plan` with their existing `:ID:` values intact.
+They are removed from the parent `TASKS.org` subtree so the loaded task
+graph contains one canonical node per UUID.
+
+The parent task may retain a plain-text bullet summary of migrated
+subtasks for readability, but those bullets are not tasks and contain
+no `:ID:` drawers. The canonical writable task nodes live in the
+change-record after migration.
+
+Example before planning:
+
+```org
+** TODO [#A] Implement authentication
+:PROPERTIES:
+:ID: parent-id
+:END:
+*** TODO Add login endpoint
+:PROPERTIES:
+:ID: child-id
+:END:
+```
+
+Example after planning:
+
+```org
+** TODO [#A] Implement authentication
+:PROPERTIES:
+:ID: parent-id
+:END:
+#+IMPORT: [[file:design/log/authentication.org]]
+Migrated subtasks:
+- TODO Add login endpoint
+```
+
+```org
+* Plan
+** TODO Add login endpoint
+:PROPERTIES:
+:ID: child-id
+:END:
+```
 
 Finer-grained level-3+ subtasks introduced by the plan get fresh
 UUIDs and `:CREATED:` properties. New plan-only level-2 work units
 that have no TASKS.org analogue (e.g. "Documentation + measurement")
 also get fresh UUIDs.
-
-Do **not** mint a new UUID for a level-2 plan task that conceptually
-matches an existing TASKS.org subtask — this orphans both copies
-from parent-status propagation and from the resume workflow. If a
-TASKS.org subtask is being re-scoped at plan time, keep its `:ID:`
-and note the re-scope in the plan task's body or in `* Context`.
-
-TASKS.org subtasks are *not* deleted when the plan is drafted; they
-remain the high-level outline. The plan adds depth (finer subtasks)
-and context (`* Context`, `* Implementation`).
 
 
 ## Retrospective change-records
@@ -109,6 +146,9 @@ When drafting after work has started or completed:
   `* Implementation`.
 - Do not rewrite history to look planned in advance. Label
   retrospective context clearly when useful.
+- Treat `:LOGBOOK:` lifecycle history as evidence, not fiction: preserve
+  entries emitted by tooling and avoid hand-editing status history to
+  make retrospective work appear proactive.
 
 When the work is *fully* closed and there was no prior plan, the
 harness may scaffold an empty change-record and ask the agent to
@@ -126,7 +166,8 @@ Resume the active task following `org-tasks` § "Starting or resuming
 work", then for each plan task:
 
 1. Mark it `STARTED` if beginning now (parent status follows from
-   `org-tasks` rules).
+   `org-tasks` rules). Prefer tooling-driven transitions so lifecycle
+   logging is kept in sync.
 2. Implement the smallest change that satisfies the task.
 3. Verify the change.
 4. Mark it `DONE` and add a short result note if useful.

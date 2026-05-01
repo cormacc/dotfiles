@@ -144,6 +144,34 @@ function assertContains(haystack: string, needle: string, message: string): void
     ":CREATED: survives round-trip in property lines");
 }
 
+// ── :LOGBOOK: lifecycle drawer round-trip ───────────────────────────
+
+{
+  const input = [
+    "* STARTED Task with history",
+    ":PROPERTIES:",
+    ":ID: 55555555-6666-4777-8888-999999999999",
+    ":END:",
+    ":LOGBOOK:",
+    "- Created [2026-04-28 Tue 10:49]",
+    "- State \"STARTED\" from \"TODO\" [2026-04-28 Tue 11:00]",
+    ":END:",
+    "Body text.",
+    "",
+  ].join("\n");
+
+  const { tasks } = parseTasks(input);
+  assertEqual(tasks[0]!.logbookLines, [
+    "- Created [2026-04-28 Tue 10:49]",
+    "- State \"STARTED\" from \"TODO\" [2026-04-28 Tue 11:00]",
+  ], ":LOGBOOK: lines parsed structurally");
+  assertEqual(tasks[0]!.description, "Body text.",
+    ":LOGBOOK: is not swallowed into description");
+  const out = serializeTasks(tasks);
+  assertContains(out, ":LOGBOOK:\n- Created [2026-04-28 Tue 10:49]",
+    ":LOGBOOK: survives round-trip");
+}
+
 // ── scaffoldPlan canonical-skeleton snapshot ──────────────────────────
 //
 // Regression guard against unintentional changes to the canonical
@@ -170,6 +198,7 @@ function assertContains(haystack: string, needle: string, message: string): void
       description: "",
       children: [],
       propertyLines: [":ID: 80ea589b-501c-42d9-86e7-4d414c0c314e"],
+      logbookLines: [],
       importPath: null,
       importRaw: null,
       isLocal: false,

@@ -9,10 +9,11 @@ of the generic `tasks` extension's tracker-agnostic linkage features
 ## Status
 
 Read and write workflows implemented (status / clone / get / claim /
-comment / create). Optional `autoTransition` on local
-TODO→STARTED→DONE cycles is implemented as an event listener on
-`tasks:status-changed`; off by default, opt in via
-`~/.pi/agent/jira-ext.json`.
+comment / create). Optional `autoTransition` on live local status-change events is
+implemented as an event listener on `tasks:status-changed`; off by
+default, opt in via `~/.pi/agent/jira-ext.json`. Durable task LOGBOOK
+history is audit evidence and is not replayed as a queue of Jira
+transitions.
 
 ## Commands
 
@@ -25,7 +26,7 @@ TODO→STARTED→DONE cycles is implemented as an event listener on
 | `/jira claim`                          | Implemented | Set assignee on every Jira-shaped issue on the selected task. |
 | `/jira comment <markdown>`             | Implemented | Add a comment to every Jira-shaped issue on the selected task. |
 | `/jira create [PROJECT] [--type Type]` | Implemented | Promote the selected task to a new Jira issue.         |
-| auto-transition (no command)           | Implemented | Mirror local TODO→STARTED→DONE on linked Jira issues. Off by default. |
+| auto-transition (no command)           | Implemented | Reflect live local status changes on linked Jira issues. Off by default. |
 
 ## Tools
 
@@ -84,7 +85,9 @@ keys are stored as **bare `PROJ-NNN` tokens**, not full org links — the
 :END:
 ```
 
-`tasks` renders these as cyan badges and opens them with `J`. This
+`tasks` renders these as cyan badges and opens them with `J`. URL bases
+and `#+JIRA_*` keywords are project-local trusted configuration; see
+the `org-jira` skill's trust-boundary section for details. This
 extension's planned `/jira *` commands enumerate `:LINKED_ISSUES:`,
 filter to Jira-shaped tokens (matching `^[A-Z][A-Z0-9_]+-\d+$` for
 bare tokens or matching `#+JIRA_BASE_URL` host for org-link tokens),
@@ -111,7 +114,8 @@ Three optional `#+` keywords in `TASKS.org` (or override in
 
 When `#+JIRA_CLOUDID` is absent, the agent calls
 `atlassian_getAccessibleAtlassianResources` and picks the resource whose
-URL matches `#+JIRA_BASE_URL`.
+URL matches `#+JIRA_BASE_URL`. Values from `TASKS.local.org` override
+shared configuration for the current checkout only.
 
 ## Skill
 
