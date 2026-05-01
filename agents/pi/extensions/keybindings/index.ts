@@ -5,8 +5,8 @@
  *
  * Primary role: which-key-style leader menu discovery and dispatch.
  * Modal (vim-style) editing is opt-in via user settings. In insert mode
- * the leader menu is reached with the `alt+m` prefix; in normal mode
- * (modal on) it is reached with the bare leader key.
+ * the Space and comma leader menus are reached with `alt+space` and
+ * `alt+,`; in normal mode (modal on) they are reached with bare leader keys.
  *
  * Modes: Insert (default), Normal, Visual, Visual-Line (normal/visual
  * only reachable when modal editing is enabled).
@@ -20,6 +20,7 @@ import {
   matchesKey,
   truncateToWidth,
   visibleWidth,
+  type Component,
   type EditorTheme,
   type TUI,
 } from "@mariozechner/pi-tui";
@@ -127,6 +128,12 @@ interface KeybindingSuggestion extends KeybindingsConfig {
   source?: string;
 }
 
+interface LeaderActionHost {
+  submitCommand(command: string): void;
+  passthrough(keyName: string, seq: string): void;
+  emitEvent(eventName: string): void;
+}
+
 /** Map of passthrough key names to escape sequences */
 const PASSTHROUGH_KEYS: Record<string, string> = {
   "ctrl+l": "\x0c",
@@ -135,6 +142,18 @@ const PASSTHROUGH_KEYS: Record<string, string> = {
   "ctrl+g": "\x07",
   "shift+tab": "\x1b[Z",
 };
+
+function displayKey(key: string): string {
+  if (key === " ") return "SPC";
+  if (key === "\t") return "TAB";
+  return key;
+}
+
+function keyMatches(data: string, configured: string): boolean {
+  if (data === configured) return true;
+  const keyName = configured === " " ? "space" : configured;
+  return matchesKey(data, keyName);
+}
 
 /**
  * Keys that are consumed by `dispatchNormal` before the leader-key fallback.
@@ -194,48 +213,45 @@ function loadKeybindingsConfig(): KeybindingsConfig {
 function buildMenuNode(
   config: MenuItemConfig,
   key: string | undefined,
-  editor: VimEditor,
-  events?: ExtensionAPI["events"],
+  host: LeaderActionHost,
 ): LeaderEntry {
   if (config.items) {
     const children: LeaderEntry[] = Object.entries(config.items).map(
-      ([k, item]) => buildMenuNode(item, k, editor, events),
+      ([k, item]) => buildMenuNode(item, k, host),
     );
     return { key: key!, label: config.label, children } as LeaderEntry;
   }
-  const action = buildAction(config.action ?? "", editor, events);
+  const action = buildAction(config.action ?? "", host);
   return { key: key!, label: config.label, action } as LeaderEntry;
 }
 
-function buildAction(actionStr: string, editor: VimEditor, events?: ExtensionAPI["events"]): () => void {
+function buildAction(actionStr: string, host: LeaderActionHost): () => void {
   if (actionStr.startsWith("command:")) {
     const cmd = actionStr.slice("command:".length);
-    return () => editor.submitCommand(cmd);
+    return () => host.submitCommand(cmd);
   }
   if (actionStr.startsWith("passthrough:")) {
     const keyName = actionStr.slice("passthrough:".length);
     const seq = PASSTHROUGH_KEYS[keyName];
-    if (seq) return () => editor.passthrough(seq);
-    // Unknown passthrough — no-op
-    return () => {};
+    if (seq) return () => host.passthrough(keyName, seq);
+    return () => host.passthrough(keyName, "");
   }
   // Default: emit as event. "event:" prefix is accepted for backward
   // compatibility but not required — bare names are treated as events.
   if (!actionStr) return () => {};
   const eventName = actionStr.startsWith("event:") ? actionStr.slice("event:".length) : actionStr;
-  return () => events?.emit(eventName, {});
+  return () => host.emitEvent(eventName);
 }
 
 function buildMenuTree(
   config: KeybindingsConfig,
-  editor: VimEditor,
-  events?: ExtensionAPI["events"],
+  host: LeaderActionHost,
 ): Map<string, LeaderNode> {
   const menus = new Map<string, LeaderNode>();
   if (!config.menus) return menus;
   for (const [_name, menuConfig] of Object.entries(config.menus)) {
     const children: LeaderEntry[] = Object.entries(menuConfig.items).map(
-      ([k, item]) => buildMenuNode(item, k, editor, events),
+      ([k, item]) => buildMenuNode(item, k, host),
     );
     const node: LeaderNode = { label: menuConfig.label, children };
     menus.set(menuConfig.key, node);
@@ -283,14 +299,10 @@ function maxPos(a: Pos, b: Pos): Pos {
 class VimEditor extends CustomEditor {
   private mode: Mode = "insert";
   /** When false (default), the editor behaves like pi's standard editor —
-   *  no Normal/Visual modes, no escape-to-normal, leader menus reached
-   *  only via the `alt+m` prefix in insert mode. */
+   *  no Normal/Visual modes and no escape-to-normal. */
   private modalEnabled: boolean = false;
-  /** Waiting for the leader root key after `alt+m` in insert mode. */
-  private insertLeaderRootPending: boolean = false;
   private _tui: TUI;
   private _theme: EditorTheme;
-  events?: ExtensionAPI["events"];
 
   // Operator-pending state
   private pendingOperator: string | null = null;
@@ -317,7 +329,8 @@ class VimEditor extends CustomEditor {
   private visualAnchor: Pos = { line: 0, col: 0 };
 
   // External width constraint (e.g. from git-diff side panel)
-  private widthConstraint: number = 0;
+  private widthConstraintFraction: number = 0;
+  private widthConstraintMinCols: number = 0;
 
   // Vim register (yank buffer)
   private register: string = "";
@@ -340,6 +353,21 @@ class VimEditor extends CustomEditor {
 
   setContext(ctx: any) {
     this.ctx = ctx;
+    this.updateStatus();
+  }
+
+  setLeaderMenus(menus: Map<string, LeaderNode>): void {
+    this.leaderMenus = menus;
+  }
+
+  private updateStatus(): void {
+    if (!this.ctx?.ui) return;
+    if (!this.modalEnabled) {
+      this.ctx.ui.setStatus("keybindings", undefined);
+      return;
+    }
+    const label = this.mode === "visual-line" ? "VISUAL-LINE" : this.mode.toUpperCase();
+    this.ctx.ui.setStatus("keybindings", label);
   }
 
   setLeaderOverlayDelay(ms: number) {
@@ -368,6 +396,7 @@ class VimEditor extends CustomEditor {
       this.activeLeaderMenu = null;
       this.clearLeaderOverlay();
     }
+    this.updateStatus();
     this.invalidate();
   }
 
@@ -375,9 +404,10 @@ class VimEditor extends CustomEditor {
     return this.modalEnabled;
   }
 
-  /** Set a width constraint (in columns) to reserve space for side panels */
-  setWidthConstraint(cols: number) {
-    this.widthConstraint = Math.max(0, cols);
+  /** Reserve a fraction of terminal width for side panels. */
+  setWidthConstraint(fraction: number, minCols: number = 0) {
+    this.widthConstraintFraction = Math.max(0, fraction);
+    this.widthConstraintMinCols = Math.max(0, minCols);
     this.invalidate();
   }
 
@@ -1198,6 +1228,7 @@ class VimEditor extends CustomEditor {
       this.stopRecording();
     }
 
+    this.updateStatus();
     this.invalidate();
   }
 
@@ -1305,30 +1336,24 @@ class VimEditor extends CustomEditor {
   // ─── Insert mode ─────────────────────────────────────────────────────
 
   private handleInsertMode(data: string): void {
-    // Continue an active leader chain first (entered via alt+m)
+    // Continue an active leader chain first.
     if (this.leaderPending) {
       this.handleLeader(data);
       return;
     }
 
-    // Awaiting the leader root key after `alt+m`
-    if (this.insertLeaderRootPending) {
-      this.insertLeaderRootPending = false;
-      this.clearLeaderOverlay();
-      if (matchesKey(data, "escape")) return;
-      if (this.leaderMenus.has(data)) {
-        this.leaderPending = true;
-        this.activeLeaderMenu = this.leaderMenus.get(data)!;
-        this.leaderPath = [];
-        this.scheduleLeaderOverlay();
-      }
-      return;
-    }
-
-    // Start insert-mode leader prefix
-    if (matchesKey(data, "alt+m")) {
-      this.insertLeaderRootPending = true;
-      this.invalidate();
+    // Direct insert-mode leader roots. These intentionally avoid alt+m,
+    // which is owned by pi-intercom on this machine.
+    const directRoot = matchesKey(data, "alt+space")
+      ? " "
+      : matchesKey(data, "alt+,")
+        ? ","
+        : undefined;
+    if (directRoot && this.leaderMenus.has(directRoot)) {
+      this.leaderPending = true;
+      this.activeLeaderMenu = this.leaderMenus.get(directRoot)!;
+      this.leaderPath = [];
+      this.scheduleLeaderOverlay();
       return;
     }
 
@@ -2142,15 +2167,6 @@ class VimEditor extends CustomEditor {
     super.handleInput(seq);
   }
 
-  /** Load menus from defaults.json */
-  loadKeybindings(
-    notify?: (msg: string, level: "info" | "warning" | "error") => void,
-  ): void {
-    const config = loadKeybindingsConfig();
-    this.leaderMenus = buildMenuTree(config, this, this.events);
-    warnClashingLeaderKeys(this.leaderMenus, "defaults.json", notify);
-  }
-
   /** Resolve the current leader node from leaderPath */
   private currentLeaderNode(): LeaderNode | null {
     if (!this.activeLeaderMenu) return null;
@@ -2233,11 +2249,11 @@ class VimEditor extends CustomEditor {
       this.clearLeaderOverlay();
       return;
     }
-    const match = node.children?.find((c) => c.key === data);
+    const match = node.children?.find((c) => keyMatches(data, c.key));
 
     if (match && "children" in match) {
       // Descend into sub-menu
-      this.leaderPath.push(data);
+      this.leaderPath.push(match.key);
       // Reset overlay timer for the sub-menu
       this.scheduleLeaderOverlay();
       return;
@@ -2280,16 +2296,7 @@ class VimEditor extends CustomEditor {
 
     const last = lines.length - 1;
 
-    // Mode label
-    const modeLabels: Record<Mode, string> = {
-      normal: " NORMAL ",
-      insert: " INSERT ",
-      visual: " VISUAL ",
-      "visual-line": " V-LINE ",
-    };
-    const label = modeLabels[this.mode] ?? "";
-
-    // Pending indicator
+    // Pending indicator (mode itself is exposed via ctx.ui.setStatus)
     let pending = "";
     if (this.countStr) pending += this.countStr;
     if (this.pendingOperator) pending += this.pendingOperator;
@@ -2302,10 +2309,10 @@ class VimEditor extends CustomEditor {
     }
     if (pending) pending = " " + pending + " ";
 
-    const totalSuffix = pending + label;
-    if (visibleWidth(lines[last]!) >= totalSuffix.length) {
+    const totalSuffix = pending;
+    if (totalSuffix && visibleWidth(lines[last]!) >= totalSuffix.length) {
       lines[last] =
-        truncateToWidth(lines[last]!, width - totalSuffix.length, "") +
+        truncateToWidth(lines[last]!, effectiveWidth - totalSuffix.length, "") +
         totalSuffix;
     }
 
@@ -2325,8 +2332,12 @@ class VimEditor extends CustomEditor {
 
 export default function (pi: ExtensionAPI) {
   let activeEditor: VimEditor | null = null;
+  let currentCtx: any = null;
+  let actionHost: LeaderActionHost | null = null;
+  let leaderMenus: Map<string, LeaderNode> = new Map();
+  let previousEditorFactory: any = undefined;
 
-  /** Pending keybinding suggestions received before the editor was created. */
+  /** Pending keybinding suggestions received before the session was ready. */
   const pendingSuggestions: KeybindingSuggestion[] = [];
 
   /** Cleanup functions for pi.events listeners, called on session_shutdown. */
@@ -2345,12 +2356,13 @@ export default function (pi: ExtensionAPI) {
    *   - Two sub-menus on the same key are merged recursively.
    */
   function applySuggestions(
-    editor: VimEditor,
+    menus: Map<string, LeaderNode>,
+    host: LeaderActionHost,
     config: KeybindingSuggestion,
     notify?: (msg: string, level: "info" | "warning" | "error") => void,
   ): void {
     if (!config?.menus) return;
-    const incoming = buildMenuTree(config, editor, pi.events);
+    const incoming = buildMenuTree(config, host);
     const source = config.source ?? "unknown";
     const warn =
       notify ?? ((_m: string, _l: "info" | "warning" | "error") => {});
@@ -2358,7 +2370,7 @@ export default function (pi: ExtensionAPI) {
     warnClashingLeaderKeys(incoming, source, warn);
 
     for (const [triggerKey, incomingNode] of incoming) {
-      const existing = (editor as any).leaderMenus as Map<string, LeaderNode>;
+      const existing = menus;
       const current = existing.get(triggerKey);
       if (!current || !current.children) {
         existing.set(triggerKey, incomingNode);
@@ -2408,6 +2420,9 @@ export default function (pi: ExtensionAPI) {
           source,
           warn,
         );
+      } else if (existingChild.label === child.label) {
+        // Duplicate re-send (common after keybindings:ready) — skip quietly.
+        continue;
       } else {
         // Clash: existing leaf vs incoming, or type mismatch — skip
         warn(
@@ -2424,41 +2439,161 @@ export default function (pi: ExtensionAPI) {
     | ((msg: string, level: "info" | "warning" | "error") => void)
     | null = null;
 
+  function createActionHost(ctx: any): LeaderActionHost {
+    return {
+      submitCommand(command: string) {
+        if (activeEditor) {
+          activeEditor.submitCommand(command);
+          return;
+        }
+        ctx.ui.setEditorText(command);
+        ctx.ui.notify(`Keybindings: inserted ${command}; press Enter to run`, "info");
+      },
+      passthrough(keyName: string, seq: string) {
+        if (activeEditor && seq) {
+          activeEditor.passthrough(seq);
+          return;
+        }
+        switch (keyName) {
+          case "ctrl+o": {
+            const expanded = ctx.ui.getToolsExpanded?.() ?? false;
+            ctx.ui.setToolsExpanded?.(!expanded);
+            return;
+          }
+          case "shift+tab": {
+            const levels = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
+            const current = pi.getThinkingLevel?.() ?? "off";
+            const next = levels[(Math.max(0, levels.indexOf(current as any)) + 1) % levels.length];
+            pi.setThinkingLevel?.(next);
+            return;
+          }
+          case "ctrl+l":
+            ctx.ui.setEditorText("/model");
+            ctx.ui.notify("Keybindings: inserted /model; press Enter to select model", "info");
+            return;
+          case "ctrl+g":
+            ctx.ui.notify("Use the native external-editor shortcut (Ctrl+G) from the editor", "warning");
+            return;
+          case "ctrl+t":
+            ctx.ui.notify("Thinking block visibility has no public extension API; use Ctrl+T", "warning");
+            return;
+          default:
+            ctx.ui.notify(`Unsupported passthrough action: ${keyName}`, "warning");
+        }
+      },
+      emitEvent(eventName: string) {
+        pi.events.emit(eventName, {});
+      },
+    };
+  }
+
+  function installModalEditor(ctx: any): void {
+    if (activeEditor) {
+      activeEditor.setModalEnabled(true);
+      return;
+    }
+
+    previousEditorFactory =
+      typeof ctx.ui.getEditorComponent === "function"
+        ? ctx.ui.getEditorComponent()
+        : undefined;
+    if (previousEditorFactory) {
+      ctx.ui.notify(
+        "Keybindings: Vim mode replaces the current editor; editor composition is not yet supported",
+        "warning",
+      );
+    }
+
+    ctx.ui.setEditorComponent(
+      (tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager) => {
+        const editor = new VimEditor(tui, theme, keybindings);
+        editor.setContext(ctx);
+        editor.setLeaderMenus(leaderMenus);
+        const settings = loadUserSettings();
+        editor.setModalEnabled(true);
+        editor.setDebugEnabled(settings.debug);
+        activeEditor = editor;
+        return editor;
+      },
+    );
+  }
+
+  function uninstallModalEditor(ctx: any): void {
+    if (!activeEditor) {
+      ctx.ui.setStatus("keybindings", undefined);
+      return;
+    }
+    activeEditor.setModalEnabled(false);
+    activeEditor = null;
+    ctx.ui.setStatus("keybindings", undefined);
+    ctx.ui.setEditorComponent(previousEditorFactory ?? undefined);
+    previousEditorFactory = undefined;
+  }
+
+  async function showLeaderOverlay(ctx: any, rootKey: string): Promise<void> {
+    if (!ctx.hasUI) return;
+    if (!leaderMenus.has(rootKey)) {
+      ctx.ui.notify(`Keybindings: no ${displayKey(rootKey)} leader menu loaded`, "warning");
+      return;
+    }
+    await ctx.ui.custom<undefined>(
+      (tui: TUI, theme: any, _kb: KeybindingsManager, done: (value: undefined) => void) =>
+        new LeaderMenuOverlay(tui, leaderMenus, theme, () => done(undefined), rootKey),
+      { overlay: true },
+    );
+  }
+
+  pi.registerShortcut("alt+space", {
+    description: "Open Space leader menu",
+    handler: async (ctx) => {
+      await showLeaderOverlay(ctx, " ");
+    },
+  });
+
+  pi.registerShortcut("alt+,", {
+    description: "Open comma leader menu",
+    handler: async (ctx) => {
+      await showLeaderOverlay(ctx, ",");
+    },
+  });
+
   pi.on("session_shutdown", () => {
     // Clean up shared event bus listeners to prevent accumulation on reload
     for (const cleanup of eventCleanups) cleanup();
     eventCleanups.length = 0;
+    currentCtx?.ui?.setStatus?.("keybindings", undefined);
     activeEditor = null;
+    currentCtx = null;
+    actionHost = null;
+    leaderMenus = new Map();
+    previousEditorFactory = undefined;
     sessionNotify = null;
   });
 
   pi.on("session_start", (_event, ctx) => {
     sessionNotify = ctx.ui.notify.bind(ctx.ui);
+    currentCtx = ctx;
+    actionHost = createActionHost(ctx);
 
-    ctx.ui.setEditorComponent(
-      (tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager) => {
-        const editor = new VimEditor(tui, theme, keybindings);
-        editor.events = pi.events;
-        editor.setContext(ctx);
-        editor.loadKeybindings(sessionNotify ?? undefined);
-        const settings = loadUserSettings();
-        editor.setModalEnabled(settings.modal);
-        editor.setDebugEnabled(settings.debug);
-        activeEditor = editor;
+    const config = loadKeybindingsConfig();
+    leaderMenus = buildMenuTree(config, actionHost);
+    warnClashingLeaderKeys(leaderMenus, "defaults.json", sessionNotify ?? undefined);
 
-        // Clear pending suggestions — the ready event below will cause
-        // all extensions to re-emit their suggestions (they subscribed to
-        // keybindings:ready when they called suggestKeybindings()).
-        // Draining pendingSuggestions AND emitting ready would double-apply
-        // for extensions whose session_start fired before ours.
-        pendingSuggestions.length = 0;
+    for (const suggestion of pendingSuggestions) {
+      applySuggestions(leaderMenus, actionHost, suggestion, sessionNotify ?? undefined);
+    }
+    pendingSuggestions.length = 0;
 
-        // Signal that the editor is ready and accepting suggestions
-        pi.events.emit("keybindings:ready", {});
+    const settings = loadUserSettings();
+    if (settings.modal) {
+      installModalEditor(ctx);
+    } else {
+      activeEditor = null;
+      ctx.ui.setStatus("keybindings", undefined);
+    }
 
-        return editor;
-      },
-    );
+    // Signal that leader menus are ready and accepting suggestions.
+    pi.events.emit("keybindings:ready", {});
   });
 
   // Allow other extensions (e.g. git-diff) to constrain editor width
@@ -2497,15 +2632,16 @@ export default function (pi: ExtensionAPI) {
    *     }
    *   });
    *
-   * Can be called before or after the editor is created — early
-   * suggestions are queued and applied once the editor initialises.
+   * Can be called before or after session_start — early suggestions are
+   * queued and applied once the leader menus initialise.
    */
   eventCleanups.push(
     pi.events.on(
       "keybindings:suggest",
       (data: KeybindingSuggestion) => {
-        if (activeEditor && sessionNotify) {
-          applySuggestions(activeEditor, data, sessionNotify);
+        if (actionHost && sessionNotify) {
+          applySuggestions(leaderMenus, actionHost, data, sessionNotify);
+          activeEditor?.setLeaderMenus(leaderMenus);
         } else {
           pendingSuggestions.push(data);
         }
@@ -2517,8 +2653,9 @@ export default function (pi: ExtensionAPI) {
 
   function setMode(mode: "emacs" | "vim"): void {
     const modal = mode === "vim";
-    if (activeEditor) {
-      activeEditor.setModalEnabled(modal);
+    if (currentCtx) {
+      if (modal) installModalEditor(currentCtx);
+      else uninstallModalEditor(currentCtx);
     }
     saveUserSettings({ modal });
     sessionNotify?.(`Editor: ${modal ? "Vim" : "Emacs"} mode`, "info");
@@ -2545,19 +2682,9 @@ export default function (pi: ExtensionAPI) {
           ctx.ui.notify("/kb bindings requires interactive mode", "error");
           return;
         }
-        if (!activeEditor) {
-          ctx.ui.notify("Editor not ready", "error");
-          return;
-        }
-
-        const menus = (activeEditor as any).leaderMenus as Map<
-          string,
-          LeaderNode
-        >;
-
         await ctx.ui.custom<undefined>(
           (_tui, theme, _kb, done) => {
-            return new BindingsOverlay(menus, theme, () => done(undefined));
+            return new BindingsOverlay(leaderMenus, theme, () => done(undefined));
           },
           { overlay: true },
         );
@@ -2577,6 +2704,91 @@ export default function (pi: ExtensionAPI) {
       ctx.ui.notify("Usage: /kb bindings | /kb mode emacs|vim", "info");
     },
   });
+}
+
+// ─── Leader menu overlay ─────────────────────────────────────────────────────
+
+class LeaderMenuOverlay implements Component {
+  private activeNode: LeaderNode | null = null;
+  private path: string[] = [];
+
+  constructor(
+    private tui: TUI,
+    private menus: Map<string, LeaderNode>,
+    private theme: any,
+    private done: () => void,
+    initialRootKey?: string,
+  ) {
+    if (initialRootKey && menus.has(initialRootKey)) {
+      this.activeNode = menus.get(initialRootKey)!;
+      this.path = [displayKey(initialRootKey)];
+    }
+  }
+
+  handleInput(data: string): boolean {
+    if (matchesKey(data, "escape") || matchesKey(data, "ctrl+c")) {
+      this.done();
+      return true;
+    }
+
+    if (!this.activeNode) {
+      const root = [...this.menus.entries()].find(([key]) => keyMatches(data, key));
+      if (!root) return true;
+      this.activeNode = root[1];
+      this.path = [displayKey(root[0])];
+      this.tui.requestRender();
+      return true;
+    }
+
+    const match = this.activeNode.children?.find((entry) => keyMatches(data, entry.key));
+    if (!match) {
+      this.done();
+      return true;
+    }
+
+    if ("children" in match) {
+      this.activeNode = match;
+      this.path.push(displayKey(match.key));
+      this.tui.requestRender();
+      return true;
+    }
+
+    match.action();
+    this.done();
+    return true;
+  }
+
+  render(width: number): string[] {
+    const node = this.activeNode;
+    const entries = node?.children ?? [...this.menus.entries()].map(([key, root]) => ({
+      key,
+      label: root.label ?? displayKey(key),
+      children: root.children,
+    }));
+    const title = node?.label ?? "Leader";
+    const path = this.path.length > 0 ? ` (${this.path.join(" ")})` : "";
+    const innerW = Math.max(20, Math.min(width - 4, 72));
+    const hBar = "─".repeat(innerW + 2);
+    const topBorder = `╭${hBar}╮`;
+    const botBorder = `╰${hBar}╯`;
+    const lines = [topBorder];
+    lines.push(`│ ${ansiPad(this.theme.bold ? this.theme.bold(title + path) : title + path, innerW)} │`);
+    lines.push(`│ ${ansiPad("", innerW)} │`);
+
+    for (const entry of entries) {
+      const suffix = "children" in entry ? " →" : "";
+      const keyStr = this.theme.fg ? this.theme.fg("accent", displayKey(entry.key)) : displayKey(entry.key);
+      const labelStr = this.theme.fg ? this.theme.fg("muted", entry.label + suffix) : entry.label + suffix;
+      lines.push(`│ ${ansiPad(`${keyStr}  ${labelStr}`, innerW)} │`);
+    }
+
+    lines.push(botBorder);
+    return lines;
+  }
+
+  invalidate(): void {
+    this.tui.requestRender();
+  }
 }
 
 // ─── Bindings overlay ────────────────────────────────────────────────────────
