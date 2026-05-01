@@ -4,6 +4,8 @@
 * Global keybindings
 
 These are the default menus from `agents/pi/extensions/keybindings/defaults.json`.
+In insert-only mode, open `Space` with `alt+space` and `,` with `alt+,`; in Vim
+normal mode, press the root key directly.
 
 ** `,` — pi agent
 

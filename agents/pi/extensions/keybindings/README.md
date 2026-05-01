@@ -17,14 +17,15 @@ editing is opt-in — disabled by default.
 | Visual      | Character-wise selection for operator actions |         |
 | Visual-Line | Line-wise selection for operator actions      |         |
 
-With modal editing **disabled** (the default) the editor is always in Insert
-mode and all of pi's default editor keybindings apply unchanged. The leader
-menu is still available, reached via the `alt+m` prefix (see below).
+With modal editing **disabled** (the default), this extension does **not**
+replace pi's editor. Pi's default editor — or any editor installed by another
+extension — remains active. The Space and comma leader menus are available via
+`alt+space` and `alt+,`, rendered as overlays.
 
-With modal editing **enabled**, the editor starts in Insert mode. Press
-`Esc` to enter Normal mode. Press `alt+escape` (anywhere) to send an
-abort/interrupt to pi (replaces plain `escape`, which is used to switch
-modes).
+With modal editing **enabled**, this extension installs its `VimEditor` custom
+editor. The editor starts in Insert mode. Press `Esc` to enter Normal mode.
+Press `alt+escape` (anywhere) to send an abort/interrupt to pi (replaces plain
+`escape`, which is used to switch modes).
 
 ## Toggling modal editing
 
@@ -37,25 +38,26 @@ Persistent user setting stored in `~/.pi/agent/keybindings-ext.json`:
 Toggle at runtime via either:
 
 - Leader: `Space t E e` (emacs / insert-only) / `Space t E v` (vim / modal).
-  In modal mode the leader is `Space` bare; in insert mode the leader is
-  reached with `alt+m` first — so `alt+m Space t E v`.
+  In modal Normal mode the leader is `Space` bare; in insert-only mode use
+  the direct Space-leader shortcut — so `alt+space t E v`.
 - Slash command: `/kb mode emacs` or `/kb mode vim`.
 
 Both write to the user settings file and apply immediately.
 
-## Insert-mode leader prefix
+## Leader menu access
 
-In Insert mode (both emacs and vim modes), the leader menus are reached via
-the `alt+m` prefix:
+In insert-only mode, leader menus are reached via direct global shortcuts:
 
-- `alt+m Space …` — Space leader menu (e.g. `alt+m Space t E v` to enable vim mode).
-- `alt+m ,`       — `,` leader (pi-agent quick actions).
+- `alt+space …` — Space leader menu (e.g. `alt+space t E v` to enable vim mode).
+- `alt+,`       — `,` leader (pi-agent quick actions; e.g. `alt+, m`).
 
-After `alt+m`, press the leader root key you want. The usual which-key
-overlay appears after 500ms.
+These paths use pi's `registerShortcut()` and `ctx.ui.custom(...,
+{ overlay: true })` APIs, so they do not replace or wrap the editor. They also
+avoid `alt+m`, which is used by pi-intercom.
 
-In Normal mode (vim / modal on), the leader keys are pressed bare: `Space`,
-`,`, etc. — no prefix.
+In Vim Insert mode, `alt+space` and `alt+,` start the corresponding leader
+menus through `VimEditor`. In Normal mode (vim / modal on), the leader keys are
+pressed bare: `Space`, `,`, etc. — no prefix.
 
 ## Vim Grammar (Normal / Visual, modal mode only)
 
@@ -104,7 +106,10 @@ Operators compose with motions and text objects:
 | `, y` | Copy last response | `/copy`     |
 | `, s` | Settings           | `/settings` |
 
-In insert mode prefix with `alt+m` (e.g. `alt+m , m` to switch model).
+In insert-only mode use the direct root shortcut (e.g. `alt+, m` to switch model).
+Some actions that have no public extension API insert the equivalent slash
+command into the editor and ask you to press Enter, or show a warning to use
+the native shortcut.
 
 ### Space leader
 
@@ -134,8 +139,22 @@ Bindings are merged additively — key clashes with existing bindings are
 ignored with a warning. Two sub-menus on the same key are merged
 recursively.
 
-The `keybindings:ready` event is emitted when the editor initialises,
-allowing extensions to re-send suggestions after reloads.
+The `keybindings:ready` event is emitted when leader menus initialise,
+allowing extensions to re-send suggestions after reloads. This happens even
+when modal editing is disabled and no custom editor is installed.
+
+### Editor replacement and composition
+
+In the default insert-only mode this extension does not call
+`ctx.ui.setEditorComponent()`, so it composes naturally with pi's default
+editor and with third-party editor extensions.
+
+When Vim mode is enabled, the extension installs `VimEditor` with
+`setEditorComponent()`. On pi versions that expose `ctx.ui.getEditorComponent()`
+(pi ≥ 0.71.0), the extension remembers the previous editor factory so switching
+back to emacs / insert-only mode can restore it. If a previous editor is
+present, Vim mode warns that it replaces that editor; unsafe input delegation
+between two editor instances is intentionally not attempted.
 
 ### Width Constraint
 
@@ -180,8 +199,8 @@ Any action string without a recognized prefix is emitted as an event on
 | Prefix         | Description                  | Example              |
 | -------------- | ---------------------------- | -------------------- |
 | *(none)*       | Emit as event (default)      | `term:toggle`        |
-| `command:`     | Submit a slash command       | `command:/new`       |
-| `passthrough:` | Forward a key combo to pi    | `passthrough:ctrl+l` |
+| `command:`     | Submit a slash command in Vim mode; insert it for manual Enter in overlay mode | `command:/new`       |
+| `passthrough:` | Forward a key combo in Vim mode; use a public API or warning in overlay mode | `passthrough:ctrl+l` |
 | `event:`       | Emit as event (legacy alias) | `event:term:toggle`  |
 
 ## Abort key caveat (modal mode)

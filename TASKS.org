@@ -45,6 +45,25 @@ Some introductory text
 - [[#create-self-improvement-skill][Create self-improvement skill]]
 
 * Improvements
+
+** DONE Review 0.71.0 changes re. editor
+CLOSED: [2026-05-01 Fri 18:17]
+:PROPERTIES:
+:ID: c94bab43-aedf-4ccf-984c-a2e1167e880a
+:STARTED: [2026-05-01 Fri 17:43]
+:END:
+:LOGBOOK:
+- State "STARTED"    from "TODO"       [2026-05-01 Fri 17:43]
+- State "DONE"       from "STARTED"    [2026-05-01 Fri 18:17]
+:END:
+#+IMPORT: [[file:design/log/2026-05-01-keybindings-editor-composition.org]]
+Changelog for latest pi release includes the following:
+- Added `ctx.ui.getEditorComponent()` so extensions can wrap the currently configured custom editor factory ([#3935](https://github.com/badlogic/pi-mono/issues/3935)).
+
+This new section in the docs includes some relevant examples:
+https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/extensions.md#widgets-status-and-footer
+
+And the commit including the change...
 ** DONE [#C] Token-efficient Jira clone workflow
 CLOSED: [2026-04-28 Tue 16:54]
 :PROPERTIES:
