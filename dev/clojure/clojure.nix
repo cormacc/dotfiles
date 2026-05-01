@@ -9,22 +9,26 @@ let
   } + "/package.nix") {};
 in
 {
-  home.packages = [
+  home.packages = with pkgs; [
     # Compilers etc. for evaluating 3rd party repos without a flake...
-    pkgs.jdk25
+    jdk25
     # ... replace jdk with these next two if we want to use GraalVM/WASM
-    # pkgs.binaryen
-    # pkgs.graalvmPackages.graalvm-oracle
-    pkgs.clojure
+    # binaryen
+    # graalvmPackages.graalvm-oracle
+    clojure
+    babashka
+    bbin
     # ... editor support
-    pkgs.clj-kondo
-    pkgs.joker
-    pkgs.parinfer-rust-emacs
+    clojure-lsp
+    clj-kondo
+    joker
+    parinfer-rust-emacs
     # ... CLI support
-    pkgs.polylith
-    pkgs.neil
+    polylith
+    leiningen
+    neil
     # ... nrepl connections for claude etc. -- see https://github.com/licht1stein/brepl
-    brepl
+    # brepl
   ];
 
   home.file."${config.xdg.configHome}/clojure".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/dev/clojure/config";

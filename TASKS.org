@@ -49,7 +49,7 @@ Some introductory text
 CLOSED: [2026-04-28 Tue 16:54]
 :PROPERTIES:
 :ID: 4ad4bb1b-9e74-48a0-9ce4-2d69639a8bc8
-:CREATED: 2026-04-28 Tue 15:16
+:CREATED: [2026-04-28 Tue 15:16]
 :STARTED: [2026-04-28 Tue 16:34]
 :END:
 #+IMPORT: [[file:design/log/2026-04-28-jira-clone-token-efficiency.org]]
@@ -57,71 +57,17 @@ Follow-up to the read-only Jira integration. Today's `/jira clone` round-trips t
 entire `atlassian_getJiraIssue` JSON and the rendered org body through the model,
 which is wasteful (~17KB ingested for ~6 fields used). Step 1 (field-list filter
 in the prompt) shipped on 2026-04-28. The remaining wins below are tracked here.
-*** DONE [#A] Emission-side clone tool (re-scoped from two-step+cache)
-CLOSED: [2026-04-28 Tue 16:50]
+** TODO [#C] Review prior art w.r.t. org-memory protocol
 :PROPERTIES:
-:ID: 5a0b8c2e-f1a3-4d24-b6e8-6c1c2e9b1a01
+:ID: 5aed17ed-cfc4-4ae3-bb24-57c7d974a142
+:CREATED: [2026-04-29 Wed 09:51]
 :END:
-Replace the single all-in-one prompt with a fetch + apply pair:
-- ~jira_clone_fetch(key)~ — extension-registered tool. Wraps the MCP
-  ~atlassian_getJiraIssue~ call with the field-list filter, persists the
-  filtered result in a per-session cache keyed by issue key, and returns a
-  compact preview (summary, priority, label list, body length, ambiguities) to
-  the model. The full body never enters the model context unless requested.
-- ~jira_clone_apply(key, file, section, overrides?)~ — extension-registered
-  tool. Reads the cached issue, performs deterministic transforms (priority
-  mapping, UUID, ~CREATED~ timestamp, ~:LINKED_ISSUES:~ drawer, label tagging,
-  body insertion), and writes the org file via the tasks-extension helper
-  (see sibling task). Body text never appears in model-emitted tool args.
-- Goal: ~70% token reduction on body-heavy issues. Model is only involved in
-  judgement decisions (file/section placement, summary surgery, table cleanup
-  on broken ADF→markdown round-trips).
-- Open question: cache lifetime + invalidation. Probably session-scoped + an
-  explicit ~jira_clone_refresh~ escape hatch.
-- Architectural caveat: pi-mcp-adapter currently routes MCP through the LLM
-  in proxy mode; extensions can't directly call MCP from JS. The fetch step
-  therefore stays model-driven (single small tool call), but its *output* is
-  captured into the cache by the registered tool wrapper rather than echoed
-  through the conversation. Verify this is achievable with the current
-  ExtensionAPI before committing to the design.
-*** DONE [#C] ~/jira get KEY~ ergonomics subcommand
-CLOSED: [2026-04-28 Tue 16:52]
-:PROPERTIES:
-:ID: 8a7d832c-03e0-443d-b359-f158e8e47983
-:END:
-User-facing inspection helper, not part of the workflow internals.
-- Add ~/jira get KEY [KEY...]~ as a sibling subcommand.
-- Validate keys (PROJ-NNN regex; bare-number resolution against
-  ~#+JIRA_PROJECT~) via the existing ~resolveKey~ helper.
-- Resolve cloudId from ~#+JIRA_CLOUDID~ automatically.
-- Reuse the field-list constant introduced for ~buildClonePrompt~ so the
-  payload shape stays consistent across the extension.
-- Emit a prompt instructing the agent to fetch via ~atlassian_getJiraIssue~
-  (or ~jira_get_issue~ once the tool lands) and render a compact
-  human-readable summary: heading, priority/status, labels, parent,
-  subtasks, description preview — not raw JSON.
-- Update README + the /jira help description to list the new subcommand.
-- Ship together with the ~jira_get_issue~ tool from the sibling subtask so
-  the slash command and the underlying primitive land in one change.
-*** DONE [#A] Shared ~tasks.insertTask~ API
-CLOSED: [2026-04-28 Tue 16:44]
-:PROPERTIES:
-:ID: 6c2d4f8b-3a91-4e57-b04c-9d7d8a3a9b02
-:STARTED: [2026-04-28 Tue 16:34]
-:END:
-Factor the org-task rendering + file-insertion logic out of the (future) jira
-clone path into a shared helper exposed by the tasks extension:
-- Inputs: ~{ file, section, summary, priorityName, body, linkedIssues, labels,
-  tags?, parentId? }~.
-- Owns: priority mapping (Highest..Lowest → #A..#D), UUID generation, ~CREATED~
-  timestamp via ~date +"%Y-%m-%d %a %H:%M"~, drawer assembly, section creation
-  guard rails, idempotency on re-clone of the same key.
-- Consumers: jira clone, future github/linear/gitlab integrations, and
-  potentially ~/jira create~ on the reverse direction.
-- Side benefit: removes the duplicated drawer/UUID/priority logic that's
-  already drifting between the jira prompt template and the extension code.
-- Acceptance: the jira ~clone_apply~ tool above implemented purely on top of
-  this helper, with no org-mode string assembly inside the jira extension.
+Just saw this while looking for something else:
+https://github.com/farra/dev-agent-backlog
+(Reddit source link: https://www.reddit.com/r/emacs/comments/1q415fx/my_orgmode_based_designtask_tracking_system_for/)
+Looks like a slightly different spin, but interesting to take a look at to see if there are
+some ideas that would benefit my system.
+
 ** TODO [#D] Package org-memory protocol / extensions
 :PROPERTIES:
 :ID: 79d6f4f5-70f9-404d-9b4c-0cf0ef0e7adb
@@ -131,6 +77,7 @@ Good to either extract them, or come up with a packaging/deployment strategy to 
 interested parties.
 Ideally the approach would allow me to continue editing skills/extensions live and reloading without having to go through a
 rebuild install step.
+
 ** STARTED [#B] Review org-memory protocol as agent memory
 :PROPERTIES:
 :ID: 724c0332-e491-4b66-900f-e11478057eb1
@@ -139,7 +86,26 @@ rebuild install step.
 #+IMPORT: [[file:design/log/2026-05-01-org-memory-agent-memory-review.org]]
 The org-memory protocol (the combination of org-tasks and org-plan skills) is intended to provide a cross-session memory mechanism for agents to learn and rebuild context as well as a task management and planning tool for humans.
 Review in this context and identify gaps / suggest improvements
+
+** TODO [#D] Investigate Allium
+May be a useful complement to tasks / memory system?
+- https://juxt.github.io/allium/
+- https://plugins.eca.dev/plugins/allium/
+
+** TODO [#D] Add org-mode writing skill?
+Automatic writes by skill/tooling clobber whitespace. This may be resolvable via one-line addition to the org-tasks skill? Though maybe worth adding a general-purpose org-mode skill...
 * Fixes
+** TODO Activating tasks overlay clobbers text in input area
+This is irritating -- address.
+** TODO Local tasks duplicated in overlay when selected?
+When I do the following....
+- Create an empty TASKS.org
+- Create a new task in TASKS.local.org
+- In the pi tasks extension, select the new task
+The new task is initially duplicated to TASKS.org, then deleted from TASKS.local.org
+It's possible that I accidentally hit promote, but don't believe so.
+Investigate -- reproduce manually, then follow up as appropriate.
+
 * Housekeeping
 
 ** WAITING [#C] Update nixGL flake URL :nix:

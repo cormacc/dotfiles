@@ -74,6 +74,12 @@ in {
     enable = true;
     # Using pure GTK build for wayland, but not sure it's necessary...
     package = pkgs.emacs-pgtk;
+    extraPackages = (epkgs: [ epkgs.vterm ]);
+  };
+  services.emacs = with pkgs; {
+    enable = true;
+    client.enable = true;
+    # defaultEditor = true;
   };
 
 

@@ -27,14 +27,16 @@ in
   '';
   home.sessionPath = [ "${npmCache}/bin" ];
 
-  home.packages = [
+  home.packages = with pkgs; [
     #Pi + deps
-    pkgs.llm-agents.pi
-    pkgs.prettier
-    pkgs.typescript-language-server
+    llm-agents.pi
+    prettier
+    typescript-language-server
     #Claude code + deps
-    pkgs.llm-agents.claude-code
-    pkgs.llm-agents.codex
+    llm-agents.claude-code
+    llm-agents.codex
+    #Support
+    lmstudio
   ];
 
   home.file."${agentsConfig}/skills".source = config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
