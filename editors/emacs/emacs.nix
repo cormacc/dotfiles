@@ -76,7 +76,7 @@ in {
     package = pkgs.emacs-pgtk;
     extraPackages = (epkgs: [ epkgs.vterm ]);
   };
-  services.emacs = with pkgs; {
+  services.emacs = {
     enable = true;
     client.enable = true;
     # defaultEditor = true;

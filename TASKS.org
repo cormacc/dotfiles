@@ -46,24 +46,6 @@ Some introductory text
 
 * Improvements
 
-** DONE Review 0.71.0 changes re. editor
-CLOSED: [2026-05-01 Fri 18:17]
-:PROPERTIES:
-:ID: c94bab43-aedf-4ccf-984c-a2e1167e880a
-:STARTED: [2026-05-01 Fri 17:43]
-:END:
-:LOGBOOK:
-- State "STARTED"    from "TODO"       [2026-05-01 Fri 17:43]
-- State "DONE"       from "STARTED"    [2026-05-01 Fri 18:17]
-:END:
-#+IMPORT: [[file:design/log/2026-05-01-keybindings-editor-composition.org]]
-Changelog for latest pi release includes the following:
-- Added `ctx.ui.getEditorComponent()` so extensions can wrap the currently configured custom editor factory ([#3935](https://github.com/badlogic/pi-mono/issues/3935)).
-
-This new section in the docs includes some relevant examples:
-https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/extensions.md#widgets-status-and-footer
-
-And the commit including the change...
 ** DONE [#C] Token-efficient Jira clone workflow
 CLOSED: [2026-04-28 Tue 16:54]
 :PROPERTIES:
@@ -86,7 +68,6 @@ https://github.com/farra/dev-agent-backlog
 (Reddit source link: https://www.reddit.com/r/emacs/comments/1q415fx/my_orgmode_based_designtask_tracking_system_for/)
 Looks like a slightly different spin, but interesting to take a look at to see if there are
 some ideas that would benefit my system.
-
 ** TODO [#D] Package org-memory protocol / extensions
 :PROPERTIES:
 :ID: 79d6f4f5-70f9-404d-9b4c-0cf0ef0e7adb
@@ -96,7 +77,6 @@ Good to either extract them, or come up with a packaging/deployment strategy to 
 interested parties.
 Ideally the approach would allow me to continue editing skills/extensions live and reloading without having to go through a
 rebuild install step.
-
 ** STARTED [#B] Review org-memory protocol as agent memory
 :PROPERTIES:
 :ID: 724c0332-e491-4b66-900f-e11478057eb1
@@ -105,18 +85,46 @@ rebuild install step.
 #+IMPORT: [[file:design/log/2026-05-01-org-memory-agent-memory-review.org]]
 The org-memory protocol (the combination of org-tasks and org-plan skills) is intended to provide a cross-session memory mechanism for agents to learn and rebuild context as well as a task management and planning tool for humans.
 Review in this context and identify gaps / suggest improvements
-
 ** TODO [#D] Investigate Allium
+:PROPERTIES:
+:ID: a46d6a4d-e72f-4923-8472-2daf28cb29d0
+:END:
 May be a useful complement to tasks / memory system?
 - https://juxt.github.io/allium/
 - https://plugins.eca.dev/plugins/allium/
-
 ** TODO [#D] Add org-mode writing skill?
+:PROPERTIES:
+:ID: f3fd95aa-34ce-4c47-b8d5-569531ca8192
+:END:
 Automatic writes by skill/tooling clobber whitespace. This may be resolvable via one-line addition to the org-tasks skill? Though maybe worth adding a general-purpose org-mode skill...
+** TODO [#D] Check out rpiv-todo overlay for ideas
+:PROPERTIES:
+:ID: 60e8eff5-26a9-4d4b-8c1a-3c70321beccd
+:END:
+https://pi.dev/packages/@juicesharp/rpiv-todo
+Haven't checked it out yet, but might be a nicer overlay, with a different underlying task store.
+** TODO [#D] Check out rpiv-btw
+:PROPERTIES:
+:ID: ec8e6eb3-dcfc-4124-ad1c-17e88d8562b6
+:END:
+https://pi.dev/packages/@juicesharp/rpiv-btw
+Ask a one-off question without polluting context... sounds useful
+** TODO [#C] Evaluate context-mode plugin
+:PROPERTIES:
+:ID: dea3b890-b265-4372-a663-c584d04b4a68
+:END:
+https://pi.dev/packages/context-mode
+Also sounds useful...
 * Fixes
 ** TODO Activating tasks overlay clobbers text in input area
+:PROPERTIES:
+:ID: 1f8a039b-ef3d-4461-952e-1dc2b2b9a780
+:END:
 This is irritating -- address.
 ** TODO Local tasks duplicated in overlay when selected?
+:PROPERTIES:
+:ID: 0c48e3b3-6a32-4158-9d4c-59c17c073abe
+:END:
 When I do the following....
 - Create an empty TASKS.org
 - Create a new task in TASKS.local.org
@@ -124,7 +132,6 @@ When I do the following....
 The new task is initially duplicated to TASKS.org, then deleted from TASKS.local.org
 It's possible that I accidentally hit promote, but don't believe so.
 Investigate -- reproduce manually, then follow up as appropriate.
-
 * Housekeeping
 
 ** WAITING [#C] Update nixGL flake URL :nix:

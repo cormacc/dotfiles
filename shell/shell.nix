@@ -118,4 +118,31 @@ complete -f -F _bb_tasks bb'';
   home.file.".config/fish/completions/bb.fish".source = ./bb.fish;
   home.file.".local/bin/bbg".source=./bbg/bbg;
   home.file.".config/bbg".source=config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/shell/bbg";
+
+
+  programs.tmux = {
+    enable = true;
+    clock24 = true;
+    keyMode = "vi";
+    mouse = true;
+    extraConfig = ''
+      set -s extended-keys on
+      set -s extended-keys-format csi-u
+      set -as terminal-features 'xterm*:extkeys'
+    '';
+    plugins = with pkgs.tmuxPlugins; [
+        sensible
+        yank
+        {
+            plugin = dracula;
+            extraConfig = ''
+                set -g @dracula-show-fahrenheit false
+                set -g @dracula-show-weather false
+                set -g @dracula-show-battery false
+                set -g @dracula-show-powerline true
+                set -g @dracula-show-left-icon smiley
+            '';
+        }
+     ];
+  };
 }

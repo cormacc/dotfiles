@@ -87,7 +87,6 @@ Acceptance criteria:
 Validation:
 - Search for residual "reuse"/"mirror"/"not deleted" wording in skills and
   extension docs; none should remain.
-
 ** DONE [#A] Define lifecycle LOGBOOK and timestamp semantics :protocol:timestamps:
 CLOSED: [2026-05-01 Fri 10:23]
 :PROPERTIES:
@@ -117,7 +116,6 @@ Acceptance criteria:
   cache or LOGBOOK entry is authoritative when values disagree.
 - `org-tasks/SKILL.md` includes before/after examples for create, start,
   close, reopen, and re-close.
-
 ** STARTED [#B] Enforce lifecycle LOGBOOK in the tasks extension and tests :timestamps:tooling:
 :PROPERTIES:
 :ID: df56da09-db3e-40ac-8dc8-4da96670f0d8
@@ -138,7 +136,6 @@ Acceptance criteria:
 - Tests cover LOGBOOK round-trip, append-only ordering, reopen clearing
   current `CLOSED:`, and re-close writing a fresh `CLOSED:` plus a new log
   entry.
-
 ** DONE [#B] Propagate lifecycle LOGBOOK conventions into org-plan guidance :plan:timestamps:
 CLOSED: [2026-05-01 Fri 10:23]
 :PROPERTIES:
@@ -161,7 +158,6 @@ Acceptance criteria:
 - Retrospective-plan guidance explains that LOGBOOK is evidence, not rewritten
   history: completed/current tasks may be marked `DONE`/`STARTED`, but the log
   should reflect actual transitions observed or performed by the tooling.
-
 ** STARTED [#B] Sandbox `#+IMPORT:` and scaffolded plan paths :security:protocol:
 :PROPERTIES:
 :ID: 89f529bd-b282-43b1-854e-a5a5deaa6cda
@@ -180,7 +176,6 @@ Acceptance criteria:
   new plan files via `p`.
 - Parser/extension tests cover: in-tree path (allowed), absolute path
   (rejected), parent traversal (rejected), symlink escape (rejected).
-
 ** DONE [#C] Document linked-issue URL trust boundary and audit opener :security:docs:
 CLOSED: [2026-05-01 Fri 10:23]
 :PROPERTIES:
@@ -199,7 +194,6 @@ Acceptance criteria:
 - Code audit confirms `J` invokes `open`/`xdg-open` with an argument vector
   (no shell interpolation) and the URL is passed as a discrete argv element.
   If shell invocation is found, fix it.
-
 ** TODO [#C] Define legacy-data tolerance and one-time normalization :compatibility:
 :PROPERTIES:
 :ID: cb04c07b-d513-4001-b072-187a561cc753
@@ -217,7 +211,6 @@ Acceptance criteria:
 - A one-time `normalize` flow (CLI subcommand or documented manual procedure)
   is specified for users who opt in, including provenance notes for any
   backfilled timestamps.
-
 ** DONE [#B] Write agent-memory resume + reconstruction guidance :memory:docs:
 CLOSED: [2026-05-01 Fri 10:23]
 :PROPERTIES:
@@ -239,7 +232,6 @@ Acceptance criteria:
   - cross-session continuity expectations (what survives, what is per-session)
 - The new section is referenced from `org-plan/SKILL.md` and the tasks
   extension README rather than duplicated.
-
 ** STARTED [#B] Add agent-memory regression tests :memory:tests:
 :PROPERTIES:
 :ID: 69836e04-f4ff-4f8a-b538-234ef8109659
@@ -260,7 +252,6 @@ Acceptance criteria:
   context, implementation notes, blockers).
 - README and skills point at these tests as the authoritative behavioural
   contract.
-
 ** DONE [#A] Reconcile org-jira planning-context wording with subtask migration :jira:identity:
 CLOSED: [2026-05-01 Fri 10:23]
 :PROPERTIES:
@@ -284,7 +275,6 @@ Acceptance criteria:
 - Wording in org-jira no longer uses "mirror" for the Jira-decomposition case
   (rename to "reflect" or "derive") to avoid colliding with the deleted
   UUID-mirroring concept.
-
 ** STARTED [#B] Verify jira autoTransition under reopen and multi-transition flows :jira:timestamps:
 :PROPERTIES:
 :ID: 5456eeb0-d39c-4b52-8440-f9a1c02a6071
@@ -315,7 +305,6 @@ Acceptance criteria:
   transition for the current `prevStatus -> status` pair.
 - org-jira skill § "Transition (auto, optional)" is updated to explain the
   relationship between LOGBOOK audit history and live status-change events.
-
 ** STARTED [#B] Enforce import-path sandbox in tasks_insert_task and jira_clone_apply :jira:security:
 :PROPERTIES:
 :ID: 3a64c36c-08e3-4b83-85ac-17cf5bdc70d5
@@ -342,7 +331,6 @@ Acceptance criteria:
   absolute path (allowed), out-of-tree absolute path (rejected),
   parent-traversal escape (rejected), and symlink-escape (rejected) cases.
 - Tasks extension README § `tasks_insert_task` documents the rule.
-
 ** DONE [#C] Document #+JIRA_BASE_URL trust boundary in org-jira and jira README :jira:docs:
 CLOSED: [2026-05-01 Fri 10:23]
 :PROPERTIES:
@@ -363,7 +351,6 @@ Acceptance criteria:
   duplicating it.
 - A short "Trust boundary" subsection appears in org-jira so future
   cross-skill features inherit the same vocabulary.
-
 ** DONE [#B] Cross-link org-jira planning context from agent-memory section :jira:memory:
 CLOSED: [2026-05-01 Fri 10:23]
 :PROPERTIES:
@@ -388,7 +375,6 @@ Acceptance criteria:
   history is durable via heading status / `CLOSED:` / LOGBOOK, while live
   Jira transition attempts are event-driven and the fetched Jira context itself
   is per-session and must be re-derived.
-
 ** STARTED [#C] Add a Jira-linked scenario to agent-memory regression tests :jira:tests:
 :PROPERTIES:
 :ID: 47e88b09-5c40-459b-97b0-0aefa3a28681
@@ -407,7 +393,6 @@ Acceptance criteria:
   linked-issues + lifecycle history surface in the checklist output).
 - The test does not depend on a live Atlassian MCP; it stubs the parsed
   Jira fields the way the existing jira/insert tests do.
-
 * Implementation
 Review completed with the review sub-agent. Findings were sanity-checked for
 protocol relevance and converted into the plan above. No implementation changes

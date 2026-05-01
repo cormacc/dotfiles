@@ -16,8 +16,8 @@ let
 
   # Secrets
   gitlabHost = builtins.getEnv "GITLAB";
-  openaiKey = builtins.getEnv "OPENAI_API_KEY";
-  anthropicKey = builtins.getEnv "ANTHROPIC_API_KEY";
+  # openaiKey = builtins.getEnv "OPENAI_API_KEY";
+  # anthropicKey = builtins.getEnv "ANTHROPIC_API_KEY";
 in
 {
 
@@ -53,8 +53,9 @@ in
     NAME = "${name}";
     EMAIL = "${email}";
     GITLAB = "${gitlabHost}";
-    OPENAI_API_KEY = "${openaiKey}";
-    ANTHROPIC_API_KEY = "${anthropicKey}";
+    # Using subscription access for now
+    # OPENAI_API_KEY = "${openaiKey}";
+    # ANTHROPIC_API_KEY = "${anthropicKey}";
   };
 
   home.shellAliases = {
@@ -166,31 +167,5 @@ in
   programs.vim = {
     enable = true;
     defaultEditor = true;
-  };
-
-  programs.tmux = {
-    enable = true;
-    clock24 = true;
-    keyMode = "vi";
-    mouse = true;
-    extraConfig = ''
-      set -s extended-keys on
-      set -s extended-keys-format csi-u
-      set -as terminal-features 'xterm*:extkeys'
-    '';
-    plugins = with pkgs.tmuxPlugins; [
-        sensible
-        yank
-        {
-            plugin = dracula;
-            extraConfig = ''
-                set -g @dracula-show-fahrenheit false
-                set -g @dracula-show-weather false
-                set -g @dracula-show-battery false
-                set -g @dracula-show-powerline true
-                set -g @dracula-show-left-icon smiley
-            '';
-        }
-     ];
   };
 }

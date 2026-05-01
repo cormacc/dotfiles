@@ -481,7 +481,6 @@ CLOSED: [2026-04-28 Tue 14:00]
 :ARCHIVED: [2026-04-28 Tue 14:00]
 :END:
 #+IMPORT: [[file:design/log/2026-04-28-jira-integration.org]]
-
 ** CANCELLED [#B] Update keybindings extension to handle capital letter properly
 CLOSED: [2026-04-28 Tue 22:57]
 :PROPERTIES:
@@ -496,3 +495,23 @@ which called =matchesKey(data, "A")= directly rather than
 =matchesKey(data, "shift+a")=. The leader/keybindings extension itself was
 not at fault. Fix landed via a one-line change in =overlay.ts=. See change
 record for the four failed attempts down the wrong path.
+
+** DONE Review 0.71.0 changes re. editor
+CLOSED: [2026-05-01 Fri 18:17]
+:PROPERTIES:
+:ID: c94bab43-aedf-4ccf-984c-a2e1167e880a
+:STARTED: [2026-05-01 Fri 17:43]
+:ARCHIVED: [2026-05-01 Fri 18:17]
+:END:
+:LOGBOOK:
+- State "STARTED"    from "TODO"       [2026-05-01 Fri 17:43]
+- State "DONE"       from "STARTED"    [2026-05-01 Fri 18:17]
+:END:
+#+IMPORT: [[file:design/log/2026-05-01-keybindings-editor-composition.org]]
+Changelog for latest pi release includes the following:
+- Added `ctx.ui.getEditorComponent()` so extensions can wrap the currently configured custom editor factory ([#3935](https://github.com/badlogic/pi-mono/issues/3935)).
+
+This new section in the docs includes some relevant examples:
+https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/extensions.md#widgets-status-and-footer
+
+And the commit including the change...
