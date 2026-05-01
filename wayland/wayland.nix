@@ -119,20 +119,6 @@ in {
 # '';
 #   };
 
-  programs.kitty = {
-    enable = true;
-    shellIntegration = {
-      enableFishIntegration = true;
-      enableZshIntegration = true;
-    };
-    settings = {
-      confirm_os_window_close = 0;
-      allow_remote_control = "socket-only";
-      listen_on = "unix:/tmp/kitty-{kitty_pid}";
-      enabled_layouts = "splits";
-    };
-  };
-
   programs.fuzzel = {
     enable = true;
   };
