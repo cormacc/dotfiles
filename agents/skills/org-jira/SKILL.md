@@ -69,6 +69,14 @@ skill.
 `#+SELECTED:`). Useful for per-checkout overrides like a different
 default project.
 
+### Trust boundary
+
+`#+ISSUE_URL_BASE` and `#+JIRA_*` keywords are project-local trusted
+configuration. Values from `TASKS.local.org` are part of the user's
+checkout-local trust boundary, not untrusted remote input. Non-HTTPS
+issue URL bases are allowed; opener implementations must pass URLs as
+arguments rather than shell-interpolated command strings.
+
 ### Identifying Jira tokens within `:LINKED_ISSUES:`
 
 When `/jira *` commands need to operate only on Jira-shaped tokens
@@ -119,13 +127,15 @@ No prompt needed. The user types a Jira key into `:LINKED_ISSUES:` and
 sets `#+ISSUE_URL_BASE` once; `tasks` renders badges and `J` opens
 URLs. Fully offline-safe.
 
-### Planning context (when drafting a plan for a task with `:LINKED_ISSUES:`)
+### Planning / resume context (tasks with `:LINKED_ISSUES:`)
 
 When the [`org-plan`](../org-plan/SKILL.md) skill is drafting or
-refining a change-record for a task that has Jira-shaped tokens in
-`:LINKED_ISSUES:`, fetch the issue tree from Jira *before* writing
-`* Context` so the plan reflects upstream scope, decomposition, and
-language. This applies whether the plan is proactive or retrospective.
+refining a change-record — or when an agent is resuming work — for a
+task that has Jira-shaped tokens in `:LINKED_ISSUES:`, fetch the issue
+tree from Jira *before* writing or relying on `* Context` so the plan
+reflects current upstream scope, decomposition, and language. This
+applies whether the plan is proactive, retrospective, or resumed after
+another session.
 
 Procedure for each Jira-shaped token:
 
@@ -161,9 +171,11 @@ Procedure for each Jira-shaped token:
    - One short paragraph naming each linked parent issue (key,
      summary, status, type) and how it frames the task.
    - A bullet list of in-scope children with their key, summary, and
-     status. Use this list to seed `** Design decisions` or to mirror
-     children as level-2 `* Plan` headings when the user wants the
-     plan to track Jira decomposition one-to-one.
+     status. Use this list to seed `** Design decisions` or to derive
+     fresh level-2 `* Plan` headings when the user wants the plan to
+     track Jira decomposition one-to-one. Jira keys are never org
+     `:ID:` values; Jira-derived plan tasks get normal UUIDs and link
+     back via `:LINKED_ISSUES:`.
    - Note any `Blocks` / `is blocked by` relationships in `* Context`
      so dependencies are visible at planning time.
 7. Do **not** mint new Jira issues from this read-only walk. Surface
@@ -173,8 +185,13 @@ Procedure for each Jira-shaped token:
 
 Keep the fetched data ephemeral — do not paste raw issue JSON or full
 ADF descriptions into the change-record. Distil to plan-relevant
-prose and bullets. Re-fetch on subsequent planning sessions rather
-than caching, since Jira state drifts.
+prose and bullets. Re-fetch on subsequent planning or resume sessions
+rather than caching, since Jira state drifts.
+
+Subtask migration from `TASKS.org` into a change-record (owned by
+`org-tasks` / `org-plan`) is orthogonal to Jira fetching. A plan may
+contain migrated local subtasks with their original UUIDs and separate
+Jira-derived plan tasks with fresh UUIDs linked via `:LINKED_ISSUES:`.
 
 ### Clone (`/jira clone <KEY>`)
 
@@ -274,7 +291,9 @@ it to TASKS.org. It is the read-only counterpart of `/jira clone`.
 
 When the user toggles a task's status (`TODO → STARTED → DONE`), and
 the `jira` extension's `autoTransition` setting is enabled, attempt to
-mirror the change on every Jira-shaped token:
+reflect the live status-change event on every Jira-shaped token. Use
+the current `tasks:status-changed` payload; do not replay historical
+`:LOGBOOK:` entries as queued Jira transitions:
 
 1. Call `atlassian_getTransitionsForJiraIssue`.
 2. Pick a transition whose name matches the target state by convention:
@@ -283,8 +302,10 @@ mirror the change on every Jira-shaped token:
 3. If no match, surface a chooser to the user instead of guessing.
 
 This requires `tasks` to publish status-change events on the pi event
-bus. If unavailable, the auto-transition flow blocks until the
-prerequisite extension point lands.
+bus. LOGBOOK is durable audit history for resume/review; live event
+payloads are the trigger for Jira writes. If status-change events are
+unavailable, the auto-transition flow blocks until the prerequisite
+extension point lands.
 
 ## Question-handling
 

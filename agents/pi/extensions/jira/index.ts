@@ -242,6 +242,7 @@ function registerCloneApplyTool(pi: ExtensionAPI): void {
 
       const result = await insertTaskIntoFile({
         file: fileAbs,
+        projectRoot: cwd,
         section: params.section ?? "Improvements",
         summary: params.summary,
         priorityName: params.priorityName ?? null,

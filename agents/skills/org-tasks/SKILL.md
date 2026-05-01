@@ -42,6 +42,9 @@ When the keyword is absent or malformed the default is
 :ID: 01234567-89ab-4def-8123-456789abcdef
 :CREATED: [2026-04-25 Sat 09:00]
 :END:
+:LOGBOOK:
+- Created [2026-04-25 Sat 09:00]
+:END:
 #+IMPORT: [[file:design/log/2026-04-25-feature.org]]
 Optional description text.
 ```
@@ -55,20 +58,29 @@ Optional description text.
   inline `[YYYY-MM-DD Day]` creation marker — that role is owned by
   the property.
 - **`:STARTED:`**: `[YYYY-MM-DD Day HH:MM]`, written the first time
-  a task transitions out of `TODO` into `STARTED`. Preserved on
-  subsequent `DONE -> STARTED` re-opens. Used to scope `git log`
-  for retrospective change-records.
+  a task transitions into `STARTED`. Preserved on subsequent
+  `DONE -> STARTED` re-opens. Used as a fast lower-bound cache for
+  retrospective `git log` scoping.
 - **`CLOSED:`**: `[YYYY-MM-DD Day HH:MM]`, written on transition to
   `DONE` or `CANCELLED`. Lives on its own line *between the heading
   and the `:PROPERTIES:` drawer* (matches `org-todo`'s native
-  behaviour). Preserve existing values; do not replace them.
+  behaviour). It is the current closed-state cache: clear it when
+  reopening a task, then write a fresh value on the next close.
+- **`:LOGBOOK:`**: task-local lifecycle drawer after `:PROPERTIES:`
+  and before task body text. It is append-only audit history: one
+  `- Created [timestamp]` entry and one `- State "NEW" from "OLD"
+  [timestamp]` entry for each status transition. Preserve historical
+  entries; never replay them as pending actions.
 - **`:BLOCKED-BY:`**: free-form blocker reference on `WAITING` tasks
   (e.g. `human: …`, `task:<UUID>`, `url:…`, `jira:ABC-123`).
 - **`#+IMPORT:`**: clickable `[[file:...]]` link on its own line in
-  the task body, after the `:END:` of the drawer. Resolves relative
-  to the file containing the keyword. May also appear at file root
-  (before any heading) to inject tasks from another file at the root.
-  Preserve any existing bare or labelled link form on round-trip.
+  the task body, after any metadata drawers. Resolves relative to the
+  file containing the keyword. May also appear at file root (before
+  any heading) to inject tasks from another file at the root. Preserve
+  any existing bare or labelled link form on round-trip.
+  `#+IMPORT:` paths and scaffolded plan paths must resolve, after
+  symlink resolution, under the project root unless the user has
+  explicitly allowed an external directory.
 
 Always obtain timestamps via `date +"%Y-%m-%d %a %H:%M"` rather than
 computing them manually.
@@ -87,6 +99,9 @@ computing them manually.
 :ID: 01234567-89ab-4def-8123-456789abcdef
 :CREATED: [2026-04-25 Sat 09:00]
 :END:
+:LOGBOOK:
+- Created [2026-04-25 Sat 09:00]
+:END:
 #+IMPORT: [[file:design/log/2026-04-25-authentication.org]]
 Initial scope captured from user request.
 
@@ -102,7 +117,11 @@ Waiting on upstream merge.
 ```
 
 Keep `TASKS.org` high-level. Put detailed checklists and implementation
-history in change-record files.
+history in change-record files. When existing `TASKS.org` subtasks are
+migrated into a new change-record, move the task subtrees into `* Plan`
+with their `:ID:` values intact and remove them from the parent
+`TASKS.org` subtree. The parent may keep a plain-text bullet summary,
+but only the moved plan nodes remain canonical task nodes.
 
 ## Selection state
 
@@ -149,20 +168,60 @@ and the planning workflow.
 - Use `WAITING` with `:BLOCKED-BY:` for blocked work; clear or move
   the blocker to a note when unblocked.
 - Use `CANCELLED` for intentionally abandoned work; write `CLOSED:`.
+- Append a `:LOGBOOK:` state entry for every status transition. The
+  heading status and `CLOSED:` line are mutable current-state caches;
+  LOGBOOK is the durable historical record.
+- When reopening from `DONE` or `CANCELLED`, clear current `CLOSED:`
+  but keep the old close event in LOGBOOK. A later close writes a
+  fresh `CLOSED:` and appends another LOGBOOK state entry.
+- Direct `TODO -> DONE` retrospective scoping uses `:STARTED:` when
+  present; otherwise use the LOGBOOK created event / `:CREATED:` as
+  the lower bound.
+- Archive sorting uses current `CLOSED:` when present, otherwise the
+  latest close event in LOGBOOK, otherwise `:ARCHIVED:`.
 - When a child plan task advances, update its ancestors in `TASKS.org`
   to keep parent status meaningful (e.g. parent `TODO -> STARTED` when
   any child reaches `STARTED`).
 
 ## Starting or resuming work
 
-1. Read `TASKS.org`.
+1. Read `TASKS.org` and `TASKS.local.org`.
 2. Resolve `#+SELECTED:` from `TASKS.local.org` against the task graph;
    fall back to a user-named task, the first `STARTED` task, or context.
 3. Follow the active task's `#+IMPORT:` link if present. In a plan,
    resume the first `STARTED` task or the first actionable `TODO`.
-4. Read nearby task notes plus relevant `* Context` /
-   `* Implementation` sections before editing code.
+4. Read nearby task notes plus relevant `* Context`, `* Implementation`,
+   `* Open questions`, blockers, linked issues, and LOGBOOK lifecycle
+   history before editing code.
 5. Keep statuses and durable notes synchronized as work proceeds.
+
+## Agent memory
+
+For cross-session reconstruction, treat org files as durable memory and
+agent conversation as ephemeral. Load eagerly only the task index
+(`TASKS.org` plus `TASKS.local.org`) and the selected task's immediate
+change-record. Load other imports on demand when they are on the active
+path or referenced by blockers / linked issues.
+
+Resume checklist:
+
+1. Identify the selected task via `#+SELECTED:`; otherwise use the first
+   active `STARTED` task or ask the user.
+2. Read the selected task subtree, its `#+IMPORT:` change-record, and
+   its LOGBOOK to understand actual lifecycle history.
+3. Read `* Context`, actionable `* Plan` items, `* Implementation`, and
+   `* Open questions` from the change-record.
+4. Check `:BLOCKED-BY:` and `:LINKED_ISSUES:`. Tracker-specific skills
+   such as `org-jira` define when linked upstream state should be
+   re-fetched; local summaries may be stale.
+5. If a change-record has grown too large for cheap re-ingestion, split
+   completed historical context into a follow-up record or archive old
+   top-level tasks rather than truncating history silently.
+
+Durable state: task headings, properties, LOGBOOK, change-records,
+imports, blockers, linked issues. Per-session state: MCP fetch results,
+agent scratch reasoning, UI cursor position, and any unsaved editor
+buffers.
 
 ## Creating tasks and change-records
 

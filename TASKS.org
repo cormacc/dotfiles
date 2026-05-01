@@ -42,6 +42,7 @@ Some introductory text
 - [[#improvements][Improvements]]
 - [[#fixes][Fixes]]
 - [[#housekeeping][Housekeeping]]
+- [[#create-self-improvement-skill][Create self-improvement skill]]
 
 * Improvements
 ** DONE [#C] Token-efficient Jira clone workflow
@@ -130,6 +131,14 @@ Good to either extract them, or come up with a packaging/deployment strategy to 
 interested parties.
 Ideally the approach would allow me to continue editing skills/extensions live and reloading without having to go through a
 rebuild install step.
+** STARTED [#B] Review org-memory protocol as agent memory
+:PROPERTIES:
+:ID: 724c0332-e491-4b66-900f-e11478057eb1
+:STARTED: [2026-05-01 Fri 08:51]
+:END:
+#+IMPORT: [[file:design/log/2026-05-01-org-memory-agent-memory-review.org]]
+The org-memory protocol (the combination of org-tasks and org-plan skills) is intended to provide a cross-session memory mechanism for agents to learn and rebuild context as well as a task management and planning tool for humans.
+Review in this context and identify gaps / suggest improvements
 * Fixes
 * Housekeeping
 

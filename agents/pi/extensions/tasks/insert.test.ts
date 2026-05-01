@@ -23,7 +23,7 @@ import * as fsp from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
 
-const { mkdtemp, readFile, rm, writeFile } = fsp;
+const { mkdtemp, readFile, realpath, rm, symlink, writeFile } = fsp;
 const { join } = path;
 const { tmpdir } = os;
 
@@ -91,6 +91,9 @@ assertEqual(mapPriorityName("Critical"), null, "mapPriorityName: unknown → nul
     `:ID: ${FIXED_ID}`,
     `:CREATED: [${FIXED_TS}]`,
     ":LINKED_ISSUES: SAND-42 SAND-43",
+    ":END:",
+    ":LOGBOOK:",
+    `- Created [${FIXED_TS}]`,
     ":END:",
     "Body text.",
     "",
@@ -360,6 +363,7 @@ await withTempDir(async (dir) => {
 
   const result = await insertTaskIntoFile({
     file: tasksPath,
+    projectRoot: dir,
     section: "Improvements",
     summary: "Cloned from SAND-42",
     priorityName: "High",
@@ -373,7 +377,7 @@ await withTempDir(async (dir) => {
   assertEqual(result.status, "inserted", "insertTaskIntoFile: returns inserted status");
   if (result.status !== "inserted") return;
   assertEqual(result.id, FIXED_ID, "insertTaskIntoFile: surfaces the id back");
-  assertEqual(result.file, tasksPath, "insertTaskIntoFile: surfaces the absolute file path");
+  assertEqual(result.file, await realpath(tasksPath), "insertTaskIntoFile: surfaces the absolute file path");
 
   const written = await readFile(tasksPath, "utf-8");
   const expected = [
@@ -391,6 +395,9 @@ await withTempDir(async (dir) => {
     `:ID: ${FIXED_ID}`,
     `:CREATED: [${FIXED_TS}]`,
     ":LINKED_ISSUES: SAND-42",
+    ":END:",
+    ":LOGBOOK:",
+    `- Created [${FIXED_TS}]`,
     ":END:",
     "Issue body.",
     "",
@@ -426,6 +433,7 @@ await withTempDir(async (dir) => {
   const before = await readFile(tasksPath, "utf-8");
   const result = await insertTaskIntoFile({
     file: tasksPath,
+    projectRoot: dir,
     section: "Improvements",
     summary: "Cloned from SAND-42",
     linkedIssues: ["SAND-42"],
@@ -476,6 +484,7 @@ await withTempDir(async (dir) => {
 
   const result = await insertTaskIntoFile({
     file: tasksPath,
+    projectRoot: dir,
     section: "Improvements",
     summary: "Re-clone of SAND-99",
     linkedIssues: ["SAND-99"],
@@ -486,7 +495,7 @@ await withTempDir(async (dir) => {
   assertEqual(result.status, "duplicate",
     "insertTaskIntoFile: detects duplicate in alsoScan sibling file");
   if (result.status === "duplicate") {
-    assertEqual(result.existingFile, localPath,
+    assertEqual(result.existingFile, await realpath(localPath),
       "insertTaskIntoFile: attributes duplicate to TASKS.local.org");
   }
 });
@@ -506,6 +515,7 @@ await withTempDir(async (dir) => {
   const before = await readFile(tasksPath, "utf-8");
   const result = await insertTaskIntoFile({
     file: tasksPath,
+    projectRoot: dir,
     section: "NonExistent",
     summary: "S",
     id: FIXED_ID,
@@ -534,6 +544,7 @@ await withTempDir(async (dir) => {
   );
   const result = await insertTaskIntoFile({
     file: tasksPath,
+    projectRoot: dir,
     section: "FreshSection",
     summary: "Brand new",
     allowCreateSection: true,
@@ -549,6 +560,87 @@ await withTempDir(async (dir) => {
     "insertTaskIntoFile: spliced new task under fresh section");
 });
 
+// ── File-side: sandbox rejects out-of-project paths ─────────────────
+
+await withTempDir(async (dir) => {
+  await withTempDir(async (outside) => {
+    const outsidePath = join(outside, "TASKS.org");
+    await writeFile(outsidePath, "* Improvements\n", "utf-8");
+    const result = await insertTaskIntoFile({
+      file: outsidePath,
+      projectRoot: dir,
+      section: "Improvements",
+      summary: "Should not write",
+      id: FIXED_ID,
+      createdAt: FIXED_TS,
+    });
+    assertEqual(result.status, "error",
+      "insertTaskIntoFile: rejects out-of-tree absolute target path");
+    if (result.status === "error") {
+      assertEqual(result.reason, "path_outside_project",
+        "insertTaskIntoFile: out-of-tree target reports path_outside_project");
+    }
+  });
+});
+
+await withTempDir(async (dir) => {
+  const outside = await mkdtemp(join(tmpdir(), "tasks-insert-outside-"));
+  try {
+    const result = await insertTaskIntoFile({
+      file: join(dir, "..", path.basename(outside), "TASKS.org"),
+      projectRoot: dir,
+      section: "Improvements",
+      summary: "Should not write",
+      id: FIXED_ID,
+      createdAt: FIXED_TS,
+    });
+    assertEqual(result.status, "error",
+      "insertTaskIntoFile: rejects parent-traversal target path");
+  } finally {
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+await withTempDir(async (dir) => {
+  await withTempDir(async (outside) => {
+    const outsidePath = join(outside, "TASKS.org");
+    await writeFile(outsidePath, "* Improvements\n", "utf-8");
+    const linkPath = join(dir, "linked-outside.org");
+    await symlink(outsidePath, linkPath);
+    const result = await insertTaskIntoFile({
+      file: linkPath,
+      projectRoot: dir,
+      section: "Improvements",
+      summary: "Should not write",
+      id: FIXED_ID,
+      createdAt: FIXED_TS,
+    });
+    assertEqual(result.status, "error",
+      "insertTaskIntoFile: rejects symlink escape target path");
+  });
+});
+
+await withTempDir(async (dir) => {
+  await withTempDir(async (outside) => {
+    const tasksPath = join(dir, "TASKS.org");
+    const outsidePath = join(outside, "TASKS.local.org");
+    await writeFile(tasksPath, "* Improvements\n", "utf-8");
+    await writeFile(outsidePath, "* TODO Outside\n", "utf-8");
+    const result = await insertTaskIntoFile({
+      file: tasksPath,
+      projectRoot: dir,
+      section: "Improvements",
+      summary: "Should not scan",
+      linkedIssues: ["SAND-1"],
+      alsoScan: [outsidePath],
+      id: FIXED_ID,
+      createdAt: FIXED_TS,
+    });
+    assertEqual(result.status, "error",
+      "insertTaskIntoFile: rejects out-of-tree alsoScan path");
+  });
+});
+
 // ── File-side: empty summary returns structured error ────────────────
 
 await withTempDir(async (dir) => {
@@ -556,6 +648,7 @@ await withTempDir(async (dir) => {
   await writeFile(tasksPath, "* Improvements\n", "utf-8");
   const result = await insertTaskIntoFile({
     file: tasksPath,
+    projectRoot: dir,
     section: "Improvements",
     summary: "   ",
     id: FIXED_ID,

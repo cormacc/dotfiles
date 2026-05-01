@@ -12,6 +12,7 @@ import {
 } from "@mariozechner/pi-tui";
 import type { LinkedIssue, Task } from "./parser.ts";
 import {
+  appendStateLog,
   formatOrgTimestamp,
   getFileKeyword,
   getLinkedIssues,
@@ -437,21 +438,24 @@ export class TasksOverlay {
     const next = (idx + direction + STATUS_CYCLE.length) % STATUS_CYCLE.length;
     const nextStatus = STATUS_CYCLE[next];
     row.task.status = nextStatus;
+    const timestamp = formatOrgTimestamp();
+    appendStateLog(row.task, nextStatus, currentStatus, timestamp);
     // Mirror Emacs done-state semantics: stamp CLOSED on entry into any
     // terminal state (DONE/CANCELLED), preserve it when moving between done
-    // states, and clear it again when re-opening the task.
+    // states, and clear it again when re-opening the task. Historical close
+    // events remain in LOGBOOK.
     const wasClosed = CLOSED_STATUSES.has(currentStatus);
     const isClosed = CLOSED_STATUSES.has(nextStatus);
     if (isClosed) {
-      if (!row.task.closed) row.task.closed = formatOrgTimestamp();
+      if (!row.task.closed) row.task.closed = timestamp;
     } else if (wasClosed) {
       row.task.closed = null;
     }
-    // Stamp :STARTED: [<ts>] on the *first* TODO→STARTED transition so the
+    // Stamp :STARTED: [<ts>] on the *first* transition into STARTED so the
     // retrospective change-record flow can scope `git log` precisely.
     // Subsequent re-opens preserve the original first-start timestamp.
     if (nextStatus === "STARTED" && !taskHasStartedProperty(row.task)) {
-      row.task.propertyLines.push(`:STARTED: [${formatOrgTimestamp()}]`);
+      row.task.propertyLines.push(`:STARTED: [${timestamp}]`);
     }
     // When a subtask transitions to STARTED, auto-promote the top-level
     // TASKS.org ancestor from TODO → STARTED so the parent reflects active
@@ -459,7 +463,12 @@ export class TasksOverlay {
     if (nextStatus === "STARTED") {
       const root = this.findTopLevelRoot(row.task);
       if (root && root !== row.task && root.status === "TODO") {
+        const rootPrev = root.status;
         root.status = "STARTED";
+        appendStateLog(root, "STARTED", rootPrev, timestamp);
+        if (!taskHasStartedProperty(root)) {
+          root.propertyLines.push(`:STARTED: [${timestamp}]`);
+        }
       }
     }
     this.persistChange();

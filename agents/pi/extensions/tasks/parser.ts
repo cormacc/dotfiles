@@ -21,6 +21,8 @@ export interface Task {
   children: Task[];
   /** Non-PLAN org property drawer lines, preserved on save. */
   propertyLines: string[];
+  /** Task-local LOGBOOK drawer lines, preserved on save. */
+  logbookLines: string[];
   /**
    * True when this task comes from the gitignored `TASKS.local.org`.
    * Set by the loader after parsing; not stored in the org file.
@@ -63,7 +65,9 @@ const HEADING_RE =
   /^(\*+)\s+(TODO|STARTED|WAITING|DONE|CANCELLED)\s+(?:\[#([A-Z])\]\s+)?(.+)$/;
 
 const PROPERTIES_START_RE = /^\s*:PROPERTIES:\s*$/i;
-const PROPERTIES_END_RE = /^\s*:END:\s*$/i;
+const LOGBOOK_START_RE = /^\s*:LOGBOOK:\s*$/i;
+const DRAWER_END_RE = /^\s*:END:\s*$/i;
+const PROPERTIES_END_RE = DRAWER_END_RE;
 /** Matches a `#+IMPORT:` keyword anywhere in a file (task body or root level). */
 const IMPORT_KEYWORD_RE = /^\s*#\+IMPORT:\s*(.*?)\s*$/i;
 const ID_PROPERTY_RE = /^\s*:ID:\s*(\S+)\s*$/i;
@@ -149,6 +153,27 @@ export function formatOrgDate(d: Date = new Date()): string {
   const da = pad(d.getDate());
   const dow = DAY_ABBR[d.getDay()]!;
   return `${y}-${mo}-${da} ${dow}`;
+}
+
+export function createdLogEntry(timestamp: string): string {
+  return `- Created [${timestamp}]`;
+}
+
+export function stateLogEntry(newStatus: string, oldStatus: string, timestamp: string): string {
+  return `- State \"${newStatus}\" from \"${oldStatus}\" [${timestamp}]`;
+}
+
+export function appendCreatedLog(task: Task, timestamp: string): void {
+  task.logbookLines.push(createdLogEntry(timestamp));
+}
+
+export function appendStateLog(
+  task: Task,
+  newStatus: string,
+  oldStatus: string,
+  timestamp: string = formatOrgTimestamp(),
+): void {
+  task.logbookLines.push(stateLogEntry(newStatus, oldStatus, timestamp));
 }
 
 /**
@@ -460,6 +485,7 @@ export function parseTasks(
         description: "",
         children: [],
         propertyLines: [],
+        logbookLines: [],
         importPath: null,
         importRaw: null,
         importError: null,
@@ -491,6 +517,13 @@ export function parseTasks(
         const propLine = lines[i]!;
         if (PROPERTIES_END_RE.test(propLine)) break;
         currentTask.propertyLines.push(propLine);
+      }
+    } else if (currentTask && LOGBOOK_START_RE.test(line)) {
+      // Org lifecycle drawer — collect lines verbatim for round-trip.
+      for (i = i + 1; i < lines.length; i++) {
+        const logLine = lines[i]!;
+        if (DRAWER_END_RE.test(logLine)) break;
+        currentTask.logbookLines.push(logLine);
       }
     } else if (anyHeading) {
       // Non-task heading (e.g. `* Notes`) — flush the current task's
@@ -565,6 +598,11 @@ export function serializeTasks(tasks: Task[]): string {
       if (propertyLines.length > 0) {
         lines.push(":PROPERTIES:");
         lines.push(...propertyLines);
+        lines.push(":END:");
+      }
+      if (t.logbookLines.length > 0) {
+        lines.push(":LOGBOOK:");
+        lines.push(...t.logbookLines);
         lines.push(":END:");
       }
       if (t.importPath) {

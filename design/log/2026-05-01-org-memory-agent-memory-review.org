@@ -1,0 +1,501 @@
+#+TITLE: Review org-memory protocol as agent memory
+#+DATE: 2026-05-01 Fri
+#+PARENT_ID: 724c0332-e491-4b66-900f-e11478057eb1
+#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
+
+* Context
+The selected task asks for a review of the org-memory protocol — primarily the
+`org-tasks` and `org-plan` skills plus the tasks extension documentation — as a
+cross-session memory mechanism for agents, not only as a human task list.
+
+A review sub-agent was run against:
+
+- `agents/skills/org-tasks/SKILL.md`
+- `agents/skills/org-plan/SKILL.md`
+- `agents/pi/extensions/tasks/README.md`
+- `TASKS.org`
+
+The review found material protocol gaps that can make agent memory ambiguous,
+unsafe, or difficult to reconstruct across sessions:
+
+- High: level-2 plan tasks are documented as reusing TASKS.org subtask UUIDs
+  while the original subtasks remain in TASKS.org, creating duplicate `:ID:`
+  values in the loaded task graph and ambiguous selection/resume/update targets.
+- Medium: retrospective records rely on `:STARTED:` and `CLOSED:` timestamps,
+  but direct `TODO -> DONE` completion may produce no `:STARTED:` lower bound.
+- Medium: `CLOSED:` preservation is underspecified for reopened tasks, so later
+  closures may keep stale close times and distort git-log scoping / archive sort.
+- Medium: `#+IMPORT:` and plan-path prompts have no documented trust boundary;
+  arbitrary absolute paths, parent traversal, or symlink escapes could cause
+  unexpected file reads/writes.
+- Medium: `#+ISSUE_URL_BASE:` plus the `J` opener does not document scheme
+  restrictions, so local overrides could launch non-web URL handlers.
+- Low: existing tasks do not consistently have bracketed `:CREATED:` values,
+  despite the protocol making them required.
+
+As an agent-memory review, these findings point at a broader principle: durable
+memory needs unambiguous identity, deterministic lifecycle timestamps, explicit
+trust boundaries for loaded content, and migration/compatibility rules for
+legacy task data.
+
+** Design decisions
+- Treat duplicate IDs as the top priority :: Agent resume and parent-status
+  propagation depend on UUID identity. If an ID can name two physical nodes,
+  every higher-level memory operation becomes unreliable.
+- Subtask migration is the intended identity model :: When a task gets a
+  change-record, its existing subtasks are moved into the plan with their
+  `:ID:` values intact and are deleted from the parent `TASKS.org` subtree.
+  There should be no parser coalescing or mirror-ID indirection for that flow.
+- Specify lifecycle semantics before changing tooling :: The skills are the
+  durable contract. Extension and Emacs behaviour should be aligned after the
+  protocol defines direct-close and reopen semantics.
+- Make trust boundaries part of the protocol :: Cross-session memory imports
+  are effectively code-agent input. Import paths need explicit project-boundary
+  rules. Linked issue URLs, however, are project-local configuration inside the
+  repository trust boundary, so non-HTTPS schemes should remain allowed as long
+  as opening is implemented without shell interpolation.
+- Prefer compatibility rules over silent backfill :: Existing task files already
+  violate the ideal `:CREATED:` shape. Document legacy tolerance and offer an
+  explicit normalization command rather than rewriting history opportunistically.
+
+* Plan
+** DONE [#A] Make subtask-migration the canonical identity behaviour in the protocol :protocol:identity:
+CLOSED: [2026-05-01 Fri 10:23]
+:PROPERTIES:
+:ID: a548e995-d923-4006-8a30-b26c597f19f6
+:CREATED: [2026-05-01 Fri 08:51]
+:STARTED: [2026-05-01 Fri 09:41]
+:END:
+The duplicate-UUID gap is a documentation contradiction, not a behavioural one:
+`agents/pi/extensions/tasks/README.md` § "Subtask absorption" already moves
+subtasks into `* Plan` and replaces them in the parent with a plain-text
+bullet summary, but `agents/skills/org-plan/SKILL.md` § "UUID mirroring with
+TASKS.org" still says the opposite ("reuse" the IDs and "are *not* deleted").
+The work is to rewrite the skill so it matches the extension.
+
+Acceptance criteria:
+- `org-plan/SKILL.md` § "UUID mirroring with TASKS.org" is replaced with a
+  "Subtask migration" section: subtasks are moved into `* Plan` with `:ID:`
+  values intact and removed from the parent `TASKS.org` subtree.
+- `org-tasks/SKILL.md` references the migration behaviour where it currently
+  describes the relationship between TASKS.org subtasks and change-records.
+- Decision recorded on whether the parent retains a plain-text bullet summary
+  of migrated subtasks (current extension behaviour) or nothing; both skills
+  and the extension README state the same answer.
+- A worked example shows the before/after shape of TASKS.org and the plan.
+
+Validation:
+- Search for residual "reuse"/"mirror"/"not deleted" wording in skills and
+  extension docs; none should remain.
+
+** DONE [#A] Define lifecycle LOGBOOK and timestamp semantics :protocol:timestamps:
+CLOSED: [2026-05-01 Fri 10:23]
+:PROPERTIES:
+:ID: 5b98e7a6-99d6-41be-8e66-0574c185b6b1
+:CREATED: [2026-05-01 Fri 08:51]
+:STARTED: [2026-05-01 Fri 09:41]
+:END:
+Protocol-level decision and documentation. Defines an append-only lifecycle
+history so direct-close and reopen behaviour no longer depends on a single
+mutable `CLOSED:` line.
+
+Acceptance criteria:
+- `org-tasks/SKILL.md` defines a task-local `:LOGBOOK:` lifecycle drawer as
+  the authoritative status history. It contains a created entry and one
+  append-only entry for each status transition, using org-compatible state-log
+  wording where practical.
+- Current heading status plus `CLOSED:` remain the quick/current-state cache;
+  `:CREATED:` remains stable metadata; `:STARTED:` remains a first-start cache
+  for fast retrospective scoping.
+- Direct `TODO -> DONE` retrospective scoping is defined when `:STARTED:` is
+  absent: use the created event / `:CREATED:` as the lower bound unless a
+  more precise start event exists in LOGBOOK.
+- Reopen semantics are explicit: leaving a closed state clears current
+  `CLOSED:` but preserves the old close in LOGBOOK; a later close writes a
+  fresh `CLOSED:` and appends a new log entry.
+- Archive sorting and retrospective `git log` scoping state which current
+  cache or LOGBOOK entry is authoritative when values disagree.
+- `org-tasks/SKILL.md` includes before/after examples for create, start,
+  close, reopen, and re-close.
+
+** STARTED [#B] Enforce lifecycle LOGBOOK in the tasks extension and tests :timestamps:tooling:
+:PROPERTIES:
+:ID: df56da09-db3e-40ac-8dc8-4da96670f0d8
+:CREATED: [2026-05-01 Fri 08:51]
+:STARTED: [2026-05-01 Fri 09:41]
+:END:
+Depends on the lifecycle LOGBOOK protocol task above.
+
+Acceptance criteria:
+- Tasks extension appends LOGBOOK entries on task creation and every status
+  transition, including direct `TODO -> DONE`, `STARTED -> DONE -> STARTED`,
+  `STARTED -> DONE -> STARTED -> DONE`, and `WAITING -> DONE` paths.
+- Parser/serializer preserve existing LOGBOOK drawers structurally and append
+  to the lifecycle drawer without treating it as free-form description text.
+- Retrospective change-record scaffolding receives the documented lower bound
+  from `:STARTED:` or the lifecycle LOGBOOK/created fallback.
+- README § Timestamps documents LOGBOOK behaviour and points at the skill.
+- Tests cover LOGBOOK round-trip, append-only ordering, reopen clearing
+  current `CLOSED:`, and re-close writing a fresh `CLOSED:` plus a new log
+  entry.
+
+** DONE [#B] Propagate lifecycle LOGBOOK conventions into org-plan guidance :plan:timestamps:
+CLOSED: [2026-05-01 Fri 10:23]
+:PROPERTIES:
+:ID: bd8c6b11-9d8b-480e-9715-dab93f91ae14
+:CREATED: [2026-05-01 Fri 08:51]
+:STARTED: [2026-05-01 Fri 09:41]
+:END:
+`org-plan` owns the change-record skeleton and execution workflow, so it must
+teach agents how lifecycle logging appears in plan tasks without encouraging
+manual, inconsistent log editing.
+
+Acceptance criteria:
+- `org-plan/SKILL.md` minimal skeleton shows the accepted placement of
+  `:LOGBOOK:` relative to `:PROPERTIES:`, `#+IMPORT:`, and task body text, or
+  explicitly says tools may omit the drawer until the first automated status
+  write.
+- Execution workflow says status transitions should be performed via tooling
+  where available so LOGBOOK entries, `:STARTED:`, `CLOSED:`, and parent status
+  propagation stay synchronized.
+- Retrospective-plan guidance explains that LOGBOOK is evidence, not rewritten
+  history: completed/current tasks may be marked `DONE`/`STARTED`, but the log
+  should reflect actual transitions observed or performed by the tooling.
+
+** STARTED [#B] Sandbox `#+IMPORT:` and scaffolded plan paths :security:protocol:
+:PROPERTIES:
+:ID: 89f529bd-b282-43b1-854e-a5a5deaa6cda
+:CREATED: [2026-05-01 Fri 08:51]
+:STARTED: [2026-05-01 Fri 09:41]
+:END:
+Protocol + extension change. Imports are effectively code-agent input and need
+an explicit project trust boundary.
+
+Acceptance criteria:
+- `org-tasks/SKILL.md` documents that `#+IMPORT:` paths and scaffolded plan
+  paths must resolve, after `realpath`/symlink resolution, under the project
+  root (or an explicit allowlist).
+- Absolute paths and parent-traversal escapes are rejected by default.
+- Tasks extension enforces the rule when loading imports and when scaffolding
+  new plan files via `p`.
+- Parser/extension tests cover: in-tree path (allowed), absolute path
+  (rejected), parent traversal (rejected), symlink escape (rejected).
+
+** DONE [#C] Document linked-issue URL trust boundary and audit opener :security:docs:
+CLOSED: [2026-05-01 Fri 10:23]
+:PROPERTIES:
+:ID: 7413a856-3dcf-4c8d-8bb6-eb0538fd5707
+:CREATED: [2026-05-01 Fri 08:51]
+:STARTED: [2026-05-01 Fri 09:41]
+:END:
+Doc clarification plus a small code audit; non-HTTPS schemes stay allowed.
+
+Acceptance criteria:
+- `agents/pi/extensions/tasks/README.md` § "Linked external issues" states
+  that `#+ISSUE_URL_BASE:` and `:LINKED_ISSUES:` are project-local trusted
+  configuration; non-HTTPS schemes are intentionally permitted.
+- Same section notes that `TASKS.local.org` overrides are part of the user's
+  checkout-local trust boundary, not untrusted remote input.
+- Code audit confirms `J` invokes `open`/`xdg-open` with an argument vector
+  (no shell interpolation) and the URL is passed as a discrete argv element.
+  If shell invocation is found, fix it.
+
+** TODO [#C] Define legacy-data tolerance and one-time normalization :compatibility:
+:PROPERTIES:
+:ID: cb04c07b-d513-4001-b072-187a561cc753
+:CREATED: [2026-05-01 Fri 08:51]
+:END:
+The protocol already says "Do not backfill on existing tasks." The gap is
+that tooling behaviour for legacy tasks (missing/misformatted `:CREATED:`,
+no `:ID:`) is undefined.
+
+Acceptance criteria:
+- `org-tasks/SKILL.md` distinguishes required-on-new-write metadata from
+  tolerated-on-read legacy shapes, citing the existing no-backfill rule.
+- Extension parsing surfaces malformed `:CREATED:` / missing `:CREATED:` as a
+  warning surface (log line or UI hint) without silently rewriting files.
+- A one-time `normalize` flow (CLI subcommand or documented manual procedure)
+  is specified for users who opt in, including provenance notes for any
+  backfilled timestamps.
+
+** DONE [#B] Write agent-memory resume + reconstruction guidance :memory:docs:
+CLOSED: [2026-05-01 Fri 10:23]
+:PROPERTIES:
+:ID: 7f1d0f91-24bf-4eea-9b00-79727517c4b2
+:CREATED: [2026-05-01 Fri 08:51]
+:STARTED: [2026-05-01 Fri 09:41]
+:END:
+Most direct response to the parent task ask: treat the protocol as agent
+memory, not just a task list.
+
+Acceptance criteria:
+- `org-tasks/SKILL.md` gains an "Agent memory" section covering:
+  - resume entry points (selected task, fallback ordering)
+  - what to load eagerly vs. on demand (TASKS.org vs. linked change-records)
+  - reconstruction checklist: imports, `* Context`, `* Implementation`,
+    `* Open questions`, blockers, linked issues
+  - guidance on change-record size: when a record has grown too large for
+    cheap re-ingestion and should be split or archived
+  - cross-session continuity expectations (what survives, what is per-session)
+- The new section is referenced from `org-plan/SKILL.md` and the tasks
+  extension README rather than duplicated.
+
+** STARTED [#B] Add agent-memory regression tests :memory:tests:
+:PROPERTIES:
+:ID: 69836e04-f4ff-4f8a-b538-234ef8109659
+:CREATED: [2026-05-01 Fri 08:51]
+:STARTED: [2026-05-01 Fri 09:41]
+:END:
+Lock the durable behaviour the agent depends on across sessions.
+
+Acceptance criteria:
+- Parser tests cover: round-trip preservation of `#+IMPORT:` link forms,
+  selection resolution from `TASKS.local.org`, and the timestamp lifecycle
+  decisions from the timestamps task.
+- Scaffold/extension tests cover post-migration identity: after subtask
+  absorption there are no duplicate IDs and the parent contains only the
+  documented summary, if that behaviour is retained.
+- A scenario-style test reconstructs context for a synthetic task graph and
+  asserts the resume checklist's expected outputs (selected task, plan
+  context, implementation notes, blockers).
+- README and skills point at these tests as the authoritative behavioural
+  contract.
+
+** DONE [#A] Reconcile org-jira planning-context wording with subtask migration :jira:identity:
+CLOSED: [2026-05-01 Fri 10:23]
+:PROPERTIES:
+:ID: 0cc22009-9e3a-4bf2-a5bb-c5b6768486a0
+:CREATED: [2026-05-01 Fri 08:51]
+:STARTED: [2026-05-01 Fri 09:41]
+:END:
+Depends on the identity task. `agents/skills/org-jira/SKILL.md` § "Planning
+context" currently says child Jira issues may be "mirror[ed] as level-2
+`* Plan` headings" — the same word the org-plan skill uses for the now-gone
+UUID-mirroring concept. Risk: an agent reads this as "reuse Jira keys as
+`:ID:`" or as "keep TASKS.org subtasks alongside the plan".
+
+Acceptance criteria:
+- org-jira skill explicitly states that Jira keys are *not* `:ID:` values;
+  Jira-derived plan tasks get fresh UUIDs and link back via
+  `:LINKED_ISSUES:`.
+- Subtask migration (move from TASKS.org into `* Plan`, delete from parent)
+  is described as orthogonal to Jira fetches: a plan can carry both migrated
+  TASKS.org subtasks and freshly-minted Jira-derived plan tasks.
+- Wording in org-jira no longer uses "mirror" for the Jira-decomposition case
+  (rename to "reflect" or "derive") to avoid colliding with the deleted
+  UUID-mirroring concept.
+
+** STARTED [#B] Verify jira autoTransition under reopen and multi-transition flows :jira:timestamps:
+:PROPERTIES:
+:ID: 5456eeb0-d39c-4b52-8440-f9a1c02a6071
+:CREATED: [2026-05-01 Fri 08:51]
+:STARTED: [2026-05-01 Fri 09:41]
+:END:
+Depends on the lifecycle LOGBOOK semantics decision. Once reopen rules are
+defined, the jira extension's `autoTransition` consumer of
+`tasks:status-changed` must handle the new shapes (e.g.
+`STARTED -> DONE -> STARTED -> DONE`) without replaying historical LOGBOOK
+entries.
+
+Acceptance criteria:
+- jira extension code is reviewed against the agreed reopen semantics and uses
+  the live `tasks:status-changed` event (`prevStatus`, `status`, `id`) to choose
+  the appropriate Jira intent; LOGBOOK is treated as audit/resume evidence, not
+  as a queue of transitions to replay.
+- A status-event matrix is documented for supported local transitions:
+  first-start (`TODO/WAITING -> STARTED`), close (`* -> DONE`), and reopen
+  (`DONE/CANCELLED -> STARTED`), including whether reopen should try Jira
+  "Reopen"-style transitions, fall back to "In Progress", or surface a
+  chooser.
+- Each live `tasks:status-changed` event maps to at most one Jira transition
+  prompt; repeated local close/reopen cycles append distinct LOGBOOK entries
+  but do not duplicate prompts for a single event.
+- Tests cover `STARTED -> DONE -> STARTED` and `WAITING -> DONE` event
+  sequences and assert the prompts emitted to the agent reference the intended
+  transition for the current `prevStatus -> status` pair.
+- org-jira skill § "Transition (auto, optional)" is updated to explain the
+  relationship between LOGBOOK audit history and live status-change events.
+
+** STARTED [#B] Enforce import-path sandbox in tasks_insert_task and jira_clone_apply :jira:security:
+:PROPERTIES:
+:ID: 3a64c36c-08e3-4b83-85ac-17cf5bdc70d5
+:CREATED: [2026-05-01 Fri 08:51]
+:STARTED: [2026-05-01 Fri 09:41]
+:END:
+Depends on the import-path sandbox task. `tasks_insert_task` accepts a `file`
+argument and `jira_clone_apply` forwards it; both are reachable from
+LLM-emitted tool calls and so are the natural enforcement points for the
+project-root rule.
+
+Acceptance criteria:
+- The tool-level project root is defined explicitly (prefer the extension
+  context `cwd`, not an arbitrary target-file directory or ambient process
+  cwd) and is shared by `tasks_insert_task` and `jira_clone_apply`.
+- `tasks_insert_task` rejects `file` paths that resolve outside that project
+  root after `realpath`/symlink resolution, returning the existing
+  structured error shape (`status: "error"`, `isError: true`).
+- `tasks_insert_task` validates `alsoScan` paths the same way to avoid
+  scanning attacker-controlled files when checking for `:LINKED_ISSUES:`
+  duplicates.
+- `jira_clone_apply` surfaces the structured error verbatim (no swallow).
+- Insert and clone tests cover in-tree relative path (allowed), in-tree
+  absolute path (allowed), out-of-tree absolute path (rejected),
+  parent-traversal escape (rejected), and symlink-escape (rejected) cases.
+- Tasks extension README § `tasks_insert_task` documents the rule.
+
+** DONE [#C] Document #+JIRA_BASE_URL trust boundary in org-jira and jira README :jira:docs:
+CLOSED: [2026-05-01 Fri 10:23]
+:PROPERTIES:
+:ID: 2550429d-13c5-4459-83c8-6f3d364fb5c5
+:CREATED: [2026-05-01 Fri 08:51]
+:STARTED: [2026-05-01 Fri 09:41]
+:END:
+Mirror the linked-issue URL trust framing into the Jira-specific docs so the
+three relevant docs (tasks README, org-jira skill, jira README) state the
+same thing.
+
+Acceptance criteria:
+- org-jira skill notes that `#+JIRA_CLOUDID`, `#+JIRA_PROJECT`, and
+  `#+JIRA_BASE_URL` are project-local trusted configuration; values from
+  `TASKS.local.org` overrides are part of the user's checkout-local trust
+  boundary, not untrusted remote input.
+- jira extension README cross-references the trust framing rather than
+  duplicating it.
+- A short "Trust boundary" subsection appears in org-jira so future
+  cross-skill features inherit the same vocabulary.
+
+** DONE [#B] Cross-link org-jira planning context from agent-memory section :jira:memory:
+CLOSED: [2026-05-01 Fri 10:23]
+:PROPERTIES:
+:ID: d9aea18c-8ba2-4c18-ab62-da02ef0f6b44
+:CREATED: [2026-05-01 Fri 08:51]
+:STARTED: [2026-05-01 Fri 09:41]
+:END:
+Depends on the agent-memory resume guidance task. Resuming an agent on a
+Jira-linked task should explicitly include the Jira fetch hop, otherwise the
+agent will silently work from stale local context.
+
+Acceptance criteria:
+- The new "Agent memory" section in `org-tasks/SKILL.md` cross-links to
+  `org-jira` § "Planning context" as the canonical procedure for re-fetching
+  upstream state when a task carries `:LINKED_ISSUES:`.
+- The reconstruction checklist names `:LINKED_ISSUES:`, LOGBOOK lifecycle
+  history, and the Jira fetch step alongside `* Context` / `* Implementation`
+  / `* Open questions`.
+- org-jira § "Planning context" is updated to state that it is also the
+  resume-time fetch procedure, not only a planning-time one.
+- Cross-session continuity expectations explicitly call out that local status
+  history is durable via heading status / `CLOSED:` / LOGBOOK, while live
+  Jira transition attempts are event-driven and the fetched Jira context itself
+  is per-session and must be re-derived.
+
+** STARTED [#C] Add a Jira-linked scenario to agent-memory regression tests :jira:tests:
+:PROPERTIES:
+:ID: 47e88b09-5c40-459b-97b0-0aefa3a28681
+:CREATED: [2026-05-01 Fri 08:51]
+:STARTED: [2026-05-01 Fri 09:41]
+:END:
+Depends on the agent-memory regression-tests task. Most cross-session
+failures in this codebase have happened along the Jira axis (clone
+idempotency, status events, drawer scans).
+
+Acceptance criteria:
+- The scenario test suite includes a Jira-linked task variant exercising:
+  `jira_clone_apply` insert, status cycle through the lifecycle (including
+  LOGBOOK entries and any reopen path agreed by the timestamps task), re-clone
+  idempotency refusal, and resume-time reconstruction (selected task +
+  linked-issues + lifecycle history surface in the checklist output).
+- The test does not depend on a live Atlassian MCP; it stubs the parsed
+  Jira fields the way the existing jira/insert tests do.
+
+* Implementation
+Review completed with the review sub-agent. Findings were sanity-checked for
+protocol relevance and converted into the plan above. No implementation changes
+beyond creating this change-record and linking it from the selected task have
+been made yet.
+
+User clarified the intended resolution for the identity finding: subtasks should
+be moved into the plan with their IDs intact and deleted from the parent
+document. The first plan item has been narrowed accordingly.
+
+User clarified that non-HTTPS linked issue URLs should be allowed because issue
+URL bases are project-local configuration within the repository/checkout trust
+boundary. The security task now focuses on documenting that trust boundary and
+ensuring opener implementation avoids shell interpolation.
+
+Post-draft self-review tightened the plan:
+- Identity task narrowed to "make the skill match the extension's existing
+  subtask-absorption behaviour" rather than picking between options.
+- Timestamp work split into a protocol-decision task and a tooling-enforcement
+  task; identity + decision tasks promoted to `[#A]`.
+- Security task split into project-path sandboxing (protocol + code) and
+  linked-issue URL trust documentation + opener audit (doc + code audit).
+- Agent-memory work split into a documentation task (resume + reconstruction
+  guidance) and a regression-tests task, both promoted to `[#B]` since they
+  are the most direct response to the parent task's framing.
+
+Follow-up pass added Jira-side knock-on tasks so the org-jira skill, the
+tasks extension, and the jira extension stay aligned with the protocol
+changes:
+- Reconcile org-jira's "mirror" wording with the now-canonical subtask
+  migration model.
+- Verify jira `autoTransition` under the agreed reopen semantics.
+- Enforce import-path sandboxing inside `tasks_insert_task` (and therefore
+  `jira_clone_apply`).
+- Document `#+JIRA_*` keywords as project-local trusted configuration.
+- Cross-link org-jira's planning-context fetch from the new agent-memory
+  resume guidance.
+- Extend the agent-memory regression tests with a Jira-linked scenario.
+
+Final lifecycle-log impact review added the agreed LOGBOOK direction:
+- Timestamp semantics now define a task-local `:LOGBOOK:` lifecycle drawer as
+  append-only history, while heading status / `CLOSED:` remain current-state
+  caches.
+- Tasks extension work now includes structural LOGBOOK parsing/serialization
+  and append-on-create/status-transition behaviour.
+- org-plan work now includes lifecycle-log placement and execution guidance so
+  agents do not hand-edit status history inconsistently.
+- org-jira auto-transition work now distinguishes live `tasks:status-changed`
+  events from durable LOGBOOK audit history; LOGBOOK must not be replayed as a
+  queue of Jira transitions.
+
+Implementation pass 1 completed:
+- Rewrote `org-plan` subtask identity guidance from UUID mirroring to canonical
+  subtask migration, including before/after examples and lifecycle-log notes.
+- Expanded `org-tasks` with LOGBOOK lifecycle semantics, reopen/direct-close
+  rules, import-path trust boundaries, subtask migration, and an Agent memory
+  resume checklist.
+- Updated `org-jira` and the jira README for trust-boundary wording,
+  planning/resume context, Jira-derived task identity, and LOGBOOK vs live
+  status-change events.
+- Updated the tasks README for LOGBOOK, non-HTTPS linked issue URLs, opener
+  argv safety, `tasks_insert_task` sandboxing, and LOGBOOK round-trip notes.
+- Implemented LOGBOOK parsing/serialization in `parser.ts`, created/log/state
+  helper functions, LOGBOOK output in `tasks_insert_task`, task creation logs,
+  and status-transition logs in the overlay.
+- Implemented project-root sandbox checks for import loading, plan-path
+  creation/opening, `tasks_insert_task`, `alsoScan`, and `jira_clone_apply`.
+- Updated retrospective prompt scoping to use `:STARTED:` or the created
+  timestamp fallback.
+- Added parser tests for LOGBOOK preservation and insert tests for LOGBOOK
+  rendering plus path-sandbox refusals.
+
+Validation:
+- `cd agents/pi/extensions/tasks && ./test.sh` — passed (56 parser/scaffold,
+  56 insert tests).
+- `cd agents/pi/extensions/jira && ./test.sh` — passed (45 tests).
+- `esbuild` parse/bundle checks for `agents/pi/extensions/tasks/index.ts` and
+  `agents/pi/extensions/jira/index.ts` — passed with external package imports.
+
+Remaining work is tracked by STARTED/TODO plan items: deeper overlay scenario
+coverage for status cycles, import-loader/scaffold sandbox tests, full
+agent-memory scenario tests, and legacy metadata warning/normalization policy.
+
+Behavioural change to call out for users:
+- `#+IMPORT:` paths that resolve outside the project root after symlink
+  resolution are now rejected at load time. Pre-existing TASKS.org files with
+  out-of-tree imports (e.g. `~/notes/...`) will load with empty
+  `importChildren` and an `importError` rather than silently following the
+  link. This dotfiles repo has no such imports, but downstream consumers may.
+
+* Open questions

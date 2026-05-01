@@ -159,13 +159,21 @@ Default is `true`. When `false`, the retrospective flow is suppressed and `TODO/
 - **`:CREATED:`** — written on every new task created via `/tasks new`,
   `n`, or `N`, in `[YYYY-MM-DD Day HH:MM]` format. Existing tasks are
   not backfilled.
-- **`:STARTED:`** — written the first time a task moves `TODO -> STARTED`.
+- **`:STARTED:`** — written the first time a task moves into `STARTED`.
   Subsequent `DONE -> STARTED` re-opens preserve the original value.
-  Used by the retrospective change-record flow to scope `git log`.
+  Used by the retrospective change-record flow as a fast lower-bound
+  cache for `git log`.
 - **`CLOSED:`** — written on transition to `DONE` or `CANCELLED`.
   Emitted on its own line above the `:PROPERTIES:` drawer (matches
   `org-todo`'s native behaviour). The parser accepts `CLOSED:` in
-  either position and serializes back above the drawer.
+  either position and serializes back above the drawer. Reopening a
+  closed task clears current `CLOSED:`; re-closing writes a fresh value.
+- **`:LOGBOOK:`** — task-local lifecycle history written after
+  `:PROPERTIES:` and before task body text. New tasks get a
+  `- Created [timestamp]` entry; every status transition appends a
+  `- State "NEW" from "OLD" [timestamp]` entry. LOGBOOK is append-only
+  audit history; `CLOSED:` and heading status remain current-state
+  caches.
 
 ### Linked external issues
 
@@ -208,8 +216,10 @@ Resolution rule for bare keys:
 3. Otherwise treat the template as a prefix and append the encoded key.
 
 Unusual URL shapes (`https://issues.example.com/?id={ID}&v=full`) are
-also expressible. `TASKS.local.org` may override the keyword
-(last-write-wins, mirroring `#+SELECTED:`).
+also expressible. Non-HTTPS schemes are intentionally permitted because
+issue URL bases are project-local trusted configuration. `TASKS.local.org`
+may override the keyword (last-write-wins, mirroring `#+SELECTED:`) as
+part of the user's checkout-local trust boundary.
 
 **Rendering** — each linked issue appears as a cyan badge prefixed with
 `⤴`, immediately before the tags suffix on the task row. Badges show
@@ -221,7 +231,8 @@ cursor task in the user's browser, capped at 5 with a notification when
 exceeded. Empty/absent property is a silent no-op. Bare tokens with no
 resolvable URL (no `#+ISSUE_URL_BASE` and not an org link) trigger a
 notification pointing at the missing keyword. Browser is invoked via
-`open` (macOS) or `xdg-open` (Linux/other).
+`open` (macOS) or `xdg-open` (Linux/other), passing each URL as a
+separate argv element rather than through shell interpolation.
 
 **Tracker-specific workflows** (claim, transition, comment, create) are
 intentionally *not* part of this extension. They live in companion
@@ -247,7 +258,7 @@ supplied `:LINKED_ISSUES:` token already appears in the scanned set.
 
 | Field                | Type      | Description                                                                                          |
 | -------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
-| `file`               | string    | Absolute or cwd-relative path to the org file to insert into.                                        |
+| `file`               | string    | Absolute or cwd-relative path to the org file to insert into. Must resolve under the project root.    |
 | `section`            | string    | Level-1 heading text (e.g. `Improvements`). Tags on the heading line are tolerated.                  |
 | `summary`            | string    | Heading text. Required, non-empty.                                                                   |
 | `priorityName`       | string?   | `Highest`/`High`/`Medium`/`Low`/`Lowest`. Anything else → no priority cookie.                       |
@@ -256,7 +267,11 @@ supplied `:LINKED_ISSUES:` token already appears in the scanned set.
 | `labels`             | string[]? | Rendered as org tags `:l1:l2:`.                                                                      |
 | `parentId`           | string?   | When set, render as a level-3 subtask. The id itself is not embedded.                                |
 | `allowCreateSection` | bool?     | When true, missing sections are appended to the file. Default `false`.                               |
-| `alsoScan`           | string[]? | Additional org files scanned for `:LINKED_ISSUES:` collisions. Imports walked recursively.           |
+| `alsoScan`           | string[]? | Additional in-project org files scanned for `:LINKED_ISSUES:` collisions. Imports walked recursively. |
+
+Cross-extension JS callers of `insertTaskIntoFile` should pass
+`projectRoot: ctx.cwd` so the in-project sandbox uses the extension's
+working directory rather than ambient `process.cwd()`.
 
 **Return shapes** (in `details`):
 
@@ -279,7 +294,8 @@ The Jira `jira_clone_apply` tool delegates to this primitive (via a
 direct JS import of `insertTaskIntoFile` from `./insert.ts`) so all
 org-mode string assembly stays in one place. Future tracker
 integrations (github / linear / gitlab / `/jira create` reverse path)
-should use the same primitive.
+should use the same primitive. The helper rejects target and scan paths
+that resolve outside the project root after symlink resolution.
 
 ## Cross-extension events
 
@@ -314,10 +330,11 @@ Extension-specific notes:
 
 - **Round-trip preservation**: in `TASKS.org`, file-level metadata,
   preamble, and non-task category headings stay in place; only
-  parsed task subtrees are rewritten. In linked change-records,
-  sections like `#+TITLE`, `#+TODO`, `* Context`,
-  `** Design decisions`, `* Plan`, `* Implementation`, and
-  `* Open questions` are preserved; only parsed task subtrees are
+  parsed task subtrees are rewritten. Within task subtrees,
+  `:PROPERTIES:` and `:LOGBOOK:` drawers are preserved structurally.
+  In linked change-records, sections like `#+TITLE`, `#+TODO`,
+  `* Context`, `** Design decisions`, `* Plan`, `* Implementation`,
+  and `* Open questions` are preserved; only parsed task subtrees are
   rewritten.
 - **Permissive parsing**: actionable task headings may appear
   anywhere in a linked change-record. Using `* Plan` is the

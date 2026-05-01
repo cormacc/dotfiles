@@ -32,8 +32,8 @@ import {
 } from "@mariozechner/pi-tui";
 import { existsSync, readFileSync, watch, type FSWatcher } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { access, mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { homedir } from "node:os";
 import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.ts";
 import { ensureEmacsServer } from "../emacsclient/emacsclient.ts";
@@ -41,6 +41,7 @@ import { Type } from "@sinclair/typebox";
 import { TasksOverlay } from "./overlay.ts";
 import { insertTaskIntoFile, type InsertResult } from "./insert.ts";
 import {
+  appendCreatedLog,
   extractOrgLinkTarget,
   formatOrgTimestamp,
   getFileKeyword,
@@ -251,6 +252,35 @@ function markLocal(tasks: Task[]): void {
   }
 }
 
+function isWithinRoot(path: string, root: string): boolean {
+  const rel = relative(root, path);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+async function resolveExistingOrParent(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch {
+    try {
+      const parent = await realpath(dirname(path));
+      return resolve(parent, basename(path));
+    } catch {
+      return resolve(path);
+    }
+  }
+}
+
+async function resolveProjectPath(
+  cwd: string,
+  baseDir: string,
+  candidate: string,
+): Promise<string | null> {
+  const root = await resolveExistingOrParent(cwd);
+  const abs = isAbsolute(candidate) ? candidate : resolve(baseDir, candidate);
+  const resolved = await resolveExistingOrParent(abs);
+  return isWithinRoot(resolved, root) ? resolved : null;
+}
+
 async function loadTasks(cwd: string): Promise<Task[]> {
   const sourcePath = join(cwd, TASKS_FILE);
   let tasks: Task[] = [];
@@ -258,7 +288,8 @@ async function loadTasks(cwd: string): Promise<Task[]> {
     const content = await readFile(sourcePath, "utf-8");
     const { tasks: shared, fileImports } = parseTasks(content, { sourcePath });
     for (const fp of fileImports) {
-      const absPath = isAbsolute(fp) ? fp : resolve(dirname(sourcePath), fp);
+      const absPath = await resolveProjectPath(cwd, dirname(sourcePath), fp);
+      if (!absPath) continue;
       try {
         const ic = await readFile(absPath, "utf-8");
         const { tasks: it } = parseTasks(ic, { sourcePath: absPath });
@@ -278,7 +309,7 @@ async function loadTasks(cwd: string): Promise<Task[]> {
     tasks.push(...localTasks);
   } catch { /* no local tasks file or no task headings in it */ }
 
-  await loadLinkedPlans(tasks, sourcePath);
+  await loadLinkedPlans(tasks, sourcePath, cwd);
   try {
     await backfillMissingIds(cwd, tasks);
   } catch {
@@ -290,45 +321,50 @@ async function loadTasks(cwd: string): Promise<Task[]> {
 async function loadLinkedPlans(
   tasks: Task[],
   sourcePath: string,
+  cwd: string,
   cache = new Map<string, { tasks: Task[]; error: string | null }>(),
 ): Promise<void> {
   const sourceDir = dirname(sourcePath);
   for (const task of tasks) {
     if (task.importPath) {
-      const importPath = isAbsolute(task.importPath)
-        ? task.importPath
-        : resolve(sourceDir, task.importPath);
-      const cached = cache.get(importPath);
-      if (cached) {
-        task.importChildren = cached.tasks;
-        task.importError = cached.error;
+      const importPath = await resolveProjectPath(cwd, sourceDir, task.importPath);
+      if (!importPath) {
+        task.importChildren = [];
+        task.importError = "Import path resolves outside project root";
       } else {
-        try {
-          const content = await readFile(importPath, "utf-8");
-          const { tasks: importTasks, fileImports } = parseTasks(content, { sourcePath: importPath });
-          const importDir = dirname(importPath);
-          for (const fp of fileImports) {
-            const absPath = isAbsolute(fp) ? fp : resolve(importDir, fp);
-            try {
-              const nc = await readFile(absPath, "utf-8");
-              const { tasks: nt } = parseTasks(nc, { sourcePath: absPath });
-              importTasks.push(...nt);
-            } catch { /* ignore */ }
+        const cached = cache.get(importPath);
+        if (cached) {
+          task.importChildren = cached.tasks;
+          task.importError = cached.error;
+        } else {
+          try {
+            const content = await readFile(importPath, "utf-8");
+            const { tasks: importTasks, fileImports } = parseTasks(content, { sourcePath: importPath });
+            const importDir = dirname(importPath);
+            for (const fp of fileImports) {
+              const absPath = await resolveProjectPath(cwd, importDir, fp);
+              if (!absPath) continue;
+              try {
+                const nc = await readFile(absPath, "utf-8");
+                const { tasks: nt } = parseTasks(nc, { sourcePath: absPath });
+                importTasks.push(...nt);
+              } catch { /* ignore */ }
+            }
+            const entry = { tasks: importTasks, error: null };
+            cache.set(importPath, entry);
+            await loadLinkedPlans(importTasks, importPath, cwd, cache);
+            task.importChildren = importTasks;
+            task.importError = null;
+          } catch (err) {
+            const error = (err as Error).message;
+            task.importChildren = [];
+            task.importError = error;
+            cache.set(importPath, { tasks: task.importChildren, error });
           }
-          const entry = { tasks: importTasks, error: null };
-          cache.set(importPath, entry);
-          await loadLinkedPlans(importTasks, importPath, cache);
-          task.importChildren = importTasks;
-          task.importError = null;
-        } catch (err) {
-          const error = (err as Error).message;
-          task.importChildren = [];
-          task.importError = error;
-          cache.set(importPath, { tasks: task.importChildren, error });
         }
       }
     }
-    await loadLinkedPlans(task.children, sourcePath, cache);
+    await loadLinkedPlans(task.children, sourcePath, cwd, cache);
   }
 }
 
@@ -704,9 +740,10 @@ function registerInsertTaskTool(pi: ExtensionAPI): void {
       "Use tasks_insert_task whenever you would otherwise hand-assemble an org task heading + drawer; prefer it over `edit` for inserts so duplicate :LINKED_ISSUES: tokens are caught and priority/UUID/timestamp formatting stays consistent.",
     ],
     parameters: InsertTaskParams,
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const result = await insertTaskIntoFile({
         file: params.file,
+        projectRoot: ctx.cwd,
         section: params.section,
         summary: params.summary,
         priorityName: params.priorityName ?? null,
@@ -1132,6 +1169,7 @@ function cloneTaskForPlan(task: Task, level: number): Task {
     level,
     tags: [...task.tags],
     propertyLines: [...task.propertyLines],
+    logbookLines: [...task.logbookLines],
     children: task.children.map((child) => cloneTaskForPlan(child, level + 1)),
     importChildren: undefined,
     importError: null,
@@ -1273,8 +1311,20 @@ function buildProactiveChangeRecordPrompt(
       ? "Existing TASKS.org subtasks were moved into the linked change-record under * Plan, and the parent task now retains a plain-text summary of the extracted subtasks."
       : "The parent task had no local subtasks to absorb.",
     "",
-    "Use the `org-plan` and `org-tasks` skills. Start by asking me any scoping questions needed to develop the plan. Once the plan is agreed, write the final org content to the change-record file above. New `** TODO` plan tasks must include `:ID:` and `:CREATED: [YYYY-MM-DD Day HH:MM]` properties (use `date +'%Y-%m-%d %a %H:%M'` to obtain the timestamp). After writing it, offer to open the file in Emacs.",
+    "Use the `org-plan` and `org-tasks` skills. Start by asking me any scoping questions needed to develop the plan. Once the plan is agreed, write the final org content to the change-record file above. New `** TODO` plan tasks must include `:ID:` and `:CREATED: [YYYY-MM-DD Day HH:MM]` properties (use `date +'%Y-%m-%d %a %H:%M'` to obtain the timestamp). Prefer tool-driven status changes so `:LOGBOOK:` lifecycle history stays synchronized. After writing it, offer to open the file in Emacs.",
   ].join("\n");
+}
+
+function taskCreatedTimestamp(task: Task): string | null {
+  for (const line of task.propertyLines) {
+    const match = /^\s*:CREATED:\s*\[([^\]]+)\]\s*$/i.exec(line);
+    if (match) return match[1]!.trim();
+  }
+  for (const line of task.logbookLines) {
+    const match = /^\s*-\s+Created\s+\[([^\]]+)\]\s*$/i.exec(line);
+    if (match) return match[1]!.trim();
+  }
+  return null;
 }
 
 function buildRetrospectiveChangeRecordPrompt(
@@ -1283,10 +1333,12 @@ function buildRetrospectiveChangeRecordPrompt(
   absPlan: string,
 ): string {
   const started = getTaskStarted(task);
+  const created = taskCreatedTimestamp(task);
+  const lowerBound = started ?? created;
   const closed = task.closed;
-  const scopeNote = started
-    ? `The task has :STARTED: [${started}] and CLOSED: [${closed ?? "now"}] timestamps. Use these to scope \`git log\`.`
-    : "The task has no :STARTED: timestamp; fall back to recent commits since the task was created.";
+  const scopeNote = lowerBound
+    ? `Use ${started ? `:STARTED: [${started}]` : `the created timestamp [${created}]`} as the lower bound and CLOSED: [${closed ?? "now"}] as the upper bound for \`git log\`.`
+    : "The task has no :STARTED: or created timestamp; fall back to recent commits (for example `-n 20`).";
   return [
     "Generate a retrospective change-record for the just-closed TASKS.org task.",
     "",
@@ -1297,7 +1349,7 @@ function buildRetrospectiveChangeRecordPrompt(
     "The tasks extension has already attached the #+IMPORT: keyword and scaffolded the change-record file with empty * Context, * Plan, and * Implementation sections.",
     "",
     "Steps:",
-    `1. ${scopeNote} A reasonable invocation is \`git log --oneline --since="<:STARTED:>" --until="<CLOSED:>"\` (or \`-n 20\` as a fallback).`,
+    `1. ${scopeNote} A reasonable invocation is \`git log --oneline --since="${lowerBound ?? "<fallback>"}" --until="${closed ?? "now"}"\` when a lower bound is available.`,
     "2. Inspect the relevant commits and code changes.",
     "3. Draft the * Context section: a short problem statement (1-2 paragraphs).",
     "4. Draft the * Implementation section: bullet points listing what was changed and why, citing commits where useful. Include any rolled-back attempts or dead-ends if they appear in the history \u2014 the failure record is the most valuable part of a retrospective.",
@@ -1331,9 +1383,11 @@ async function handlePlanEdit(
 
   // ── Open existing plan ──
   if (task.importPath) {
-    const absPlan = isAbsolute(task.importPath)
-      ? task.importPath
-      : resolve(sourceDir, task.importPath);
+    const absPlan = await resolveProjectPath(ctx.cwd, sourceDir, task.importPath);
+    if (!absPlan) {
+      ctx.ui.notify("Plan path resolves outside project root", "error");
+      return;
+    }
     if (!(await ensureEmacsServer(getEmacsOptions(pi)))) {
       ctx.ui.notify("Could not reach or start Emacs server", "error");
       return;
@@ -1349,7 +1403,11 @@ async function handlePlanEdit(
   const relPath = approved.split(/\r?\n/, 1)[0]?.trim();
   if (!relPath) return;
 
-  const absPlan = isAbsolute(relPath) ? relPath : resolve(ctx.cwd, relPath);
+  const absPlan = await resolveProjectPath(ctx.cwd, ctx.cwd, relPath);
+  if (!absPlan) {
+    ctx.ui.notify("Plan path resolves outside project root", "error");
+    return;
+  }
   const planRelToSource = relative(sourceDir, absPlan);
 
   const originalChildren = task.children;
@@ -1449,6 +1507,7 @@ async function createTask(
     : tasks.filter((t) => !t.isLocal);
 
   const level = parentTask ? parentTask.level + 1 : 1;
+  const createdAt = formatOrgTimestamp();
   const newTask: Task = {
     level,
     status: "TODO",
@@ -1459,19 +1518,22 @@ async function createTask(
     children: [],
     propertyLines: [
       `:ID: ${randomUUID()}`,
-      `:CREATED: [${formatOrgTimestamp()}]`,
+      `:CREATED: [${createdAt}]`,
     ],
     importPath: null,
     importRaw: null,
     importChildren: undefined,
     isLocal,
     closed: null,
+    logbookLines: [],
     sourcePath: targetPath,
     sourceContent: targetRoot.find((t) => t.sourceContent)?.sourceContent,
     sourceRoot: targetRoot,
     lineNumber: 0,
     endLine: 0,
   };
+
+  appendCreatedLog(newTask, createdAt);
 
   // For top-level inserts, push into `targetRoot` (the filtered slice that
   // gets serialized below). Pushing into `tasks` instead would mutate the
@@ -1514,6 +1576,7 @@ function taskForArchive(task: Task): Task {
   return {
     ...task,
     propertyLines: [...task.propertyLines],
+    logbookLines: [...task.logbookLines],
     importChildren: undefined,
     importError: null,
     sourceRoot: undefined,
@@ -1522,9 +1585,14 @@ function taskForArchive(task: Task): Task {
 }
 
 const ARCHIVED_PROPERTY_RE = /^\s*:ARCHIVED:\s*\[([^\]]+)\]\s*$/i;
+const CLOSED_LOGBOOK_RE = /^\s*-\s+State\s+\"(?:DONE|CANCELLED)\"\s+from\s+\"[^\"]+\"\s+\[([^\]]+)\]\s*$/i;
 
 function archiveSortTimestamp(task: Task): string {
   if (task.closed) return task.closed;
+  for (let i = task.logbookLines.length - 1; i >= 0; i--) {
+    const match = CLOSED_LOGBOOK_RE.exec(task.logbookLines[i]!);
+    if (match) return match[1]!.trim();
+  }
   for (const line of task.propertyLines) {
     const match = ARCHIVED_PROPERTY_RE.exec(line);
     if (match) return match[1]!.trim();
