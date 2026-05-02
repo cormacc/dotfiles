@@ -72,7 +72,6 @@ Decisions [2026-05-02 Sat]:
 | Acceptance criteria / DoD           | Adopt (convention)  | Bullet list in plan-task body. No drawer.                          |
 | Solution / lesson capture           | Defer               | Out of scope; revisit via self-improvement skill review (spawned). |
 | Attribution (`:WORKED_BY:` etc.)    | Reject (for now)    | Git log suffices for solo workflow. Captured as non-goal.          |
-
 ** DONE [#B] Specify handoff, question, and change-record status conventions :skills:
 CLOSED: [2026-05-02 Sat 12:25]
 :PROPERTIES:
@@ -108,7 +107,6 @@ in task `a9f11962-5c55-4e8c-bee6-a3095b434dc0`):
   parser updates for the `tasks` pi extension and the `tasks-org` Emacs
   minor mode, plus the SKILL.md changes (example block, blocker rule,
   ready-task semantics).
-
 ** DONE [#C] Design health-check and readiness tooling :extensions:
 CLOSED: [2026-05-02 Sat 12:25]
 :PROPERTIES:
@@ -139,7 +137,6 @@ closed dependency: `task:<UUID>` references must point to `DONE` /
 `CANCELLED` tasks; non-task forms (`url:`, `human:`, `jira:` etc.) are
 treated as opaque blockers that gate readiness until removed by hand. A
 separate fan-in property such as `:WAITS_FOR:` is not warranted.
-
 ** DONE [#C] Decide completion-summary and acceptance-criteria shape :workflow:
 CLOSED: [2026-05-02 Sat 12:25]
 :PROPERTIES:
@@ -161,7 +158,6 @@ implementation phase below. Specifics:
   `* Implementation` section should end with a brief "Outcome" / "Shipped"
   paragraph (1–3 lines) summarising what landed.
 No new properties or drawers.
-
 ** DONE [#D] Capture explicit non-goals for the local protocol :documentation:
 CLOSED: [2026-05-02 Sat 12:25]
 :PROPERTIES:
@@ -195,7 +191,6 @@ accidentally:
 # on the spec; the doctor command depends on the parser. Dependency
 # relationships are dogfooded via `:BLOCKED-BY:` / `:BLOCKED-BY+:` to
 # exercise the very convention this change-record introduces.
-
 ** DONE [#C] Apply org-memory SKILL updates from prior-art review :skills:
 CLOSED: [2026-05-02 Sat 12:36]
 :PROPERTIES:
@@ -249,7 +244,6 @@ org-plan SKILL.md:
   when a top-level task closes.
 - Note resume-time behaviour: surface `:HANDOFF:` and any `OPEN` questions
   on the selected task's change-record.
-
 ** DONE [#C] Multi-valued :BLOCKED-BY: + ready-task query in tasks extension :extensions:
 CLOSED: [2026-05-02 Sat 12:46]
 :PROPERTIES:
@@ -286,7 +280,6 @@ Parser/code changes:
   DONE/CANCELLED tasks; non-task forms (`url:`, `human:`, `jira:` etc.)
   gate readiness until removed by hand.
 - Surface optional `:HANDOFF:` on selected/active task in resume + overlay.
-
 ** DONE [#D] Implement /tasks doctor health-check command :extensions:
 CLOSED: [2026-05-02 Sat 12:52]
 :PROPERTIES:
@@ -320,7 +313,6 @@ Checks to implement:
 - parents whose status is stale relative to their child plan tasks
 - invalid task references in any `:BLOCKED-BY:` / `:BLOCKED-BY+:` entry
   (`task:<UUID>` value not present in the task graph)
-
 * Implementation
 - 2026-05-01: Reviewed `farra/dev-agent-backlog`, including README, templates,
   skills, commands, and design docs covering backlog workflow, agent integration,
