@@ -370,4 +370,4 @@ Requires `tsx` on `$PATH` (e.g. via `npx tsx` or a global install).
 
 ## Dependencies
 
-- `lib/pi-utils.ts` — `getExtensionName`, `suggestKeybindings`
+- `lib/pi-utils.ts` — `getExtensionName`, `registerLeaderMenu`

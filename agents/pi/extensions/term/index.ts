@@ -8,7 +8,7 @@ import { KittyBackend } from "./kitty.js";
 import { GhosttyBackend } from "./ghostty.js";
 import type { MonitorBackend } from "./types.js";
 import { sanitizeName, sleep } from "./types.js";
-import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.js";
+import { getExtensionName, registerLeaderMenu } from "../lib/pi-utils.js";
 
 const EXT_NAME = getExtensionName(import.meta.url);
 const DEFAULT_SESSION = "shell";
@@ -852,7 +852,7 @@ export default function (pi: ExtensionAPI) {
       "info",
     );
 
-    cleanupKeybindings = suggestKeybindings(pi, EXT_NAME, {
+    cleanupKeybindings = registerLeaderMenu(pi, EXT_NAME, {
       menus: {
         term: {
           label: "Term",

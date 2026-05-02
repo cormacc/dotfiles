@@ -29,59 +29,69 @@ export function getExtensionName(importMetaUrl: string): string {
   return fileName;
 }
 
-// ── Modal-editor keybinding suggestions ─────────────────────────────────────
+// ── Leader-menu registration ────────────────────────────────────────────────
+//
+// Helper for contributing leader-chord entries to the `leader-menu`
+// extension. The verb "register" matches pi's existing extension-API
+// pattern (`registerCommand`, `registerTool`, `registerShortcut`).
+// Internally emits `leader-menu:register` and listens for
+// `leader-menu:ready` so contributions survive reloads.
 
 /**
- * Menu item in a keybinding suggestion (matches the keybindings extension's JSON format).
+ * A single leader-menu item: a leaf with an action, or a sub-menu with
+ * nested items. Mirrors the JSON shape of `leader-menu/defaults.json`.
  */
-export interface KeybindingMenuItem {
+export interface LeaderMenuItem {
   label: string;
   action?: string;
-  items?: Record<string, KeybindingMenuItem>;
+  items?: Record<string, LeaderMenuItem>;
 }
 
 /**
- * A menu definition: the trigger key plus its items tree.
+ * A leader menu rooted at a single trigger key (e.g. `" "` for Space
+ * leader, `","` for the pi-agent leader).
  */
-export interface KeybindingMenu {
+export interface LeaderMenu {
   label: string;
   key: string;
-  items: Record<string, KeybindingMenuItem>;
+  items: Record<string, LeaderMenuItem>;
 }
 
 /**
- * Payload accepted by `keybindings:suggest`.
+ * Payload accepted by the `leader-menu:register` event. The `source`
+ * field is injected automatically by `registerLeaderMenu()`.
  */
-export interface KeybindingSuggestion {
+export interface LeaderMenuRegistration {
   source?: string;
-  menus?: Record<string, KeybindingMenu>;
+  menus?: Record<string, LeaderMenu>;
 }
 
 /**
  * Tracks active subscriptions so repeated calls for the same extension
  * automatically clean up the previous listener (safe across reloads).
  */
-const activeKeybindingSubs = new Map<string, () => void>();
+const activeLeaderMenuSubs = new Map<string, () => void>();
 
 /**
- * Register keybinding suggestions with the keybindings extension.
+ * Register leader-menu entries with the `leader-menu` extension.
  *
  * Handles the full lifecycle:
- *  - Emits suggestions immediately (in case the keybindings extension is already loaded).
- *  - Subscribes to `keybindings:ready` so suggestions are re-sent when the
- *    editor (re)initialises.
- *  - Automatically unsubscribes any prior listener for the same extension
- *    name, preventing duplicate callbacks on extension reload.
+ *  - Emits the registration immediately (in case `leader-menu` is
+ *    already loaded).
+ *  - Subscribes to `leader-menu:ready` so the registration is re-sent
+ *    when leader-menu re-initialises (e.g. after `/reload`).
+ *  - Automatically unsubscribes any prior listener for the same
+ *    extension name, preventing duplicate callbacks on reload.
  *
- * Returns a cleanup function that unsubscribes the listener. Call it from
- * your `session_shutdown` handler.
+ * Returns a cleanup function that unsubscribes the listener. Call it
+ * from your `session_shutdown` handler.
  *
  * @example
  * ```ts
  * let cleanupKb: (() => void) | null = null;
  *
  * pi.on("session_start", async () => {
- *   cleanupKb = suggestKeybindings(pi, "my-ext", {
+ *   cleanupKb = registerLeaderMenu(pi, "my-ext", {
  *     menus: {
  *       myMenu: {
  *         label: "My Menu",
@@ -98,29 +108,29 @@ const activeKeybindingSubs = new Map<string, () => void>();
  * });
  * ```
  */
-export function suggestKeybindings(
+export function registerLeaderMenu(
   pi: ExtensionAPI,
   extensionName: string,
-  keybindings: KeybindingSuggestion,
+  registration: LeaderMenuRegistration,
 ): () => void {
-  // Clean up any prior registration for this extension (handles reload)
-  activeKeybindingSubs.get(extensionName)?.();
+  // Clean up any prior registration for this extension (handles reload).
+  activeLeaderMenuSubs.get(extensionName)?.();
 
-  // Inject source from extensionName so callers don't have to repeat it
-  const payload = { ...keybindings, source: extensionName };
+  // Inject source from extensionName so callers don't have to repeat it.
+  const payload = { ...registration, source: extensionName };
 
-  const suggest = () => {
-    pi.events.emit("keybindings:suggest", payload);
+  const register = () => {
+    pi.events.emit("leader-menu:register", payload);
   };
 
-  const unsub = pi.events.on("keybindings:ready", suggest);
-  suggest();
+  const unsub = pi.events.on("leader-menu:ready", register);
+  register();
 
   const cleanup = () => {
     unsub();
-    activeKeybindingSubs.delete(extensionName);
+    activeLeaderMenuSubs.delete(extensionName);
   };
 
-  activeKeybindingSubs.set(extensionName, cleanup);
+  activeLeaderMenuSubs.set(extensionName, cleanup);
   return cleanup;
 }

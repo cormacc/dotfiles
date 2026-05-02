@@ -28,8 +28,8 @@
             "E": {
               "label": "+editor",
               "items": {
-                "e": { "label": "Emacs mode", "action": "keybindings:set-mode-emacs" },
-                "v": { "label": "Vim mode", "action": "keybindings:set-mode-vim" }
+                "e": { "label": "Emacs mode", "action": "vim-mode:disable" },
+                "v": { "label": "Vim mode", "action": "vim-mode:enable" }
               }
             }
           }
