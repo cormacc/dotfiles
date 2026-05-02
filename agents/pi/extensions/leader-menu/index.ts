@@ -5,8 +5,9 @@
  * shortcuts that open them, the `/leader-menu` slash command, and the
  * cross-extension contribution API used by every other extension to
  * add its own sub-menus. Has no opinion on modal editing — the
- * optional vim layer lives in the sibling `vim-mode` extension and
- * toggles via the cross-extension events documented below.
+ * optional vim layer lives in the sibling `vim-mode` extension. If
+ * that extension is loaded it is always on; there is no modal toggle
+ * here.
  *
  * ## Leaders
  *
@@ -756,7 +757,7 @@ export default function (pi: ExtensionAPI) {
       ctx.ui.notify(`leader-menu: no ${displayKey(rootKey)} menu loaded`, "warning");
       return;
     }
-    await ctx.ui.custom<undefined>(
+    await ctx.ui.custom(
       (tui: TUI, theme: any, _kb: KeybindingsManager, done: (value: undefined) => void) =>
         new LeaderMenuOverlay(tui, leaderMenus, theme, () => done(undefined), rootKey),
       { overlay: true },
@@ -876,7 +877,7 @@ export default function (pi: ExtensionAPI) {
           ctx.ui.notify("/leader-menu bindings requires interactive mode", "error");
           return;
         }
-        await ctx.ui.custom<undefined>(
+        await ctx.ui.custom(
           (_tui, theme, _kb, done) =>
             new BindingsOverlay(leaderMenus, theme, () => done(undefined)),
           { overlay: true },

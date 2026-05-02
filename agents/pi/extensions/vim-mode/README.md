@@ -53,10 +53,14 @@ Operators compose with motions and text objects:
 | `Esc`           | Clear pending op state            |
 | `alt+Esc`       | Abort / interrupt                 |
 | `<global>`      | Open global leader-menu overlay   |
-| `<local>`       | Open local leader-menu overlay    |
+| `<local>`       | Open local leader-menu overlay when it does not conflict with Vim grammar |
 
 `<global>` / `<local>` are the configured leader keys (defaults
-`Space` and `,`; see `leader-menu` for reconfiguration).
+`Space` and `,`; see `leader-menu` for reconfiguration). Caveat: the
+default local leader `,` is also Vim repeat-find-backward, so bare
+`,` in Normal mode is handled by Vim grammar first. Use `alt+,` or
+configure a non-conflicting local leader if you want bare Normal-mode
+access to the local menu.
 
 In Insert mode, most keys pass through to the underlying pi editor
 unchanged. `alt+space` and `alt+,` (or whatever the user's leaders

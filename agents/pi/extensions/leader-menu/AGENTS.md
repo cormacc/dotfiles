@@ -4,8 +4,9 @@
 
 This extension owns *only* leader-menu discovery and dispatch. Modal
 editing lives in the sibling `vim-mode` extension. Do not add
-modal-editor code, mode toggling, or settings persistence here — those
-all belong in `vim-mode`.
+modal-editor code or mode toggling here — `vim-mode` is always on
+when loaded and has no runtime toggle. Shared key-dispatch settings
+(currently leader triggers + `debug`) live in `leader-menu.json`.
 
 ## Editing rules
 
@@ -36,12 +37,16 @@ all belong in `vim-mode`.
 
 ## Cross-extension contract with `vim-mode`
 
-`Space t E v` and `Space t E e` are dispatched as plain events
-(`vim-mode:enable` / `vim-mode:disable`) via the standard
-`buildAction()` event-dispatch path. There is no direct import between
-the two extensions — keep it that way. If a richer toggle handshake is
-needed, extend the event payload (it accepts `{}` today) rather than
-introducing an import.
+- `leader-menu:keys-resolved` publishes `{ globalLeader, localLeader }`
+  after settings resolution; `vim-mode` consumes it to update bare
+  Normal-mode leader dispatch.
+- `leader-menu:open` is the inverse path: `vim-mode` emits it when a
+  bare configured leader is pressed in Normal mode, and leader-menu
+  owns the overlay.
+
+There is no direct import between the two extensions — keep it that
+way. There are also no `vim-mode:enable` / `vim-mode:disable` events;
+modal editing is disabled by not loading the `vim-mode` extension.
 
 ## Tests
 
