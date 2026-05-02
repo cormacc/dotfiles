@@ -55,6 +55,7 @@ import {
   taskHasId,
   type Task,
 } from "./parser.ts";
+import { formatFindingsReport, runDoctor } from "./doctor.ts";
 import { insertTasksIntoPlanSection, scaffoldPlan } from "./scaffold.ts";
 import { colorIssues, colorPriority, colorStatus, colorTags } from "./status-colors.ts";
 
@@ -776,6 +777,7 @@ export default function (pi: ExtensionAPI) {
               items: {
                 t: { label: "Show tasks", action: "command:/tasks" },
                 n: { label: "New task", action: "command:/tasks new" },
+                d: { label: "Doctor (health check)", action: "command:/tasks doctor" },
               },
             },
           },
@@ -810,6 +812,26 @@ export default function (pi: ExtensionAPI) {
         const created = await createTask(ctx, tasks, ctx.cwd, null, null);
         if (created) {
           await refreshTaskUi(ctx, ctx.cwd);
+        }
+        return;
+      }
+
+      // `/tasks doctor` - run health checks against the loaded task graph.
+      if (args?.trim() === "doctor") {
+        const tasks = await loadTasks(ctx.cwd);
+        const selectedId = await readSelectedId(ctx.cwd);
+        const findings = runDoctor({
+          tasks,
+          selectedId,
+          selectedSourcePath: join(ctx.cwd, TASKS_LOCAL_FILE),
+        });
+        const report = formatFindingsReport(findings);
+        if (findings.length === 0) {
+          ctx.ui.notify(report, "info");
+        } else {
+          const errors = findings.filter((f) => f.severity === "error").length;
+          const kind: "warning" | "error" = errors > 0 ? "error" : "warning";
+          ctx.ui.notify(report, kind);
         }
         return;
       }

@@ -41,8 +41,23 @@ Required:
 
 Optional:
 
-- `* Open questions` — questions deferred for batch review rather
-  than interrupting implementation.
+- `* Open questions` — deferred questions, using plain heading
+  prefixes rather than TODO states:
+
+  ```org
+  * Open questions
+  ** OPEN Should we batch a follow-up review for related skills?
+  ** DECIDED Should ready-task support add a new fan-in property?
+  :PROPERTIES:
+  :DECIDED: [2026-05-02 Sat 11:51]
+  :END:
+  Decision: retain `:BLOCKED-BY:`; no `:WAITS_FOR:` field.
+  ```
+
+  `OPEN` / `DECIDED` are heading-text markers, not task nodes and not
+  `#+TODO:` states. They need no `:ID:` or lifecycle metadata; a
+  `DECIDED` heading may optionally record `:DECIDED: [timestamp]`.
+  Resume tooling should surface remaining `OPEN` items.
 
 ### Minimal skeleton
 
@@ -50,6 +65,7 @@ Optional:
 #+TITLE: Descriptive change-record title
 #+DATE: 2026-04-25 Sat
 #+PARENT_ID: 01234567-89ab-4def-8123-456789abcdef
+#+STATUS: Draft
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 
 * Context
@@ -67,12 +83,54 @@ Brief self-contained summary.
 :LOGBOOK:
 - Created [2026-04-25 Sat 09:10]
 :END:
-Acceptance criteria.
+Acceptance criteria:
+- Concrete observable outcome 1.
+- Concrete observable outcome 2.
+
+Optional further task body prose follows the acceptance criteria.
 
 * Implementation
 
 * Open questions
 ```
+
+### `#+STATUS:` lifecycle (advisory)
+
+Change-records *may* declare a coarse lifecycle status as a preamble
+keyword:
+
+```org
+#+STATUS: Draft | Review | Accepted | Active | Complete | Archived
+```
+
+| Status   | Meaning                                                  |
+|----------|----------------------------------------------------------|
+| Draft    | Under development; not ready for execution               |
+| Review   | Ready for human / agent review of plan                   |
+| Accepted | Plan approved; ready to execute                          |
+| Active   | Execution in progress; some plan tasks STARTED or DONE   |
+| Complete | Change-record deliverable complete; parent closure is governed by `TASKS.org` |
+| Archived | Superseded or cancelled at the change-record level       |
+
+`#+STATUS:` is **advisory only** — no tooling enforces transitions or
+blocks workflow on a particular status. It is an index/filter signal
+for humans and agents skimming change-records. Task-level status
+discipline is owned entirely by `org-tasks`; the keyword is
+orthogonal to per-task TODO states.
+
+### Acceptance criteria and outcome conventions
+
+- For non-trivial plan tasks, place a short **Acceptance criteria**
+  bullet list at the top of the task body, before any other prose.
+  Each bullet should be a concrete observable outcome (“X renders”,
+  “Y round-trips byte-identically”) rather than an implementation
+  step. The minimal skeleton above shows the shape.
+- When a *top-level* task closes, end its change-record's
+  `* Implementation` with a brief `** Outcome` (or `** Shipped`)
+  paragraph — 1–3 lines summarising what landed. Avoid duplicating
+  detail across plan bodies, implementation log, and outcome: plan
+  tasks hold acceptance criteria, implementation log holds terse
+  progress/file notes, outcome holds the final deliverable summary.
 
 Plan task headings may nest deeper than level 2. Status discipline
 (including parent propagation, `:STARTED:`, `CLOSED:`, and
@@ -162,8 +220,8 @@ retrospective trigger and timestamp protocol.
 Before starting: ask whether questions should be batched in
 `* Open questions` for final review or raised immediately.
 
-Resume the active task following `org-tasks` § "Starting or resuming
-work", then for each plan task:
+Resume via `org-tasks` § "Starting or resuming work" (which owns
+`:HANDOFF:` / `OPEN` question surfacing), then for each plan task:
 
 1. Mark it `STARTED` if beginning now (parent status follows from
    `org-tasks` rules). Prefer tooling-driven transitions so lifecycle
@@ -183,3 +241,9 @@ task, an architectural decision, a validation gap, a follow-up
 refactor, a blocked dependency, or a question that should be
 reviewed later. Keep additions concise and actionable. Prefer one
 task per concrete outcome.
+
+When a discovered prerequisite is itself a task elsewhere in the task
+graph, capture the dependency via `:BLOCKED-BY:` on the dependent
+task (using `:BLOCKED-BY+:` continuation lines for multiple
+prerequisites). See `../org-tasks/SKILL.md` for the property's full
+shape and ready-task semantics.

@@ -259,8 +259,22 @@ export function taskHasStartedProperty(task: Task): boolean {
 /**
  * Generic property-line matcher: `:NAME: value`.
  * `NAME` is case-insensitive in org; we normalise via `.toUpperCase()`.
+ *
+ * Note: `+` is intentionally excluded from the property name character
+ * class so this regex does NOT match org's `:NAME+:` continuation idiom.
+ * Multi-valued helpers below use a separate regex that accepts `+`.
  */
 const PROPERTY_LINE_RE = /^\s*:([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/;
+
+/**
+ * Matches both base property lines (`:NAME: value`) and org-native
+ * continuation lines (`:NAME+: value`). Capture groups:
+ *   1. Property name (no `+`).
+ *   2. Literal `+` for continuation lines, undefined otherwise.
+ *   3. Value.
+ */
+const PROPERTY_OR_CONTINUATION_LINE_RE =
+  /^\s*:([A-Za-z][A-Za-z0-9_-]*)(\+)?:\s*(.*?)\s*$/;
 
 /**
  * Return the value of an arbitrary drawer property by name, or null when
@@ -287,6 +301,10 @@ export function getDrawerProperty(task: Task, name: string): string | null {
  *   in place, preserving the original casing of the property name.
  * - When absent, a new line is appended in `:NAME: value` form using the
  *   `name` argument verbatim.
+ *
+ * Single-value semantics only: this helper does *not* touch `:NAME+:`
+ * continuation lines. To manage multi-valued properties (e.g.
+ * `:BLOCKED-BY:` + `:BLOCKED-BY+:`) use `setDrawerPropertyValues`.
  */
 export function setDrawerProperty(
   task: Task,
@@ -306,6 +324,181 @@ export function setDrawerProperty(
   if (!replaced && value !== null) {
     task.propertyLines.push(`:${name}: ${value}`);
   }
+}
+
+/**
+ * Multi-valued drawer property accessor. Collects values from the base
+ * `:NAME:` line *and* every `:NAME+:` continuation line within the
+ * task's `:PROPERTIES:` drawer, in the order they appear. Empty when
+ * neither is present.
+ *
+ * Used for protocol properties that allow multiple values per task,
+ * e.g. `:BLOCKED-BY:` (see `getTaskBlockers`).
+ */
+export function getDrawerPropertyValues(task: Task, name: string): string[] {
+  const target = name.toUpperCase();
+  const values: string[] = [];
+  for (const line of task.propertyLines) {
+    const m = PROPERTY_OR_CONTINUATION_LINE_RE.exec(line);
+    if (!m) continue;
+    if (m[1]!.toUpperCase() !== target) continue;
+    values.push(m[3]!.trim());
+  }
+  return values;
+}
+
+/**
+ * Replace all values of a multi-valued drawer property. Removes every
+ * existing `:NAME:` and `:NAME+:` line, then writes the supplied values:
+ * the first as `:NAME: value`, each subsequent as `:NAME+: value`.
+ * Empty `values` clears the property entirely.
+ *
+ * The supplied `name` casing is used verbatim on every written line.
+ */
+export function setDrawerPropertyValues(
+  task: Task,
+  name: string,
+  values: string[],
+): void {
+  const target = name.toUpperCase();
+  task.propertyLines = task.propertyLines.filter((line) => {
+    const m = PROPERTY_OR_CONTINUATION_LINE_RE.exec(line);
+    return !(m && m[1]!.toUpperCase() === target);
+  });
+  values.forEach((value, i) => {
+    const suffix = i === 0 ? "" : "+";
+    task.propertyLines.push(`:${name}${suffix}: ${value}`);
+  });
+}
+
+// ── Blockers / readiness (`:BLOCKED-BY:` + `:BLOCKED-BY+:`) ────────────────────────────
+//
+// `:BLOCKED-BY:` carries one or more dependency / blocker references. Each
+// entry is a free-form token; the protocol convention is one of:
+//   `task:<UUID>`    — dependency on another task in the loaded graph
+//   `url:<URL>`      — external URL (e.g. upstream PR/issue)
+//   `human:<text>`   — awaiting human action
+//   `jira:<KEY>`     — Jira issue (rendered by org-jira tooling)
+//   anything else    — opaque blocker, treated as `other`
+//
+// Multiple blockers use org's `:NAME+:` continuation idiom so each entry
+// occupies its own drawer line.
+
+/** Discriminator on the form of a parsed `:BLOCKED-BY:` entry. */
+export type BlockerKind = "task" | "url" | "human" | "jira" | "other";
+
+/** Parsed `:BLOCKED-BY:` entry. */
+export interface TaskBlocker {
+  /** Original token after trimming. */
+  raw: string;
+  /** Recognised kind, or `"other"` for unrecognised forms. */
+  kind: BlockerKind;
+  /** Reference body after the kind prefix. Equals `raw` for `"other"`. */
+  ref: string;
+}
+
+/** Parse a single blocker token into a structured form. */
+export function parseBlocker(raw: string): TaskBlocker {
+  const trimmed = raw.trim();
+  // Match `kind:rest` where kind is a known prefix (case-insensitive).
+  const m = /^(task|url|human|jira):(.*)$/i.exec(trimmed);
+  if (m) {
+    const kind = m[1]!.toLowerCase() as BlockerKind;
+    return { raw: trimmed, kind, ref: m[2]!.trim() };
+  }
+  return { raw: trimmed, kind: "other", ref: trimmed };
+}
+
+/**
+ * All blockers attached to a task, parsed from `:BLOCKED-BY:` and any
+ * `:BLOCKED-BY+:` continuation lines. Empty when no blockers are set.
+ */
+export function getTaskBlockers(task: Task): TaskBlocker[] {
+  return getDrawerPropertyValues(task, "BLOCKED-BY").map(parseBlocker);
+}
+
+/**
+ * Replace the blockers attached to a task. The first entry is written
+ * as `:BLOCKED-BY: <raw>`, each subsequent as `:BLOCKED-BY+: <raw>`.
+ * Empty `blockers` clears all blocker lines.
+ */
+export function setTaskBlockers(
+  task: Task,
+  blockers: readonly TaskBlocker[] | readonly string[],
+): void {
+  const values = blockers.map((b) => (typeof b === "string" ? b : b.raw));
+  setDrawerPropertyValues(task, "BLOCKED-BY", values);
+}
+
+/**
+ * Result of a readiness check on a task.
+ *   `ready === true` when every blocker resolves (`task:` blockers point
+ *     to closed tasks, no non-task blockers remain).
+ *   `gating` lists the unresolved blockers when `ready === false`. The
+ *     status reasons (`closed`/`unresolved`/`opaque`) help callers render
+ *     a useful message.
+ */
+export interface ReadinessReport {
+  ready: boolean;
+  /** Blockers that prevent readiness, with a per-blocker reason. */
+  gating: Array<{
+    blocker: TaskBlocker;
+    reason: "opaque" | "unresolved-task" | "missing-task";
+  }>;
+}
+
+/** Org statuses considered "closed" for readiness gating. */
+const CLOSED_STATUSES = new Set(["DONE", "CANCELLED"]);
+
+/**
+ * Compute whether a task is ready to start. A task is ready when every
+ * `:BLOCKED-BY:` entry resolves:
+ *   - `task:<UUID>` blockers must point to a task with status `DONE` or
+ *     `CANCELLED` per the loaded task graph.
+ *   - Any non-task blocker (`url:`, `human:`, `jira:`, or unrecognised
+ *     form) is treated as opaque and gates readiness until the line is
+ *     removed by hand.
+ * A task with no blockers is trivially ready. The caller is responsible
+ * for filtering on heading status (e.g. only consider `TODO` tasks);
+ * this predicate operates purely on blocker resolution.
+ *
+ * `resolveTaskById` is injected so this module stays free of task-graph
+ * traversal helpers (which live in `index.ts`).
+ */
+export function isTaskReady(
+  task: Task,
+  resolveTaskById: (id: string) => Task | null,
+): ReadinessReport {
+  const gating: ReadinessReport["gating"] = [];
+  for (const blocker of getTaskBlockers(task)) {
+    if (blocker.kind === "task") {
+      const dep = resolveTaskById(blocker.ref);
+      if (!dep) {
+        gating.push({ blocker, reason: "missing-task" });
+      } else if (!CLOSED_STATUSES.has(dep.status)) {
+        gating.push({ blocker, reason: "unresolved-task" });
+      }
+    } else {
+      gating.push({ blocker, reason: "opaque" });
+    }
+  }
+  return { ready: gating.length === 0, gating };
+}
+
+// ── Handoff (`:HANDOFF:`) ─────────────────────────────────────────────────────
+//
+// Optional short free-form note flagged for the next session/agent.
+// Single-valued; lives on the task heading's `:PROPERTIES:` drawer.
+
+/** Return the `:HANDOFF:` text for a task, or null when absent/empty. */
+export function getTaskHandoff(task: Task): string | null {
+  const v = getDrawerProperty(task, "HANDOFF");
+  return v && v.length > 0 ? v : null;
+}
+
+/** Set or clear the `:HANDOFF:` property. Empty/null clears the line. */
+export function setTaskHandoff(task: Task, value: string | null): void {
+  setDrawerProperty(task, "HANDOFF", value && value.length > 0 ? value : null);
 }
 
 /**
