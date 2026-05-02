@@ -34,6 +34,20 @@ section structure (`* Context`, `* Plan`, `* Implementation`, optional
 When the keyword is absent or malformed the default is
 `[[file:./design/log]]`.
 
+### Quick reference
+
+| Item | Meaning | Where |
+|------|---------|-------|
+| `:ID:` | UUID v4; required on every task/subtask | `:PROPERTIES:` |
+| `:CREATED:` | creation timestamp; do not backfill existing tasks | `:PROPERTIES:` |
+| `:STARTED:` | first transition into `STARTED` | `:PROPERTIES:` |
+| `CLOSED:` | current close timestamp for `DONE`/`CANCELLED` | line above `:PROPERTIES:` |
+| `:LOGBOOK:` | append-only lifecycle audit trail | drawer after `:PROPERTIES:` |
+| `:BLOCKED-BY:` / `:BLOCKED-BY+:` | one or more blocker refs | `:PROPERTIES:` |
+| `:HANDOFF:` | short “start here” note for next session | `:PROPERTIES:` |
+| `#+IMPORT:` | linked change-record / imported task file | task body or file root |
+| `#+SELECTED:` | local active task UUID | `TASKS.local.org` |
+
 ### Task headings
 
 ```org
@@ -71,8 +85,26 @@ Optional description text.
   `- Created [timestamp]` entry and one `- State "NEW" from "OLD"
   [timestamp]` entry for each status transition. Preserve historical
   entries; never replay them as pending actions.
-- **`:BLOCKED-BY:`**: free-form blocker reference on `WAITING` tasks
-  (e.g. `human: …`, `task:<UUID>`, `url:…`, `jira:ABC-123`).
+- **`:BLOCKED-BY:`**: blocker reference(s), usually on `WAITING`
+  tasks but also valid on `TODO` tasks as a readiness gate. First
+  blocker uses `:BLOCKED-BY:`; additional blockers use org-native
+  continuation lines:
+
+  ```org
+  :BLOCKED-BY: task:01234567-89ab-4def-8123-456789abcdef
+  :BLOCKED-BY+: url:https://github.com/example/project/pull/123
+  :BLOCKED-BY+: human: waiting on Alice's review
+  ```
+
+  Ready when every entry resolves: `task:<UUID>` must point to a
+  `DONE`/`CANCELLED` task; non-task forms (`url:`, `human:`, `jira:`,
+  other text) remain opaque blockers until removed. Single-value
+  `:BLOCKED-BY:` remains valid and round-trips unchanged.
+- **`:HANDOFF:`**: optional short free-form note (typically 1–3 lines)
+  flagged for the next session or agent. Allowed on top-level task
+  headings and on plan-subtask headings inside change-records. Surfaced
+  by resume / selected-task tooling so the next reader sees a concrete
+  “start here” pointer.
 - **`#+IMPORT:`**: clickable `[[file:...]]` link on its own line in
   the task body, after any metadata drawers. Resolves relative to the
   file containing the keyword. May also appear at file root (before
@@ -166,7 +198,9 @@ and the planning workflow.
 - Mark `DONE` only when implemented and verified; write `CLOSED:` on
   transition.
 - Use `WAITING` with `:BLOCKED-BY:` for blocked work; clear or move
-  the blocker to a note when unblocked.
+  the blocker to a note when unblocked. `:BLOCKED-BY:` may also appear
+  on `TODO` tasks to express prerequisite dependencies without forcing
+  a `WAITING` state — readiness queries treat both forms identically.
 - Use `CANCELLED` for intentionally abandoned work; write `CLOSED:`.
 - Append a `:LOGBOOK:` state entry for every status transition. The
   heading status and `CLOSED:` line are mutable current-state caches;
@@ -211,9 +245,12 @@ Resume checklist:
    its LOGBOOK to understand actual lifecycle history.
 3. Read `* Context`, actionable `* Plan` items, `* Implementation`, and
    `* Open questions` from the change-record.
-4. Check `:BLOCKED-BY:` and `:LINKED_ISSUES:`. Tracker-specific skills
-   such as `org-jira` define when linked upstream state should be
-   re-fetched; local summaries may be stale.
+4. Check `:BLOCKED-BY:` (including any `:BLOCKED-BY+:` continuation
+   lines), `:HANDOFF:`, and `:LINKED_ISSUES:`. Surface any `:HANDOFF:`
+   note and any `OPEN` items under the change-record's `* Open
+   questions` immediately on resume. Tracker-specific skills such as
+   `org-jira` define when linked upstream state should be re-fetched;
+   local summaries may be stale.
 5. If a change-record has grown too large for cheap re-ingestion, split
    completed historical context into a follow-up record or archive old
    top-level tasks rather than truncating history silently.
@@ -281,6 +318,17 @@ First-party generic extension features in the `tasks` extension itself
 These two features are tracker-agnostic; tracker-specific behaviour
 (workflow names, MCP routing, slash commands) lives in companion
 extensions and skills, not in this protocol.
+
+## Non-goals
+
+| Non-goal | Reason | Revisit when |
+|----------|--------|--------------|
+| Transient checkout/reconcile `backlog.org` as core model | `TASKS.org` + `#+IMPORT:` is the canonical graph; avoid duplicated task state | a separate working-surface workflow proves necessary |
+| Vendor-specific core metadata | tracker/agent fields belong in companion skills/extensions | a vendor-neutral abstraction emerges |
+| Transcript/chat-log links by default | durable memory is org files; sessions are ephemeral | transcript retention becomes an explicit user requirement |
+| Bidirectional external-tracker sync by default | linked issues are references; companion skills re-fetch when needed | a project requires true sync semantics |
+| Human-readable IDs replacing UUIDs | UUIDs are stable and collision-resistant | aliases are added as a layer, not a replacement |
+| Per-task attribution properties (`:WORKED_BY:`, `:COMPLETED_BY:`) | git log suffices for the current solo workflow | multi-agent coordination becomes a real need |
 
 ## Tooling
 

@@ -16,9 +16,13 @@ import {
   formatOrgTimestamp,
   getFileKeyword,
   getLinkedIssues,
+  getTaskBlockers,
+  getTaskHandoff,
   getTaskId,
+  isTaskReady,
   serializeTasksPreservingFile,
   taskHasStartedProperty,
+  type TaskBlocker,
 } from "./parser.ts";
 import {
   colorIssues,
@@ -246,6 +250,23 @@ export class TasksOverlay {
   /** Resolve `:LINKED_ISSUES:` for a task using cached `#+ISSUE_URL_BASE`. */
   private linkedIssuesFor(task: Task): LinkedIssue[] {
     return getLinkedIssues(task, this.urlBaseFor(task));
+  }
+
+  /**
+   * Format a single `:BLOCKED-BY:` entry for the right-pane Blocked-by
+   * list. `task:<UUID>` blockers resolve to `[STATUS] summary` so the
+   * reader can see whether the dependency has closed; non-task blockers
+   * render verbatim.
+   */
+  private formatBlockerLine(blocker: TaskBlocker): string {
+    if (blocker.kind === "task") {
+      const dep = this.findTaskById(this.tasks, blocker.ref);
+      if (!dep) {
+        return `task:${blocker.ref} (missing)`;
+      }
+      return `${colorStatus(dep.status)} ${dep.summary}`;
+    }
+    return blocker.raw;
   }
 
   // ── Input ───────────────────────────────────────────────────────────
@@ -923,6 +944,32 @@ export class TasksOverlay {
       // Task title and status
       rightLines.push(` ${colorStatus(task.status)} ${th.fg("accent", th.bold(task.summary))}`);
       rightLines.push("");
+
+      // ── :HANDOFF: note ─────────────────────────────────────────────
+      const handoff = getTaskHandoff(task);
+      if (handoff) {
+        rightLines.push(th.fg("accent", " Handoff"));
+        for (const l of wrapTextWithAnsi(` → ${handoff}`, wrapWidth)) {
+          rightLines.push(th.fg("text", l));
+        }
+        rightLines.push("");
+      }
+
+      // ── :BLOCKED-BY: blockers + readiness ──────────────────────────
+      const blockers = getTaskBlockers(task);
+      if (blockers.length > 0) {
+        const report = isTaskReady(task, (id) => this.findTaskById(this.tasks, id));
+        const headerColor = report.ready ? "accent" : "warning";
+        const headerLabel = report.ready ? "Blocked by (all resolved)" : "Blocked by";
+        rightLines.push(th.fg(headerColor, ` ${headerLabel}`));
+        for (const blocker of blockers) {
+          const line = this.formatBlockerLine(blocker);
+          for (const l of wrapTextWithAnsi(` • ${line}`, wrapWidth)) {
+            rightLines.push(th.fg("text", l));
+          }
+        }
+        rightLines.push("");
+      }
 
       const planLabel = task.importRaw ?? task.importPath;
       if (planLabel) {

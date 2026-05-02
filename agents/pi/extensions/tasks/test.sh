@@ -43,4 +43,11 @@ if command -v tsx >/dev/null 2>&1; then
 else
   npx --yes tsx ./insert.test.ts || CODE=1
 fi
+
+echo "# Running doctor unit tests..."
+if command -v tsx >/dev/null 2>&1; then
+  tsx ./doctor.test.ts || CODE=1
+else
+  npx --yes tsx ./doctor.test.ts || CODE=1
+fi
 exit "$CODE"
