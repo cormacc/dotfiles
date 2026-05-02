@@ -54,9 +54,13 @@ We refactored a while ago to use tmux across all backends for pane management an
 This was a good choice, but the key bindings / workflows should be reviewed and updated - they hark back to an earlier design (or lack thereof).
 - Evaluate whether we should use zellij rather than tmux as the terminal multiplexer.
 - Redesign the slash commands and keybindings around the multiplexer workflow / semantics.
-** TODO [#C] Refactor keybindings extension
+** STARTED [#C] Refactor keybindings extension
 :PROPERTIES:
 :ID: 00e1772c-92eb-4a5b-afc5-bf1bbbb51e5b
+:STARTED: [2026-05-02 Sat 14:55]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-05-02 Sat 14:55]
 :END:
 #+IMPORT: [[file:design/log/2026-05-02-refactor-keybindings-extension.org]]
 - Separate the keybindings extension into a 'which-key' extension (for the leader key / sequence stuff) and a modal editor extension
