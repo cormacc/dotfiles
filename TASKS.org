@@ -45,7 +45,13 @@ Some introductory text
 - [[#create-self-improvement-skill][Create self-improvement skill]]
 
 * Improvements
-
+** TODO [#C] Refactor keybindings extension
+:PROPERTIES:
+:ID: 00e1772c-92eb-4a5b-afc5-bf1bbbb51e5b
+:END:
+#+IMPORT: [[file:design/log/2026-05-02-refactor-keybindings-extension.org]]
+- Separate the keybindings extension into a 'which-key' extension (for the leader key / sequence stuff) and a modal editor extension
+- Consider whether to eliminate our own modal extension entirely and use this package: https://github.com/kepatrick/vim-motions-pi
 ** DONE [#C] Token-efficient Jira clone workflow
 CLOSED: [2026-04-28 Tue 16:54]
 :PROPERTIES:

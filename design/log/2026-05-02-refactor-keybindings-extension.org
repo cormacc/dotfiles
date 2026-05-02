@@ -1,0 +1,227 @@
+#+TITLE: Refactor keybindings extension
+#+DATE: 2026-05-02 Sat
+#+PARENT_ID: 00e1772c-92eb-4a5b-afc5-bf1bbbb51e5b
+#+STATUS: Draft
+#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
+
+* Context
+
+The =keybindings= pi extension under =agents/pi/extensions/keybindings/=
+has grown into two distinct responsibilities living in one ~3000-line
+=index.ts=:
+
+1. *Leader-menu / which-key* — discoverable Space and =,= leader chords,
+   the cross-extension =suggestKeybindings()= helper and
+   =keybindings:suggest= event, the merge logic, =defaults.json=, the
+   =/kb bindings= overlay, and the =alt+space= / =alt+,= global
+   shortcuts that work in insert-only mode.
+2. *Modal editor* — a full =VimEditor= =CustomEditor= subclass
+   (≈2000+ lines): grammar (operators, motions, text objects, counts,
+   dot-repeat, visual / visual-line), Insert↔Normal switching,
+   =alt+escape= abort handling, settings persistence, and the
+   =setEditorComponent= wiring.
+
+Both responsibilities share the parent task body. They also share a
+single user settings file (=~/.pi/agent/keybindings-ext.json=), a single
+slash command surface (=/kb …=), and a single suggestion API consumed by
+every other extension. That coupling makes it harder to:
+
+- Reason about which extension a user actually needs (most users never
+  touch modal mode).
+- Evaluate the upstream =kepatrick/vim-motions-pi= package as a
+  drop-in replacement for our hand-rolled modal editor without first
+  untangling it from the leader-menu code.
+- Swap implementations in either half without a deep rebase across
+  unrelated logic.
+
+The parent TASKS.org task (=00e1772c=) records two threads — split,
+and =vim-motions-pi= adoption. This change-record commits to a
+*decision-then-split* sequence: the package evaluation runs first,
+its outcome shapes how the modal half is extracted, then the leader
+side is extracted in parallel. Breaking changes are acceptable in
+exchange for clean naming and a one-step migration; in-tree consumers
+are updated atomically with the split.
+
+** Design decisions
+
+- *Two new extensions, not three* :: =which-key= owns leader menus +
+  cross-extension API; =vim-mode= owns the modal editor.  Shared
+  helpers live in =agents/pi/extensions/lib/= as today.
+- *Decision before split* :: =vim-motions-pi= is evaluated against the
+  full feature set of our =VimEditor= before the modal extraction
+  starts.  The evaluation outcome (ADOPT / EXTEND / KEEP_OWN) is
+  recorded in =* Implementation= and selects the modal-extension
+  body.  This keeps us from building =vim-mode= twice.
+- *Breaking changes, one-step migration* :: slash commands, settings
+  file, and event names may be renamed freely; every in-tree consumer
+  is updated in the same change-record.  Migration notes live in
+  =* Implementation= and the new extensions' README files.
+- *Cross-extension API stability via the helper, not events* ::
+  =suggestKeybindings()= in =lib/pi-utils.ts= keeps its current
+  signature so consumers do not break.  Internally it forwards to
+  =which-key=.  The =keybindings:suggest= / =keybindings:ready=
+  event names may change; all in-tree emitters move atomically.
+- *Default-off modal* :: =vim-mode= remains opt-in.  Removing the
+  =keybindings= extension does *not* enable modal editing for users
+  who did not set =modal: true=.  Settings migration is best-effort
+  with a one-shot warning if the legacy file is found.
+
+* Plan
+
+** TODO [#A] Evaluate =kepatrick/vim-motions-pi= against current modal feature set
+:PROPERTIES:
+:ID: 16c3fbee-6fe8-4de1-9d43-02dc51cdda7e
+:CREATED: [2026-05-02 Sat 14:38]
+:END:
+:LOGBOOK:
+- Created [2026-05-02 Sat 14:38]
+:END:
+Acceptance criteria:
+- A written decision recorded in =* Implementation= as one of
+  =ADOPT=, =EXTEND=, or =KEEP_OWN=, with rationale.
+- A coverage table comparing the package against the current
+  =VimEditor= grammar (operators, motions, text objects, counts,
+  dot-repeat, visual modes, registers/paste, =:CSI-u= / =alt+escape=
+  abort handling).
+- The decision is made before any code in subsequent plan tasks is
+  written.
+
+Steps:
+- Read =github.com/kepatrick/vim-motions-pi= source + README.
+- Read =agents/pi/extensions/keybindings/index.ts= modal sections
+  (=class VimEditor= and below) end-to-end.
+- Map each capability of =VimEditor= onto the package's API; flag gaps.
+- Try a local =npm i= experiment if the package is installable
+  alongside an existing pi extension.
+
+** TODO [#A] Specify the split — contracts for =which-key= and =vim-mode=
+:PROPERTIES:
+:ID: 5e5260d0-912c-495d-9c17-f9fbb7314c5d
+:CREATED: [2026-05-02 Sat 14:38]
+:END:
+:LOGBOOK:
+- Created [2026-05-02 Sat 14:38]
+:END:
+Acceptance criteria:
+- =** Design decisions= updated with concrete ownership of: leader
+  menus, =defaults.json=, =/kb= → new commands, user settings files,
+  mode-toggle UX, and the =keybindings:*= event names.
+- A short table mapping every existing public surface to its new
+  home (rename or stay).
+- Concrete cross-extension contract: how does =which-key= express the
+  =Space t E v= toggle to =vim-mode= without importing it?
+  (Event name + payload locked in.)
+
+** TODO [#B] Extract =which-key= extension
+:PROPERTIES:
+:ID: 0634cd5f-e932-44be-8d78-839d3e08c387
+:CREATED: [2026-05-02 Sat 14:38]
+:END:
+:LOGBOOK:
+- Created [2026-05-02 Sat 14:38]
+:END:
+Acceptance criteria:
+- New directory =agents/pi/extensions/which-key/= containing
+  =index.ts=, =defaults.json=, =README.md=, =AGENTS.md=.
+- =alt+space= and =alt+,= leader overlays work in insert-only pi.
+- =/which-key bindings= (or agreed renamed command) lists all
+  registered bindings, matching the previous overlay.
+- =suggestKeybindings()= in =lib/pi-utils.ts= keeps working unchanged
+  from every consumer's perspective.
+- Modal-mode-only branches removed from this extension.
+
+** TODO [#B] Extract =vim-mode= extension
+:PROPERTIES:
+:ID: 7c85f7fd-64e4-441f-9b70-5846b69f48c6
+:CREATED: [2026-05-02 Sat 14:38]
+:END:
+:LOGBOOK:
+- Created [2026-05-02 Sat 14:38]
+:END:
+Acceptance criteria:
+- New directory =agents/pi/extensions/vim-mode/=.
+- Implementation matches the decision from the evaluation task:
+  - =ADOPT= → thin adapter around =vim-motions-pi=.
+  - =EXTEND= → adapter + a small layer for missing grammar.
+  - =KEEP_OWN= → =VimEditor= + grammar moved verbatim.
+- Toggle UX: slash command (=/vim-mode on|off= or agreed name) plus
+  the leader path that =which-key= currently exposes
+  (=Space t E v= / =Space t E e=) wired via the cross-extension event.
+- Settings file moved to =~/.pi/agent/vim-mode.json= with a one-shot
+  migration that warns if the legacy =keybindings-ext.json= is found.
+- =alt+escape= abort behaviour preserved.
+- Default-off: a fresh checkout has insert-only behaviour.
+
+** TODO [#C] Update in-tree extension consumers
+:PROPERTIES:
+:ID: 1960dfb5-4e26-4ad3-a145-c4aa5239d151
+:CREATED: [2026-05-02 Sat 14:38]
+:END:
+:LOGBOOK:
+- Created [2026-05-02 Sat 14:38]
+:END:
+Acceptance criteria:
+- Every other extension under =agents/pi/extensions/= that calls
+  =suggestKeybindings()= or emits a =keybindings:*= event still loads
+  cleanly with the two new extensions installed.
+- =rg "keybindings:" agents/pi/extensions/= surfaces only references
+  in =which-key= itself, or has been intentionally renamed in step
+  with the contract task.
+- =/reload= produces no errors in a session with at least three
+  consumer extensions active (=tasks=, =term=, =git-diff=).
+
+** TODO [#C] Migration + docs pass
+:PROPERTIES:
+:ID: aaf83d7f-4e01-434c-93d9-76d095b3dd4e
+:CREATED: [2026-05-02 Sat 14:38]
+:END:
+:LOGBOOK:
+- Created [2026-05-02 Sat 14:38]
+:END:
+Acceptance criteria:
+- =which-key/README.md= and =vim-mode/README.md= are written from
+  scratch (not copies of the legacy README) and accurately list
+  commands, events, settings, and dependencies.
+- =* Implementation= records the rename map and any user-visible
+  breakage in one place.
+- =agents/pi/AGENTS.md= and =agents/pi/settings.json= updated if they
+  mention =keybindings= by name.
+- A short migration note is added to the dotfiles README or top-level
+  =CHANGELOG=-style file (TBD which) so users running =hms= after the
+  switch know what changed.
+
+** TODO [#C] Remove the original =keybindings= extension
+:PROPERTIES:
+:ID: bd679630-17f6-4481-a8f9-31033326ee03
+:CREATED: [2026-05-02 Sat 14:38]
+:END:
+:LOGBOOK:
+- Created [2026-05-02 Sat 14:38]
+:END:
+Acceptance criteria:
+- =agents/pi/extensions/keybindings/= deleted via =git rm=.
+- =hms= succeeds against the dotfiles repo on at least one host.
+- A pi session loads cleanly with no warnings about a missing
+  =keybindings= extension.
+- The =keybindings.org= sibling file is either deleted or moved into
+  =which-key=, whichever the docs pass concluded.
+
+* Implementation
+
+* Open questions
+
+** OPEN Should the new =/which-key= and =/vim-mode= slash commands keep =/kb …= as a deprecated alias for one release?
+
+Useful for muscle memory; costs a small dispatch shim in =which-key=.
+Decide during the contract step.
+
+** OPEN If we adopt =vim-motions-pi=, do we still need our =alt+escape= / CSI-u workaround code?
+
+Likely not — but verify on macOS Terminal.app (the case our README
+calls out) before deleting it.
+
+** OPEN Where does =keybindings.org= live after the split?
+
+It currently sits next to the extension directory and seems aimed at
+human reference. =which-key= is the more natural home, but only if
+its content is exclusively leader bindings. Audit before the docs pass.
