@@ -6,8 +6,9 @@ This extension owns two abstract leader slots, the `alt+<leader>`
 global shortcuts that open them, and the cross-extension *contribution*
 API that every other extension uses to register its own sub-menus.
 It has no opinion on modal editing — the optional vim layer lives in
-the sibling [`vim-mode`](../vim-mode/README.md) extension and is
-toggled via cross-extension events documented below.
+the sibling [`vim-mode`](../vim-mode/README.md) extension. If that
+extension is loaded it is always on; there is no leader-menu toggle for
+it.
 
 ## Leaders
 
@@ -75,9 +76,13 @@ the extension itself.
 
 With default leaders these are `alt+space` and `alt+,`.
 
-In modal `vim-mode`, the leader keys are pressed bare (e.g. `Space`,
-`,`) from Normal mode — the `vim-mode` extension forwards into this
-overlay via the `leader-menu:open` event.
+In modal `vim-mode`, configured leader keys may be pressed bare from
+Normal mode — the `vim-mode` extension forwards into this overlay via
+the `leader-menu:open` event. Note that a leader key that also has Vim
+meaning (notably the default local leader `,`, used for repeat-find)
+will be handled by Vim grammar first; use `alt+<localLeader>` or
+choose a non-conflicting local leader such as `;` if you want a bare
+Normal-mode local leader.
 
 ## Default leader bindings (`defaults.json`)
 
@@ -100,17 +105,12 @@ overlay via the `leader-menu:open` event.
 
 ### `Space` — leader
 
-| Chord            | Label      |
-|------------------+------------|
-| `Space t E e`    | Emacs mode |
-| `Space t E v`    | Vim mode   |
+`defaults.json` ships no global bindings of its own. Global menus are
+registered dynamically by other extensions (for example `tasks`,
+`term`, and `git-diff`) via the contribution API below.
 
-The `Space t E e` / `Space t E v` chords emit `vim-mode:disable` /
-`vim-mode:enable` events; if the `vim-mode` extension is not loaded the
-chords are no-ops.
-
-Additional `Space` and `,` sub-menus are registered dynamically by other
-extensions via the contribution API below.
+Additional local-menu entries may also be registered dynamically by
+other extensions.
 
 ## Contribution API
 
@@ -182,22 +182,6 @@ keybindings — the contributing extension subscribes to the event itself.
 
 ## Cross-extension contracts
 
-### Toggle `vim-mode`
-
-The `<global> t E v` and `<global> t E e` chords (defaults
-`Space t E v` / `Space t E e`) emit events the modal extension
-subscribes to:
-
-| Chord                | Event              | Payload  |
-|----------------------+--------------------+----------|
-| `<global> t E v`     | `vim-mode:enable`  | `{}`     |
-| `<global> t E e`     | `vim-mode:disable` | `{}`     |
-
-Both extensions are independently loadable. If `vim-mode` is not
-loaded, the events have no listener and the chord is a no-op. If
-`leader-menu` is not loaded, the user can still toggle modal editing
-via `/vim-mode on|off` (registered by the `vim-mode` extension).
-
 ### Publish resolved leader keys
 
 After resolving leader keys (defaults + user overrides) at
@@ -220,8 +204,8 @@ read of its own.
 | `README.md`      | This file                                              |
 | `AGENTS.md`      | Agent-side notes for modifying this extension          |
 
-This extension has no user settings file — all user state lives in
-`vim-mode/` (modal-editing preferences).
+User settings live in `~/.pi/agent/leader-menu.json` (leader trigger
+keys plus the shared `debug` flag).
 
 ## Migration from the old `keybindings` extension
 
@@ -232,19 +216,20 @@ breaking changes:
 | Old                                    | New                              |
 |----------------------------------------+----------------------------------|
 | `/kb bindings`                         | `/leader-menu bindings`          |
-| `/kb mode emacs|vim`                   | `/vim-mode on|off`               |
+| `/kb mode emacs|vim`                   | removed; unload `vim-mode` to disable |
 | `keybindings:suggest` event            | `leader-menu:register` event     |
 | `keybindings:ready` event              | `leader-menu:ready` event        |
-| `keybindings:set-mode-vim` event       | `vim-mode:enable` event          |
-| `keybindings:set-mode-emacs` event     | `vim-mode:disable` event         |
+| `keybindings:set-mode-vim` event       | removed                          |
+| `keybindings:set-mode-emacs` event     | removed                          |
 | `suggestKeybindings()` helper          | `registerLeaderMenu()` helper    |
 | `KeybindingSuggestion` type            | `LeaderMenuRegistration` type    |
-| `~/.pi/agent/keybindings-ext.json`     | `~/.pi/agent/vim-mode.json`      |
+| `~/.pi/agent/keybindings-ext.json`     | `~/.pi/agent/leader-menu.json` (`debug` only; `modal` dropped) |
 | `extensions/keybindings.org` (manual)  | `/leader-menu bindings --export` |
 
-The `registerLeaderMenu` helper takes the same shape arguments as the
-old `suggestKeybindings`, so call sites need a single
-import + identifier swap.
+`registerLeaderMenu` is the replacement helper, but its payload is
+intentionally slot-based (`globalMenu` / `localMenu`) rather than the
+legacy raw-trigger-key `menus` map. In-tree consumers were migrated
+atomically with the split.
 
 ## Dependencies
 

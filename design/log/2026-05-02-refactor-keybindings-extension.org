@@ -61,10 +61,12 @@ are updated atomically with the split.
   signature so consumers do not break.  Internally it forwards to
   =leader-menu=.  The =keybindings:suggest= / =keybindings:ready=
   event names may change; all in-tree emitters move atomically.
-- *Default-off modal* :: =vim-mode= remains opt-in.  Removing the
-  =keybindings= extension does *not* enable modal editing for users
-  who did not set =modal: true=.  Settings migration is best-effort
-  with a one-shot warning if the legacy file is found.
+- *Final state: always-on when loaded* :: The initial split preserved
+  a runtime vim-mode toggle for migration safety. Follow-up commit
+  =3939073= deliberately removed it: =vim-mode= is now a
+  single-responsibility extension that installs the modal editor when
+  loaded; disabling means not loading the extension. The only migrated
+  setting is =debug=, now owned by =leader-menu.json=.
 - *Drop =/kb= entirely* :: New extensions register =/leader-menu= and
   =/vim-mode= directly; no alias shim, no deprecation notification.
   Documented in the migration pass.  (Decided 2026-05-02.)
@@ -113,7 +115,6 @@ Steps:
 - Map each capability of =VimEditor= onto the package's API; flag gaps.
 - Try a local =npm i= experiment if the package is installable
   alongside an existing pi extension.
-
 ** DONE [#A] Specify the split — contracts for =leader-menu= and =vim-mode=
 CLOSED: [2026-05-02 Sat 15:18]
 :PROPERTIES:
@@ -138,7 +139,6 @@ Acceptance criteria:
 - Concrete cross-extension contract: how does =leader-menu= express the
   =Space t E v= toggle to =vim-mode= without importing it?
   (Event name + payload locked in.)
-
 ** DONE [#B] Extract =leader-menu= extension
 CLOSED: [2026-05-02 Sat 17:15]
 :PROPERTIES:
@@ -176,7 +176,6 @@ Later enhancements absorbed in this work:
   =Space t E v= / =Space t E e= chords from defaults.json (since
   vim-mode no longer toggles), and adjusted the =buildAction= comment
   about emitted events accordingly.
-
 ** DONE [#B] Extract =vim-mode= extension
 CLOSED: [2026-05-02 Sat 16:55]
 :PROPERTIES:
@@ -192,13 +191,16 @@ CLOSED: [2026-05-02 Sat 16:55]
 Extracted as =agents/pi/extensions/vim-mode/= (~2200 lines). Modal
 grammar copied verbatim per the KEEP_OWN decision; leader-menu state
 removed (delegated to sibling extension via =leader-menu:open= event).
-Added:
+Initial extraction added a =/vim-mode= toggle command, enable/disable
+events, and a =vim-mode.json= settings migrator to preserve the old
+modal toggle during the split. Those were intentionally removed by the
+later single-responsibility cleanup (=3939073=): final vim-mode has no
+slash command, no settings file, and no enable/disable events.
+
+Still part of the final implementation:
 - Repeat-find-backward (=,=) per the upstream-inspired grammar gap.
-- =/vim-mode on|off|toggle= slash command with autocomplete.
-- =vim-mode:enable= / =vim-mode:disable= event listeners.
-- One-shot settings migrator (=keybindings-ext.json= →
-  =vim-mode.json=).
-- README + AGENTS.md (modal-grammar reference moved here).
+- README + AGENTS.md (modal-grammar reference moved here and later
+  updated for the always-on model).
 Acceptance criteria:
 - New directory =agents/pi/extensions/vim-mode/=.
 - Implementation matches the decision from the evaluation task:
@@ -212,7 +214,6 @@ Acceptance criteria:
   migration that warns if the legacy =keybindings-ext.json= is found.
 - =alt+escape= abort behaviour preserved.
 - Default-off: a fresh checkout has insert-only behaviour.
-
 ** DONE [#C] Update in-tree extension consumers
 CLOSED: [2026-05-02 Sat 17:08]
 :PROPERTIES:
@@ -232,8 +233,10 @@ Updated:
   switched to =leader-menu:register= / =leader-menu:ready=.
 - Three consumers (=tasks/index.ts=, =term/index.ts=,
   =git-diff/index.ts=): import + identifier swap.
-- =tasks/overlay.ts=: legacy =keybindings-ext.json= read retargeted
-  to =vim-mode.json=.
+- =tasks/overlay.ts=: legacy =keybindings-ext.json= read first
+  retargeted to =vim-mode.json= during the split, then to
+  =leader-menu.json= during the toggle-removal cleanup (final source
+  of truth for the shared =debug= flag).
 - =agents/pi/skills/ext-dev/SKILL.md=: example code, guideline names,
   and the bindings-export note all updated.
 - READMEs (=tasks=, =term=, =git-diff=): dependency lines updated.
@@ -251,7 +254,6 @@ Acceptance criteria:
   with the contract task.
 - =/reload= produces no errors in a session with at least three
   consumer extensions active (=tasks=, =term=, =git-diff=).
-
 ** DONE [#C] Migration + docs pass
 CLOSED: [2026-05-02 Sat 17:12]
 :PROPERTIES:
@@ -290,7 +292,6 @@ Acceptance criteria:
 - A short migration note is added to the dotfiles README or top-level
   =CHANGELOG=-style file (TBD which) so users running =hms= after the
   switch know what changed.
-
 ** DONE [#C] Remove the original =keybindings= extension
 CLOSED: [2026-05-02 Sat 17:14]
 :PROPERTIES:
@@ -314,7 +315,6 @@ Acceptance criteria:
   =keybindings= extension.
 - The =keybindings.org= sibling file is either deleted or moved into
   =leader-menu=, whichever the docs pass concluded.
-
 * Implementation
 
 ** Outcome
@@ -326,22 +326,32 @@ by two focused extensions:
   cross-extension =registerLeaderMenu()= API consumed by =tasks=,
   =term=, =git-diff=, and the new =/leader-menu bindings --export=
   org-format dump.
-- =vim-mode/= (~2200 LOC) — the modal editor, with the existing
-  =VimEditor= grammar preserved per the KEEP_OWN evaluation outcome,
-  one upstream-inspired addition (repeat-find-backward =,=), and a
-  one-shot settings migrator from =keybindings-ext.json=.
+- =vim-mode/= (~2100 LOC) — the modal editor, with the existing
+  =VimEditor= grammar preserved per the KEEP_OWN evaluation outcome
+  and one upstream-inspired addition (repeat-find-backward =,=). It
+  is always on when loaded and has no settings file or runtime toggle.
 
 The two extensions are independently loadable and communicate purely
 through events (=leader-menu:register=, =leader-menu:ready=,
-=leader-menu:open=, =vim-mode:enable=, =vim-mode:disable=). The
-hand-rolled =extensions/keybindings.org= reference table is gone,
-replaced by =/leader-menu bindings --export= which prints the
-live-merged tree.
+=leader-menu:keys-resolved=, =leader-menu:open=). The hand-rolled
+=extensions/keybindings.org= reference table is gone, replaced by
+=/leader-menu bindings --export= which prints the live-merged tree.
 
-Deliberate UX shift: bare-Space/=,= in Normal mode now opens
+Final settings shape:
+- =~/.pi/agent/leader-menu.json= owns =globalLeader=, =localLeader=,
+  and the shared key-dispatch =debug= flag.
+- =~/.pi/agent/vim-mode.json= no longer exists. =leader-menu= migrates
+  only =debug= from legacy =vim-mode.json= / =keybindings-ext.json=
+  and intentionally drops =modal=.
+
+Deliberate UX shift: bare configured leaders in Normal mode now open
 leader-menu's standard centered overlay instead of the legacy
-500 ms in-editor widget hint. Captured as a follow-up if anyone
-misses the original behaviour.
+500 ms in-editor widget hint. Caveat from final review: the default
+local leader =,= conflicts with Vim repeat-find-backward, so in Normal
+mode comma is handled by Vim grammar first; use =alt+,= or configure
+=localLeader= to a non-conflicting key (for example =;=) for bare
+Normal-mode local menu access. Captured below as a follow-up candidate
+if the default should change.
 
 ** Cross-extension delegation — =leader-menu:open= (added in task =0634cd5f=)
 
@@ -373,6 +383,18 @@ Follow-up captured below if a richer chord-dispatch protocol is
 wanted later.
 
 ** Split contract (task =5e5260d0=)
+
+Final-review note: this section preserves the contract used to perform
+the initial atomic split. Later commits intentionally superseded parts
+of it:
+- =3939073= removed =/vim-mode=, =vim-mode:enable=,
+  =vim-mode:disable=, =vim-mode.json=, and the =modal= toggle model.
+- =df7b890= replaced raw trigger-key menus with =globalMenu= /
+  =localMenu= slots and user-resolved leaders in =leader-menu.json=.
+- Final settings source of truth is =leader-menu.json= for
+  =globalLeader=, =localLeader=, and shared =debug=.
+
+Historical contract below:
 
 Date: 2026-05-02. Audited every public surface of the current
 =keybindings= extension to derive concrete ownership for the two

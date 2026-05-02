@@ -155,7 +155,6 @@ Re-examine the self-improvement skill against the org-memory protocol
 - whether anything in the dev-agent-backlog HTML summary
   (design/log/2026-05-01-dev-agent-backlog-review-summary.html) should be
   borrowed for the self-improvement skill specifically
-
 ** TODO [#D] Decompose vim-mode/index.ts into index + buffer + core :vim-mode:refactor:
 :PROPERTIES:
 :ID: 6b087caf-4b69-4266-bd90-c6447ef361d7
@@ -170,10 +169,9 @@ vim-mode/index.ts is a ~2200-line monolith carrying the VimEditor class, all mot
 
 - core.ts — pure motion math (clamp, isWordChar, isWhitespace, isSymbol, comparePos, minPos, maxPos, position arithmetic).
 - buffer.ts — text-manipulation primitives (line ops, indent/dedent, region helpers).
-- index.ts — entry point + VimEditor class + slash command + settings + migrator.
+- index.ts — entry point + VimEditor class. Keep vim-mode's single-responsibility shape: no slash command, settings file, or settings migrator.
 
 Pure refactor — behaviour must not change. Captured during the keybindings split when the KEEP_OWN evaluation noted upstream's cleaner factoring.
-
 ** TODO [#D] Add clipboard sync to vim-mode (off / yank / all) :vim-mode:feature:
 :PROPERTIES:
 :ID: 08678bfb-f6df-4007-adf4-cf392d0c3313
@@ -187,13 +185,12 @@ Follow-up to the keybindings refactor (parent task 00e1772c, change-record desig
 Port the `VIM_MOTION_PI_CLIPBOARD` feature from `kepatrick/vim-motions-pi`:
 
 - Modes: `off` (default), `yank` (only `y` syncs), `all` (yank/delete/change sync).
-- Source of truth: env var or vim-mode.json key (TBD; align with the existing `modal` / `debug` keys).
-- Runtime toggle via `/vim-clipboard` slash command (or extend `/vim-mode` with a `clipboard` subcommand — decide during implementation).
+- Source of truth: prefer the upstream env-var model (`VIM_MOTION_PI_CLIPBOARD`) so vim-mode stays settings-file-free.
+- Runtime toggle, if needed, should be a dedicated `/vim-clipboard` command; do not resurrect `/vim-mode` as a general settings surface.
 - Cross-platform: `pbcopy` (macOS), `wl-copy` / `xclip` / `xsel` (Linux), `clip` (Windows). Reuse upstream's detection logic.
 - One-shot startup notification showing the current mode (matches upstream UX).
 
 Captured in the change-record's `* Implementation` → "Evaluation" section as one of the upstream features worth stealing.
-
 ** DONE [#D] Make leader keys configurable via leader-menu.json :leader-menu:refactor:
 CLOSED: [2026-05-02 Sat 17:30]
 :PROPERTIES:
@@ -211,7 +208,6 @@ Done. Follow-up to the keybindings refactor (00e1772c). The leader-menu extensio
 Migration: the legacy `menus: { foo: { key: " ", items: {...} } }` registration shape is no longer accepted; consumers (tasks, term, git-diff) updated to globalMenu. term moved from `'` to `Space '`.
 
 Closing this task and committing in the same commit as the implementation.
-
 ** DONE [#D] Drop redundant vim-mode toggle (single-responsibility cleanup) :vim-mode:refactor:
 CLOSED: [2026-05-02 Sat 17:50]
 :PROPERTIES:
@@ -241,7 +237,6 @@ Moved:
 Net diff: vim-mode/index.ts shrank ~150 lines; defaults.json's globalMenu has no items left (all chords now contributed by other extensions).
 
 To disable vim-mode now, remove the extension directory or comment out its inclusion in agents.nix (TODO: add a clean Nix-level enable flag for this — captured below as a separate follow-up).
-
 ** TODO [#D] Add Nix-level enable flag for individual pi extensions :dotfiles:nix:feature:
 :PROPERTIES:
 :ID: dabf963a-e0e0-4fac-b7f8-ab5c5740a17e
@@ -273,6 +268,28 @@ Useful for:
 - Trying out / disabling vim-mode without removing the source
 - Per-host extension subsets (e.g. fewer extensions on the minimal home-manager profile)
 - Testing builds with one extension excluded
+
+** TODO [#D] Resolve default local leader conflict with vim-mode comma repeat :leader-menu:vim-mode:ux:
+:PROPERTIES:
+:ID: 32e3b4a9-c608-4984-b001-89b3ac70e89f
+:CREATED: [2026-05-02 Sat 17:49]
+:END:
+:LOGBOOK:
+- Created [2026-05-02 Sat 17:49]
+:END:
+Final-review finding from the keybindings refactor (parent 00e1772c). Current defaults keep `localLeader` as comma, while vim-mode also adopted Vim repeat-find-backward on `,`.
+
+Observed final state:
+- `alt+,` opens the local menu globally.
+- In vim-mode Normal mode, bare `,` is handled by the Vim grammar before leader delegation, so the local leader overlay does not open.
+- `leader-menu` also warns about `localLeader ","` clashing with the Vim grammar, which means the default config can produce its own warning.
+
+Decide and implement one of:
+1. Change the default local leader to a non-conflicting key (candidate `;`, but note Vim `;` is repeat-find-forward).
+2. Keep comma as default and document that bare Normal-mode local leader is unavailable; use `alt+,` or configure `leader-menu.json`.
+3. Add a priority/escape mechanism so users can choose whether leader or Vim grammar wins for conflicting keys.
+
+Do not resolve accidentally by dropping repeat-find-backward; that was intentionally imported from the upstream evaluation.
 
 * Fixes
 ** TODO Activating tasks overlay clobbers text in input area
