@@ -139,25 +139,43 @@ Acceptance criteria:
   =Space t E v= toggle to =vim-mode= without importing it?
   (Event name + payload locked in.)
 
-** STARTED [#B] Extract =leader-menu= extension
+** DONE [#B] Extract =leader-menu= extension
+CLOSED: [2026-05-02 Sat 17:15]
 :PROPERTIES:
 :ID: 0634cd5f-e932-44be-8d78-839d3e08c387
 :CREATED: [2026-05-02 Sat 14:38]
 :STARTED: [2026-05-02 Sat 15:25]
 :END:
 :LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-02 Sat 17:15]
 - State "STARTED" from "TODO" [2026-05-02 Sat 15:25]
 - Created [2026-05-02 Sat 14:38]
 :END:
-Acceptance criteria:
-- New directory =agents/pi/extensions/leader-menu/= containing
-  =index.ts=, =defaults.json=, =README.md=, =AGENTS.md=.
-- =alt+space= and =alt+,= leader overlays work in insert-only pi.
-- =/leader-menu bindings= (or agreed renamed command) lists all
-  registered bindings, matching the previous overlay.
-- =suggestKeybindings()= in =lib/pi-utils.ts= keeps working unchanged
-  from every consumer's perspective.
-- Modal-mode-only branches removed from this extension.
+Landed in commit 233e998 (refactor: split into leader-menu +
+vim-mode). Acceptance criteria met:
+- =agents/pi/extensions/leader-menu/= created with =index.ts=,
+  =defaults.json=, =README.md=, =AGENTS.md=.
+- =alt+space= and =alt+,= shortcuts registered (now dynamic per
+  configured leaders, since df7b890).
+- =/leader-menu bindings= lists registered chords;
+  =/leader-menu bindings --export= prints an org table replacing
+  the hand-maintained =extensions/keybindings.org=.
+- The cross-extension helper was renamed =suggestKeybindings()= →
+  =registerLeaderMenu()= per the contract task; consumers updated
+  atomically.
+- Modal-mode-only branches moved to =vim-mode/=.
+
+Later enhancements absorbed in this work:
+- Constructor for the configurable-leader feature (df7b890): the
+  registration API now uses =globalMenu= / =localMenu= slots,
+  trigger keys live in =leader-menu.json=, and a new
+  =leader-menu:keys-resolved= event publishes resolved keys.
+- The toggle-removal cleanup (3939073) extended this extension's
+  settings migrator to absorb the =debug= flag from legacy
+  =vim-mode.json= / =keybindings-ext.json=, dropped the
+  =Space t E v= / =Space t E e= chords from defaults.json (since
+  vim-mode no longer toggles), and adjusted the =buildAction= comment
+  about emitted events accordingly.
 
 ** DONE [#B] Extract =vim-mode= extension
 CLOSED: [2026-05-02 Sat 16:55]
