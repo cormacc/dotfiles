@@ -35,7 +35,7 @@ import { randomUUID } from "node:crypto";
 import { access, mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { homedir } from "node:os";
-import { getExtensionName, suggestKeybindings } from "../lib/pi-utils.ts";
+import { getExtensionName, registerLeaderMenu } from "../lib/pi-utils.ts";
 import { ensureEmacsServer } from "../emacsclient/emacsclient.ts";
 import { Type } from "@sinclair/typebox";
 import { TasksOverlay } from "./overlay.ts";
@@ -766,7 +766,7 @@ export default function (pi: ExtensionAPI) {
   // ── Keybinding suggestions + startup compact widget restore ─────────
 
   pi.on("session_start", async (_ev, ctx) => {
-    cleanupKb = suggestKeybindings(pi, EXT_NAME, {
+    cleanupKb = registerLeaderMenu(pi, EXT_NAME, {
       menus: {
         tasks: {
           label: "Tasks",

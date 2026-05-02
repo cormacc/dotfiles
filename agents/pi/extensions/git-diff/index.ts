@@ -11,7 +11,7 @@ import {
 } from "@mariozechner/pi-tui";
 
 import { parseDiff, type DiffFile } from "./parser.js";
-import { ansiPad, getExtensionName, suggestKeybindings } from "../lib/pi-utils.js";
+import { ansiPad, getExtensionName, registerLeaderMenu } from "../lib/pi-utils.js";
 
 const EXT_NAME = getExtensionName(import.meta.url);
 
@@ -265,7 +265,7 @@ export default function (pi: ExtensionAPI) {
       return { render: () => [], invalidate: () => {} };
     });
 
-    cleanupKb = suggestKeybindings(pi, EXT_NAME, {
+    cleanupKb = registerLeaderMenu(pi, EXT_NAME, {
       menus: {
         git: {
           label: "Git",

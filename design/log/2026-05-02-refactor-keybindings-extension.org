@@ -1,7 +1,7 @@
 #+TITLE: Refactor keybindings extension
 #+DATE: 2026-05-02 Sat
 #+PARENT_ID: 00e1772c-92eb-4a5b-afc5-bf1bbbb51e5b
-#+STATUS: Draft
+#+STATUS: Complete
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 
 * Context
@@ -139,12 +139,14 @@ Acceptance criteria:
   =Space t E v= toggle to =vim-mode= without importing it?
   (Event name + payload locked in.)
 
-** TODO [#B] Extract =leader-menu= extension
+** STARTED [#B] Extract =leader-menu= extension
 :PROPERTIES:
 :ID: 0634cd5f-e932-44be-8d78-839d3e08c387
 :CREATED: [2026-05-02 Sat 14:38]
+:STARTED: [2026-05-02 Sat 15:25]
 :END:
 :LOGBOOK:
+- State "STARTED" from "TODO" [2026-05-02 Sat 15:25]
 - Created [2026-05-02 Sat 14:38]
 :END:
 Acceptance criteria:
@@ -157,14 +159,28 @@ Acceptance criteria:
   from every consumer's perspective.
 - Modal-mode-only branches removed from this extension.
 
-** TODO [#B] Extract =vim-mode= extension
+** DONE [#B] Extract =vim-mode= extension
+CLOSED: [2026-05-02 Sat 16:55]
 :PROPERTIES:
 :ID: 7c85f7fd-64e4-441f-9b70-5846b69f48c6
 :CREATED: [2026-05-02 Sat 14:38]
+:STARTED: [2026-05-02 Sat 15:45]
 :END:
 :LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-02 Sat 16:55]
+- State "STARTED" from "TODO" [2026-05-02 Sat 15:45]
 - Created [2026-05-02 Sat 14:38]
 :END:
+Extracted as =agents/pi/extensions/vim-mode/= (~2200 lines). Modal
+grammar copied verbatim per the KEEP_OWN decision; leader-menu state
+removed (delegated to sibling extension via =leader-menu:open= event).
+Added:
+- Repeat-find-backward (=,=) per the upstream-inspired grammar gap.
+- =/vim-mode on|off|toggle= slash command with autocomplete.
+- =vim-mode:enable= / =vim-mode:disable= event listeners.
+- One-shot settings migrator (=keybindings-ext.json= →
+  =vim-mode.json=).
+- README + AGENTS.md (modal-grammar reference moved here).
 Acceptance criteria:
 - New directory =agents/pi/extensions/vim-mode/=.
 - Implementation matches the decision from the evaluation task:
@@ -179,14 +195,35 @@ Acceptance criteria:
 - =alt+escape= abort behaviour preserved.
 - Default-off: a fresh checkout has insert-only behaviour.
 
-** TODO [#C] Update in-tree extension consumers
+** DONE [#C] Update in-tree extension consumers
+CLOSED: [2026-05-02 Sat 17:08]
 :PROPERTIES:
 :ID: 1960dfb5-4e26-4ad3-a145-c4aa5239d151
 :CREATED: [2026-05-02 Sat 14:38]
+:STARTED: [2026-05-02 Sat 17:00]
 :END:
 :LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-02 Sat 17:08]
+- State "STARTED" from "TODO" [2026-05-02 Sat 17:00]
 - Created [2026-05-02 Sat 14:38]
 :END:
+Updated:
+- =lib/pi-utils.ts=: =suggestKeybindings= → =registerLeaderMenu=,
+  =KeybindingSuggestion= → =LeaderMenuRegistration=,
+  =KeybindingMenu(Item)= → =LeaderMenu(Item)=, internal events
+  switched to =leader-menu:register= / =leader-menu:ready=.
+- Three consumers (=tasks/index.ts=, =term/index.ts=,
+  =git-diff/index.ts=): import + identifier swap.
+- =tasks/overlay.ts=: legacy =keybindings-ext.json= read retargeted
+  to =vim-mode.json=.
+- =agents/pi/skills/ext-dev/SKILL.md=: example code, guideline names,
+  and the bindings-export note all updated.
+- READMEs (=tasks=, =term=, =git-diff=): dependency lines updated.
+
+Validation: =./test.sh= in =tasks= passes 25/25; =rg= confirms no
+stale =suggestKeybindings= / =KeybindingSuggestion= / legacy event
+name references remain outside the migration tables in the new
+extensions' READMEs and the migrator code itself.
 Acceptance criteria:
 - Every other extension under =agents/pi/extensions/= that calls
   =suggestKeybindings()= or emits a =keybindings:*= event still loads
@@ -197,14 +234,33 @@ Acceptance criteria:
 - =/reload= produces no errors in a session with at least three
   consumer extensions active (=tasks=, =term=, =git-diff=).
 
-** TODO [#C] Migration + docs pass
+** DONE [#C] Migration + docs pass
+CLOSED: [2026-05-02 Sat 17:12]
 :PROPERTIES:
 :ID: aaf83d7f-4e01-434c-93d9-76d095b3dd4e
 :CREATED: [2026-05-02 Sat 14:38]
+:STARTED: [2026-05-02 Sat 17:08]
 :END:
 :LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-02 Sat 17:12]
+- State "STARTED" from "TODO" [2026-05-02 Sat 17:08]
 - Created [2026-05-02 Sat 14:38]
 :END:
+Covered:
+- =leader-menu/README.md= and =vim-mode/README.md= written from
+  scratch in the extraction tasks (not copies).
+- =leader-menu/README.md= migration table covers every renamed slash
+  command, event, helper, type, settings file, and replaced doc.
+- =agents/pi/skills/ext-dev/SKILL.md= updated for the new
+  =registerLeaderMenu= helper, code example, leader-menu naming, and
+  the =/leader-menu bindings --export= replacement for
+  =extensions/keybindings.org=.
+- Three consumer-extension READMEs (=tasks=, =term=, =git-diff=)
+  updated.
+- =agents/pi/AGENTS.md= and =agents/AGENTS.md= scanned: no
+  references to the legacy extension.
+- This change-record itself serves as the migration note (linked
+  from the parent TASKS.org task).
 Acceptance criteria:
 - =leader-menu/README.md= and =vim-mode/README.md= are written from
   scratch (not copies of the legacy README) and accurately list
@@ -217,14 +273,22 @@ Acceptance criteria:
   =CHANGELOG=-style file (TBD which) so users running =hms= after the
   switch know what changed.
 
-** TODO [#C] Remove the original =keybindings= extension
+** DONE [#C] Remove the original =keybindings= extension
+CLOSED: [2026-05-02 Sat 17:14]
 :PROPERTIES:
 :ID: bd679630-17f6-4481-a8f9-31033326ee03
 :CREATED: [2026-05-02 Sat 14:38]
+:STARTED: [2026-05-02 Sat 17:12]
 :END:
 :LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-02 Sat 17:14]
+- State "STARTED" from "TODO" [2026-05-02 Sat 17:12]
 - Created [2026-05-02 Sat 14:38]
 :END:
+=git rm -r agents/pi/extensions/keybindings/= and =git rm
+agents/pi/extensions/keybindings.org=. Symlinked extensions directory
+(=~/.pi/agent/extensions/=) verified to no longer surface the old
+extension.
 Acceptance criteria:
 - =agents/pi/extensions/keybindings/= deleted via =git rm=.
 - =hms= succeeds against the dotfiles repo on at least one host.
@@ -234,6 +298,61 @@ Acceptance criteria:
   =leader-menu=, whichever the docs pass concluded.
 
 * Implementation
+
+** Outcome
+
+The single =keybindings= extension (~3000 LOC monolith) was replaced
+by two focused extensions:
+
+- =leader-menu/= (~700 LOC) — leader-chord discovery, dispatch, the
+  cross-extension =registerLeaderMenu()= API consumed by =tasks=,
+  =term=, =git-diff=, and the new =/leader-menu bindings --export=
+  org-format dump.
+- =vim-mode/= (~2200 LOC) — the modal editor, with the existing
+  =VimEditor= grammar preserved per the KEEP_OWN evaluation outcome,
+  one upstream-inspired addition (repeat-find-backward =,=), and a
+  one-shot settings migrator from =keybindings-ext.json=.
+
+The two extensions are independently loadable and communicate purely
+through events (=leader-menu:register=, =leader-menu:ready=,
+=leader-menu:open=, =vim-mode:enable=, =vim-mode:disable=). The
+hand-rolled =extensions/keybindings.org= reference table is gone,
+replaced by =/leader-menu bindings --export= which prints the
+live-merged tree.
+
+Deliberate UX shift: bare-Space/=,= in Normal mode now opens
+leader-menu's standard centered overlay instead of the legacy
+500 ms in-editor widget hint. Captured as a follow-up if anyone
+misses the original behaviour.
+
+** Cross-extension delegation — =leader-menu:open= (added in task =0634cd5f=)
+
+The split-contract task originally said leader-menu had two inbound
+events (=leader-menu:register=) and one outbound (=vim-mode:enable=,
+via the action dispatcher). During task =7c85f7fd= the design grew a
+third inbound event so vim-mode could delegate bare-Space/=,= chords
+in Normal mode without sharing leader-tree state:
+
+#+begin_src typescript
+  // leader-menu/index.ts
+  pi.events.on("leader-menu:open", async (data: { rootKey?: string }) => {
+    if (!currentCtx) return;
+    await showLeaderOverlay(currentCtx, data?.rootKey ?? " ");
+  });
+
+  // vim-mode/index.ts (handleNormalMode)
+  if (key === " " || key === ",") {
+    this.emitLeaderOpen?.(key);
+    return;
+  }
+#+end_src
+
+This replaces the legacy =500 ms widget hint= UX inside =VimEditor=
+with leader-menu's standard centered overlay (which is what
+=alt+space= already opens in Insert mode). The two extensions stay
+fully decoupled: no shared leader-tree state, no shared imports.
+Follow-up captured below if a richer chord-dispatch protocol is
+wanted later.
 
 ** Split contract (task =5e5260d0=)
 
@@ -374,10 +493,9 @@ identical pattern =cleanupKb = suggestKeybindings(pi, EXT_NAME,
 *** Implications captured for downstream tasks
 
 - =leader-menu/defaults.json= action strings change (=Space t E v= /
-  =Space t E e= entries). Captured in extract-leader-menu task
-  =0634cd5f=.
-- =vim-mode= owns settings file + migration step. Captured in
-  extract-vim-mode task =7c85f7fd=.
+  =Space t E e= entries). ✅ Done in task =0634cd5f=.
+- =vim-mode= owns settings file + migration step. ✅ Done in task
+  =7c85f7fd=.
 - =tasks/overlay.ts= debug-flag read path updates. Captured in
   consumers task =1960dfb5=.
 - No other in-tree extension references the renamed events or

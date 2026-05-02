@@ -37,14 +37,16 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 /**
- * [DEBUG] Read the shared keybindings-ext.json `debug` flag so this overlay
- * can be toggled in lock-step with the keybindings extension's per-keypress
- * logger. See keybindings/index.ts (`loadUserSettings`) — same file, same
- * key, single source of truth. Failures are silently treated as "off".
+ * [DEBUG] Read the shared `vim-mode.json` `debug` flag so this overlay
+ * can be toggled in lock-step with the modal editor's per-keypress
+ * logger. See `vim-mode/index.ts` (`loadUserSettings`) — same file,
+ * same key, single source of truth. Failures are silently treated as
+ * "off". (Pre-refactor this file lived at `keybindings-ext.json`; the
+ * `vim-mode` extension migrates the legacy file on first run.)
  */
 function loadKeybindingsDebugFlag(): boolean {
   try {
-    const path = join(homedir(), ".pi", "agent", "keybindings-ext.json");
+    const path = join(homedir(), ".pi", "agent", "vim-mode.json");
     if (!existsSync(path)) return false;
     const parsed = JSON.parse(readFileSync(path, "utf-8"));
     return !!parsed?.debug;

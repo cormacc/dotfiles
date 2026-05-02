@@ -35,7 +35,7 @@ worktree is clean.
 
 ## Suggested Keybindings
 
-Registered with the `keybindings` extension under `Space g` (git sub-menu):
+Registered with the `leader-menu` extension under `Space g` (git sub-menu):
 
 | Key         | Action              | Command             |
 | ----------- | ------------------- | ------------------- |
@@ -83,4 +83,5 @@ When the diff panel is focused (via `/diff focus` or `Space g f`):
 
 - `@mariozechner/pi-coding-agent` — `ExtensionAPI`, `Theme`
 - `@mariozechner/pi-tui` — `OverlayHandle`, `TUI`, `matchesKey`, `truncateToWidth`, `visibleWidth`
-- `keybindings` — for `editor:width-constraint` event and `suggestKeybindings` integration
+- `leader-menu` — for `registerLeaderMenu` integration
+- `vim-mode` — subscribes to `editor:width-constraint` (only takes effect when modal editing is enabled)

@@ -173,4 +173,4 @@ List non-default sessions in the term tmux server.
 
 ## Dependencies
 
-- `lib/pi-utils.ts` — `getExtensionName`, `suggestKeybindings`
+- `lib/pi-utils.ts` — `getExtensionName`, `registerLeaderMenu`
