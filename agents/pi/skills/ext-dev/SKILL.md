@@ -113,12 +113,13 @@ export default function (pi: ExtensionAPI) {
     //   without a `command:` or `passthrough:` prefix as an event.
 
     cleanupKb = registerLeaderMenu(pi, EXT_NAME, {
-      menus: {
-        foo: {
-          label: "Foo",
-          key: "f",
-          items: {
-            t: { label: "Toggle", action: "foo:toggle" },
+      globalMenu: {
+        items: {
+          f: {
+            label: "+foo",
+            items: {
+              t: { label: "Toggle", action: "foo:toggle" },
+            },
           },
         },
       },

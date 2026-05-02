@@ -194,6 +194,24 @@ Port the `VIM_MOTION_PI_CLIPBOARD` feature from `kepatrick/vim-motions-pi`:
 
 Captured in the change-record's `* Implementation` → "Evaluation" section as one of the upstream features worth stealing.
 
+** DONE [#D] Make leader keys configurable via leader-menu.json :leader-menu:refactor:
+CLOSED: [2026-05-02 Sat 17:30]
+:PROPERTIES:
+:ID: 2703c1ed-457e-4160-9c3f-eea7b06b0e7b
+:CREATED: [2026-05-02 Sat 17:26]
+:STARTED: [2026-05-02 Sat 17:26]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-02 Sat 17:30]
+- State "STARTED" from "TODO" [2026-05-02 Sat 17:26]
+- Created [2026-05-02 Sat 17:26]
+:END:
+Done. Follow-up to the keybindings refactor (00e1772c). The leader-menu extension now exposes two abstract slots — globalMenu (default Space) and localMenu (default ,) — with trigger keys resolvable from ~/.pi/agent/leader-menu.json. Extensions contribute via globalMenu / localMenu fields rather than naming trigger keys directly. vim-mode receives the resolved keys via a new leader-menu:keys-resolved event and updates its Normal-mode dispatcher accordingly.
+
+Migration: the legacy `menus: { foo: { key: " ", items: {...} } }` registration shape is no longer accepted; consumers (tasks, term, git-diff) updated to globalMenu. term moved from `'` to `Space '`.
+
+Closing this task and committing in the same commit as the implementation.
+
 * Fixes
 ** TODO Activating tasks overlay clobbers text in input area
 :PROPERTIES:

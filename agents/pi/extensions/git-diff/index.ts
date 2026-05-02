@@ -266,26 +266,22 @@ export default function (pi: ExtensionAPI) {
     });
 
     cleanupKb = registerLeaderMenu(pi, EXT_NAME, {
-      menus: {
-        git: {
-          label: "Git",
-          key: " ",
-          items: {
-            g: {
-              label: "+git",
-              items: {
-                d: { label: "Diff toggle", action: "command:/diff toggle" },
-                f: { label: "Diff focus", action: "command:/diff focus" },
-                j: {
-                  label: "Diff scroll ↓",
-                  action: "command:/diff scroll-down",
-                },
-                k: {
-                  label: "Diff scroll ↑",
-                  action: "command:/diff scroll-up",
-                },
-                e: { label: "Diff fold", action: "command:/diff fold" },
+      globalMenu: {
+        items: {
+          g: {
+            label: "+git",
+            items: {
+              d: { label: "Diff toggle", action: "command:/diff toggle" },
+              f: { label: "Diff focus", action: "command:/diff focus" },
+              j: {
+                label: "Diff scroll ↓",
+                action: "command:/diff scroll-down",
               },
+              k: {
+                label: "Diff scroll ↑",
+                action: "command:/diff scroll-up",
+              },
+              e: { label: "Diff fold", action: "command:/diff fold" },
             },
           },
         },

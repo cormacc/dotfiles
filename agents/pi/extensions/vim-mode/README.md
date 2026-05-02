@@ -86,12 +86,13 @@ global registerShortcut handlers.
 
 Modal toggle is event-driven; this extension never imports `leader-menu`.
 
-| Direction | Event              | Payload                      | Source                          |
-|-----------|--------------------|------------------------------|---------------------------------|
-| in        | `vim-mode:enable`  | `{ source?: string }`        | leader-menu (`Space t E v`), or any other contributor |
-| in        | `vim-mode:disable` | `{ source?: string }`        | leader-menu (`Space t E e`), or any other contributor |
-| out       | `leader-menu:open` | `{ rootKey: " " \| "," }`    | bare-Space/`,` in Normal mode   |
-| in        | `editor:width-constraint` | `{ fraction, minCols }` | other extensions reserving width |
+| Direction | Event                       | Payload                                 | Source                                                 |
+|-----------|-----------------------------|-----------------------------------------|--------------------------------------------------------|
+| in        | `vim-mode:enable`           | `{ source?: string }`                   | leader-menu (`<global> t E v`), or any other contributor |
+| in        | `vim-mode:disable`          | `{ source?: string }`                   | leader-menu (`<global> t E e`), or any other contributor |
+| in        | `leader-menu:keys-resolved` | `{ globalLeader, localLeader }`         | leader-menu — used to update the bare-leader dispatcher |
+| out       | `leader-menu:open`          | `{ rootKey: string }`                   | bare-leader keys in Normal mode                        |
+| in        | `editor:width-constraint`   | `{ fraction, minCols }`                 | other extensions reserving width                       |
 
 The `source` field on enable/disable is advisory only; vim-mode uses it
 to make the resulting notification more informative

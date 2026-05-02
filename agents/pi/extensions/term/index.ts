@@ -852,16 +852,20 @@ export default function (pi: ExtensionAPI) {
       "info",
     );
 
+    // Contributes under the configurable global leader (default Space).
+    // The chord is `<global> ' …` (e.g. `Space ' t` to toggle the
+    // mirror) so all extensions follow the same two-leader model.
     cleanupKeybindings = registerLeaderMenu(pi, EXT_NAME, {
-      menus: {
-        term: {
-          label: "Term",
-          key: "'",
-          items: {
-            t: { label: "Show/hide", action: "term:toggle" },
-            f: { label: "Focus", action: "term:focus" },
-            h: { label: "Prev session", action: "term:prev" },
-            l: { label: "Next session", action: "term:next" },
+      globalMenu: {
+        items: {
+          "'": {
+            label: "+term",
+            items: {
+              t: { label: "Show/hide", action: "term:toggle" },
+              f: { label: "Focus", action: "term:focus" },
+              h: { label: "Prev session", action: "term:prev" },
+              l: { label: "Next session", action: "term:next" },
+            },
           },
         },
       },

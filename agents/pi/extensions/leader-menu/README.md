@@ -2,12 +2,36 @@
 
 Which-key-style leader chord discovery and dispatch for [pi](https://github.com/nichochar/pi-coding-agent).
 
-This extension owns the `Space` and `,` leader menus, the `alt+space` /
-`alt+,` global shortcuts that open them, and the cross-extension
-*registration* API that every other extension uses to contribute its own
-sub-menus. It has no opinion on modal editing — the optional vim layer
-lives in the sibling [`vim-mode`](../vim-mode/README.md) extension and is
+This extension owns two abstract leader slots, the `alt+<leader>`
+global shortcuts that open them, and the cross-extension *contribution*
+API that every other extension uses to register its own sub-menus.
+It has no opinion on modal editing — the optional vim layer lives in
+the sibling [`vim-mode`](../vim-mode/README.md) extension and is
 toggled via cross-extension events documented below.
+
+## Leaders
+
+Two abstract slots, each with a configurable trigger key:
+
+| Slot     | Default key | Purpose                                       |
+|----------+-------------+-----------------------------------------------|
+| Global   | `Space`     | Primary leader; extensions contribute here.   |
+| Local    | `,`         | pi-agent quick actions (model, thinking, …). |
+
+User overrides live in `~/.pi/agent/leader-menu.json`:
+
+```json
+{ "globalLeader": "/", "localLeader": ";" }
+```
+
+Both keys optional; missing values fall back to the defaults. Trigger
+key resolution happens once at session_start; runtime reconfiguration
+requires a `/reload` (because the underlying `alt+<leader>` shortcuts
+are registered with pi at startup and have no unregister hook).
+
+Extensions never name trigger keys directly — they contribute via
+`registerLeaderMenu()` with `globalMenu` / `localMenu` slots. The
+final trigger key is whatever the user has configured.
 
 ## Slash commands
 
@@ -18,13 +42,16 @@ toggled via cross-extension events documented below.
 
 ## Global shortcuts
 
-| Shortcut    | Action                              |
-|-------------+-------------------------------------|
-| `alt+space` | Open the `Space` leader menu        |
-| `alt+,`     | Open the `,` (pi-agent) leader menu |
+| Shortcut             | Action                  |
+|----------------------+-------------------------|
+| `alt+<globalLeader>` | Open the global menu    |
+| `alt+<localLeader>`  | Open the local menu     |
 
-In modal `vim-mode`, the leader keys are pressed bare (`Space`, `,`) from
-Normal mode — the `vim-mode` extension forwards into this overlay.
+With default leaders these are `alt+space` and `alt+,`.
+
+In modal `vim-mode`, the leader keys are pressed bare (e.g. `Space`,
+`,`) from Normal mode — the `vim-mode` extension forwards into this
+overlay via the `leader-menu:open` event.
 
 ## Default leader bindings (`defaults.json`)
 
@@ -73,12 +100,13 @@ let cleanupKb: (() => void) | null = null;
 export default function (pi: ExtensionAPI) {
   pi.on("session_start", () => {
     cleanupKb = registerLeaderMenu(pi, EXT_NAME, {
-      menus: {
-        myExt: {
-          label: "My extension",
-          key: " ",
-          items: {
-            x: { label: "Do thing", action: "myext:do-thing" },
+      globalMenu: {
+        items: {
+          m: {
+            label: "+my-ext",
+            items: {
+              x: { label: "Do thing", action: "myext:do-thing" },
+            },
           },
         },
       },
@@ -87,6 +115,19 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_shutdown", () => { cleanupKb?.(); });
 }
 ```
+
+The registration has two slots, both optional:
+
+- `globalMenu` — contributions appear under the configured global
+  leader (default `Space`). Most extensions use this slot.
+- `localMenu` — contributions appear under the configured local
+  leader (default `,`). Reserved for pi-agent quick-action style
+  bindings; most extensions don't need it.
+
+Note: extensions never specify trigger keys directly. The final
+trigger key is whatever the user has configured (or the default).
+This means the same registration JSON works regardless of how the
+user has rebound their leaders.
 
 The helper:
 
@@ -113,19 +154,36 @@ keybindings — the contributing extension subscribes to the event itself.
 | `passthrough:` | Forward a key combo      | `passthrough:ctrl+l`        |
 | `event:`       | Emit as event (legacy)   | `event:term:toggle`         |
 
-## Cross-extension toggle to `vim-mode`
+## Cross-extension contracts
 
-The `Space t E v` and `Space t E e` chords emit:
+### Toggle `vim-mode`
 
-| Chord         | Event              | Payload  |
-|---------------+--------------------+----------|
-| `Space t E v` | `vim-mode:enable`  | `{}`     |
-| `Space t E e` | `vim-mode:disable` | `{}`     |
+The `<global> t E v` and `<global> t E e` chords (defaults
+`Space t E v` / `Space t E e`) emit events the modal extension
+subscribes to:
 
-Both extensions are independently loadable. If `vim-mode` is not loaded,
-the events have no listener and the chord is a no-op. If `leader-menu`
-is not loaded, the user can still toggle modal editing via `/vim-mode
-on|off` (registered by the `vim-mode` extension).
+| Chord                | Event              | Payload  |
+|----------------------+--------------------+----------|
+| `<global> t E v`     | `vim-mode:enable`  | `{}`     |
+| `<global> t E e`     | `vim-mode:disable` | `{}`     |
+
+Both extensions are independently loadable. If `vim-mode` is not
+loaded, the events have no listener and the chord is a no-op. If
+`leader-menu` is not loaded, the user can still toggle modal editing
+via `/vim-mode on|off` (registered by the `vim-mode` extension).
+
+### Publish resolved leader keys
+
+After resolving leader keys (defaults + user overrides) at
+`session_start`, leader-menu emits:
+
+```
+  leader-menu:keys-resolved   { globalLeader: string, localLeader: string }
+```
+
+`vim-mode` subscribes so its Normal-mode dispatcher picks up
+user-reconfigured leader keys without needing a parallel settings
+read of its own.
 
 ## Files
 

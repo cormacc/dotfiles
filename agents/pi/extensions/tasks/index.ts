@@ -767,18 +767,14 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_start", async (_ev, ctx) => {
     cleanupKb = registerLeaderMenu(pi, EXT_NAME, {
-      menus: {
-        tasks: {
-          label: "Tasks",
-          key: " ",
-          items: {
-            t: {
-              label: "+tasks",
-              items: {
-                t: { label: "Show tasks", action: "command:/tasks" },
-                n: { label: "New task", action: "command:/tasks new" },
-                d: { label: "Doctor (health check)", action: "command:/tasks doctor" },
-              },
+      globalMenu: {
+        items: {
+          t: {
+            label: "+tasks",
+            items: {
+              t: { label: "Show tasks", action: "command:/tasks" },
+              n: { label: "New task", action: "command:/tasks new" },
+              d: { label: "Doctor (health check)", action: "command:/tasks doctor" },
             },
           },
         },
