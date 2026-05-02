@@ -2,8 +2,8 @@
   "lastChangelogVersion": "0.71.0",
   "hideThinkingBlock": true,
   "defaultThinkingLevel": "high",
-  "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.5",
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-opus-4-7",
   "packages": [
     "npm:@gotgenes/pi-anthropic-auth",
     "npm:pi-mcp-adapter",

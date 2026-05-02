@@ -45,6 +45,15 @@ Some introductory text
 - [[#create-self-improvement-skill][Create self-improvement skill]]
 
 * Improvements
+** TODO [#C] Improve terminal extension
+:PROPERTIES:
+:ID: 984677a0-7d87-4ade-bacb-4bf7fe7796af
+:END:
+The terminal extension is only half cooked.
+We refactored a while ago to use tmux across all backends for pane management and do minimal pane creation/deletion using sway, kitty etc.
+This was a good choice, but the key bindings / workflows should be reviewed and updated - they hark back to an earlier design (or lack thereof).
+- Evaluate whether we should use zellij rather than tmux as the terminal multiplexer.
+- Redesign the slash commands and keybindings around the multiplexer workflow / semantics.
 ** TODO [#C] Refactor keybindings extension
 :PROPERTIES:
 :ID: 00e1772c-92eb-4a5b-afc5-bf1bbbb51e5b
@@ -64,24 +73,6 @@ Follow-up to the read-only Jira integration. Today's `/jira clone` round-trips t
 entire `atlassian_getJiraIssue` JSON and the rendered org body through the model,
 which is wasteful (~17KB ingested for ~6 fields used). Step 1 (field-list filter
 in the prompt) shipped on 2026-04-28. The remaining wins below are tracked here.
-** DONE [#C] Review prior art w.r.t. org-memory protocol
-CLOSED: [2026-05-02 Sat 13:58]
-:PROPERTIES:
-:ID: 5aed17ed-cfc4-4ae3-bb24-57c7d974a142
-:CREATED: [2026-04-29 Wed 09:51]
-:STARTED: [2026-05-01 Fri 19:28]
-:END:
-:LOGBOOK:
-- State "DONE" from "STARTED" [2026-05-02 Sat 13:58]
-- Created [2026-04-29 Wed 09:51]
-- State "STARTED" from "TODO" [2026-05-01 Fri 19:28]
-:END:
-#+IMPORT: [[file:design/log/2026-05-01-dev-agent-backlog-prior-art-review.org]]
-Just saw this while looking for something else:
-https://github.com/farra/dev-agent-backlog
-(Reddit source link: https://www.reddit.com/r/emacs/comments/1q415fx/my_orgmode_based_designtask_tracking_system_for/)
-Looks like a slightly different spin, but interesting to take a look at to see if there are
-some ideas that would benefit my system.
 ** TODO [#D] Package org-memory protocol / extensions
 :PROPERTIES:
 :ID: 79d6f4f5-70f9-404d-9b4c-0cf0ef0e7adb
@@ -95,6 +86,12 @@ rebuild install step.
 :PROPERTIES:
 :ID: 724c0332-e491-4b66-900f-e11478057eb1
 :STARTED: [2026-05-01 Fri 08:51]
+:END:
+:LOGBOOK:
+- State "WAITING" from "STARTED" [2026-05-02 Sat 14:22]
+- State "DONE" from "WAITING" [2026-05-02 Sat 14:22]
+- State "WAITING" from "DONE" [2026-05-02 Sat 14:22]
+- State "STARTED" from "WAITING" [2026-05-02 Sat 14:22]
 :END:
 #+IMPORT: [[file:design/log/2026-05-01-org-memory-agent-memory-review.org]]
 The org-memory protocol (the combination of org-tasks and org-plan skills) is intended to provide a cross-session memory mechanism for agents to learn and rebuild context as well as a task management and planning tool for humans.
@@ -129,7 +126,6 @@ Ask a one-off question without polluting context... sounds useful
 :END:
 https://pi.dev/packages/context-mode
 Also sounds useful...
-
 ** TODO [#D] Review self-improvement skill w.r.t. org-memory protocol
 :PROPERTIES:
 :ID: 64a816ea-7484-4b0f-b8ed-aabbb5c66e52
@@ -153,7 +149,6 @@ Re-examine the self-improvement skill against the org-memory protocol
 - whether anything in the dev-agent-backlog HTML summary
   (design/log/2026-05-01-dev-agent-backlog-review-summary.html) should be
   borrowed for the self-improvement skill specifically
-
 * Fixes
 ** TODO Activating tasks overlay clobbers text in input area
 :PROPERTIES:

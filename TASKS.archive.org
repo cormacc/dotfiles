@@ -495,7 +495,6 @@ which called =matchesKey(data, "A")= directly rather than
 =matchesKey(data, "shift+a")=. The leader/keybindings extension itself was
 not at fault. Fix landed via a one-line change in =overlay.ts=. See change
 record for the four failed attempts down the wrong path.
-
 ** DONE Review 0.71.0 changes re. editor
 CLOSED: [2026-05-01 Fri 18:17]
 :PROPERTIES:
@@ -515,3 +514,23 @@ This new section in the docs includes some relevant examples:
 https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/extensions.md#widgets-status-and-footer
 
 And the commit including the change...
+
+** DONE [#C] Review prior art w.r.t. org-memory protocol
+CLOSED: [2026-05-02 Sat 13:58]
+:PROPERTIES:
+:ID: 5aed17ed-cfc4-4ae3-bb24-57c7d974a142
+:CREATED: [2026-04-29 Wed 09:51]
+:STARTED: [2026-05-01 Fri 19:28]
+:ARCHIVED: [2026-05-02 Sat 13:58]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-02 Sat 13:58]
+- Created [2026-04-29 Wed 09:51]
+- State "STARTED" from "TODO" [2026-05-01 Fri 19:28]
+:END:
+#+IMPORT: [[file:design/log/2026-05-01-dev-agent-backlog-prior-art-review.org]]
+Just saw this while looking for something else:
+https://github.com/farra/dev-agent-backlog
+(Reddit source link: https://www.reddit.com/r/emacs/comments/1q415fx/my_orgmode_based_designtask_tracking_system_for/)
+Looks like a slightly different spin, but interesting to take a look at to see if there are
+some ideas that would benefit my system.
