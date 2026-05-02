@@ -800,6 +800,22 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerCommand("tasks", {
     description: "Show project tasks from TASKS.org",
+    getArgumentCompletions: (prefix: string) => {
+      const items = [
+        {
+          value: "new",
+          label: "new",
+          description: "Create a new top-level task",
+        },
+        {
+          value: "doctor",
+          label: "doctor",
+          description: "Run health checks against the task graph",
+        },
+      ];
+      const filtered = items.filter((i) => i.value.startsWith(prefix));
+      return filtered.length > 0 ? filtered : null;
+    },
     handler: async (args, ctx) => {
       if (!ctx.hasUI) {
         ctx.ui.notify("/tasks requires interactive mode", "error");

@@ -12,6 +12,10 @@ and archive mechanics.
 
 - `/tasks` — Expand the tasks UI
 - `/tasks new` — Create a new top-level task without opening the expanded UI
+- `/tasks doctor` — Run health checks against the loaded task graph and report findings
+
+Subcommand auto-completion is exposed via `getArgumentCompletions`, so typing
+`/tasks ` shows `new` and `doctor` with descriptions in the prompt.
 
 ### Keybindings
 
