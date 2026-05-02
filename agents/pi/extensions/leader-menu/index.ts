@@ -45,9 +45,6 @@
  *   out  leader-menu:keys-resolved — emitted after init/reconfig with
  *                                    `{ globalLeader, localLeader }` so
  *                                    vim-mode can sync its dispatcher.
- *   out  vim-mode:enable           — emitted from the vim-mode toggle
- *                                    chord (or any matching action).
- *   out  vim-mode:disable          — emitted from the emacs-mode chord.
  *
  * ## Slash commands
  *
@@ -61,12 +58,25 @@
  * `~/.pi/agent/leader-menu.json` (optional):
  *
  *   ```json
- *   { "globalLeader": "/", "localLeader": ";" }
+ *   { "globalLeader": "/", "localLeader": ";", "debug": true }
  *   ```
  *
- * Both keys optional; missing values fall back to the defaults
- * (`" "` and `","`). `defaults.json` in this directory is the
- * immutable default *menu structure*; do not write user state to it.
+ * - `globalLeader` / `localLeader` — trigger keys (defaults `" "`,
+ *   `","`).
+ * - `debug` — when true, every key press is reported via
+ *   `ctx.ui.notify`. Read by both this extension's overlays and by
+ *   sibling input-handling extensions (`vim-mode`, `tasks`); the
+ *   loggers are intentionally co-located here because the flag is
+ *   about "key dispatch", not modal editing.
+ *
+ * `defaults.json` in this directory is the immutable default *menu
+ * structure*; do not write user state to it.
+ *
+ * On session_start, a one-shot migrator copies `debug` (and only
+ * `debug`) from `~/.pi/agent/vim-mode.json` or the legacy
+ * `~/.pi/agent/keybindings-ext.json` if found, then removes those
+ * files. The pre-split `modal` flag is dropped on migration: vim-mode
+ * is now always on whenever the extension is loaded.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -77,7 +87,7 @@ import {
   type Component,
   type TUI,
 } from "@mariozechner/pi-tui";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
@@ -140,15 +150,22 @@ interface LeaderActionHost {
   emitEvent(eventName: string): void;
 }
 
-interface LeaderKeySettings {
+interface UserSettings {
   globalLeader?: string;
   localLeader?: string;
+  /** When true, every key press is reported via `ctx.ui.notify`.
+   *  Read by sibling input-handling extensions too (vim-mode,
+   *  tasks/overlay) so a single toggle controls every logger. */
+  debug?: boolean;
 }
 
 interface ResolvedLeaders {
   globalLeader: string;
   localLeader: string;
 }
+
+const LEGACY_VIM_MODE_PATH = join(homedir(), ".pi", "agent", "vim-mode.json");
+const LEGACY_KEYBINDINGS_PATH = join(homedir(), ".pi", "agent", "keybindings-ext.json");
 
 /** Map of `passthrough:` action key names to terminal escape sequences. */
 const PASSTHROUGH_KEYS: Record<string, string> = {
@@ -207,16 +224,71 @@ function loadDefaults(): LeaderMenuConfig {
   }
 }
 
-function loadUserSettings(): LeaderKeySettings {
+function loadUserSettings(): UserSettings {
   if (!existsSync(USER_SETTINGS_PATH)) return {};
   try {
     const parsed = JSON.parse(readFileSync(USER_SETTINGS_PATH, "utf-8"));
     return {
       globalLeader: typeof parsed?.globalLeader === "string" ? parsed.globalLeader : undefined,
       localLeader: typeof parsed?.localLeader === "string" ? parsed.localLeader : undefined,
+      debug: typeof parsed?.debug === "boolean" ? parsed.debug : undefined,
     };
   } catch {
     return {};
+  }
+}
+
+function writeUserSettings(settings: UserSettings): void {
+  try {
+    mkdirSync(dirname(USER_SETTINGS_PATH), { recursive: true });
+    writeFileSync(USER_SETTINGS_PATH, JSON.stringify(settings, null, 2) + "\n");
+  } catch { /* best-effort */ }
+}
+
+/**
+ * One-shot migrator: copy the `debug` flag (and only `debug`) from
+ * `vim-mode.json` or the legacy `keybindings-ext.json` into
+ * `leader-menu.json`, then delete the source. Idempotent: a second run
+ * finds nothing to migrate and no-ops.
+ *
+ * The `modal` flag from the pre-split keybindings extension is
+ * intentionally dropped — vim-mode is now always on whenever the
+ * extension is loaded; the toggle has no current home.
+ */
+function migrateLegacySettings(
+  notify?: (msg: string, level: "info" | "warning" | "error") => void,
+): void {
+  const sources: Array<{ path: string; label: string }> = [
+    { path: LEGACY_VIM_MODE_PATH, label: "vim-mode.json" },
+    { path: LEGACY_KEYBINDINGS_PATH, label: "keybindings-ext.json" },
+  ];
+  for (const { path, label } of sources) {
+    if (!existsSync(path)) continue;
+    try {
+      const parsed = JSON.parse(readFileSync(path, "utf-8"));
+      const debug = typeof parsed?.debug === "boolean" ? parsed.debug : undefined;
+      const current = loadUserSettings();
+      if (debug !== undefined && current.debug === undefined) {
+        writeUserSettings({ ...current, debug });
+        notify?.(
+          `leader-menu: migrated debug flag from ~/.pi/agent/${label} (debug=${debug})`,
+          "info",
+        );
+      }
+      try { unlinkSync(path); } catch { /* best-effort */ }
+      if (parsed?.modal !== undefined) {
+        notify?.(
+          `leader-menu: legacy '${label}' had modal=${parsed.modal}; ` +
+            `vim-mode is now always-on when loaded — flag dropped`,
+          "info",
+        );
+      }
+    } catch (err) {
+      notify?.(
+        `leader-menu: legacy settings migration from ${label} failed: ${(err as Error).message}`,
+        "warning",
+      );
+    }
   }
 }
 
@@ -265,8 +337,11 @@ function buildAction(actionStr: string, host: LeaderActionHost): () => void {
     return () => host.passthrough(keyName, seq);
   }
   // Default: emit as event (with optional `event:` prefix for legacy
-  // configs). Bare names are treated as event names — this is how
-  // `vim-mode:enable` and `vim-mode:disable` reach the modal extension.
+  // configs). Bare names are treated as event names — the standard
+  // mechanism for cross-extension chord dispatch.
+  // (vim-mode is a single-responsibility extension with no toggle, so
+  // the legacy `vim-mode:enable` / `vim-mode:disable` events were
+  // removed during the toggle simplification.)
   if (!actionStr) return () => {};
   const eventName = actionStr.startsWith("event:")
     ? actionStr.slice("event:".length)
@@ -714,6 +789,7 @@ export default function (pi: ExtensionAPI) {
     currentCtx = ctx;
     actionHost = createActionHost(ctx);
 
+    migrateLegacySettings(sessionNotify ?? undefined);
     leaders = resolveLeaders();
     warnClashingLeaderKeys(leaders, sessionNotify ?? undefined);
 

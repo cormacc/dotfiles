@@ -24,38 +24,38 @@ contribution-API logic here — those belong in `leader-menu`.
 
 ## Cross-extension contract
 
-- Bare-Space and bare-, in Normal mode emit `leader-menu:open`
-  with `{ rootKey: " " | "," }`. Do not import `leader-menu`; the
-  event is the entire contract.
-- `vim-mode:enable` / `vim-mode:disable` may carry `{ source?: string }`
-  for nicer notifications, but the editor must tolerate an empty `{}`.
+- Bare leader keys in Normal mode emit `leader-menu:open` with
+  `{ rootKey: string }`. The set of recognised leader keys is
+  delivered via the `leader-menu:keys-resolved` event — this
+  extension does not read the leader-menu settings file directly.
+- Do not import `leader-menu`; events are the entire contract.
 - `editor:width-constraint` is the standard pi cross-extension event
-  used by side-panel-rendering extensions (e.g. `git-diff`). When
-  modal is off, the listener still exists but is a no-op.
+  used by side-panel-rendering extensions (e.g. `git-diff`).
 
-## Settings file + migration
+## Settings
 
-- `~/.pi/agent/vim-mode.json` is the live settings file. Keys today:
-  `modal: bool`, `debug: bool`. Add new keys via `loadUserSettings`
-  / `saveUserSettings` so partial updates do not clobber unrelated
-  fields.
-- On first run, `migrateLegacySettings()` migrates from
-  `~/.pi/agent/keybindings-ext.json` exactly once. After migration the
-  legacy file is deleted to avoid drift.
-- Other extensions that historically read the legacy file directly
-  (notably `tasks/overlay.ts` for the `debug` flag) have been
-  retargeted to `vim-mode.json`. If you add another reader, do not
-  resurrect the legacy path.
+This extension has no settings file of its own. The only knob is the
+shared `debug` flag (per-keypress logger), which lives in
+`~/.pi/agent/leader-menu.json`. It is loaded synchronously on editor
+construction via `loadDebugFlag()` near the entry point. Do not
+resurrect a vim-mode-specific settings file; if you need a new knob,
+add it to `leader-menu.json` and document the cross-extension shared
+ownership in both READMEs.
+
+The pre-split `~/.pi/agent/vim-mode.json` and `keybindings-ext.json`
+files are migrated automatically by `leader-menu` on first run. The
+migration is a one-shot copy of the `debug` field; the legacy `modal`
+field is intentionally dropped (vim-mode is always on when loaded).
 
 ## Tests
 
 This extension has no unit tests today. Sanity-check after edits by:
 
-1. `/vim-mode toggle` to confirm the editor swaps in/out cleanly.
+1. Confirm the editor is installed at session_start (status line
+   shows `INSERT` / `NORMAL`, not pi's default editor footer).
 2. Pressing `Esc` to enter Normal mode, then exercising motions
    (`hjkl`, `w`, `b`, `e`), operators (`dw`, `ciw`), text objects
    (`di(`, `da{`), counts (`5x`, `3w`), and dot-repeat (`.`).
-3. Pressing bare `Space` in Normal mode and confirming the
-   leader-menu overlay opens (delegated via event).
-4. Toggling via `Space t E e` from leader-menu to confirm the
-   cross-extension event flows the other way.
+3. Pressing the configured global leader (default `Space`) in Normal
+   mode and confirming the leader-menu overlay opens (delegated via
+   `leader-menu:open` event).
