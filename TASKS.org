@@ -212,6 +212,68 @@ Migration: the legacy `menus: { foo: { key: " ", items: {...} } }` registration 
 
 Closing this task and committing in the same commit as the implementation.
 
+** DONE [#D] Drop redundant vim-mode toggle (single-responsibility cleanup) :vim-mode:refactor:
+CLOSED: [2026-05-02 Sat 17:50]
+:PROPERTIES:
+:ID: bfbc6354-5441-4a8f-8616-a952d75135fa
+:CREATED: [2026-05-02 Sat 17:38]
+:END:
+:LOGBOOK:
+- Created [2026-05-02 Sat 17:38]
+:END:
+Done. Follow-up to the keybindings refactor (00e1772c). vim-mode is a single-responsibility extension; the runtime enable/disable plumbing was redundant — the natural off-state is "extension not loaded".
+
+Removed:
+- vim-mode.json settings file (entirely)
+- /vim-mode on|off|toggle slash command
+- vim-mode:enable / vim-mode:disable events
+- Space t E v / Space t E e leader chords (from defaults.json)
+- installModalEditor / uninstallModalEditor / setMode plumbing
+- previousEditorFactory save/restore
+- modalEnabled field + setModalEnabled / isModalEnabled methods + every guard against it
+- vim-mode's settings migrator
+
+Moved:
+- debug flag (per-keypress logger) → ~/.pi/agent/leader-menu.json
+- Migrator extended in leader-menu to copy debug from vim-mode.json or keybindings-ext.json on first run
+- tasks/overlay.ts retargeted to read debug from leader-menu.json
+
+Net diff: vim-mode/index.ts shrank ~150 lines; defaults.json's globalMenu has no items left (all chords now contributed by other extensions).
+
+To disable vim-mode now, remove the extension directory or comment out its inclusion in agents.nix (TODO: add a clean Nix-level enable flag for this — captured below as a separate follow-up).
+
+** TODO [#D] Add Nix-level enable flag for individual pi extensions :dotfiles:nix:feature:
+:PROPERTIES:
+:ID: dabf963a-e0e0-4fac-b7f8-ab5c5740a17e
+:CREATED: [2026-05-02 Sat 17:39]
+:END:
+:LOGBOOK:
+- Created [2026-05-02 Sat 17:39]
+:END:
+Captured during the vim-mode toggle simplification (bfbc6354). Currently agents.nix symlinks the entire `agents/pi/extensions/` directory into `~/.pi/agent/extensions/`, so per-extension disablement requires either:
+
+- Removing the source directory (lossy)
+- Manually unlinking the target after `home-manager switch` (fragile)
+
+Better: option-based Nix configuration that materialises only the requested subset of extensions.
+
+Sketch:
+
+```nix
+{ piExtensions = {
+    enable = [ "tasks" "term" "git-diff" "leader-menu" "vim-mode" ];
+    # or: disable = [ "vim-mode" ];
+  };
+}
+```
+
+agents.nix iterates the list and creates per-extension symlinks under `~/.pi/agent/extensions/<name>` rather than one bulk symlink. Probably 30-50 lines of Nix.
+
+Useful for:
+- Trying out / disabling vim-mode without removing the source
+- Per-host extension subsets (e.g. fewer extensions on the minimal home-manager profile)
+- Testing builds with one extension excluded
+
 * Fixes
 ** TODO Activating tasks overlay clobbers text in input area
 :PROPERTIES:

@@ -1,12 +1,15 @@
 # vim-mode
 
-Optional Vim-style modal editor for [pi](https://github.com/nichochar/pi-coding-agent).
+Vim-style modal editor for [pi](https://github.com/nichochar/pi-coding-agent).
 
-This extension installs a `VimEditor` `CustomEditor` when modal editing is
-enabled. Default-off — a fresh checkout has standard insert-only behaviour
-until the user opts in. The leader-menu side (Space and `,` chords) lives
-in the sibling [`leader-menu`](../leader-menu/README.md) extension; this
-extension delegates bare-Space/`,` chords in Normal mode to it via the
+Single-responsibility: when this extension is loaded, the modal editor
+is installed unconditionally. There is no runtime toggle. To disable,
+remove the extension directory (or in the dotfiles repo, comment out
+/ Nix-toggle its inclusion).
+
+The leader-menu side (Space and `,` chord discovery + dispatch) lives
+in the sibling [`leader-menu`](../leader-menu/README.md) extension;
+this extension delegates bare-leader keys in Normal mode to it via the
 `leader-menu:open` event.
 
 ## Modes
@@ -21,32 +24,6 @@ extension delegates bare-Space/`,` chords in Normal mode to it via the
 The editor starts in Insert mode. Press `Esc` to enter Normal mode.
 Press `alt+escape` (anywhere) to send an abort/interrupt to pi (replaces
 plain `escape`, which is used to switch modes).
-
-## Toggling modal editing
-
-Persistent user setting at `~/.pi/agent/vim-mode.json`:
-
-```json
-{ "modal": true }
-```
-
-Toggle at runtime via either:
-
-- **Slash command:** `/vim-mode on | off | toggle`.
-- **Leader chord:** `Space t E v` (vim) / `Space t E e` (emacs / insert-only).
-  In Vim Normal mode the leader is `Space` bare; in insert-only mode use
-  the direct Space-leader shortcut — so `alt+space t E v`.
-
-Both paths write to the user settings file and apply immediately.
-
-### Settings migration
-
-On first session start after install, vim-mode looks for the legacy
-`~/.pi/agent/keybindings-ext.json` (from the old `keybindings`
-extension). If present and `vim-mode.json` does not exist, the
-`modal` and `debug` keys are copied across, the old file is deleted,
-and a one-shot notification is shown. After migration, only
-`vim-mode.json` is consulted.
 
 ## Vim grammar (Normal / Visual)
 
@@ -75,62 +52,80 @@ Operators compose with motions and text objects:
 | `Enter`         | Submit message                    |
 | `Esc`           | Clear pending op state            |
 | `alt+Esc`       | Abort / interrupt                 |
-| `Space`         | Open `leader-menu` Space overlay  |
-| `,`             | Open `leader-menu` `,` overlay    |
+| `<global>`      | Open global leader-menu overlay   |
+| `<local>`       | Open local leader-menu overlay    |
+
+`<global>` / `<local>` are the configured leader keys (defaults
+`Space` and `,`; see `leader-menu` for reconfiguration).
 
 In Insert mode, most keys pass through to the underlying pi editor
-unchanged. `alt+space` and `alt+,` are handled by `leader-menu`'s
-global registerShortcut handlers.
+unchanged. `alt+space` and `alt+,` (or whatever the user's leaders
+have been remapped to) are handled by `leader-menu`'s global
+registerShortcut handlers.
+
+## Settings
+
+This extension has no settings file of its own. The only knob that
+applies is the per-keypress `debug` logger, which lives in
+`~/.pi/agent/leader-menu.json`:
+
+```json
+{ "debug": true }
+```
+
+The flag is co-owned with `leader-menu` and `tasks/overlay` because
+all three extensions log keys through the same channel; centralising
+it makes the toggle a single switch rather than three.
+
+`leader-menu` migrates `debug` automatically from any pre-split
+settings files (`vim-mode.json`, `keybindings-ext.json`) on first
+session start.
 
 ## Cross-extension contract
 
-Modal toggle is event-driven; this extension never imports `leader-menu`.
-
 | Direction | Event                       | Payload                                 | Source                                                 |
 |-----------|-----------------------------|-----------------------------------------|--------------------------------------------------------|
-| in        | `vim-mode:enable`           | `{ source?: string }`                   | leader-menu (`<global> t E v`), or any other contributor |
-| in        | `vim-mode:disable`          | `{ source?: string }`                   | leader-menu (`<global> t E e`), or any other contributor |
 | in        | `leader-menu:keys-resolved` | `{ globalLeader, localLeader }`         | leader-menu — used to update the bare-leader dispatcher |
 | out       | `leader-menu:open`          | `{ rootKey: string }`                   | bare-leader keys in Normal mode                        |
 | in        | `editor:width-constraint`   | `{ fraction, minCols }`                 | other extensions reserving width                       |
 
-The `source` field on enable/disable is advisory only; vim-mode uses it
-to make the resulting notification more informative
-(e.g. `vim-mode: on (slash-command)`). Empty/absent payload is fine.
+This extension never imports `leader-menu`; communication is purely
+event-based. There are no `vim-mode:enable` / `vim-mode:disable`
+events — the extension has no toggle to dispatch.
 
 ## Abort key caveat
 
-`alt+escape` replaces bare `escape` as the abort key when modal is on.
-Some terminals (macOS Terminal.app, legacy xterm) do not send a distinct
-sequence for `alt+escape` unless "Use Option as Meta" / a kitty or
-CSI-u-aware key protocol is enabled. On such terminals modal users may
-need to press a mode-neutral key (e.g. `Ctrl-c` to clear, or any leader
-action) instead.
+`alt+escape` replaces bare `escape` as the abort key. Some terminals
+(macOS Terminal.app, legacy xterm) do not send a distinct sequence for
+`alt+escape` unless "Use Option as Meta" / a kitty or CSI-u-aware key
+protocol is enabled. On such terminals you may need to press a
+mode-neutral key (e.g. `Ctrl-c` to clear, or any leader action)
+instead.
 
 ## Files
 
 | File         | Purpose                                                    |
 |--------------+------------------------------------------------------------|
-| `index.ts`   | Extension entry point, `VimEditor` class, settings, migrator |
+| `index.ts`   | Extension entry point + `VimEditor` class                  |
 | `README.md`  | This file                                                  |
 | `AGENTS.md`  | Agent-side notes for modifying this extension              |
 
-User state: `~/.pi/agent/vim-mode.json` (not tracked in this repo).
+User state: none in this extension. See
+`~/.pi/agent/leader-menu.json` for the shared `debug` flag.
 
-## Migration from the old `keybindings` extension
+## Migration history
 
-This extension replaces the modal-editor half of the legacy
-`keybindings/` extension (which also included leader menus). One-step
-breaking changes:
+| Was                                   | Now                                       |
+|---------------------------------------+-------------------------------------------|
+| `keybindings` extension (monolith)    | this extension + `leader-menu`            |
+| `~/.pi/agent/keybindings-ext.json`    | merged into `leader-menu.json` (`debug`); `modal` dropped (always-on now) |
+| `~/.pi/agent/vim-mode.json`           | merged into `leader-menu.json` (`debug`); deleted on first run |
+| `/kb mode emacs|vim`                  | (removed; remove the extension to disable) |
+| `/vim-mode on|off|toggle`             | (removed; same)                            |
+| `vim-mode:enable` / `vim-mode:disable`| (removed; no toggle)                       |
 
-| Old                                   | New                              |
-|---------------------------------------+----------------------------------|
-| `/kb mode emacs|vim`                  | `/vim-mode on|off|toggle`        |
-| `keybindings:set-mode-vim` event      | `vim-mode:enable` event          |
-| `keybindings:set-mode-emacs` event    | `vim-mode:disable` event         |
-| `~/.pi/agent/keybindings-ext.json`    | `~/.pi/agent/vim-mode.json`      |
-
-Settings are migrated automatically on first run.
+`leader-menu` performs the settings file migrations on first run,
+copying `debug` into `leader-menu.json` and deleting the legacy file.
 
 ## Comparison with `vim-motions-pi`
 
@@ -138,19 +133,18 @@ This extension was evaluated against the upstream package
 [`kepatrick/vim-motions-pi`](https://github.com/kepatrick/vim-motions-pi)
 and our existing `VimEditor` was kept (`KEEP_OWN`) on the basis that it
 covers ~30% more of daily-use Vim grammar — notably dot-repeat,
-indent/dedent operators, bracket/brace/quote text objects,
-BIG-WORD variants, and the `alt+escape` abort key handling. We did
-adopt one feature from upstream — repeat-find-backward (`,`) — and
-the upstream package's decomposition shape is captured as a follow-up.
+indent/dedent operators, bracket/brace/quote text objects, BIG-WORD
+variants, and the `alt+escape` abort key handling. We did adopt one
+feature from upstream — repeat-find-backward (`,`) — and the upstream
+package's decomposition shape is captured as a follow-up.
 
 ## Follow-up work
 
-- Decompose `index.ts` (~2200 lines) into `index.ts` + `buffer.ts` +
+- Decompose `index.ts` (~2050 lines) into `index.ts` + `buffer.ts` +
   `core.ts` to mirror upstream's cleaner factoring. Improves
   maintainability without changing behaviour.
 - Port `VIM_MOTION_PI_CLIPBOARD`-style clipboard sync (env-var driven,
-  off/yank/all modes) — a useful upstream feature missing from the
-  current implementation.
+  off/yank/all modes) from upstream.
 
 ## Dependencies
 

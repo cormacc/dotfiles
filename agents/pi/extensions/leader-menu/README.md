@@ -21,17 +21,43 @@ Two abstract slots, each with a configurable trigger key:
 User overrides live in `~/.pi/agent/leader-menu.json`:
 
 ```json
-{ "globalLeader": "/", "localLeader": ";" }
+{
+  "globalLeader": "/",
+  "localLeader": ";",
+  "debug": true
+}
 ```
 
-Both keys optional; missing values fall back to the defaults. Trigger
-key resolution happens once at session_start; runtime reconfiguration
-requires a `/reload` (because the underlying `alt+<leader>` shortcuts
-are registered with pi at startup and have no unregister hook).
+All keys optional:
+
+- `globalLeader` / `localLeader` — default `" "` and `","`.
+- `debug` — when true, every key press is reported via
+  `ctx.ui.notify`. Read by both this extension and sibling
+  input-handling extensions (`vim-mode`, `tasks`); the loggers are
+  intentionally co-located here because the flag is about *key
+  dispatch*, not modal editing.
+
+Trigger key resolution happens once at session_start; runtime
+reconfiguration requires a `/reload` (because the underlying
+`alt+<leader>` shortcuts are registered with pi at startup and have
+no unregister hook).
 
 Extensions never name trigger keys directly — they contribute via
 `registerLeaderMenu()` with `globalMenu` / `localMenu` slots. The
 final trigger key is whatever the user has configured.
+
+### Settings migration
+
+On first session_start, leader-menu copies the `debug` flag (and only
+`debug`) from any pre-split settings file it finds and then deletes
+the source:
+
+- `~/.pi/agent/vim-mode.json` (post-keybindings-split, pre-toggle-removal)
+- `~/.pi/agent/keybindings-ext.json` (pre-keybindings-split)
+
+The legacy `modal` flag is intentionally not migrated — `vim-mode` is
+now always-on whenever the extension is loaded; to disable, remove
+the extension itself.
 
 ## Slash commands
 

@@ -1,20 +1,7 @@
 {
   "globalMenu": {
     "label": "Leader",
-    "items": {
-      "t": {
-        "label": "+toggle",
-        "items": {
-          "E": {
-            "label": "+editor",
-            "items": {
-              "e": { "label": "Emacs mode", "action": "vim-mode:disable" },
-              "v": { "label": "Vim mode", "action": "vim-mode:enable" }
-            }
-          }
-        }
-      }
-    }
+    "items": {}
   },
   "localMenu": {
     "label": "pi agent",

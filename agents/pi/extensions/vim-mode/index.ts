@@ -1,20 +1,22 @@
 /**
- * vim-mode extension for pi — optional Vim-style modal editor.
+ * vim-mode extension for pi — Vim-style modal editor.
  *
- * Default-off. Toggle via:
- *   - Slash command:  /vim-mode on | off
- *   - Cross-extension event from leader-menu:
- *       Space t E v  → vim-mode:enable
- *       Space t E e  → vim-mode:disable
+ * Single-responsibility: when this extension is loaded, the modal
+ * editor is installed unconditionally. There is no runtime toggle.
+ * To disable, remove the extension directory (or in dotfiles, comment
+ * out / Nix-toggle its inclusion).
  *
  * Modes: Insert (default), Normal, Visual, Visual-Line.
  *
- * Bare-Space and bare-, in Normal mode delegate to the sibling
+ * Bare leader keys in Normal mode delegate to the sibling
  * `leader-menu` extension via a `leader-menu:open` event — the modal
- * grammar itself contains no leader-menu state. See `README.md`.
+ * grammar itself contains no leader-menu state. The set of
+ * recognised leader keys is sourced from `leader-menu:keys-resolved`
+ * so user-reconfigured leaders take effect without code changes here.
  *
- * Settings file: ~/.pi/agent/vim-mode.json   (with one-shot migrator
- * from the legacy ~/.pi/agent/keybindings-ext.json on first run).
+ * Settings: none of its own. The shared `debug` flag (per-keypress
+ * logger) lives in `~/.pi/agent/leader-menu.json` and is read on
+ * editor construction. See `loadDebugFlag()` near the entry point.
  */
 
 import { CustomEditor, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -26,43 +28,13 @@ import {
   type TUI,
 } from "@mariozechner/pi-tui";
 import type { KeybindingsManager } from "@mariozechner/pi-coding-agent";
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+// vim-mode no longer maintains its own settings file. The only flag
+// that survived the toggle removal (`debug`) lives in
+// `~/.pi/agent/leader-menu.json` alongside the leader-key config; see
+// `loadDebugFlag()` near the entry point.
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { homedir } from "node:os";
-
-const USER_SETTINGS_PATH = join(homedir(), ".pi", "agent", "vim-mode.json");
-const LEGACY_SETTINGS_PATH = join(homedir(), ".pi", "agent", "keybindings-ext.json");
-
-interface UserSettings {
-  modal: boolean;
-  /** When true, the keybindings extension logs every key press to the
-   *  pi notification console. Temporary debugging aid — see AGENTS.md. */
-  debug: boolean;
-}
-
-function loadUserSettings(): UserSettings {
-  try {
-    if (existsSync(USER_SETTINGS_PATH)) {
-      const parsed = JSON.parse(readFileSync(USER_SETTINGS_PATH, "utf-8"));
-      return { modal: !!parsed?.modal, debug: !!parsed?.debug };
-    }
-  } catch {}
-  return { modal: false, debug: false };
-}
-
-function saveUserSettings(settings: Partial<UserSettings>): void {
-  try {
-    mkdirSync(dirname(USER_SETTINGS_PATH), { recursive: true });
-    // Merge with existing on disk so partial updates (e.g. just `modal`)
-    // don't clobber unrelated keys (e.g. `debug`).
-    const existing = loadUserSettings();
-    const merged: UserSettings = { ...existing, ...settings };
-    writeFileSync(
-      USER_SETTINGS_PATH,
-      JSON.stringify(merged, null, 2) + "\n",
-    );
-  } catch {}
-}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -132,9 +104,6 @@ function maxPos(a: Pos, b: Pos): Pos {
 
 class VimEditor extends CustomEditor {
   private mode: Mode = "insert";
-  /** When false (default), the editor behaves like pi's standard editor —
-   *  no Normal/Visual modes and no escape-to-normal. */
-  private modalEnabled: boolean = false;
   private _tui: TUI;
   private _theme: EditorTheme;
 
@@ -217,10 +186,6 @@ class VimEditor extends CustomEditor {
 
   private updateStatus(): void {
     if (!this.ctx?.ui) return;
-    if (!this.modalEnabled) {
-      this.ctx.ui.setStatus("vim-mode", undefined);
-      return;
-    }
     const label = this.mode === "visual-line" ? "VISUAL-LINE" : this.mode.toUpperCase();
     this.ctx.ui.setStatus("vim-mode", label);
   }
@@ -231,24 +196,6 @@ class VimEditor extends CustomEditor {
   /** [DEBUG] Toggle the per-keypress notification logger. */
   setDebugEnabled(enabled: boolean): void {
     this.debugEnabled = enabled;
-  }
-
-  /** Toggle modal (vim-style) editing. Default false. */
-  setModalEnabled(enabled: boolean): void {
-    this.modalEnabled = enabled;
-    if (!enabled && this.mode !== "insert") {
-      this.mode = "insert";
-      this.pendingOperator = null;
-      this.countStr = "";
-      this.pendingFind = null;
-      this.pendingReplace = false;
-    }
-    this.updateStatus();
-    this.invalidate();
-  }
-
-  isModalEnabled(): boolean {
-    return this.modalEnabled;
   }
 
   /** Reserve a fraction of terminal width for side panels. */
@@ -1046,7 +993,7 @@ class VimEditor extends CustomEditor {
 
   private switchMode(newMode: Mode): void {
     // When modal editing is disabled the editor stays in insert mode.
-    if (!this.modalEnabled && newMode !== "insert") return;
+
     const oldMode = this.mode;
     this.mode = newMode;
 
@@ -1109,7 +1056,7 @@ class VimEditor extends CustomEditor {
     // the abort/interrupt key (bare escape switches to Normal / clears
     // pending state). When modal is disabled, bare escape falls through
     // to pi's default handling.
-    if (this.modalEnabled && matchesKey(data, "alt+escape")) {
+    if (matchesKey(data, "alt+escape")) {
       super.handleInput("\x1b");
       return;
     }
@@ -1189,7 +1136,7 @@ class VimEditor extends CustomEditor {
     // Escape switches to normal only when modal editing is enabled.
     // Otherwise escape falls through to pi (via shouldPassthrough + the
     // base editor) so that app.interrupt still works.
-    if (this.modalEnabled && matchesKey(data, "escape")) {
+    if (matchesKey(data, "escape")) {
       this.switchMode("normal");
       // Move cursor back one (vim behavior)
       if (this.st.cursorCol > 0) {
@@ -2038,11 +1985,33 @@ class VimEditor extends CustomEditor {
 }
 
 // ─── Extension entry point ───────────────────────────────────────────────────
+//
+// vim-mode is a single-responsibility extension: when loaded, it
+// installs the modal editor unconditionally. There is no runtime
+// toggle, no settings file of its own, and no enable/disable events.
+//
+// To "disable" vim-mode, remove the extension directory (or in the
+// dotfiles repo, comment out / Nix-toggle its inclusion). The legacy
+// `~/.pi/agent/vim-mode.json` is no longer read; the `debug` flag (the
+// only field that survived the toggle removal) lives in
+// `~/.pi/agent/leader-menu.json` and is migrated automatically by the
+// `leader-menu` extension on first run.
+
+const LEADER_MENU_SETTINGS_PATH = join(homedir(), ".pi", "agent", "leader-menu.json");
+
+function loadDebugFlag(): boolean {
+  try {
+    if (!existsSync(LEADER_MENU_SETTINGS_PATH)) return false;
+    const parsed = JSON.parse(readFileSync(LEADER_MENU_SETTINGS_PATH, "utf-8"));
+    return parsed?.debug === true;
+  } catch {
+    return false;
+  }
+}
 
 export default function (pi: ExtensionAPI) {
   let activeEditor: VimEditor | null = null;
   let currentCtx: any = null;
-  let previousEditorFactory: any = undefined;
   /** Resolved leader keys, pushed by leader-menu via
    *  `leader-menu:keys-resolved`. Defaults match leader-menu's defaults
    *  so a session that loads vim-mode before leader-menu still works. */
@@ -2051,54 +2020,16 @@ export default function (pi: ExtensionAPI) {
   /** Cleanup handles for pi event subscriptions. */
   const eventCleanups: (() => void)[] = [];
 
-  // ── Settings migration ───────────────────────────────────────────
-  // One-shot migrator: if the legacy keybindings-ext.json exists and
-  // vim-mode.json does not, copy `modal` and `debug` keys across,
-  // delete the old file, and notify once.
-  function migrateLegacySettings(notify?: (m: string, l: "info" | "warning" | "error") => void): void {
-    if (existsSync(USER_SETTINGS_PATH)) return;
-    if (!existsSync(LEGACY_SETTINGS_PATH)) return;
-    try {
-      const parsed = JSON.parse(readFileSync(LEGACY_SETTINGS_PATH, "utf-8"));
-      const migrated: UserSettings = {
-        modal: !!parsed?.modal,
-        debug: !!parsed?.debug,
-      };
-      mkdirSync(dirname(USER_SETTINGS_PATH), { recursive: true });
-      writeFileSync(
-        USER_SETTINGS_PATH,
-        JSON.stringify(migrated, null, 2) + "\n",
-      );
-      try { unlinkSync(LEGACY_SETTINGS_PATH); } catch { /* best-effort */ }
-      notify?.(
-        `vim-mode: migrated ~/.pi/agent/keybindings-ext.json → vim-mode.json (modal=${migrated.modal})`,
-        "info",
-      );
-    } catch (err) {
-      notify?.(
-        `vim-mode: legacy settings migration failed: ${(err as Error).message}`,
-        "warning",
-      );
-    }
-  }
+  pi.on("session_shutdown", () => {
+    for (const cleanup of eventCleanups) cleanup();
+    eventCleanups.length = 0;
+    currentCtx?.ui?.setStatus?.("vim-mode", undefined);
+    activeEditor = null;
+    currentCtx = null;
+  });
 
-  function installModalEditor(ctx: any): void {
-    if (activeEditor) {
-      activeEditor.setModalEnabled(true);
-      return;
-    }
-
-    previousEditorFactory =
-      typeof ctx.ui.getEditorComponent === "function"
-        ? ctx.ui.getEditorComponent()
-        : undefined;
-    if (previousEditorFactory) {
-      ctx.ui.notify(
-        "vim-mode: replacing the current editor; editor composition is not yet supported",
-        "warning",
-      );
-    }
-
+  pi.on("session_start", (_event, ctx) => {
+    currentCtx = ctx;
     ctx.ui.setEditorComponent(
       (tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager) => {
         const editor = new VimEditor(tui, theme, keybindings);
@@ -2107,75 +2038,12 @@ export default function (pi: ExtensionAPI) {
           pi.events.emit("leader-menu:open", { rootKey });
         });
         editor.setLeaderKeys(leaderKeys);
-        const settings = loadUserSettings();
-        editor.setModalEnabled(true);
-        editor.setDebugEnabled(settings.debug);
+        editor.setDebugEnabled(loadDebugFlag());
         activeEditor = editor;
         return editor;
       },
     );
-  }
-
-  function uninstallModalEditor(ctx: any): void {
-    if (!activeEditor) {
-      ctx.ui.setStatus("vim-mode", undefined);
-      return;
-    }
-    activeEditor.setModalEnabled(false);
-    activeEditor = null;
-    ctx.ui.setStatus("vim-mode", undefined);
-    ctx.ui.setEditorComponent(previousEditorFactory ?? undefined);
-    previousEditorFactory = undefined;
-  }
-
-  function setMode(modal: boolean, source: string): void {
-    if (currentCtx) {
-      if (modal) installModalEditor(currentCtx);
-      else uninstallModalEditor(currentCtx);
-    }
-    saveUserSettings({ modal });
-    currentCtx?.ui?.notify?.(
-      `vim-mode: ${modal ? "on" : "off"}${source ? ` (${source})` : ""}`,
-      "info",
-    );
-  }
-
-  pi.on("session_shutdown", () => {
-    for (const cleanup of eventCleanups) cleanup();
-    eventCleanups.length = 0;
-    currentCtx?.ui?.setStatus?.("vim-mode", undefined);
-    activeEditor = null;
-    currentCtx = null;
-    previousEditorFactory = undefined;
   });
-
-  pi.on("session_start", (_event, ctx) => {
-    currentCtx = ctx;
-    migrateLegacySettings(ctx.ui.notify.bind(ctx.ui));
-    const settings = loadUserSettings();
-    if (settings.modal) {
-      installModalEditor(ctx);
-    } else {
-      activeEditor = null;
-      ctx.ui.setStatus("vim-mode", undefined);
-    }
-  });
-
-  // ── Cross-extension toggle events ────────────────────────────────
-  // Emitted by leader-menu's `Space t E v` / `Space t E e` chords, or
-  // by any extension that wants to toggle modal editing without
-  // importing this extension. Payload may carry an optional `source`
-  // hint surfaced in the notification.
-  eventCleanups.push(
-    pi.events.on("vim-mode:enable", (data: { source?: string }) => {
-      setMode(true, data?.source ?? "event");
-    }),
-  );
-  eventCleanups.push(
-    pi.events.on("vim-mode:disable", (data: { source?: string }) => {
-      setMode(false, data?.source ?? "event");
-    }),
-  );
 
   // ── leader-menu:keys-resolved subscription ──────────────────────
   // Sibling `leader-menu` extension publishes the resolved
@@ -2197,8 +2065,7 @@ export default function (pi: ExtensionAPI) {
 
   // ── editor:width-constraint subscription ─────────────────────────
   // Other extensions (e.g. git-diff) request that the editor reserve
-  // some screen width. Only relevant when modal is on (the constraint
-  // method lives on VimEditor). When modal is off, the event is a no-op.
+  // some screen width. The constraint method lives on VimEditor.
   eventCleanups.push(
     pi.events.on("editor:width-constraint", (data: any) => {
       const fraction = typeof data?.fraction === "number" ? data.fraction : 0;
@@ -2206,31 +2073,4 @@ export default function (pi: ExtensionAPI) {
       activeEditor?.setWidthConstraint(fraction, minCols);
     }),
   );
-
-  // ── /vim-mode slash command ──────────────────────────────────────
-  pi.registerCommand("vim-mode", {
-    description: "Toggle modal editing: /vim-mode on | off | toggle",
-    getArgumentCompletions: (prefix: string) => {
-      const items = [
-        { value: "on", label: "on", description: "Enable Vim modal editing" },
-        { value: "off", label: "off", description: "Disable; revert to insert-only" },
-        { value: "toggle", label: "toggle", description: "Toggle the current state" },
-      ];
-      const filtered = items.filter((i) => i.value.startsWith(prefix));
-      return filtered.length > 0 ? filtered : null;
-    },
-    handler: async (args, ctx) => {
-      const arg = (args ?? "").trim().toLowerCase();
-      if (arg === "on") {
-        setMode(true, "slash-command");
-      } else if (arg === "off") {
-        setMode(false, "slash-command");
-      } else if (arg === "toggle" || arg === "") {
-        const current = loadUserSettings().modal;
-        setMode(!current, "slash-command");
-      } else {
-        ctx.ui.notify("Usage: /vim-mode on | off | toggle", "info");
-      }
-    },
-  });
 }
