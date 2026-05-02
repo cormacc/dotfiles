@@ -48,22 +48,33 @@ export interface LeaderMenuItem {
 }
 
 /**
- * A leader menu rooted at a single trigger key (e.g. `" "` for Space
- * leader, `","` for the pi-agent leader).
+ * A contribution into one of the two leader slots. The trigger key
+ * itself is owned by `leader-menu` and may be reconfigured by the
+ * user via `~/.pi/agent/leader-menu.json`; consumers never specify
+ * trigger keys directly.
  */
-export interface LeaderMenu {
-  label: string;
-  key: string;
-  items: Record<string, LeaderMenuItem>;
+export interface LeaderMenuRoot {
+  /** Override the slot's title in the overlay. Optional. */
+  label?: string;
+  /** Top-level chord items contributed to this slot. */
+  items?: Record<string, LeaderMenuItem>;
 }
 
 /**
  * Payload accepted by the `leader-menu:register` event. The `source`
  * field is injected automatically by `registerLeaderMenu()`.
+ *
+ * Two abstract slots:
+ *   - `globalMenu` — default trigger `Space`. The primary leader for
+ *     extension-specific chords.
+ *   - `localMenu` — default trigger `,`. Reserved for pi-agent quick
+ *     actions (model swap, thinking toggle, etc.). Most consumers
+ *     contribute to `globalMenu` only.
  */
 export interface LeaderMenuRegistration {
   source?: string;
-  menus?: Record<string, LeaderMenu>;
+  globalMenu?: LeaderMenuRoot;
+  localMenu?: LeaderMenuRoot;
 }
 
 /**
@@ -92,11 +103,14 @@ const activeLeaderMenuSubs = new Map<string, () => void>();
  *
  * pi.on("session_start", async () => {
  *   cleanupKb = registerLeaderMenu(pi, "my-ext", {
- *     menus: {
- *       myMenu: {
- *         label: "My Menu",
- *         key: " ",
- *         items: { x: { label: "Do X", action: "command:/my-cmd" } },
+ *     globalMenu: {
+ *       items: {
+ *         m: {
+ *           label: "+my-ext",
+ *           items: {
+ *             x: { label: "Do X", action: "command:/my-cmd" },
+ *           },
+ *         },
  *       },
  *     },
  *   });

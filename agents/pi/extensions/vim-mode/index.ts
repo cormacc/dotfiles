@@ -153,11 +153,16 @@ class VimEditor extends CustomEditor {
   private pendingReplace: boolean = false;
 
   // Leader-menu chord delegation. The modal grammar itself contains no
-  // leader-menu state — bare Space / , in Normal mode are forwarded to
-  // the sibling `leader-menu` extension via a `leader-menu:open` event.
-  // The events callback is captured at construction-time so dispatch
-  // does not require a long-lived ExtensionAPI reference.
+  // leader-menu state — bare leader keys in Normal mode are forwarded
+  // to the sibling `leader-menu` extension via a `leader-menu:open`
+  // event. Both the dispatch callback and the set of recognised
+  // leader keys are captured at construction-time / via the
+  // `leader-menu:keys-resolved` event — no long-lived ExtensionAPI
+  // reference is needed.
   private emitLeaderOpen: ((rootKey: string) => void) | null = null;
+  /** Trigger keys recognised as leader chords in Normal mode. Updated
+   *  by the entry point in response to `leader-menu:keys-resolved`. */
+  private leaderKeys: Set<string> = new Set([" ", ","]);
 
   // Visual mode anchor
   private visualAnchor: Pos = { line: 0, col: 0 };
@@ -190,9 +195,24 @@ class VimEditor extends CustomEditor {
     this.updateStatus();
   }
 
-  /** Wire up the cross-extension hook for bare-Space/`,` chords in Normal mode. */
+  /** Wire up the cross-extension hook for bare-leader chords in Normal mode. */
   setLeaderOpenEmitter(emit: (rootKey: string) => void): void {
     this.emitLeaderOpen = emit;
+  }
+
+  /** Update the leader-key set used for bare-leader detection in Normal mode. */
+  setLeaderKeys(keys: Iterable<string>): void {
+    const next = new Set<string>();
+    for (const k of keys) {
+      if (k && k.length > 0) next.add(k);
+    }
+    if (next.size === 0) {
+      // Defensive: keep the defaults so we don't silently disable
+      // leader chords if leader-menu emits an empty set.
+      next.add(" ");
+      next.add(",");
+    }
+    this.leaderKeys = next;
   }
 
   private updateStatus(): void {
@@ -1502,11 +1522,14 @@ class VimEditor extends CustomEditor {
         }
 
         // ── Leader chord delegation ──
-        // Bare Space / , in Normal mode opens leader-menu's overlay.
+        // Bare leader keys in Normal mode open leader-menu's overlay.
         // The overlay is a modal `ctx.ui.custom()` so it grabs focus
         // and handles all subsequent keys itself — no leader state
-        // lives in this editor.
-        if (key === " " || key === ",") {
+        // lives in this editor. The set of recognised leader keys is
+        // pushed by leader-menu via `leader-menu:keys-resolved` so a
+        // user-reconfigured leader (e.g. `~/.pi/agent/leader-menu.json`
+        // with `globalLeader: "/"`) takes effect without code changes.
+        if (this.leaderKeys.has(key)) {
           this.emitLeaderOpen?.(key);
           return;
         }
@@ -2020,6 +2043,10 @@ export default function (pi: ExtensionAPI) {
   let activeEditor: VimEditor | null = null;
   let currentCtx: any = null;
   let previousEditorFactory: any = undefined;
+  /** Resolved leader keys, pushed by leader-menu via
+   *  `leader-menu:keys-resolved`. Defaults match leader-menu's defaults
+   *  so a session that loads vim-mode before leader-menu still works. */
+  let leaderKeys: Set<string> = new Set([" ", ","]);
 
   /** Cleanup handles for pi event subscriptions. */
   const eventCleanups: (() => void)[] = [];
@@ -2079,6 +2106,7 @@ export default function (pi: ExtensionAPI) {
         editor.setLeaderOpenEmitter((rootKey: string) => {
           pi.events.emit("leader-menu:open", { rootKey });
         });
+        editor.setLeaderKeys(leaderKeys);
         const settings = loadUserSettings();
         editor.setModalEnabled(true);
         editor.setDebugEnabled(settings.debug);
@@ -2147,6 +2175,24 @@ export default function (pi: ExtensionAPI) {
     pi.events.on("vim-mode:disable", (data: { source?: string }) => {
       setMode(false, data?.source ?? "event");
     }),
+  );
+
+  // ── leader-menu:keys-resolved subscription ──────────────────────
+  // Sibling `leader-menu` extension publishes the resolved
+  // (config-aware) leader keys after init. We cache them so a
+  // user-reconfigured leader (`~/.pi/agent/leader-menu.json`) takes
+  // effect on the next session without code changes here.
+  eventCleanups.push(
+    pi.events.on(
+      "leader-menu:keys-resolved",
+      (data: { globalLeader?: string; localLeader?: string }) => {
+        const next = new Set<string>();
+        if (data?.globalLeader) next.add(data.globalLeader);
+        if (data?.localLeader) next.add(data.localLeader);
+        if (next.size > 0) leaderKeys = next;
+        activeEditor?.setLeaderKeys(leaderKeys);
+      },
+    ),
   );
 
   // ── editor:width-constraint subscription ─────────────────────────

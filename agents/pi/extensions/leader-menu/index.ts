@@ -1,38 +1,72 @@
 /**
  * leader-menu extension for pi — which-key-style leader chord discovery.
  *
- * Owns the Space and `,` leader menus, the `alt+space` / `alt+,` global
- * shortcuts, the `/leader-menu` slash command, and the cross-extension
- * registration API used by every other extension to contribute its own
- * sub-menus. Has no opinion on modal editing — the optional vim layer
- * lives in the sibling `vim-mode` extension and toggles via a pair of
- * cross-extension events documented below.
+ * Owns the global and local leader menus, the `alt+<leader>` global
+ * shortcuts that open them, the `/leader-menu` slash command, and the
+ * cross-extension contribution API used by every other extension to
+ * add its own sub-menus. Has no opinion on modal editing — the
+ * optional vim layer lives in the sibling `vim-mode` extension and
+ * toggles via the cross-extension events documented below.
  *
- * Events:
- *   in   leader-menu:register   — extensions contribute leader entries
- *                                  (use `registerLeaderMenu()` from
- *                                   `lib/pi-utils.ts`, not raw events).
- *   in   leader-menu:open       — request the leader overlay open at
- *                                  a given root key. Used by vim-mode
- *                                  to delegate bare-Space/`,` handling
- *                                  in Normal mode. Payload:
- *                                  `{ rootKey: " " | "," }`.
- *   out  leader-menu:ready      — emitted once on session_start so
- *                                  consumers re-register after reload.
- *   out  vim-mode:enable        — emitted from `Space t E v`
- *                                  (or any `vim-mode:enable` action).
- *   out  vim-mode:disable       — emitted from `Space t E e`.
+ * ## Leaders
  *
- * Slash commands:
- *   /leader-menu bindings           — interactive overlay listing all
- *                                     registered leader chords.
+ * Two abstract leader slots:
+ *
+ *   - **Global leader** (default `Space`) — extensions contribute
+ *     their primary chords here.
+ *   - **Local leader** (default `,`) — pi-agent quick actions
+ *     (model swap, thinking toggle, slash-command shortcuts).
+ *
+ * Trigger keys are resolved at session_start in this order:
+ *
+ *   1. `~/.pi/agent/leader-menu.json` user settings
+ *      (`{ globalLeader, localLeader }`).
+ *   2. The defaults (`" "` and `","`).
+ *
+ * Other extensions never reference trigger keys directly; they
+ * contribute via `registerLeaderMenu()` with `globalMenu` / `localMenu`
+ * slots. `vim-mode` learns the resolved keys via the
+ * `leader-menu:keys-resolved` event and updates its Normal-mode
+ * dispatcher accordingly.
+ *
+ * ## Events
+ *
+ *   in   leader-menu:register      — extensions contribute leader entries
+ *                                    (use `registerLeaderMenu()` from
+ *                                    `lib/pi-utils.ts`, not raw events).
+ *   in   leader-menu:open          — request the leader overlay open at
+ *                                    a given root key. Used by vim-mode
+ *                                    to delegate bare-leader handling
+ *                                    in Normal mode. Payload:
+ *                                    `{ rootKey: string }` matching
+ *                                    a configured leader.
+ *   out  leader-menu:ready         — emitted once on session_start so
+ *                                    consumers re-register after reload.
+ *   out  leader-menu:keys-resolved — emitted after init/reconfig with
+ *                                    `{ globalLeader, localLeader }` so
+ *                                    vim-mode can sync its dispatcher.
+ *   out  vim-mode:enable           — emitted from the vim-mode toggle
+ *                                    chord (or any matching action).
+ *   out  vim-mode:disable          — emitted from the emacs-mode chord.
+ *
+ * ## Slash commands
+ *
+ *   /leader-menu bindings           — interactive overlay listing every
+ *                                     registered chord.
  *   /leader-menu bindings --export  — print every chord as an org table
  *                                     suitable for pasting into a doc.
  *
- * Settings:
- *   This extension has no user settings of its own. Modal-editing
- *   preferences live in `vim-mode`. `defaults.json` is the immutable
- *   default leader-menu definition; do not write user state to it.
+ * ## Settings
+ *
+ * `~/.pi/agent/leader-menu.json` (optional):
+ *
+ *   ```json
+ *   { "globalLeader": "/", "localLeader": ";" }
+ *   ```
+ *
+ * Both keys optional; missing values fall back to the defaults
+ * (`" "` and `","`). `defaults.json` in this directory is the
+ * immutable default *menu structure*; do not write user state to it.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -46,13 +80,18 @@ import {
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { homedir } from "node:os";
 import { ansiPad } from "../lib/pi-utils.js";
 
 const EXT_DIR = dirname(fileURLToPath(import.meta.url));
+const USER_SETTINGS_PATH = join(homedir(), ".pi", "agent", "leader-menu.json");
+
+const DEFAULT_GLOBAL_LEADER = " ";
+const DEFAULT_LOCAL_LEADER = ",";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
-/** A node in the leader-menu tree. */
+/** A node in the leader-menu tree (live, with bound action closures). */
 type LeaderNode = {
   key?: string;
   label: string;
@@ -63,28 +102,32 @@ type LeaderNode = {
 
 type LeaderEntry = LeaderNode & { key: string };
 
+/** A single menu item from JSON config. */
 interface MenuItemConfig {
   label: string;
   action?: string;
   items?: Record<string, MenuItemConfig>;
 }
 
-interface MenuConfig {
-  label: string;
-  key: string;
-  items: Record<string, MenuItemConfig>;
-}
-
-/** JSON config shape shared by `defaults.json` and registrations. */
-interface LeaderMenuConfig {
-  menus?: Record<string, MenuConfig>;
+/** A leader-menu root: just a label + items (no trigger key). */
+interface MenuRoot {
+  label?: string;
+  items?: Record<string, MenuItemConfig>;
 }
 
 /**
- * Payload accepted by the `leader-menu:register` event. Extensions
- * should use the `registerLeaderMenu()` helper from `lib/pi-utils.ts`
- * rather than emitting this directly.
+ * JSON shape for `defaults.json` and registrations.
+ *
+ * Both extensions and the defaults file describe contributions in
+ * terms of two abstract slots. The user-configured trigger keys are
+ * resolved at registration time.
  */
+interface LeaderMenuConfig {
+  globalMenu?: MenuRoot;
+  localMenu?: MenuRoot;
+}
+
+/** Payload of `leader-menu:register`. */
 interface LeaderMenuRegistration extends LeaderMenuConfig {
   /** Originating extension name; used in clash warnings. */
   source?: string;
@@ -95,6 +138,16 @@ interface LeaderActionHost {
   submitCommand(command: string): void;
   passthrough(keyName: string, seq: string): void;
   emitEvent(eventName: string): void;
+}
+
+interface LeaderKeySettings {
+  globalLeader?: string;
+  localLeader?: string;
+}
+
+interface ResolvedLeaders {
+  globalLeader: string;
+  localLeader: string;
 }
 
 /** Map of `passthrough:` action key names to terminal escape sequences. */
@@ -109,10 +162,9 @@ const PASSTHROUGH_KEYS: Record<string, string> = {
 /**
  * Keys consumed by the `vim-mode` extension's normal-mode dispatcher.
  *
- * Used solely to warn at registration time when a contributed leader
+ * Used solely to warn at registration time when a configured leader
  * trigger key would be silently swallowed by the vim grammar. Keep in
- * sync with the modal extension's reserved-key set
- * (`agents/pi/extensions/vim-mode/index.ts`); they're duplicated by
+ * sync with `vim-mode/index.ts`'s reserved-key set; duplicated by
  * design rather than imported so this extension stays usable in
  * insert-only configurations where vim-mode isn't loaded.
  */
@@ -155,28 +207,51 @@ function loadDefaults(): LeaderMenuConfig {
   }
 }
 
+function loadUserSettings(): LeaderKeySettings {
+  if (!existsSync(USER_SETTINGS_PATH)) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(USER_SETTINGS_PATH, "utf-8"));
+    return {
+      globalLeader: typeof parsed?.globalLeader === "string" ? parsed.globalLeader : undefined,
+      localLeader: typeof parsed?.localLeader === "string" ? parsed.localLeader : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function resolveLeaders(): ResolvedLeaders {
+  const settings = loadUserSettings();
+  return {
+    globalLeader: settings.globalLeader && settings.globalLeader.length > 0
+      ? settings.globalLeader
+      : DEFAULT_GLOBAL_LEADER,
+    localLeader: settings.localLeader && settings.localLeader.length > 0
+      ? settings.localLeader
+      : DEFAULT_LOCAL_LEADER,
+  };
+}
+
 /**
- * Warn for leader trigger keys that clash with vim-mode's normal-mode
- * grammar. Soft warning — registration still proceeds; the binding
- * just won't fire when modal editing is active.
+ * Soft warning when a configured leader key clashes with vim-mode's
+ * normal-mode grammar (the chord won't fire while modal is on).
  */
 function warnClashingLeaderKeys(
-  menus: Map<string, LeaderNode>,
-  source: string,
+  leaders: ResolvedLeaders,
   notify?: (msg: string, level: "info" | "warning" | "error") => void,
 ): void {
   if (!notify) return;
-  for (const [triggerKey, node] of menus) {
-    if (VIM_NORMAL_RESERVED_KEYS.has(triggerKey)) {
-      const label = node.label ?? triggerKey;
+  const check = (slot: "globalLeader" | "localLeader", key: string) => {
+    if (VIM_NORMAL_RESERVED_KEYS.has(key)) {
       notify(
-        `leader-menu: trigger key "${displayKey(triggerKey)}" ` +
-          `("${label}" from ${source}) clashes with vim-mode's ` +
+        `leader-menu: ${slot} "${displayKey(key)}" clashes with vim-mode's ` +
           `normal-mode grammar and will not fire while modal is on`,
         "warning",
       );
     }
-  }
+  };
+  check("globalLeader", leaders.globalLeader);
+  check("localLeader", leaders.localLeader);
 }
 
 function buildAction(actionStr: string, host: LeaderActionHost): () => void {
@@ -213,18 +288,32 @@ function buildMenuNode(
   return { key, label: config.label, action: buildAction(config.action ?? "", host) };
 }
 
+function buildSlotChildren(root: MenuRoot | undefined, host: LeaderActionHost): LeaderEntry[] {
+  if (!root?.items) return [];
+  return Object.entries(root.items).map(([k, item]) => buildMenuNode(item, k, host));
+}
+
+/**
+ * Compose a fresh trigger-key → root-node map from `defaults.json`
+ * and the resolved leaders. Consumers' contributions are layered on
+ * via `applyRegistration()`.
+ */
 function buildMenuTree(
-  config: LeaderMenuConfig,
+  defaults: LeaderMenuConfig,
+  leaders: ResolvedLeaders,
   host: LeaderActionHost,
 ): Map<string, LeaderNode> {
   const menus = new Map<string, LeaderNode>();
-  if (!config.menus) return menus;
-  for (const [_name, menuConfig] of Object.entries(config.menus)) {
-    const children = Object.entries(menuConfig.items).map(
-      ([k, item]) => buildMenuNode(item, k, host),
-    );
-    menus.set(menuConfig.key, { label: menuConfig.label, children });
-  }
+  const globalChildren = buildSlotChildren(defaults.globalMenu, host);
+  const localChildren = buildSlotChildren(defaults.localMenu, host);
+  menus.set(leaders.globalLeader, {
+    label: defaults.globalMenu?.label ?? "Leader",
+    children: globalChildren,
+  });
+  menus.set(leaders.localLeader, {
+    label: defaults.localMenu?.label ?? "Local",
+    children: localChildren,
+  });
   return menus;
 }
 
@@ -265,42 +354,48 @@ function mergeChildren(
   }
 }
 
+/**
+ * Apply an extension's `globalMenu` and/or `localMenu` contributions
+ * to the live tree. Trigger keys are sourced from the resolved
+ * leaders, not the registration itself — extensions never specify
+ * trigger keys directly.
+ */
 function applyRegistration(
   menus: Map<string, LeaderNode>,
+  leaders: ResolvedLeaders,
   host: LeaderActionHost,
   config: LeaderMenuRegistration,
   notify?: (msg: string, level: "info" | "warning" | "error") => void,
 ): void {
-  if (!config?.menus) return;
-  const incoming = buildMenuTree(config, host);
   const source = config.source ?? "unknown";
   const warn = notify ?? ((_m: string, _l: "info" | "warning" | "error") => {});
-  warnClashingLeaderKeys(incoming, source, warn);
-  for (const [triggerKey, incomingNode] of incoming) {
+
+  const apply = (slot: "global" | "local", root: MenuRoot | undefined) => {
+    if (!root?.items) return;
+    const triggerKey = slot === "global" ? leaders.globalLeader : leaders.localLeader;
+    const incoming = buildSlotChildren(root, host);
     const current = menus.get(triggerKey);
-    if (!current || !current.children) {
-      menus.set(triggerKey, incomingNode);
+    if (!current?.children) {
+      menus.set(triggerKey, {
+        label: root.label ?? (slot === "global" ? "Leader" : "Local"),
+        children: incoming,
+      });
     } else {
-      mergeChildren(
-        current.children,
-        incomingNode.children ?? [],
-        triggerKey,
-        source,
-        warn,
-      );
+      mergeChildren(current.children, incoming, displayKey(triggerKey), source, warn);
     }
-  }
+  };
+
+  apply("global", config.globalMenu);
+  apply("local", config.localMenu);
   warn(`leader-menu: applied for ${source}`, "info");
 }
 
 // ─── Bindings export (org-format) ────────────────────────────────────
 
 /**
- * Render every registered chord as an org-mode table, replacing the
- * hand-maintained `extensions/keybindings.org` file.
- *
- * Output groups by menu (`Space`, `,`) and produces one table per
- * menu, listing chord-path → label → action source where derivable.
+ * Render every registered chord as an org-mode table. Replaces the
+ * hand-maintained `extensions/keybindings.org` file from before the
+ * leader-menu / vim-mode split.
  */
 function exportBindingsAsOrg(menus: Map<string, LeaderNode>): string {
   const lines: string[] = [
@@ -521,6 +616,10 @@ class BindingsOverlay {
 export default function (pi: ExtensionAPI) {
   let actionHost: LeaderActionHost | null = null;
   let leaderMenus: Map<string, LeaderNode> = new Map();
+  let leaders: ResolvedLeaders = {
+    globalLeader: DEFAULT_GLOBAL_LEADER,
+    localLeader: DEFAULT_LOCAL_LEADER,
+  };
   let sessionNotify:
     | ((msg: string, level: "info" | "warning" | "error") => void)
     | null = null;
@@ -589,17 +688,15 @@ export default function (pi: ExtensionAPI) {
     );
   }
 
-  // ── Global shortcuts ────────────────────────────────────────────
-
-  pi.registerShortcut("alt+space", {
-    description: "Open Space leader menu",
-    handler: async (ctx) => { await showLeaderOverlay(ctx, " "); },
-  });
-
-  pi.registerShortcut("alt+,", {
-    description: "Open comma leader menu",
-    handler: async (ctx) => { await showLeaderOverlay(ctx, ","); },
-  });
+  // ── Global shortcuts (alt+<leader>) ──────────────────────────────
+  // Registered dynamically using the resolved leader keys. We translate
+  // a literal space character into the `space` key name so pi's
+  // shortcut matcher recognises it.
+  function shortcutForLeader(key: string): string {
+    if (key === " ") return "alt+space";
+    if (key === "\t") return "alt+tab";
+    return `alt+${key}`;
+  }
 
   // ── Lifecycle ───────────────────────────────────────────────────
 
@@ -617,15 +714,34 @@ export default function (pi: ExtensionAPI) {
     currentCtx = ctx;
     actionHost = createActionHost(ctx);
 
-    const config = loadDefaults();
-    leaderMenus = buildMenuTree(config, actionHost);
-    warnClashingLeaderKeys(leaderMenus, "defaults.json", sessionNotify ?? undefined);
+    leaders = resolveLeaders();
+    warnClashingLeaderKeys(leaders, sessionNotify ?? undefined);
+
+    const defaults = loadDefaults();
+    leaderMenus = buildMenuTree(defaults, leaders, actionHost);
 
     for (const reg of pendingRegistrations) {
-      applyRegistration(leaderMenus, actionHost, reg, sessionNotify ?? undefined);
+      applyRegistration(leaderMenus, leaders, actionHost, reg, sessionNotify ?? undefined);
     }
     pendingRegistrations.length = 0;
 
+    // Register the alt+<leader> global shortcuts using the resolved
+    // keys. Pi's shortcut API does not provide an unregister hook, so
+    // these shortcuts persist for the session — runtime reconfiguration
+    // of leader keys would require a session restart to take effect.
+    pi.registerShortcut(shortcutForLeader(leaders.globalLeader), {
+      description: "Open global leader menu",
+      handler: async (c) => { await showLeaderOverlay(c, leaders.globalLeader); },
+    });
+    pi.registerShortcut(shortcutForLeader(leaders.localLeader), {
+      description: "Open local leader menu",
+      handler: async (c) => { await showLeaderOverlay(c, leaders.localLeader); },
+    });
+
+    pi.events.emit("leader-menu:keys-resolved", {
+      globalLeader: leaders.globalLeader,
+      localLeader: leaders.localLeader,
+    });
     pi.events.emit("leader-menu:ready", {});
   });
 
@@ -634,25 +750,25 @@ export default function (pi: ExtensionAPI) {
   eventCleanups.push(
     pi.events.on("leader-menu:register", (data: LeaderMenuRegistration) => {
       if (actionHost && sessionNotify) {
-        applyRegistration(leaderMenus, actionHost, data, sessionNotify);
+        applyRegistration(leaderMenus, leaders, actionHost, data, sessionNotify);
       } else {
         pendingRegistrations.push(data);
       }
     }),
   );
 
-  // ── leader-menu:open — request from vim-mode ────────────────────
+  // ── leader-menu:open — request from vim-mode ─────────────────────
   //
-  // vim-mode catches bare Space / , in Normal mode and emits this
-  // event so leader-menu can show its standard centered overlay.
-  // Replaces the legacy in-editor widget-hint flow that lived inside
-  // VimEditor before the split.
+  // vim-mode catches the bare global / local leader in Normal mode
+  // and emits this event so leader-menu can show its standard
+  // centered overlay. Replaces the legacy in-editor widget-hint flow
+  // that lived inside VimEditor before the split.
   eventCleanups.push(
     pi.events.on(
       "leader-menu:open",
       async (data: { rootKey?: string }) => {
         if (!currentCtx) return;
-        const rootKey = data?.rootKey ?? " ";
+        const rootKey = data?.rootKey ?? leaders.globalLeader;
         await showLeaderOverlay(currentCtx, rootKey);
       },
     ),
