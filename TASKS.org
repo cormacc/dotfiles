@@ -155,6 +155,45 @@ Re-examine the self-improvement skill against the org-memory protocol
 - whether anything in the dev-agent-backlog HTML summary
   (design/log/2026-05-01-dev-agent-backlog-review-summary.html) should be
   borrowed for the self-improvement skill specifically
+
+** TODO [#D] Decompose vim-mode/index.ts into index + buffer + core :vim-mode:refactor:
+:PROPERTIES:
+:ID: 6b087caf-4b69-4266-bd90-c6447ef361d7
+:CREATED: [2026-05-02 Sat 17:09]
+:END:
+:LOGBOOK:
+- Created [2026-05-02 Sat 17:09]
+:END:
+Follow-up to the keybindings refactor (parent task 00e1772c, change-record design/log/2026-05-02-refactor-keybindings-extension.org).
+
+vim-mode/index.ts is a ~2200-line monolith carrying the VimEditor class, all motion / operator / text-object helpers, dot-repeat recording, and the entry point. Mirror the upstream `kepatrick/vim-motions-pi` decomposition shape:
+
+- core.ts — pure motion math (clamp, isWordChar, isWhitespace, isSymbol, comparePos, minPos, maxPos, position arithmetic).
+- buffer.ts — text-manipulation primitives (line ops, indent/dedent, region helpers).
+- index.ts — entry point + VimEditor class + slash command + settings + migrator.
+
+Pure refactor — behaviour must not change. Captured during the keybindings split when the KEEP_OWN evaluation noted upstream's cleaner factoring.
+
+** TODO [#D] Add clipboard sync to vim-mode (off / yank / all) :vim-mode:feature:
+:PROPERTIES:
+:ID: 08678bfb-f6df-4007-adf4-cf392d0c3313
+:CREATED: [2026-05-02 Sat 17:09]
+:END:
+:LOGBOOK:
+- Created [2026-05-02 Sat 17:09]
+:END:
+Follow-up to the keybindings refactor (parent task 00e1772c, change-record design/log/2026-05-02-refactor-keybindings-extension.org).
+
+Port the `VIM_MOTION_PI_CLIPBOARD` feature from `kepatrick/vim-motions-pi`:
+
+- Modes: `off` (default), `yank` (only `y` syncs), `all` (yank/delete/change sync).
+- Source of truth: env var or vim-mode.json key (TBD; align with the existing `modal` / `debug` keys).
+- Runtime toggle via `/vim-clipboard` slash command (or extend `/vim-mode` with a `clipboard` subcommand — decide during implementation).
+- Cross-platform: `pbcopy` (macOS), `wl-copy` / `xclip` / `xsel` (Linux), `clip` (Windows). Reuse upstream's detection logic.
+- One-shot startup notification showing the current mode (matches upstream UX).
+
+Captured in the change-record's `* Implementation` → "Evaluation" section as one of the upstream features worth stealing.
+
 * Fixes
 ** TODO Activating tasks overlay clobbers text in input area
 :PROPERTIES:
