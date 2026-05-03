@@ -78,11 +78,23 @@ With default leaders these are `alt+space` and `alt+,`.
 
 In modal `vim-mode`, configured leader keys may be pressed bare from
 Normal mode — the `vim-mode` extension forwards into this overlay via
-the `leader-menu:open` event. Note that a leader key that also has Vim
-meaning (notably the default local leader `,`, used for repeat-find)
-will be handled by Vim grammar first; use `alt+<localLeader>` or
-choose a non-conflicting local leader such as `;` if you want a bare
-Normal-mode local leader.
+the `leader-menu:open` event.
+
+### Default local leader: `,` and the vim repeat-find trade-off
+
+The shipped default `localLeader = ","` matches the common Vim
+convention. The trade-off: `,` is also Vim repeat-find-backward in
+Normal mode, so bare `,` there is handled by the Vim grammar first
+and does *not* open the local leader overlay. The local menu is still
+reachable in any mode via `alt+,` (or `alt+<localLeader>` whatever
+you've configured).
+
+To prefer a bare-key local leader in Normal mode, set `localLeader`
+to a non-grammar key in `~/.pi/agent/leader-menu.json` — e.g.
+`"localLeader": "q"` (currently unused by the vim grammar).
+leader-menu warns at session_start *only* when you've explicitly
+configured a key that conflicts with vim-mode's grammar; the shipped
+default is silent.
 
 ## Default leader bindings (`defaults.json`)
 
