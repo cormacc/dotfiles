@@ -293,8 +293,7 @@ function migrateLegacySettings(
   }
 }
 
-function resolveLeaders(): ResolvedLeaders {
-  const settings = loadUserSettings();
+function resolveLeaders(settings: UserSettings = loadUserSettings()): ResolvedLeaders {
   return {
     globalLeader: settings.globalLeader && settings.globalLeader.length > 0
       ? settings.globalLeader
@@ -306,25 +305,40 @@ function resolveLeaders(): ResolvedLeaders {
 }
 
 /**
- * Soft warning when a configured leader key clashes with vim-mode's
- * normal-mode grammar (the chord won't fire while modal is on).
+ * Soft warning when an *explicitly user-configured* leader key clashes
+ * with vim-mode's normal-mode grammar.
+ *
+ * The shipped default `localLeader = ","` deliberately matches the
+ * common Vim convention even though `,` is repeat-find-backward in
+ * Normal mode — the trade-off is documented in `README.md` and the
+ * always-works escape hatch is `alt+<localLeader>`. Warning on the
+ * default would just be noise every session, so we only complain when
+ * the user has explicitly set a clashing key in `leader-menu.json`.
  */
 function warnClashingLeaderKeys(
+  userSettings: UserSettings,
   leaders: ResolvedLeaders,
   notify?: (msg: string, level: "info" | "warning" | "error") => void,
 ): void {
   if (!notify) return;
-  const check = (slot: "globalLeader" | "localLeader", key: string) => {
-    if (VIM_NORMAL_RESERVED_KEYS.has(key)) {
-      notify(
-        `leader-menu: ${slot} "${displayKey(key)}" clashes with vim-mode's ` +
-          `normal-mode grammar and will not fire while modal is on`,
-        "warning",
-      );
-    }
+  const check = (
+    slot: "globalLeader" | "localLeader",
+    configured: string | undefined,
+    resolved: string,
+  ) => {
+    // Skip the shipped default — we know about the comma clash and
+    // document it; the warning is only useful for *user* overrides.
+    if (configured === undefined) return;
+    if (!VIM_NORMAL_RESERVED_KEYS.has(resolved)) return;
+    notify(
+      `leader-menu: configured ${slot} "${displayKey(resolved)}" clashes with ` +
+        `vim-mode's normal-mode grammar; bare key won't fire there. ` +
+        `Use alt+${displayKey(resolved)} or pick a non-grammar key.`,
+      "warning",
+    );
   };
-  check("globalLeader", leaders.globalLeader);
-  check("localLeader", leaders.localLeader);
+  check("globalLeader", userSettings.globalLeader, leaders.globalLeader);
+  check("localLeader", userSettings.localLeader, leaders.localLeader);
 }
 
 function buildAction(actionStr: string, host: LeaderActionHost): () => void {
@@ -791,8 +805,9 @@ export default function (pi: ExtensionAPI) {
     actionHost = createActionHost(ctx);
 
     migrateLegacySettings(sessionNotify ?? undefined);
-    leaders = resolveLeaders();
-    warnClashingLeaderKeys(leaders, sessionNotify ?? undefined);
+    const userSettings = loadUserSettings();
+    leaders = resolveLeaders(userSettings);
+    warnClashingLeaderKeys(userSettings, leaders, sessionNotify ?? undefined);
 
     const defaults = loadDefaults();
     leaderMenus = buildMenuTree(defaults, leaders, actionHost);
