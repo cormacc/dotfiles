@@ -358,13 +358,30 @@ Extension-specific notes:
 ./test.sh
 ```
 
-Runs structural sanity checks against `index.ts` and the
-`parser.test.ts` unit suite (parser round-trip invariants and the
-`scaffoldPlan()` literal-snapshot test). The snapshot is paired with
-an equivalent `ert` test in the spacemacs `tasks-org` layer
+Runs structural sanity checks against `index.ts` plus the task-memory
+regression suites:
+
+- `parser.test.ts` — parser round-trip invariants and the
+  `scaffoldPlan()` literal-snapshot test.
+- `insert.test.ts` — deterministic task insertion, LOGBOOK rendering,
+  duplicate detection, and insert-tool path sandboxing.
+- `lifecycle.test.ts` — status-cycle LOGBOOK semantics, reopen
+  clearing `CLOSED:`, and re-close timestamp refresh.
+- `paths.test.ts` — project-root sandbox resolution for import and
+  scaffold paths, including traversal and symlink escapes.
+- `doctor.test.ts` — loaded-graph health checks (duplicate IDs,
+  broken imports, stale selection, blockers, stale parent status).
+- `memory.test.ts` — scenario-style agent-memory reconstruction for a
+  selected task with imported plan context, implementation notes, and
+  blockers.
+
+These tests are the authoritative behavioural contract for the
+org-memory protocol implemented by this extension. The scaffold
+snapshot is paired with an equivalent `ert` test in the spacemacs
+`tasks-org` layer
 (`editors/emacs/spacemacs/layers/org-user/local/tasks-org/tasks-org-tests.el`)
-so drift between the TS scaffolder and the elisp helpers is caught
-on both sides.
+so drift between the TS scaffolder and the elisp helpers is caught on
+both sides.
 
 Requires `tsx` on `$PATH` (e.g. via `npx tsx` or a global install).
 

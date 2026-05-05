@@ -565,7 +565,6 @@ Done. Follow-up to the keybindings refactor (00e1772c). The leader-menu extensio
 Migration: the legacy `menus: { foo: { key: " ", items: {...} } }` registration shape is no longer accepted; consumers (tasks, term, git-diff) updated to globalMenu. term moved from `'` to `Space '`.
 
 Closing this task and committing in the same commit as the implementation.
-
 ** DONE [#D] Drop redundant vim-mode toggle (single-responsibility cleanup) :vim-mode:refactor:
 CLOSED: [2026-05-02 Sat 17:50]
 :PROPERTIES:
@@ -596,3 +595,96 @@ Moved:
 Net diff: vim-mode/index.ts shrank ~150 lines; defaults.json's globalMenu has no items left (all chords now contributed by other extensions).
 
 To disable vim-mode now, remove the extension directory or comment out its inclusion in agents.nix (TODO: add a clean Nix-level enable flag for this — captured below as a separate follow-up).
+** DONE leader-menu: fix slash command dispatch :leader-menu:
+CLOSED: [2026-05-05 Tue 21:29]
+:PROPERTIES:
+:ID: c22975ff-5ea8-47d4-807e-6499f2ea6970
+:CREATED: [2026-05-05 Tue 20:46]
+:STARTED: [2026-05-05 Tue 20:47]
+:ARCHIVED: [2026-05-05 Tue 21:29]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-05 Tue 21:29] \\
+  Smoke test verified in kitty on macOS; macOS =⌃Space= gotcha
+  documented in =leader-menu/README.md=. Follow-up to re-enable
+  vim-mode tracked separately (=:ID: fe6b1c6d-edcf-4441-9820-c70aa33add23=).
+- Created [2026-05-05 Tue 20:46]
+- State "STARTED" from "TODO" [2026-05-05 Tue 20:47]
+:END:
+#+IMPORT: [[file:design/log/2026-05-05-leader-menu-slash-submission.org]]
+** DONE [#D] Resolve default local leader conflict with vim-mode comma repeat :leader-menu:vim-mode:ux:
+CLOSED: [2026-05-03 Sun 13:05]
+:PROPERTIES:
+:ID: 32e3b4a9-c608-4984-b001-89b3ac70e89f
+:CREATED: [2026-05-02 Sat 17:49]
+:STARTED: [2026-05-03 Sun 13:01]
+:ARCHIVED: [2026-05-03 Sun 13:05]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-03 Sun 13:05]
+- State "STARTED" from "TODO" [2026-05-03 Sun 13:01]
+- Created [2026-05-02 Sat 17:49]
+:END:
+Resolved as option 2 — keep =,= as default localLeader, document the
+trade-off, and silence the spurious clash warning when the user is on
+the shipped default config. =alt+,= remains the always-works escape
+hatch in any mode.
+
+Implementation:
+- =leader-menu/index.ts=: =warnClashingLeaderKeys()= now takes the raw
+  =UserSettings= and only warns for slots the user has explicitly
+  configured. =resolveLeaders()= takes an optional =UserSettings= so
+  the call site can read once and pass both downstream. Warning
+  rephrased to point at =alt+<leader>= as the escape hatch.
+- =leader-menu/README.md=: explicit "Default local leader: , and the
+  vim repeat-find trade-off" subsection covering the behaviour,
+  =alt+,= escape hatch, and how to override.
+- Verified via node script that on a fresh checkout with no
+  =leader-menu.json= the new logic does not warn (old logic did).
+Final-review finding from the keybindings refactor (parent 00e1772c). Current defaults keep `localLeader` as comma, while vim-mode also adopted Vim repeat-find-backward on `,`.
+
+Observed final state:
+- `alt+,` opens the local menu globally.
+- In vim-mode Normal mode, bare `,` is handled by the Vim grammar before leader delegation, so the local leader overlay does not open.
+- `leader-menu` also warns about `localLeader ","` clashing with the Vim grammar, which means the default config can produce its own warning.
+
+Decide and implement one of:
+1. Change the default local leader to a non-conflicting key (candidate `;`, but note Vim `;` is repeat-find-forward).
+2. Keep comma as default and document that bare Normal-mode local leader is unavailable; use `alt+,` or configure `leader-menu.json`.
+3. Add a priority/escape mechanism so users can choose whether leader or Vim grammar wins for conflicting keys.
+
+Do not resolve accidentally by dropping repeat-find-backward; that was intentionally imported from the upstream evaluation.
+** DONE [#C] Token-efficient Jira clone workflow
+CLOSED: [2026-04-28 Tue 16:54]
+:PROPERTIES:
+:ID: 4ad4bb1b-9e74-48a0-9ce4-2d69639a8bc8
+:CREATED: [2026-04-28 Tue 15:16]
+:STARTED: [2026-04-28 Tue 16:34]
+:ARCHIVED: [2026-04-28 Tue 16:54]
+:END:
+#+IMPORT: [[file:design/log/2026-04-28-jira-clone-token-efficiency.org]]
+Follow-up to the read-only Jira integration. Today's `/jira clone` round-trips the
+entire `atlassian_getJiraIssue` JSON and the rendered org body through the model,
+which is wasteful (~17KB ingested for ~6 fields used). Step 1 (field-list filter
+in the prompt) shipped on 2026-04-28. The remaining wins below are tracked here.
+
+** DONE [#B] Review org-memory protocol as agent memory
+CLOSED: [2026-05-05 Tue 22:05]
+:PROPERTIES:
+:ID: 724c0332-e491-4b66-900f-e11478057eb1
+:STARTED: [2026-05-01 Fri 08:51]
+:ARCHIVED: [2026-05-05 Tue 22:05]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-05 Tue 22:05] \\
+  Generic org-memory protocol review complete. Jira-specific validation
+  extracted to task 2b4d4ca7; legacy metadata compatibility extracted
+  to task 972d5cec.
+- State "WAITING" from "STARTED" [2026-05-02 Sat 14:22]
+- State "DONE" from "WAITING" [2026-05-02 Sat 14:22]
+- State "WAITING" from "DONE" [2026-05-02 Sat 14:22]
+- State "STARTED" from "WAITING" [2026-05-02 Sat 14:22]
+:END:
+#+IMPORT: [[file:design/log/2026-05-01-org-memory-agent-memory-review.org]]
+The org-memory protocol (the combination of org-tasks and org-plan skills) is intended to provide a cross-session memory mechanism for agents to learn and rebuild context as well as a task management and planning tool for humans.
+Review in this context and identify gaps / suggest improvements

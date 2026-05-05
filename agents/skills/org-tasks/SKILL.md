@@ -260,6 +260,12 @@ imports, blockers, linked issues. Per-session state: MCP fetch results,
 agent scratch reasoning, UI cursor position, and any unsaved editor
 buffers.
 
+The tasks extension regression suites are the executable contract for
+this behaviour: `lifecycle.test.ts` covers lifecycle LOGBOOK status
+semantics, `paths.test.ts` covers import/scaffold sandboxing,
+`doctor.test.ts` covers loaded-graph health checks, and
+`memory.test.ts` covers scenario-style selected-task reconstruction.
+
 ## Creating tasks and change-records
 
 - Use the smallest useful task granularity: each task should describe
