@@ -19,7 +19,18 @@ Subcommand auto-completion is exposed via `getArgumentCompletions`, so typing
 
 ### Keybindings
 
-- `<leader> t t` — Expand the tasks UI
+Registered with `leader-menu` under `<leader> t`:
+
+| Chord          | Action             | Event          |
+| -------------- | ------------------ | -------------- |
+| `<leader> t t` | Expand the tasks UI | `tasks:show`   |
+| `<leader> t n` | New top-level task  | `tasks:new`    |
+| `<leader> t d` | Doctor check        | `tasks:doctor` |
+
+These leader bindings dispatch events directly rather than submitting
+`/tasks` slash commands, so opening the tasks UI never overwrites text already
+entered in the prompt. The slash commands remain available and dispatch the
+same events for compatibility.
 
 ### Compact selected-task widget
 
@@ -303,11 +314,14 @@ that resolve outside the project root after symlink resolution.
 
 ## Cross-extension events
 
-The extension emits a small set of events on the shared pi event bus
-(`pi.events.emit/on`) so other extensions can react without coupling:
+The extension uses a small set of events on the shared pi event bus
+(`pi.events.emit/on`) so other extensions can trigger or react without coupling:
 
 | Event                   | Payload                                                              | When                                                |
 | ----------------------- | -------------------------------------------------------------------- | --------------------------------------------------- |
+| `tasks:show`            | optional `{ ctx }`                                                   | Open the expanded tasks UI.                         |
+| `tasks:new`             | optional `{ ctx }`                                                   | Create a new top-level task.                        |
+| `tasks:doctor`          | optional `{ ctx }`                                                   | Run health checks against the loaded task graph.    |
 | `tasks:status-changed`  | `{ id, status, prevStatus, summary, closed }`                        | A task's status is cycled via `→`/`←` / `l`/`h`.    |
 | `emacs:open`            | `{ file, line }`                                                     | The user presses `e` or `p` to edit in Emacs.       |
 

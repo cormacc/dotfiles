@@ -271,17 +271,17 @@ export default function (pi: ExtensionAPI) {
           g: {
             label: "+git",
             items: {
-              d: { label: "Diff toggle", action: "command:/diff toggle" },
-              f: { label: "Diff focus", action: "command:/diff focus" },
+              d: { label: "Diff toggle", action: "git-diff:toggle" },
+              f: { label: "Diff focus", action: "git-diff:focus" },
               j: {
                 label: "Diff scroll ↓",
-                action: "command:/diff scroll-down",
+                action: "git-diff:scroll-down",
               },
               k: {
                 label: "Diff scroll ↑",
-                action: "command:/diff scroll-up",
+                action: "git-diff:scroll-up",
               },
-              e: { label: "Diff fold", action: "command:/diff fold" },
+              e: { label: "Diff fold", action: "git-diff:fold" },
             },
           },
         },
@@ -289,48 +289,76 @@ export default function (pi: ExtensionAPI) {
     });
   });
 
+  const DIFF_ACTIONS = ["toggle", "focus", "scroll-down", "scroll-up", "fold"] as const;
+  type DiffAction = typeof DIFF_ACTIONS[number];
+
+  function eventCtx(data: unknown): ExtensionContext | null {
+    return (data as { ctx?: ExtensionContext } | null)?.ctx ?? savedCtx;
+  }
+
+  function isDiffAction(action: string): action is DiffAction {
+    return DIFF_ACTIONS.includes(action as DiffAction);
+  }
+
+  function emitDiffCommand(args: string | undefined, ctx: ExtensionContext): void {
+    const arg = (args || "").trim().toLowerCase();
+    const action = !arg ? "toggle" : arg;
+    if (isDiffAction(action)) {
+      pi.events.emit(`git-diff:${action}`, { ctx });
+      return;
+    }
+    ctx.ui.notify(
+      `Unknown argument: ${arg}. Usage: /diff [toggle|focus|scroll-up|scroll-down|fold]`,
+      "error",
+    );
+  }
+
+  function runDiffAction(action: DiffAction, ctx: ExtensionContext): void {
+    if (action === "toggle") {
+      togglePanel(ctx);
+      return;
+    }
+
+    if (action === "focus") {
+      if (!panelVisible) showPanel(ctx);
+      focusPanel(ctx);
+      return;
+    }
+
+    if (action === "scroll-down") {
+      if (!diffPanel) return;
+      diffPanel.doScroll(SCROLL_STEP);
+      render();
+      return;
+    }
+
+    if (action === "scroll-up") {
+      if (!diffPanel) return;
+      diffPanel.doScroll(-SCROLL_STEP);
+      render();
+      return;
+    }
+
+    if (action === "fold") {
+      if (!diffPanel) return;
+      diffPanel.toggleFoldCurrent();
+      render();
+    }
+  }
+
+  for (const action of DIFF_ACTIONS) {
+    pi.events.on(`git-diff:${action}`, (data: unknown) => {
+      const ctx = eventCtx(data);
+      if (!ctx) return;
+      runDiffAction(action, ctx);
+    });
+  }
+
   pi.registerCommand("diff", {
     description:
       "Control git diff panel: toggle, focus, scroll-up, scroll-down, fold",
     handler: async (args, ctx) => {
-      const arg = (args || "").trim().toLowerCase();
-
-      if (!arg || arg === "toggle") {
-        togglePanel(ctx);
-        return;
-      }
-
-      if (arg === "focus") {
-        if (!panelVisible) showPanel(ctx);
-        focusPanel(ctx);
-        return;
-      }
-
-      if (arg === "scroll-down") {
-        if (!diffPanel) return;
-        diffPanel.doScroll(SCROLL_STEP);
-        render();
-        return;
-      }
-
-      if (arg === "scroll-up") {
-        if (!diffPanel) return;
-        diffPanel.doScroll(-SCROLL_STEP);
-        render();
-        return;
-      }
-
-      if (arg === "fold") {
-        if (!diffPanel) return;
-        diffPanel.toggleFoldCurrent();
-        render();
-        return;
-      }
-
-      ctx.ui.notify(
-        `Unknown argument: ${arg}. Usage: /diff [toggle|focus|scroll-up|scroll-down|fold]`,
-        "error",
-      );
+      emitDiffCommand(args, ctx);
     },
   });
 
