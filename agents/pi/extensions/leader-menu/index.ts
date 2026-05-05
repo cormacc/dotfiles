@@ -1,7 +1,7 @@
 /**
  * leader-menu extension for pi — which-key-style leader chord discovery.
  *
- * Owns the global and local leader menus, the `alt+<leader>` global
+ * Owns the global and local leader menus, the `ctrl+<leader>` global
  * shortcuts that open them, the `/leader-menu` slash command, and the
  * cross-extension contribution API used by every other extension to
  * add its own sub-menus. Has no opinion on modal editing — the
@@ -311,7 +311,8 @@ function resolveLeaders(settings: UserSettings = loadUserSettings()): ResolvedLe
  * The shipped default `localLeader = ","` deliberately matches the
  * common Vim convention even though `,` is repeat-find-backward in
  * Normal mode — the trade-off is documented in `README.md` and the
- * always-works escape hatch is `alt+<localLeader>`. Warning on the
+ * always-works escape hatch is `ctrl+<localLeader>` (subject to the
+ * terminal-compatibility caveat near `shortcutForLeader`). Warning on the
  * default would just be noise every session, so we only complain when
  * the user has explicitly set a clashing key in `leader-menu.json`.
  */
@@ -333,7 +334,7 @@ function warnClashingLeaderKeys(
     notify(
       `leader-menu: configured ${slot} "${displayKey(resolved)}" clashes with ` +
         `vim-mode's normal-mode grammar; bare key won't fire there. ` +
-        `Use alt+${displayKey(resolved)} or pick a non-grammar key.`,
+        `Use ctrl+${displayKey(resolved)} or pick a non-grammar key.`,
       "warning",
     );
   };
@@ -778,14 +779,24 @@ export default function (pi: ExtensionAPI) {
     );
   }
 
-  // ── Global shortcuts (alt+<leader>) ──────────────────────────────
+  // ── Global shortcuts (ctrl+<leader>) ─────────────────────────────
   // Registered dynamically using the resolved leader keys. We translate
   // a literal space character into the `space` key name so pi's
   // shortcut matcher recognises it.
+  //
+  // Caveat: in legacy (non-Kitty) terminals, pi-tui's matcher only has
+  // a `ctrl+<X>` legacy fallback for letters/digits and a small set of
+  // bracket-style symbols. `ctrl+space` is special-cased to `\x00`, but
+  // `ctrl+,` (and other punctuation leaders) is recognised only when
+  // the terminal speaks the Kitty keyboard protocol or modifyOtherKeys
+  // — kitty, ghostty, wezterm, foot. In a plain xterm / gnome-terminal
+  // the bare `ctrl+<symbol>` activation simply won't fire. Workarounds:
+  // open the menu via `/leader-menu bindings`, or pick a letter
+  // `localLeader` (e.g. `"q"`) in `~/.pi/agent/leader-menu.json`.
   function shortcutForLeader(key: string): string {
-    if (key === " ") return "alt+space";
-    if (key === "\t") return "alt+tab";
-    return `alt+${key}`;
+    if (key === " ") return "ctrl+space";
+    if (key === "\t") return "ctrl+tab";
+    return `ctrl+${key}`;
   }
 
   // ── Lifecycle ───────────────────────────────────────────────────
@@ -817,7 +828,7 @@ export default function (pi: ExtensionAPI) {
     }
     pendingRegistrations.length = 0;
 
-    // Register the alt+<leader> global shortcuts using the resolved
+    // Register the ctrl+<leader> global shortcuts using the resolved
     // keys. Pi's shortcut API does not provide an unregister hook, so
     // these shortcuts persist for the session — runtime reconfiguration
     // of leader keys would require a session restart to take effect.
@@ -868,14 +879,62 @@ export default function (pi: ExtensionAPI) {
 
   // ── /leader-menu slash command ───────────────────────────────────
 
+  /**
+   * Subcommand-aware progressive completion.
+   *
+   * Phase 1 (no space yet in argument): suggest subcommand names.
+   * Phase 2 (subcommand chosen + space typed): suggest that
+   *   subcommand's flags / variants. The displayed `label` shows the
+   *   next token only (e.g. "--export") while `value` carries the full
+   *   argument string pi will substitute back in. This avoids the
+   *   "completion stops working once you type a space" UX glitch the
+   *   previous flat list had.
+   */
+  type SubcommandSpec = {
+    name: string;
+    description: string;
+    flags?: { token: string; description: string }[];
+  };
+  const SUBCOMMANDS: SubcommandSpec[] = [
+    {
+      name: "bindings",
+      description: "List all registered chords",
+      flags: [
+        { token: "--export", description: "Print chords as an org-mode table" },
+      ],
+    },
+  ];
+
   pi.registerCommand("leader-menu", {
     description: "Leader-menu utilities: /leader-menu bindings [--export]",
     getArgumentCompletions: (prefix: string) => {
-      const items = [
-        { value: "bindings", label: "bindings", description: "List all registered chords" },
-        { value: "bindings --export", label: "bindings --export", description: "Print chords as an org-mode table" },
-      ];
-      const filtered = items.filter((i) => i.value.startsWith(prefix));
+      const trimmedLeading = prefix.replace(/^\s+/, "");
+      const spaceIdx = trimmedLeading.indexOf(" ");
+
+      // Phase 1: no space yet — completing the subcommand itself.
+      if (spaceIdx < 0) {
+        const items = SUBCOMMANDS.map((s) => ({
+          value: s.name,
+          label: s.name,
+          description: s.description,
+        }));
+        const filtered = items.filter((i) => i.value.startsWith(trimmedLeading));
+        return filtered.length > 0 ? filtered : null;
+      }
+
+      // Phase 2: subcommand chosen — completing its flags.
+      const subName = trimmedLeading.slice(0, spaceIdx);
+      const flagPrefix = trimmedLeading.slice(spaceIdx + 1);
+      const sub = SUBCOMMANDS.find((s) => s.name === subName);
+      if (!sub?.flags?.length) return null;
+      const items = sub.flags.map((f) => ({
+        // value is the *full* argument string; pi replaces the entire
+        // argumentText with this. label shows just the flag for clarity.
+        value: `${sub.name} ${f.token}`,
+        label: f.token,
+        description: f.description,
+      }));
+      const filtered = items.filter((i) => i.label.startsWith(flagPrefix));
       return filtered.length > 0 ? filtered : null;
     },
     handler: async (args, ctx) => {

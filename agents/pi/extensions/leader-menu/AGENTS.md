@@ -54,7 +54,7 @@ This extension has no unit tests today. Sanity-check after edits by:
 
 1. Running `pi` in a session with at least one consumer extension
    loaded (`tasks`, `term`, or `git-diff`).
-2. Pressing `alt+space` and confirming the overlay shows both
+2. Pressing `ctrl+space` and confirming the overlay shows both
    `defaults.json` entries and the consumer's contributed entries.
 3. Running `/leader-menu bindings --export` and verifying the
    org-format output matches the loaded chord tree.
