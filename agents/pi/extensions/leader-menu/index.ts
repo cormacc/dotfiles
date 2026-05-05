@@ -2,12 +2,11 @@
  * leader-menu extension for pi — which-key-style leader chord discovery.
  *
  * Owns the global and local leader menus, the `ctrl+<leader>` global
- * shortcuts that open them, the `/leader-menu` slash command, and the
+ * shortcuts that open them, the `/leader-menu` slash command, the
  * cross-extension contribution API used by every other extension to
- * add its own sub-menus. Has no opinion on modal editing — the
- * optional vim layer lives in the sibling `vim-mode` extension. If
- * that extension is loaded it is always on; there is no modal toggle
- * here.
+ * add its own sub-menus, and one-step slash-command submission via
+ * the shared `SubmitterEditor` base in `extensions/lib/editor.ts`.
+ * Modal editing is out of scope.
  *
  * ## Leaders
  *
@@ -26,9 +25,9 @@
  *
  * Other extensions never reference trigger keys directly; they
  * contribute via `registerLeaderMenu()` with `globalMenu` / `localMenu`
- * slots. `vim-mode` learns the resolved keys via the
- * `leader-menu:keys-resolved` event and updates its Normal-mode
- * dispatcher accordingly.
+ * slots. Subscribers that care about the resolved keys (modal-editor
+ * extensions, alternate dispatchers) consume them via the
+ * `leader-menu:keys-resolved` event.
  *
  * ## Events
  *
@@ -36,16 +35,25 @@
  *                                    (use `registerLeaderMenu()` from
  *                                    `lib/pi-utils.ts`, not raw events).
  *   in   leader-menu:open          — request the leader overlay open at
- *                                    a given root key. Used by vim-mode
- *                                    to delegate bare-leader handling
- *                                    in Normal mode. Payload:
+ *                                    a given root key. Payload:
  *                                    `{ rootKey: string }` matching
- *                                    a configured leader.
+ *                                    a configured leader. Emitted by
+ *                                    any extension that catches a
+ *                                    bare leader key in its own
+ *                                    grammar and wants to delegate to
+ *                                    the standard overlay.
  *   out  leader-menu:ready         — emitted once on session_start so
  *                                    consumers re-register after reload.
  *   out  leader-menu:keys-resolved — emitted after init/reconfig with
- *                                    `{ globalLeader, localLeader }` so
- *                                    vim-mode can sync its dispatcher.
+ *                                    `{ globalLeader, localLeader,
+ *                                       userConfigured: { globalLeader,
+ *                                       localLeader } }`. The
+ *                                    `userConfigured` flags say whether
+ *                                    each slot was explicitly set in
+ *                                    `leader-menu.json` (true) or took
+ *                                    the shipped default (false), so
+ *                                    subscribers can scope warnings to
+ *                                    user choices.
  *
  * ## Slash commands
  *
@@ -65,19 +73,17 @@
  * - `globalLeader` / `localLeader` — trigger keys (defaults `" "`,
  *   `","`).
  * - `debug` — when true, every key press is reported via
- *   `ctx.ui.notify`. Read by both this extension's overlays and by
- *   sibling input-handling extensions (`vim-mode`, `tasks`); the
- *   loggers are intentionally co-located here because the flag is
- *   about "key dispatch", not modal editing.
+ *   `ctx.ui.notify`. Read by this extension's overlays and by any
+ *   sibling input-handling extension that wants the same toggle; the
+ *   flag is about "key dispatch", not any one extension.
  *
  * `defaults.json` in this directory is the immutable default *menu
  * structure*; do not write user state to it.
  *
  * On session_start, a one-shot migrator copies `debug` (and only
- * `debug`) from `~/.pi/agent/vim-mode.json` or the legacy
- * `~/.pi/agent/keybindings-ext.json` if found, then removes those
- * files. The pre-split `modal` flag is dropped on migration: vim-mode
- * is now always on whenever the extension is loaded.
+ * `debug`) from legacy settings files (`~/.pi/agent/vim-mode.json`
+ * and `~/.pi/agent/keybindings-ext.json`) if found, then removes
+ * them. Other fields in those files are dropped.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -86,6 +92,7 @@ import {
   matchesKey,
   truncateToWidth,
   type Component,
+  type EditorTheme,
   type TUI,
 } from "@mariozechner/pi-tui";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
@@ -93,6 +100,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { ansiPad } from "../lib/pi-utils.js";
+import { SubmitterEditor, getActiveSubmitter } from "../lib/editor.js";
 
 const EXT_DIR = dirname(fileURLToPath(import.meta.url));
 const USER_SETTINGS_PATH = join(homedir(), ".pi", "agent", "leader-menu.json");
@@ -155,8 +163,8 @@ interface UserSettings {
   globalLeader?: string;
   localLeader?: string;
   /** When true, every key press is reported via `ctx.ui.notify`.
-   *  Read by sibling input-handling extensions too (vim-mode,
-   *  tasks/overlay) so a single toggle controls every logger. */
+   *  Read by any sibling input-handling extension that wants the
+   *  same toggle so a single setting controls every logger. */
   debug?: boolean;
 }
 
@@ -176,30 +184,6 @@ const PASSTHROUGH_KEYS: Record<string, string> = {
   "ctrl+g": "\x07",
   "shift+tab": "\x1b[Z",
 };
-
-/**
- * Keys consumed by the `vim-mode` extension's normal-mode dispatcher.
- *
- * Used solely to warn at registration time when a configured leader
- * trigger key would be silently swallowed by the vim grammar. Keep in
- * sync with `vim-mode/index.ts`'s reserved-key set; duplicated by
- * design rather than imported so this extension stays usable in
- * insert-only configurations where vim-mode isn't loaded.
- */
-const VIM_NORMAL_RESERVED_KEYS = new Set([
-  // motions
-  "h", "l", "j", "k", "w", "W", "e", "E", "b", "B", "0", "$", "^",
-  // mode switches
-  "i", "a", "I", "A", "o", "O", "v", "V",
-  // operators
-  "d", "c", "y", ">", "<",
-  // find character
-  "f", "F", "t", "T",
-  // repeat find
-  ";", ",",
-  // single-key commands
-  "x", "X", "r", "s", "S", "p", "P", "u", ".", "J", "~", "D", "C", "Y",
-]);
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
@@ -248,13 +232,13 @@ function writeUserSettings(settings: UserSettings): void {
 
 /**
  * One-shot migrator: copy the `debug` flag (and only `debug`) from
- * `vim-mode.json` or the legacy `keybindings-ext.json` into
- * `leader-menu.json`, then delete the source. Idempotent: a second run
- * finds nothing to migrate and no-ops.
+ * legacy settings files (`vim-mode.json`, `keybindings-ext.json`)
+ * into `leader-menu.json`, then delete the source. Idempotent: a
+ * second run finds nothing to migrate and no-ops.
  *
  * The `modal` flag from the pre-split keybindings extension is
- * intentionally dropped — vim-mode is now always on whenever the
- * extension is loaded; the toggle has no current home.
+ * intentionally dropped — modal-editor extensions own their own
+ * lifecycle now and there is no central toggle for them.
  */
 function migrateLegacySettings(
   notify?: (msg: string, level: "info" | "warning" | "error") => void,
@@ -280,7 +264,7 @@ function migrateLegacySettings(
       if (parsed?.modal !== undefined) {
         notify?.(
           `leader-menu: legacy '${label}' had modal=${parsed.modal}; ` +
-            `vim-mode is now always-on when loaded — flag dropped`,
+            `flag dropped — modal editors own their own lifecycle now`,
           "info",
         );
       }
@@ -304,44 +288,6 @@ function resolveLeaders(settings: UserSettings = loadUserSettings()): ResolvedLe
   };
 }
 
-/**
- * Soft warning when an *explicitly user-configured* leader key clashes
- * with vim-mode's normal-mode grammar.
- *
- * The shipped default `localLeader = ","` deliberately matches the
- * common Vim convention even though `,` is repeat-find-backward in
- * Normal mode — the trade-off is documented in `README.md` and the
- * always-works escape hatch is `ctrl+<localLeader>` (subject to the
- * terminal-compatibility caveat near `shortcutForLeader`). Warning on the
- * default would just be noise every session, so we only complain when
- * the user has explicitly set a clashing key in `leader-menu.json`.
- */
-function warnClashingLeaderKeys(
-  userSettings: UserSettings,
-  leaders: ResolvedLeaders,
-  notify?: (msg: string, level: "info" | "warning" | "error") => void,
-): void {
-  if (!notify) return;
-  const check = (
-    slot: "globalLeader" | "localLeader",
-    configured: string | undefined,
-    resolved: string,
-  ) => {
-    // Skip the shipped default — we know about the comma clash and
-    // document it; the warning is only useful for *user* overrides.
-    if (configured === undefined) return;
-    if (!VIM_NORMAL_RESERVED_KEYS.has(resolved)) return;
-    notify(
-      `leader-menu: configured ${slot} "${displayKey(resolved)}" clashes with ` +
-        `vim-mode's normal-mode grammar; bare key won't fire there. ` +
-        `Use ctrl+${displayKey(resolved)} or pick a non-grammar key.`,
-      "warning",
-    );
-  };
-  check("globalLeader", userSettings.globalLeader, leaders.globalLeader);
-  check("localLeader", userSettings.localLeader, leaders.localLeader);
-}
-
 function buildAction(actionStr: string, host: LeaderActionHost): () => void {
   if (actionStr.startsWith("command:")) {
     const cmd = actionStr.slice("command:".length);
@@ -355,9 +301,6 @@ function buildAction(actionStr: string, host: LeaderActionHost): () => void {
   // Default: emit as event (with optional `event:` prefix for legacy
   // configs). Bare names are treated as event names — the standard
   // mechanism for cross-extension chord dispatch.
-  // (vim-mode is a single-responsibility extension with no toggle, so
-  // the legacy `vim-mode:enable` / `vim-mode:disable` events were
-  // removed during the toggle simplification.)
   if (!actionStr) return () => {};
   const eventName = actionStr.startsWith("event:")
     ? actionStr.slice("event:".length)
@@ -485,8 +428,8 @@ function applyRegistration(
 
 /**
  * Render every registered chord as an org-mode table. Replaces the
- * hand-maintained `extensions/keybindings.org` file from before the
- * leader-menu / vim-mode split.
+ * hand-maintained `extensions/keybindings.org` file from the
+ * pre-split keybindings extension.
  */
 function exportBindingsAsOrg(menus: Map<string, LeaderNode>): string {
   const lines: string[] = [
@@ -727,8 +670,26 @@ export default function (pi: ExtensionAPI) {
   function createActionHost(ctx: any): LeaderActionHost {
     return {
       submitCommand(command: string) {
+        // One-step submission: set the editor text and synthesise an
+        // Enter press via the active SubmitterEditor instance. The
+        // active instance is resolved fresh per call so any
+        // SubmitterEditor subclass installed later (modal-editor
+        // extensions, custom dispatchers) takes precedence over
+        // leader-menu's own install.
         ctx.ui.setEditorText(command);
-        ctx.ui.notify(`leader-menu: inserted ${command}; press Enter to run`, "info");
+        const submitter = getActiveSubmitter();
+        if (submitter) {
+          submitter.submitCommand(command);
+          return;
+        }
+        // Defensive fallback: should not happen post-install. If the
+        // editor was replaced by a non-SubmitterEditor (extension
+        // contract violation), fall back to the legacy two-step UX so
+        // the command still reaches the editor.
+        ctx.ui.notify(
+          `leader-menu: inserted ${command}; press Enter to run`,
+          "info",
+        );
       },
       passthrough(keyName: string, _seq: string) {
         switch (keyName) {
@@ -801,9 +762,25 @@ export default function (pi: ExtensionAPI) {
 
   // ── Lifecycle ───────────────────────────────────────────────────
 
-  pi.on("session_shutdown", () => {
+  /** Tracks the currently mounted submitter so we can detach it on
+   * shutdown. The factory captures this via closure so the cleanup
+   * path doesn't depend on whether another extension subsequently
+   * replaced the editor with its own SubmitterEditor subclass. */
+  let mountedSubmitter: SubmitterEditor | null = null;
+
+  pi.on("session_shutdown", (_event, ctx) => {
     for (const cleanup of eventCleanups) cleanup();
     eventCleanups.length = 0;
+    // Restore pi's default editor and clear our submitter from the
+    // active-instance registry. Guarded because session_shutdown can
+    // fire after a shallow init failure.
+    try {
+      ctx?.ui?.setEditorComponent?.(undefined);
+    } catch {
+      // best-effort
+    }
+    mountedSubmitter?.detach();
+    mountedSubmitter = null;
     actionHost = null;
     leaderMenus = new Map();
     sessionNotify = null;
@@ -815,10 +792,24 @@ export default function (pi: ExtensionAPI) {
     currentCtx = ctx;
     actionHost = createActionHost(ctx);
 
+    // Install the SubmitterEditor unconditionally. This is the seam
+    // that lets `command:` leader actions submit slash commands in
+    // one keystroke. Any other extension that calls
+    // setEditorComponent() later MUST extend SubmitterEditor or
+    // single-step dispatch will regress to the legacy two-step
+    // "insert + press Enter" fallback. See extensions/lib/editor.ts
+    // for the cross-extension contract.
+    ctx.ui.setEditorComponent(
+      (tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager) => {
+        const editor = new SubmitterEditor(tui, theme, keybindings);
+        mountedSubmitter = editor;
+        return editor;
+      },
+    );
+
     migrateLegacySettings(sessionNotify ?? undefined);
     const userSettings = loadUserSettings();
     leaders = resolveLeaders(userSettings);
-    warnClashingLeaderKeys(userSettings, leaders, sessionNotify ?? undefined);
 
     const defaults = loadDefaults();
     leaderMenus = buildMenuTree(defaults, leaders, actionHost);
@@ -841,9 +832,18 @@ export default function (pi: ExtensionAPI) {
       handler: async (c) => { await showLeaderOverlay(c, leaders.localLeader); },
     });
 
+    // Emit resolved leader keys plus a per-slot flag indicating
+    // whether the user explicitly configured the slot or it took the
+    // shipped default. Subscribers (e.g. modal-editor extensions that
+    // want to warn about grammar clashes) use the flag to avoid
+    // noise on default configurations.
     pi.events.emit("leader-menu:keys-resolved", {
       globalLeader: leaders.globalLeader,
       localLeader: leaders.localLeader,
+      userConfigured: {
+        globalLeader: userSettings.globalLeader !== undefined,
+        localLeader: userSettings.localLeader !== undefined,
+      },
     });
     pi.events.emit("leader-menu:ready", {});
   });
@@ -860,12 +860,12 @@ export default function (pi: ExtensionAPI) {
     }),
   );
 
-  // ── leader-menu:open — request from vim-mode ─────────────────────
+  // ── leader-menu:open — external open request ─────────────────────
   //
-  // vim-mode catches the bare global / local leader in Normal mode
-  // and emits this event so leader-menu can show its standard
-  // centered overlay. Replaces the legacy in-editor widget-hint flow
-  // that lived inside VimEditor before the split.
+  // Any extension that catches a bare leader key in its own grammar
+  // and wants to defer to the standard centered overlay emits this
+  // event. We just resolve the rootKey (defaulting to globalLeader)
+  // and show the overlay.
   eventCleanups.push(
     pi.events.on(
       "leader-menu:open",
