@@ -2,7 +2,7 @@
 
 Which-key-style leader chord discovery and dispatch for [pi](https://github.com/nichochar/pi-coding-agent).
 
-This extension owns two abstract leader slots, the `alt+<leader>`
+This extension owns two abstract leader slots, the `ctrl+<leader>`
 global shortcuts that open them, and the cross-extension *contribution*
 API that every other extension uses to register its own sub-menus.
 It has no opinion on modal editing — the optional vim layer lives in
@@ -40,7 +40,7 @@ All keys optional:
 
 Trigger key resolution happens once at session_start; runtime
 reconfiguration requires a `/reload` (because the underlying
-`alt+<leader>` shortcuts are registered with pi at startup and have
+`ctrl+<leader>` shortcuts are registered with pi at startup and have
 no unregister hook).
 
 Extensions never name trigger keys directly — they contribute via
@@ -69,12 +69,24 @@ the extension itself.
 
 ## Global shortcuts
 
-| Shortcut             | Action                  |
-|----------------------+-------------------------|
-| `alt+<globalLeader>` | Open the global menu    |
-| `alt+<localLeader>`  | Open the local menu     |
+| Shortcut              | Action                  |
+|-----------------------+-------------------------|
+| `ctrl+<globalLeader>` | Open the global menu    |
+| `ctrl+<localLeader>`  | Open the local menu     |
 
-With default leaders these are `alt+space` and `alt+,`.
+With default leaders these are `ctrl+space` and `ctrl+,`.
+
+### Terminal compatibility
+
+`ctrl+space` is recognised in nearly every terminal (it sends `\x00`).
+
+`ctrl+<symbol>` chords like `ctrl+,` are only recognised in terminals
+that speak the Kitty keyboard protocol or `modifyOtherKeys` — kitty,
+ghostty, wezterm, foot, recent xterm. In plain `xterm`,
+`gnome-terminal`, macOS Terminal.app, or under tmux without the right
+flags, `ctrl+,` is silently dropped by the terminal and the overlay
+will not open. Workarounds: open the menu via `/leader-menu bindings`,
+or pick a letter `localLeader` (e.g. `"q"`) in `leader-menu.json`.
 
 In modal `vim-mode`, configured leader keys may be pressed bare from
 Normal mode — the `vim-mode` extension forwards into this overlay via
@@ -86,8 +98,9 @@ The shipped default `localLeader = ","` matches the common Vim
 convention. The trade-off: `,` is also Vim repeat-find-backward in
 Normal mode, so bare `,` there is handled by the Vim grammar first
 and does *not* open the local leader overlay. The local menu is still
-reachable in any mode via `alt+,` (or `alt+<localLeader>` whatever
-you've configured).
+reachable in any mode via `ctrl+,` (or `ctrl+<localLeader>` whatever
+you've configured) — subject to the terminal-compatibility caveat
+above.
 
 To prefer a bare-key local leader in Normal mode, set `localLeader`
 to a non-grammar key in `~/.pi/agent/leader-menu.json` — e.g.
