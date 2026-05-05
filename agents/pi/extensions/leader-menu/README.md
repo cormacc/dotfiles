@@ -303,30 +303,6 @@ it knows its own grammar.
 User settings live in `~/.pi/agent/leader-menu.json` (leader trigger
 keys plus the shared `debug` flag).
 
-## Migration from the old `keybindings` extension
-
-This extension replaces the leader-menu half of the legacy
-`keybindings/` extension (which also included a modal editor). One-step
-breaking changes:
-
-| Old                                    | New                              |
-|----------------------------------------+----------------------------------|
-| `/kb bindings`                         | `/leader-menu bindings`          |
-| `/kb mode emacs|vim`                   | removed; unload the modal-editor extension to disable |
-| `keybindings:suggest` event            | `leader-menu:register` event     |
-| `keybindings:ready` event              | `leader-menu:ready` event        |
-| `keybindings:set-mode-vim` event       | removed                          |
-| `keybindings:set-mode-emacs` event     | removed                          |
-| `suggestKeybindings()` helper          | `registerLeaderMenu()` helper    |
-| `KeybindingSuggestion` type            | `LeaderMenuRegistration` type    |
-| `~/.pi/agent/keybindings-ext.json`     | `~/.pi/agent/leader-menu.json` (`debug` only; `modal` dropped) |
-| `extensions/keybindings.org` (manual)  | `/leader-menu bindings --export` |
-
-`registerLeaderMenu` is the replacement helper, but its payload is
-intentionally slot-based (`globalMenu` / `localMenu`) rather than the
-legacy raw-trigger-key `menus` map. In-tree consumers were migrated
-atomically with the split.
-
 ## Dependencies
 
 - `@mariozechner/pi-coding-agent` — `ExtensionAPI`, `KeybindingsManager`
