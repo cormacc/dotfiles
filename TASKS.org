@@ -221,7 +221,6 @@ CLOSED: [2026-05-03 Sun 13:05]
 - State "STARTED" from "TODO" [2026-05-03 Sun 13:01]
 - Created [2026-05-02 Sat 17:49]
 :END:
-
 Resolved as option 2 — keep =,= as default localLeader, document the
 trade-off, and silence the spurious clash warning when the user is on
 the shipped default config. =alt+,= remains the always-works escape
@@ -251,6 +250,50 @@ Decide and implement one of:
 3. Add a priority/escape mechanism so users can choose whether leader or Vim grammar wins for conflicting keys.
 
 Do not resolve accidentally by dropping repeat-find-backward; that was intentionally imported from the upstream evaluation.
+** DONE leader-menu: fix slash command dispatch :leader-menu:
+CLOSED: [2026-05-05 Tue 21:29]
+:PROPERTIES:
+:ID: c22975ff-5ea8-47d4-807e-6499f2ea6970
+:CREATED: [2026-05-05 Tue 20:46]
+:STARTED: [2026-05-05 Tue 20:47]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-05 Tue 21:29] \\
+  Smoke test verified in kitty on macOS; macOS =⌃Space= gotcha
+  documented in =leader-menu/README.md=. Follow-up to re-enable
+  vim-mode tracked separately (=:ID: fe6b1c6d-edcf-4441-9820-c70aa33add23=).
+- Created [2026-05-05 Tue 20:46]
+- State "STARTED" from "TODO" [2026-05-05 Tue 20:47]
+:END:
+#+IMPORT: [[file:design/log/2026-05-05-leader-menu-slash-submission.org]]
+
+** TODO vim-mode: re-enable under leader-menu SubmitterEditor architecture :vim-mode:followup:
+:PROPERTIES:
+:ID: fe6b1c6d-edcf-4441-9820-c70aa33add23
+:CREATED: [2026-05-05 Tue 21:01]
+:END:
+:LOGBOOK:
+- Created [2026-05-05 Tue 21:01]
+:END:
+Follow-up captured by the 2026-05-05 leader-menu slash-submission
+change-record (task aef78bbe). Move agents/pi/disabled/vim-mode/ back
+into agents/pi/extensions/vim-mode/ and verify single-keystroke
+command: dispatch survives the load-order race introduced by
+leader-menu owning the editor install:
+
+- Load order: vim-mode's setEditorComponent() runs *after*
+  leader-menu's at session_start so VimEditor is the registered
+  active submitter (not the leader-menu base instance).
+- getActiveSubmitter() resolves to the live VimEditor (verify by
+  inspecting the registry from leader-menu's command: handler).
+- Existing default-local-leader / vim-grammar conflicts (the `,`
+  repeat-find note in disabled/vim-mode/README.md and archived task
+  32e3b4a9) remain unaffected.
+- VimEditor still extends SubmitterEditor (via ../lib/editor.js);
+  do not regress to extending CustomEditor directly.
+
+Not a blocker for closing the slash-submission change-record.
+
 * Fixes
 ** TODO Activating tasks overlay clobbers text in input area
 :PROPERTIES:

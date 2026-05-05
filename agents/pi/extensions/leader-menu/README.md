@@ -3,12 +3,12 @@
 Which-key-style leader chord discovery and dispatch for [pi](https://github.com/nichochar/pi-coding-agent).
 
 This extension owns two abstract leader slots, the `ctrl+<leader>`
-global shortcuts that open them, and the cross-extension *contribution*
-API that every other extension uses to register its own sub-menus.
-It has no opinion on modal editing — the optional vim layer lives in
-the sibling [`vim-mode`](../vim-mode/README.md) extension. If that
-extension is loaded it is always on; there is no leader-menu toggle for
-it.
+global shortcuts that open them, the cross-extension *contribution*
+API that every other extension uses to register its own sub-menus,
+and one-step slash-command submission via the shared `SubmitterEditor`
+base in [`extensions/lib/editor.ts`](../lib/editor.ts). Modal editing
+is out of scope — modal-editor extensions live alongside this one and
+own their own lifecycle.
 
 ## Leaders
 
@@ -33,13 +33,12 @@ All keys optional:
 
 - `globalLeader` / `localLeader` — default `" "` and `","`.
 - `debug` — when true, every key press is reported via
-  `ctx.ui.notify`. Read by both this extension and sibling
-  input-handling extensions (`vim-mode`, `tasks`); the loggers are
-  intentionally co-located here because the flag is about *key
-  dispatch*, not modal editing.
+  `ctx.ui.notify`. Read by this extension and by any sibling
+  input-handling extension that wants the same toggle; the flag is
+  about *key dispatch*, not any one extension.
 
-Trigger key resolution happens once at session_start; runtime
-reconfiguration requires a `/reload` (because the underlying
+Trigger key resolution happens once at session_start; changing leader
+keys requires a fresh `pi` process (because the underlying
 `ctrl+<leader>` shortcuts are registered with pi at startup and have
 no unregister hook).
 
@@ -53,12 +52,12 @@ On first session_start, leader-menu copies the `debug` flag (and only
 `debug`) from any pre-split settings file it finds and then deletes
 the source:
 
-- `~/.pi/agent/vim-mode.json` (post-keybindings-split, pre-toggle-removal)
-- `~/.pi/agent/keybindings-ext.json` (pre-keybindings-split)
+- `~/.pi/agent/vim-mode.json`
+- `~/.pi/agent/keybindings-ext.json`
 
-The legacy `modal` flag is intentionally not migrated — `vim-mode` is
-now always-on whenever the extension is loaded; to disable, remove
-the extension itself.
+The legacy `modal` flag is intentionally not migrated — modal-editor
+extensions own their own lifecycle now and there is no central toggle
+for them.
 
 ## Slash commands
 
@@ -88,26 +87,45 @@ flags, `ctrl+,` is silently dropped by the terminal and the overlay
 will not open. Workarounds: open the menu via `/leader-menu bindings`,
 or pick a letter `localLeader` (e.g. `"q"`) in `leader-menu.json`.
 
-In modal `vim-mode`, configured leader keys may be pressed bare from
-Normal mode — the `vim-mode` extension forwards into this overlay via
-the `leader-menu:open` event.
+#### macOS gotcha: `⌃Space` is claimed by the OS
 
-### Default local leader: `,` and the vim repeat-find trade-off
+On macOS, `⌃Space` (and `⌃⌥Space`) are bound by default to **Select
+the previous input source** / **Select next source in Input menu**
+under *System Settings → Keyboard → Keyboard Shortcuts → Input
+Sources*. macOS intercepts the chord before the terminal sees it, so
+even in kitty / ghostty / wezterm the global leader will not open
+with the shipped default `globalLeader = " "`. Confirm by running
+`cat -v` in the terminal and pressing `⌃Space` — if nothing prints,
+macOS is swallowing it.
+
+Two fixes:
+
+1. *(Recommended)* Uncheck both Input Sources shortcuts in System
+   Settings. The terminal will then receive the chord and the
+   leader menu opens normally.
+2. Set a different `globalLeader` (e.g. `"/"`) in
+   `~/.pi/agent/leader-menu.json`. Requires a fresh `pi` process —
+   `/reload` alone will not rebind, because the `ctrl+<leader>`
+   shortcuts are registered once at session_start and pi has no
+   unregister hook.
+
+Modal-editor extensions that catch bare leader keys in their own
+grammar can defer back to this overlay by emitting the
+`leader-menu:open` event with the configured root key. They typically
+subscribe to `leader-menu:keys-resolved` to learn which keys to catch
+without reading leader-menu's settings file directly.
+
+### Choosing a local leader
 
 The shipped default `localLeader = ","` matches the common Vim
-convention. The trade-off: `,` is also Vim repeat-find-backward in
-Normal mode, so bare `,` there is handled by the Vim grammar first
-and does *not* open the local leader overlay. The local menu is still
-reachable in any mode via `ctrl+,` (or `ctrl+<localLeader>` whatever
-you've configured) — subject to the terminal-compatibility caveat
-above.
-
-To prefer a bare-key local leader in Normal mode, set `localLeader`
-to a non-grammar key in `~/.pi/agent/leader-menu.json` — e.g.
-`"localLeader": "q"` (currently unused by the vim grammar).
-leader-menu warns at session_start *only* when you've explicitly
-configured a key that conflicts with vim-mode's grammar; the shipped
-default is silent.
+convention. If you load a modal-editor extension whose grammar
+consumes that key, the bare-key entry path is shadowed there; the
+local menu remains reachable in any mode via `ctrl+,` (or
+`ctrl+<localLeader>` whatever you've configured), subject to the
+terminal-compatibility caveat above. If you prefer a bare-key local
+leader that survives modal grammars, set a non-grammar key in
+`~/.pi/agent/leader-menu.json`. Modal-editor extensions are
+responsible for warning about clashes against their own grammars.
 
 ## Default leader bindings (`defaults.json`)
 
@@ -198,12 +216,57 @@ Any action string without a recognised prefix is emitted as an event on
 `pi.events`. This is the primary mechanism for cross-extension
 keybindings — the contributing extension subscribes to the event itself.
 
-| Prefix         | Description              | Example                     |
-|----------------+--------------------------+-----------------------------|
-| *(none)*       | Emit as event (default)  | `myext:do-thing`            |
-| `command:`     | Insert a slash command   | `command:/diff`             |
-| `passthrough:` | Forward a key combo      | `passthrough:ctrl+l`        |
-| `event:`       | Emit as event (legacy)   | `event:term:toggle`         |
+| Prefix         | Description                       | Example                     |
+|----------------+-----------------------------------+-----------------------------|
+| *(none)*       | Emit as event (default)           | `myext:do-thing`            |
+| `command:`     | Submit a slash command (one step) | `command:/compact`          |
+| `passthrough:` | Forward a key combo               | `passthrough:ctrl+l`        |
+| `event:`       | Emit as event (legacy)            | `event:term:toggle`         |
+
+## Slash command submission
+
+leader-menu installs a small editor base — `SubmitterEditor`, defined
+in `extensions/lib/editor.ts` — at every `session_start` via
+`ctx.ui.setEditorComponent(…)`. This editor adds one method,
+`submitCommand(text)`, that synthesises an Enter press so pi's
+`onSubmit` handler dispatches the slash command without a second
+keystroke.
+
+When a `command:` chord fires, leader-menu's action host:
+
+1. Calls `ctx.ui.setEditorText(command)` so the command is visible in
+   the editor.
+2. Calls `submitCommand(command)` on the currently mounted
+   `SubmitterEditor` (resolved fresh from a module-scope registry in
+   `lib/editor.ts`, so it picks up whichever subclass is active when
+   another extension has installed its own editor).
+
+If no `SubmitterEditor` is mounted (extension contract violation —
+should not happen post-install), the host falls back to the legacy
+“insert text + ask the user to press Enter” behaviour so the chord
+still produces the command.
+
+### Cross-extension contract for editor replacement
+
+Any extension that calls `ctx.ui.setEditorComponent(…)` and wants
+`command:` chords to keep working in one keystroke MUST extend
+`SubmitterEditor` (re-exported from `extensions/lib/editor.ts`)
+rather than `CustomEditor` directly. Replacing the editor with a
+non-`SubmitterEditor` clobbers single-step submission and silently
+regresses chord dispatch to the legacy two-step UX.
+
+Subclasses must preserve the *trivially-stateless* property of the
+base: do not override `submitCommand` to add internal state, and do
+not re-introduce parallel text/render/autocomplete state, for the
+reasons documented in
+`design/log/2026-05-01-keybindings-editor-composition.org`. Carry your
+own state on the subclass, not on the base.
+
+The submission seam is an implementation detail of leader-menu —
+`SubmitterEditor` lives in the shared `extensions/lib/` directory
+(internal across the in-tree extensions) rather than as a public pi
+API. If a third-party extension needs one-step slash-command
+submission, the contract above is the entry point.
 
 ## Cross-extension contracts
 
@@ -213,12 +276,20 @@ After resolving leader keys (defaults + user overrides) at
 `session_start`, leader-menu emits:
 
 ```
-  leader-menu:keys-resolved   { globalLeader: string, localLeader: string }
+  leader-menu:keys-resolved {
+    globalLeader: string,
+    localLeader: string,
+    userConfigured: { globalLeader: boolean, localLeader: boolean },
+  }
 ```
 
-`vim-mode` subscribes so its Normal-mode dispatcher picks up
-user-reconfigured leader keys without needing a parallel settings
-read of its own.
+The `userConfigured` flags say whether the slot was explicitly set in
+`leader-menu.json` (true) or took the shipped default (false).
+Subscribers (typically modal-editor extensions, alternate
+dispatchers) use this to scope clash warnings to user choices and
+avoid noise on the shipped defaults. leader-menu does not warn about
+grammar clashes itself — that's the consumer's responsibility, since
+it knows its own grammar.
 
 ## Files
 
@@ -241,7 +312,7 @@ breaking changes:
 | Old                                    | New                              |
 |----------------------------------------+----------------------------------|
 | `/kb bindings`                         | `/leader-menu bindings`          |
-| `/kb mode emacs|vim`                   | removed; unload `vim-mode` to disable |
+| `/kb mode emacs|vim`                   | removed; unload the modal-editor extension to disable |
 | `keybindings:suggest` event            | `leader-menu:register` event     |
 | `keybindings:ready` event              | `leader-menu:ready` event        |
 | `keybindings:set-mode-vim` event       | removed                          |

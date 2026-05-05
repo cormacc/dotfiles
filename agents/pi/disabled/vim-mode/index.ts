@@ -19,7 +19,7 @@
  * editor construction. See `loadDebugFlag()` near the entry point.
  */
 
-import { CustomEditor, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { type ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
   matchesKey,
   truncateToWidth,
@@ -28,6 +28,11 @@ import {
   type TUI,
 } from "@mariozechner/pi-tui";
 import type { KeybindingsManager } from "@mariozechner/pi-coding-agent";
+// Path matches the plan acceptance criteria and is correct after
+// re-enable (when this directory becomes `extensions/vim-mode/`).
+// While vim-mode lives in `disabled/`, the file is not loaded so the
+// import doesn't have to resolve at runtime.
+import { SubmitterEditor } from "../lib/editor.js";
 // vim-mode no longer maintains its own settings file. The only flag
 // that survived the toggle removal (`debug`) lives in
 // `~/.pi/agent/leader-menu.json` alongside the leader-key config; see
@@ -35,6 +40,35 @@ import type { KeybindingsManager } from "@mariozechner/pi-coding-agent";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+
+// ─── Vim normal-mode reserved keys ──────────────────────────────────────────
+//
+// Single source of truth for the keys consumed by VimEditor's
+// normal-mode dispatcher. Used by the `leader-menu:keys-resolved`
+// subscriber to warn when a user-configured leader trigger key would
+// be silently swallowed by this grammar. Other extensions (notably
+// `leader-menu`) deliberately do not duplicate this set — the
+// detection lives here because vim-mode owns its grammar.
+const VIM_NORMAL_RESERVED_KEYS = new Set<string>([
+  // motions
+  "h", "l", "j", "k", "w", "W", "e", "E", "b", "B", "0", "$", "^",
+  // mode switches
+  "i", "a", "I", "A", "o", "O", "v", "V",
+  // operators
+  "d", "c", "y", ">", "<",
+  // find character
+  "f", "F", "t", "T",
+  // repeat find
+  ";", ",",
+  // single-key commands
+  "x", "X", "r", "s", "S", "p", "P", "u", ".", "J", "~", "D", "C", "Y",
+]);
+
+function displayLeaderKey(key: string): string {
+  if (key === " ") return "SPC";
+  if (key === "\t") return "TAB";
+  return key;
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -102,7 +136,13 @@ function maxPos(a: Pos, b: Pos): Pos {
 
 // ─── The Modal Editor ────────────────────────────────────────────────────────
 
-class VimEditor extends CustomEditor {
+// VimEditor inherits one-step slash-command submission via the
+// shared SubmitterEditor base in `extensions/lib/editor.ts`. Keep
+// VimEditor a SubmitterEditor subclass so `command:` leader chords
+// continue to dispatch in a single keystroke when vim-mode is loaded
+// alongside leader-menu. See the cross-extension contract in
+// editor.ts and design/log/2026-05-05-leader-menu-slash-submission.org.
+class VimEditor extends SubmitterEditor {
   private mode: Mode = "insert";
   private _tui: TUI;
   private _theme: EditorTheme;
@@ -1928,14 +1968,12 @@ class VimEditor extends CustomEditor {
     super.handleInput(seq);
   }
 
-  /** Submit a slash command by setting editor text and simulating Enter */
-  submitCommand(command: string): void {
-    if (this.ctx?.ui) {
-      this.ctx.ui.setEditorText(command);
-      // Simulate Enter to submit
-      super.handleInput("\r");
-    }
-  }
+  // submitCommand is inherited from SubmitterEditor: it presses
+  // Enter via super.handleInput("\r"). Callers (leader-menu's
+  // LeaderActionHost) set the editor text via
+  // ctx.ui.setEditorText(text) before invoking submitCommand, so
+  // the legacy "set text + press Enter" combo is preserved without
+  // VimEditor carrying its own copy of the logic.
 
   // ─── Render ──────────────────────────────────────────────────────────
 
@@ -2017,6 +2055,44 @@ export default function (pi: ExtensionAPI) {
    *  so a session that loads vim-mode before leader-menu still works. */
   let leaderKeys: Set<string> = new Set([" ", ","]);
 
+  /** Latest `leader-menu:keys-resolved` payload, cached so the
+   *  clash-warning runs whether the event arrives before or after
+   *  this extension's `session_start` (load order is not guaranteed).
+   *  Cleared on shutdown; warning fires once per session, gated by
+   *  `clashWarningEmitted`. */
+  let lastKeysResolved: {
+    globalLeader?: string;
+    localLeader?: string;
+    userConfigured?: { globalLeader?: boolean; localLeader?: boolean };
+  } | null = null;
+  let clashWarningEmitted = false;
+
+  function maybeWarnGrammarClashes(): void {
+    if (clashWarningEmitted) return;
+    if (!currentCtx?.ui?.notify) return;
+    if (!lastKeysResolved) return;
+    const data = lastKeysResolved;
+    const notify = currentCtx.ui.notify.bind(currentCtx.ui);
+    const checkClash = (
+      slot: "globalLeader" | "localLeader",
+      key: string | undefined,
+    ) => {
+      if (!key) return;
+      if (!data.userConfigured?.[slot]) return;
+      if (!VIM_NORMAL_RESERVED_KEYS.has(key)) return;
+      const display = displayLeaderKey(key);
+      notify(
+        `vim-mode: configured ${slot} "${display}" clashes with ` +
+          `normal-mode grammar; bare key won't fire there. ` +
+          `Use ctrl+${display} or pick a non-grammar key.`,
+        "warning",
+      );
+    };
+    checkClash("globalLeader", data.globalLeader);
+    checkClash("localLeader", data.localLeader);
+    clashWarningEmitted = true;
+  }
+
   /** Cleanup handles for pi event subscriptions. */
   const eventCleanups: (() => void)[] = [];
 
@@ -2026,6 +2102,8 @@ export default function (pi: ExtensionAPI) {
     currentCtx?.ui?.setStatus?.("vim-mode", undefined);
     activeEditor = null;
     currentCtx = null;
+    lastKeysResolved = null;
+    clashWarningEmitted = false;
   });
 
   pi.on("session_start", (_event, ctx) => {
@@ -2043,6 +2121,10 @@ export default function (pi: ExtensionAPI) {
         return editor;
       },
     );
+    // If `leader-menu:keys-resolved` arrived before our ctx was set
+    // (load order is not guaranteed), the warning was deferred. Run
+    // it now that ctx is available.
+    maybeWarnGrammarClashes();
   });
 
   // ── leader-menu:keys-resolved subscription ──────────────────────
@@ -2050,15 +2132,31 @@ export default function (pi: ExtensionAPI) {
   // (config-aware) leader keys after init. We cache them so a
   // user-reconfigured leader (`~/.pi/agent/leader-menu.json`) takes
   // effect on the next session without code changes here.
+  //
+  // We also own the grammar-clash warning: when the user explicitly
+  // configures a leader trigger that overlaps with vim's normal-mode
+  // grammar, bare-key dispatch will be shadowed in Normal mode. The
+  // `userConfigured` flags from the event payload scope the warning
+  // to user choices so the shipped default (which deliberately
+  // matches the common Vim convention) stays silent. The warning is
+  // run via `maybeWarnGrammarClashes()`, which is also called from
+  // `session_start` to handle the case where this event arrives
+  // before our ctx is set (load order is not guaranteed).
   eventCleanups.push(
     pi.events.on(
       "leader-menu:keys-resolved",
-      (data: { globalLeader?: string; localLeader?: string }) => {
+      (data: {
+        globalLeader?: string;
+        localLeader?: string;
+        userConfigured?: { globalLeader?: boolean; localLeader?: boolean };
+      }) => {
+        lastKeysResolved = data;
         const next = new Set<string>();
         if (data?.globalLeader) next.add(data.globalLeader);
         if (data?.localLeader) next.add(data.localLeader);
         if (next.size > 0) leaderKeys = next;
         activeEditor?.setLeaderKeys(leaderKeys);
+        maybeWarnGrammarClashes();
       },
     ),
   );

@@ -87,15 +87,57 @@ session start.
 
 ## Cross-extension contract
 
-| Direction | Event                       | Payload                                 | Source                                                 |
-|-----------|-----------------------------|-----------------------------------------|--------------------------------------------------------|
-| in        | `leader-menu:keys-resolved` | `{ globalLeader, localLeader }`         | leader-menu — used to update the bare-leader dispatcher |
-| out       | `leader-menu:open`          | `{ rootKey: string }`                   | bare-leader keys in Normal mode                        |
-| in        | `editor:width-constraint`   | `{ fraction, minCols }`                 | other extensions reserving width                       |
+vim-mode depends on leader-menu for three things; leader-menu has
+no awareness of vim-mode in return.
 
-This extension never imports `leader-menu`; communication is purely
-event-based. There are no `vim-mode:enable` / `vim-mode:disable`
-events — the extension has no toggle to dispatch.
+| Direction | Event / surface             | Payload                                                                     | Notes                                                              |
+|-----------|-----------------------------|-----------------------------------------------------------------------------|--------------------------------------------------------------------|
+| in        | `leader-menu:keys-resolved` | `{ globalLeader, localLeader, userConfigured: { globalLeader, localLeader } }` | Source of truth for bare-leader dispatch + grammar-clash warnings |
+| out       | `leader-menu:open`          | `{ rootKey: string }`                                                       | Emitted when a bare configured leader is pressed in Normal mode    |
+| in        | `SubmitterEditor` base      | imported from `../lib/editor.js`                                            | Shared one-step slash-command submission seam                       |
+| in        | `editor:width-constraint`   | `{ fraction, minCols }`                                                     | Generic pi cross-extension event used by side-panel renderers      |
+
+This extension never imports `leader-menu` directly; the
+`SubmitterEditor` import is from the shared `extensions/lib/`
+directory, treated as third-party shared code. There are no
+`vim-mode:enable` / `vim-mode:disable` events — the extension has no
+toggle to dispatch.
+
+### Slash-command submission
+
+`VimEditor` extends `SubmitterEditor` (from
+`extensions/lib/editor.ts`) instead of `CustomEditor` directly. The
+`submitCommand(text)` method that synthesises an Enter press for
+leader-menu's `command:` chords is *inherited from the shared base*
+— vim-mode no longer carries its own copy of the submission logic.
+
+leader-menu owns the active-instance registry and the
+`ctx.ui.setEditorText(text)` step. vim-mode's only obligation is
+to remain a `SubmitterEditor` subclass so when its
+`setEditorComponent()` runs after leader-menu's at
+`session_start`, `getActiveSubmitter()` resolves to the live
+`VimEditor`. Single-step `command:` dispatch (`ctrl+,` → `c` for
+`/compact`, etc.) keeps working through the load-order race because
+`VimEditor` is structurally a submitter.
+
+### Default local leader: `,` and the repeat-find trade-off
+
+leader-menu ships `localLeader = ","` by default to match the common
+Vim convention. The trade-off: `,` is also Vim repeat-find-backward
+in Normal mode, so when this extension is loaded, bare `,` in Normal
+mode is handled by the vim grammar first and does *not* open the
+local leader overlay. The local menu is still reachable in any mode
+via `ctrl+,` (or `ctrl+<localLeader>` whatever the user has
+configured) — subject to the terminal-compatibility caveat in
+leader-menu's README.
+
+When the user explicitly sets a `localLeader` (or `globalLeader`)
+that clashes with vim's normal-mode grammar, this extension emits a
+soft warning at session start. The warning is gated on
+`userConfigured[slot]` from the `leader-menu:keys-resolved` payload
+so the shipped default does not produce noise on every session. To
+opt out of the trade-off, configure a non-grammar key in
+`~/.pi/agent/leader-menu.json` (e.g. `"localLeader": "q"`).
 
 ## Abort key caveat
 
