@@ -32,8 +32,8 @@ import {
 } from "@mariozechner/pi-tui";
 import { existsSync, readFileSync, watch, type FSWatcher } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { access, mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { access, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative } from "node:path";
 import { homedir } from "node:os";
 import { getExtensionName, registerLeaderMenu } from "../lib/pi-utils.ts";
 import { ensureEmacsServer } from "../emacsclient/emacsclient.ts";
@@ -57,6 +57,7 @@ import {
 } from "./parser.ts";
 import { formatFindingsReport, runDoctor } from "./doctor.ts";
 import { insertTasksIntoPlanSection, scaffoldPlan } from "./scaffold.ts";
+import { resolveProjectPath } from "./paths.ts";
 import { colorIssues, colorPriority, colorStatus, colorTags } from "./status-colors.ts";
 
 const EXT_NAME = getExtensionName(import.meta.url);
@@ -251,35 +252,6 @@ function markLocal(tasks: Task[]): void {
     t.isLocal = true;
     markLocal(t.children);
   }
-}
-
-function isWithinRoot(path: string, root: string): boolean {
-  const rel = relative(root, path);
-  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
-}
-
-async function resolveExistingOrParent(path: string): Promise<string> {
-  try {
-    return await realpath(path);
-  } catch {
-    try {
-      const parent = await realpath(dirname(path));
-      return resolve(parent, basename(path));
-    } catch {
-      return resolve(path);
-    }
-  }
-}
-
-async function resolveProjectPath(
-  cwd: string,
-  baseDir: string,
-  candidate: string,
-): Promise<string | null> {
-  const root = await resolveExistingOrParent(cwd);
-  const abs = isAbsolute(candidate) ? candidate : resolve(baseDir, candidate);
-  const resolved = await resolveExistingOrParent(abs);
-  return isWithinRoot(resolved, root) ? resolved : null;
 }
 
 async function loadTasks(cwd: string): Promise<Task[]> {
