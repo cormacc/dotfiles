@@ -35,14 +35,10 @@
 # Startup options : Want to view rendered versions of latex fragments (equations etc.) by default
 #+STARTUP:: latexpreview
 
-
-Some introductory text
-
-* Table of Contents                                         :TOC_1_gh:noexport:
+* Table of Contents                                       :TOC_1_gh:noexport:
 - [[#improvements][Improvements]]
 - [[#fixes][Fixes]]
 - [[#housekeeping][Housekeeping]]
-- [[#create-self-improvement-skill][Create self-improvement skill]]
 
 * Improvements
 ** TODO [#C] Improve terminal extension
@@ -70,11 +66,6 @@ rebuild install step.
 May be a useful complement to tasks / memory system?
 - https://juxt.github.io/allium/
 - https://plugins.eca.dev/plugins/allium/
-** TODO [#D] Add org-mode writing skill?
-:PROPERTIES:
-:ID: f3fd95aa-34ce-4c47-b8d5-569531ca8192
-:END:
-Automatic writes by skill/tooling clobber whitespace. This may be resolvable via one-line addition to the org-tasks skill? Though maybe worth adding a general-purpose org-mode skill...
 ** TODO [#D] Check out rpiv-todo overlay for ideas
 :PROPERTIES:
 :ID: 60e8eff5-26a9-4d4b-8c1a-3c70321beccd
@@ -152,37 +143,6 @@ Port the `VIM_MOTION_PI_CLIPBOARD` feature from `kepatrick/vim-motions-pi`:
 - One-shot startup notification showing the current mode (matches upstream UX).
 
 Captured in the change-record's `* Implementation` → "Evaluation" section as one of the upstream features worth stealing.
-** TODO [#D] Add Nix-level enable flag for individual pi extensions :dotfiles:nix:feature:
-:PROPERTIES:
-:ID: dabf963a-e0e0-4fac-b7f8-ab5c5740a17e
-:CREATED: [2026-05-02 Sat 17:39]
-:END:
-:LOGBOOK:
-- Created [2026-05-02 Sat 17:39]
-:END:
-Captured during the vim-mode toggle simplification (bfbc6354). Currently agents.nix symlinks the entire `agents/pi/extensions/` directory into `~/.pi/agent/extensions/`, so per-extension disablement requires either:
-
-- Removing the source directory (lossy)
-- Manually unlinking the target after `home-manager switch` (fragile)
-
-Better: option-based Nix configuration that materialises only the requested subset of extensions.
-
-Sketch:
-
-```nix
-{ piExtensions = {
-    enable = [ "tasks" "term" "git-diff" "leader-menu" "vim-mode" ];
-    # or: disable = [ "vim-mode" ];
-  };
-}
-```
-
-agents.nix iterates the list and creates per-extension symlinks under `~/.pi/agent/extensions/<name>` rather than one bulk symlink. Probably 30-50 lines of Nix.
-
-Useful for:
-- Trying out / disabling vim-mode without removing the source
-- Per-host extension subsets (e.g. fewer extensions on the minimal home-manager profile)
-- Testing builds with one extension excluded
 ** TODO vim-mode: re-enable under leader-menu SubmitterEditor architecture :vim-mode:followup:
 :PROPERTIES:
 :ID: fe6b1c6d-edcf-4441-9820-c70aa33add23
@@ -230,18 +190,6 @@ Extracted from the org-memory agent-memory review (parent task 724c0332). Jira-s
 #+IMPORT: [[file:design/log/2026-05-05-legacy-org-task-metadata.org]]
 Extracted from the org-memory agent-memory review (parent task 724c0332). Compatibility policy for legacy task data is useful but not a blocker for closing the generic org-memory review.
 * Fixes
-** DONE Activating tasks overlay clobbers text in input area
-CLOSED: [2026-05-05 Tue 22:21]
-:PROPERTIES:
-:ID: 1f8a039b-ef3d-4461-952e-1dc2b2b9a780
-:STARTED: [2026-05-05 Tue 22:18]
-:END:
-:LOGBOOK:
-- State "DONE" from "STARTED" [2026-05-05 Tue 22:21]
-- State "STARTED" from "TODO" [2026-05-05 Tue 22:18]
-:END:
-#+IMPORT: [[file:design/log/2026-05-05-event-dispatch-extension-bindings.org]]
-This is irritating -- address.
 ** TODO Local tasks duplicated in overlay when selected?
 :PROPERTIES:
 :ID: 0c48e3b3-6a32-4158-9d4c-59c17c073abe
@@ -261,7 +209,8 @@ Investigate -- reproduce manually, then follow up as appropriate.
 :BLOCKED-BY: url:https://github.com/nix-community/nixGL/pull/187
 :END:
 Waiting on an upstream fix for an nvidia-open issue
-* STARTED Create self-improvement skill
+
+** STARTED Create self-improvement skill
 :PROPERTIES:
 :ID: 2262ed25-f0fc-40fd-9d21-41a0b16fb3a1
 :CREATED: [2026-04-29 Wed 00:55]

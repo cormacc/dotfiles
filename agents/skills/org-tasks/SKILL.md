@@ -66,6 +66,10 @@ Optional description text.
 - **States**: `TODO`, `STARTED`, `WAITING`, `DONE`, `CANCELLED`.
 - **Priorities**: `[#A]` critical, `[#B]` high, `[#C]` medium, `[#D]` low.
 - **Tags**: semantic categories. There are no reserved operational tags.
+- **Spacing**: separate sibling task subtrees with a single blank line,
+  especially top-level project tasks (`** ...` under category headings)
+  and archived entries. Preserve readability spacing; do not let
+  adjacent task headings run together.
 - **`:ID:`**: UUID v4, required on every task and subtask.
 - **`:CREATED:`**: `[YYYY-MM-DD Day HH:MM]`, set on creation. Do not
   backfill on existing tasks. Do not prefix the description with an

@@ -152,6 +152,28 @@ function assertContains(haystack: string, needle: string, message: string): void
     ":CREATED: survives round-trip in property lines");
 }
 
+// ── Top-level task spacing ───────────────────────────────────────────
+
+{
+  const input = [
+    "** DONE First archived task",
+    ":PROPERTIES:",
+    ":ID: 55555555-6666-4777-8888-999999999991",
+    ":END:",
+    "Body.",
+    "** DONE Second archived task",
+    ":PROPERTIES:",
+    ":ID: 55555555-6666-4777-8888-999999999992",
+    ":END:",
+    "",
+  ].join("\n");
+
+  const { tasks } = parseTasks(input);
+  const out = serializeTasks(tasks);
+  assertContains(out, "Body.\n\n** DONE Second archived task",
+    "top-level sibling tasks are separated by one blank line");
+}
+
 // ── :LOGBOOK: lifecycle drawer round-trip ───────────────────────────
 
 {

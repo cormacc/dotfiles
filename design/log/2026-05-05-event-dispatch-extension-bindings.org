@@ -51,7 +51,6 @@ Acceptance criteria:
   leader bindings.
 - Event handlers run the existing overlay / create / doctor logic without
   touching editor text.
-
 ** DONE [#A] Refactor git-diff bindings and command handler to event dispatch :git-diff:leader-menu:
 CLOSED: [2026-05-05 Tue 22:21]
 :PROPERTIES:
@@ -68,7 +67,6 @@ Acceptance criteria:
 - =/diff= subcommands emit the same events used by leader bindings.
 - Event handlers preserve existing toggle/focus/scroll/fold behaviour without
   writing to the editor.
-
 ** DONE [#B] Document and verify event-binding convention :docs:test:
 CLOSED: [2026-05-05 Tue 22:21]
 :PROPERTIES:
@@ -85,7 +83,6 @@ Acceptance criteria:
 - Static checks confirm no =command:/tasks= or =command:/diff= leader actions
   remain.
 - Existing tasks and git-diff TypeScript parse/bundle checks pass.
-
 * Implementation
 
 - Updated tasks leader-menu registrations to dispatch `tasks:show`,
