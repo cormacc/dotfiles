@@ -54,19 +54,6 @@ We refactored a while ago to use tmux across all backends for pane management an
 This was a good choice, but the key bindings / workflows should be reviewed and updated - they hark back to an earlier design (or lack thereof).
 - Evaluate whether we should use zellij rather than tmux as the terminal multiplexer.
 - Redesign the slash commands and keybindings around the multiplexer workflow / semantics.
-** DONE [#C] Refactor keybindings extension
-CLOSED: [2026-05-02 Sat 17:15]
-:PROPERTIES:
-:ID: 00e1772c-92eb-4a5b-afc5-bf1bbbb51e5b
-:STARTED: [2026-05-02 Sat 14:55]
-:END:
-:LOGBOOK:
-- State "DONE" from "STARTED" [2026-05-02 Sat 17:15]
-- State "STARTED" from "TODO" [2026-05-02 Sat 14:55]
-:END:
-#+IMPORT: [[file:design/log/2026-05-02-refactor-keybindings-extension.org]]
-- Separate the keybindings extension into a 'which-key' extension (for the leader key / sequence stuff) and a modal editor extension
-- Consider whether to eliminate our own modal extension entirely and use this package: https://github.com/kepatrick/vim-motions-pi
 ** DONE [#C] Token-efficient Jira clone workflow
 CLOSED: [2026-04-28 Tue 16:54]
 :PROPERTIES:
@@ -191,52 +178,6 @@ Port the `VIM_MOTION_PI_CLIPBOARD` feature from `kepatrick/vim-motions-pi`:
 - One-shot startup notification showing the current mode (matches upstream UX).
 
 Captured in the change-record's `* Implementation` → "Evaluation" section as one of the upstream features worth stealing.
-** DONE [#D] Make leader keys configurable via leader-menu.json :leader-menu:refactor:
-CLOSED: [2026-05-02 Sat 17:30]
-:PROPERTIES:
-:ID: 2703c1ed-457e-4160-9c3f-eea7b06b0e7b
-:CREATED: [2026-05-02 Sat 17:26]
-:STARTED: [2026-05-02 Sat 17:26]
-:END:
-:LOGBOOK:
-- State "DONE" from "STARTED" [2026-05-02 Sat 17:30]
-- State "STARTED" from "TODO" [2026-05-02 Sat 17:26]
-- Created [2026-05-02 Sat 17:26]
-:END:
-Done. Follow-up to the keybindings refactor (00e1772c). The leader-menu extension now exposes two abstract slots — globalMenu (default Space) and localMenu (default ,) — with trigger keys resolvable from ~/.pi/agent/leader-menu.json. Extensions contribute via globalMenu / localMenu fields rather than naming trigger keys directly. vim-mode receives the resolved keys via a new leader-menu:keys-resolved event and updates its Normal-mode dispatcher accordingly.
-
-Migration: the legacy `menus: { foo: { key: " ", items: {...} } }` registration shape is no longer accepted; consumers (tasks, term, git-diff) updated to globalMenu. term moved from `'` to `Space '`.
-
-Closing this task and committing in the same commit as the implementation.
-** DONE [#D] Drop redundant vim-mode toggle (single-responsibility cleanup) :vim-mode:refactor:
-CLOSED: [2026-05-02 Sat 17:50]
-:PROPERTIES:
-:ID: bfbc6354-5441-4a8f-8616-a952d75135fa
-:CREATED: [2026-05-02 Sat 17:38]
-:END:
-:LOGBOOK:
-- Created [2026-05-02 Sat 17:38]
-:END:
-Done. Follow-up to the keybindings refactor (00e1772c). vim-mode is a single-responsibility extension; the runtime enable/disable plumbing was redundant — the natural off-state is "extension not loaded".
-
-Removed:
-- vim-mode.json settings file (entirely)
-- /vim-mode on|off|toggle slash command
-- vim-mode:enable / vim-mode:disable events
-- Space t E v / Space t E e leader chords (from defaults.json)
-- installModalEditor / uninstallModalEditor / setMode plumbing
-- previousEditorFactory save/restore
-- modalEnabled field + setModalEnabled / isModalEnabled methods + every guard against it
-- vim-mode's settings migrator
-
-Moved:
-- debug flag (per-keypress logger) → ~/.pi/agent/leader-menu.json
-- Migrator extended in leader-menu to copy debug from vim-mode.json or keybindings-ext.json on first run
-- tasks/overlay.ts retargeted to read debug from leader-menu.json
-
-Net diff: vim-mode/index.ts shrank ~150 lines; defaults.json's globalMenu has no items left (all chords now contributed by other extensions).
-
-To disable vim-mode now, remove the extension directory or comment out its inclusion in agents.nix (TODO: add a clean Nix-level enable flag for this — captured below as a separate follow-up).
 ** TODO [#D] Add Nix-level enable flag for individual pi extensions :dotfiles:nix:feature:
 :PROPERTIES:
 :ID: dabf963a-e0e0-4fac-b7f8-ab5c5740a17e
@@ -268,15 +209,35 @@ Useful for:
 - Trying out / disabling vim-mode without removing the source
 - Per-host extension subsets (e.g. fewer extensions on the minimal home-manager profile)
 - Testing builds with one extension excluded
-
-** TODO [#D] Resolve default local leader conflict with vim-mode comma repeat :leader-menu:vim-mode:ux:
+** DONE [#D] Resolve default local leader conflict with vim-mode comma repeat :leader-menu:vim-mode:ux:
+CLOSED: [2026-05-03 Sun 13:05]
 :PROPERTIES:
 :ID: 32e3b4a9-c608-4984-b001-89b3ac70e89f
 :CREATED: [2026-05-02 Sat 17:49]
+:STARTED: [2026-05-03 Sun 13:01]
 :END:
 :LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-03 Sun 13:05]
+- State "STARTED" from "TODO" [2026-05-03 Sun 13:01]
 - Created [2026-05-02 Sat 17:49]
 :END:
+
+Resolved as option 2 — keep =,= as default localLeader, document the
+trade-off, and silence the spurious clash warning when the user is on
+the shipped default config. =alt+,= remains the always-works escape
+hatch in any mode.
+
+Implementation:
+- =leader-menu/index.ts=: =warnClashingLeaderKeys()= now takes the raw
+  =UserSettings= and only warns for slots the user has explicitly
+  configured. =resolveLeaders()= takes an optional =UserSettings= so
+  the call site can read once and pass both downstream. Warning
+  rephrased to point at =alt+<leader>= as the escape hatch.
+- =leader-menu/README.md=: explicit "Default local leader: , and the
+  vim repeat-find trade-off" subsection covering the behaviour,
+  =alt+,= escape hatch, and how to override.
+- Verified via node script that on a fresh checkout with no
+  =leader-menu.json= the new logic does not warn (old logic did).
 Final-review finding from the keybindings refactor (parent 00e1772c). Current defaults keep `localLeader` as comma, while vim-mode also adopted Vim repeat-find-backward on `,`.
 
 Observed final state:
@@ -290,7 +251,6 @@ Decide and implement one of:
 3. Add a priority/escape mechanism so users can choose whether leader or Vim grammar wins for conflicting keys.
 
 Do not resolve accidentally by dropping repeat-find-backward; that was intentionally imported from the upstream evaluation.
-
 * Fixes
 ** TODO Activating tasks overlay clobbers text in input area
 :PROPERTIES:

@@ -119,6 +119,9 @@ complete -f -F _bb_tasks bb'';
   home.file.".local/bin/bbg".source=./bbg/bbg;
   home.file.".config/bbg".source=config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/shell/bbg";
 
+  programs.zellij.enable = true;
+  programs.zoxide.enable = true;
+  programs.lazygit.enable = true;
 
   programs.tmux = {
     enable = true;
