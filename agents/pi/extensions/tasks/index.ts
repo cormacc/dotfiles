@@ -744,9 +744,9 @@ export default function (pi: ExtensionAPI) {
           t: {
             label: "+tasks",
             items: {
-              t: { label: "Show tasks", action: "command:/tasks" },
-              n: { label: "New task", action: "command:/tasks new" },
-              d: { label: "Doctor (health check)", action: "command:/tasks doctor" },
+              t: { label: "Show tasks", action: "tasks:show" },
+              n: { label: "New task", action: "tasks:new" },
+              d: { label: "Doctor (health check)", action: "tasks:doctor" },
             },
           },
         },
@@ -785,6 +785,42 @@ export default function (pi: ExtensionAPI) {
       return filtered.length > 0 ? filtered : null;
     },
     handler: async (args, ctx) => {
+      emitTasksCommand(args, ctx);
+    },
+  });
+
+  function emitTasksCommand(args: string | undefined, ctx: ExtensionContext): void {
+    const arg = (args ?? "").trim();
+    const eventName = arg === "new"
+      ? "tasks:new"
+      : arg === "doctor"
+        ? "tasks:doctor"
+        : "tasks:show";
+    pi.events.emit(eventName, { ctx });
+  }
+
+  function eventCtx(data: unknown): ExtensionContext | null {
+    const supplied = (data as { ctx?: ExtensionContext } | null)?.ctx;
+    return supplied ?? activeCtx;
+  }
+
+  pi.events.on("tasks:show", async (data: unknown) => {
+    const ctx = eventCtx(data);
+    if (!ctx) return;
+    await runTasksCommand("", ctx);
+  });
+  pi.events.on("tasks:new", async (data: unknown) => {
+    const ctx = eventCtx(data);
+    if (!ctx) return;
+    await runTasksCommand("new", ctx);
+  });
+  pi.events.on("tasks:doctor", async (data: unknown) => {
+    const ctx = eventCtx(data);
+    if (!ctx) return;
+    await runTasksCommand("doctor", ctx);
+  });
+
+  async function runTasksCommand(args: string | undefined, ctx: ExtensionContext): Promise<void> {
       if (!ctx.hasUI) {
         ctx.ui.notify("/tasks requires interactive mode", "error");
         return;
@@ -1047,8 +1083,7 @@ export default function (pi: ExtensionAPI) {
       // Also reload from disk to re-attach file watchers and converge with any
       // external edits that landed while the overlay was open.
       await refreshTaskUi(ctx, ctx.cwd);
-    },
-  });
+  }
 }
 
 // ── Emacs / plan-edit flows ───────────────────────────────────────────

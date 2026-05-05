@@ -37,13 +37,18 @@ worktree is clean.
 
 Registered with the `leader-menu` extension under `Space g` (git sub-menu):
 
-| Key         | Action              | Command             |
-| ----------- | ------------------- | ------------------- |
-| `Space g d` | Toggle diff panel   | `/diff toggle`      |
-| `Space g f` | Focus diff panel    | `/diff focus`       |
-| `Space g j` | Scroll diff down    | `/diff scroll-down` |
-| `Space g k` | Scroll diff up      | `/diff scroll-up`   |
-| `Space g e` | Toggle fold on file | `/diff fold`        |
+| Key         | Action              | Event                  |
+| ----------- | ------------------- | ---------------------- |
+| `Space g d` | Toggle diff panel   | `git-diff:toggle`      |
+| `Space g f` | Focus diff panel    | `git-diff:focus`       |
+| `Space g j` | Scroll diff down    | `git-diff:scroll-down` |
+| `Space g k` | Scroll diff up      | `git-diff:scroll-up`   |
+| `Space g e` | Toggle fold on file | `git-diff:fold`        |
+
+Leader bindings dispatch events directly rather than submitting `/diff` slash
+commands, so toggling or focusing the panel does not overwrite text already in
+the prompt. The slash commands remain available and dispatch the same events
+for compatibility.
 
 ## Focus Mode Keybindings
 
