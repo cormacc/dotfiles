@@ -1,4 +1,4 @@
-* DONE [#A] Implement an org-based memory system for pi-agent :agents:
+* DONE [#A] Implement an org-based memory system for pi-agent :org-memory:
 CLOSED: [2026-04-24 Fri 23:53]
 :PROPERTIES:
 :ID: 9ae2bf39-c61c-4a2d-8fa5-882a5ce3eca7
@@ -6,7 +6,7 @@ CLOSED: [2026-04-24 Fri 23:53]
 :END:
 #+IMPORT: [[file:design/log/2026-04-24-org-agent-memory.org]]
 
-* DONE [#B] Refine org-memory/plan protocol :agents:
+* DONE [#B] Refine org-memory/plan protocol :org-memory:
 CLOSED: [2026-04-25 Sat 13:03]
 :PROPERTIES:
 :ID: 7a48756f-95b2-440c-9810-09a9ae60e452
@@ -15,7 +15,7 @@ CLOSED: [2026-04-25 Sat 13:03]
 #+IMPORT: [[file:design/log/2026-04-25-refine-org-memory-plan-protocol.org]]
 [2026-04-25 Sat] Implemented skill protocol refinements, task extension round-trip preservation, and ID backfill.
 
-* DONE [#A] Refine tasks extension
+* DONE [#A] Refine tasks extension :org-memory:org-tasks:
 CLOSED: [2026-04-25 Sat 18:03]
 :PROPERTIES:
 :ID: f92b7b2f-c7fc-4933-9e27-20c0e411cbe4
@@ -39,7 +39,7 @@ compact above-editor widget, expanded UI prompt handoff, default collapse,
 plan metadata display, README updates, and generated keybindings map. Final
 interactive `/reload` and UI smoke tests remain to close validation.
 
-* DONE [#D] TASKS skill - fix completion timestamp insertion
+* DONE [#D] TASKS skill - fix completion timestamp insertion :org-memory:org-tasks:
 CLOSED: [2026-04-27 Mon 15:13]
 :PROPERTIES:
 :ID: ba720ca7-077b-455d-9a64-40b41662ec97
@@ -51,7 +51,7 @@ Do the following:
 - Ensure the timestamp is prefixed with "CLOSED: " and placed immediately below the task heading.
 - Ensure remaining content continues on the next line, rather than on the same line as the timestamp.
 
-* DONE [#D] Tasks overlay bugfixes
+* DONE [#D] Tasks overlay bugfixes :org-memory:org-tasks:tasks-extension:
 CLOSED: [2026-04-27 Mon 17:39]
 :PROPERTIES:
 :ID: d36fe453-b8f8-4dfb-8ea6-5ed9d9eeee90
@@ -60,7 +60,7 @@ CLOSED: [2026-04-27 Mon 17:39]
 - Toggling selection updates status overlay BUT not editor overlay
 - Editor overlay should open with insertion point at selected subtask, not top level task
 
-* DONE [#A] Move task selection state to .gitignored TASKS.local.org :pi:org-memory:multi-contributor:
+* DONE [#A] Move task selection state to .gitignored TASKS.local.org :org-memory:org-tasks:
 CLOSED: [2026-04-27 Mon 18:52]
 :PROPERTIES:
 :ID: a8f3c2e1-7b4d-4f9c-8a52-3e6c1d8b9f47
@@ -77,7 +77,7 @@ Move selection to a gitignored =TASKS.local.org= using top-level
 =#+SELECTED: <UUID>= metadata; update the org-memory skill, the pi tasks
 extension, and the tasks-org Emacs package to read/write the new location.
 
-* DONE [#C] Replace :INCLUDE: drawer property with #+IMPORT: keyword
+* DONE [#C] Replace :INCLUDE: drawer property with #+IMPORT: keyword  :org-memory:org-tasks:
 CLOSED: [2026-04-27 Mon 21:53]
 :PROPERTIES:
 :ID: 9adb8c66-8aba-4e11-9922-70d6225f5a0e
@@ -133,7 +133,7 @@ CLOSED: [2026-04-27 Mon 21:53]
   tag references left over from the =TASKS.local.org= selection migration).
 - Update =editors/emacs/spacemacs/layers/org-user/README.org=.
 
-* DONE [#C] Add emacs-side tooling for tasks extension
+* DONE [#C] Add emacs-side tooling for tasks extension :org-memory:org-tasks:tasks-extension:emacs
 :PROPERTIES:
 :ID: 2b87d48c-d158-44ff-8fea-87c99b570144
 :ARCHIVED: [2026-04-27 Mon 22:14]
@@ -495,7 +495,7 @@ which called =matchesKey(data, "A")= directly rather than
 =matchesKey(data, "shift+a")=. The leader/keybindings extension itself was
 not at fault. Fix landed via a one-line change in =overlay.ts=. See change
 record for the four failed attempts down the wrong path.
-** DONE Review 0.71.0 changes re. editor
+* DONE Review 0.71.0 changes re. editor
 CLOSED: [2026-05-01 Fri 18:17]
 :PROPERTIES:
 :ID: c94bab43-aedf-4ccf-984c-a2e1167e880a
@@ -514,7 +514,7 @@ This new section in the docs includes some relevant examples:
 https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/extensions.md#widgets-status-and-footer
 
 And the commit including the change...
-** DONE [#C] Review prior art w.r.t. org-memory protocol
+* DONE [#C] Review prior art w.r.t. org-memory protocol
 CLOSED: [2026-05-02 Sat 13:58]
 :PROPERTIES:
 :ID: 5aed17ed-cfc4-4ae3-bb24-57c7d974a142
@@ -533,7 +533,7 @@ https://github.com/farra/dev-agent-backlog
 (Reddit source link: https://www.reddit.com/r/emacs/comments/1q415fx/my_orgmode_based_designtask_tracking_system_for/)
 Looks like a slightly different spin, but interesting to take a look at to see if there are
 some ideas that would benefit my system.
-** DONE [#C] Refactor keybindings extension
+* DONE [#C] Refactor keybindings extension
 CLOSED: [2026-05-02 Sat 17:15]
 :PROPERTIES:
 :ID: 00e1772c-92eb-4a5b-afc5-bf1bbbb51e5b
@@ -547,7 +547,7 @@ CLOSED: [2026-05-02 Sat 17:15]
 #+IMPORT: [[file:design/log/2026-05-02-refactor-keybindings-extension.org]]
 - Separate the keybindings extension into a 'which-key' extension (for the leader key / sequence stuff) and a modal editor extension
 - Consider whether to eliminate our own modal extension entirely and use this package: https://github.com/kepatrick/vim-motions-pi
-** DONE [#D] Make leader keys configurable via leader-menu.json :leader-menu:refactor:
+* DONE [#D] Make leader keys configurable via leader-menu.json :leader-menu:refactor:
 CLOSED: [2026-05-02 Sat 17:30]
 :PROPERTIES:
 :ID: 2703c1ed-457e-4160-9c3f-eea7b06b0e7b
@@ -565,7 +565,7 @@ Done. Follow-up to the keybindings refactor (00e1772c). The leader-menu extensio
 Migration: the legacy `menus: { foo: { key: " ", items: {...} } }` registration shape is no longer accepted; consumers (tasks, term, git-diff) updated to globalMenu. term moved from `'` to `Space '`.
 
 Closing this task and committing in the same commit as the implementation.
-** DONE [#D] Drop redundant vim-mode toggle (single-responsibility cleanup) :vim-mode:refactor:
+* DONE [#D] Drop redundant vim-mode toggle (single-responsibility cleanup) :vim-mode:refactor:
 CLOSED: [2026-05-02 Sat 17:50]
 :PROPERTIES:
 :ID: bfbc6354-5441-4a8f-8616-a952d75135fa
@@ -595,7 +595,7 @@ Moved:
 Net diff: vim-mode/index.ts shrank ~150 lines; defaults.json's globalMenu has no items left (all chords now contributed by other extensions).
 
 To disable vim-mode now, remove the extension directory or comment out its inclusion in agents.nix (TODO: add a clean Nix-level enable flag for this — captured below as a separate follow-up).
-** DONE leader-menu: fix slash command dispatch :leader-menu:
+* DONE leader-menu: fix slash command dispatch :leader-menu:
 CLOSED: [2026-05-05 Tue 21:29]
 :PROPERTIES:
 :ID: c22975ff-5ea8-47d4-807e-6499f2ea6970
@@ -612,7 +612,7 @@ CLOSED: [2026-05-05 Tue 21:29]
 - State "STARTED" from "TODO" [2026-05-05 Tue 20:47]
 :END:
 #+IMPORT: [[file:design/log/2026-05-05-leader-menu-slash-submission.org]]
-** DONE [#D] Resolve default local leader conflict with vim-mode comma repeat :leader-menu:vim-mode:ux:
+* DONE [#D] Resolve default local leader conflict with vim-mode comma repeat :leader-menu:vim-mode:ux:
 CLOSED: [2026-05-03 Sun 13:05]
 :PROPERTIES:
 :ID: 32e3b4a9-c608-4984-b001-89b3ac70e89f
@@ -654,7 +654,7 @@ Decide and implement one of:
 3. Add a priority/escape mechanism so users can choose whether leader or Vim grammar wins for conflicting keys.
 
 Do not resolve accidentally by dropping repeat-find-backward; that was intentionally imported from the upstream evaluation.
-** DONE [#C] Token-efficient Jira clone workflow
+* DONE [#C] Token-efficient Jira clone workflow
 CLOSED: [2026-04-28 Tue 16:54]
 :PROPERTIES:
 :ID: 4ad4bb1b-9e74-48a0-9ce4-2d69639a8bc8
@@ -667,8 +667,7 @@ Follow-up to the read-only Jira integration. Today's `/jira clone` round-trips t
 entire `atlassian_getJiraIssue` JSON and the rendered org body through the model,
 which is wasteful (~17KB ingested for ~6 fields used). Step 1 (field-list filter
 in the prompt) shipped on 2026-04-28. The remaining wins below are tracked here.
-
-** DONE [#B] Review org-memory protocol as agent memory
+* DONE [#B] Review org-memory protocol as agent memory
 CLOSED: [2026-05-05 Tue 22:05]
 :PROPERTIES:
 :ID: 724c0332-e491-4b66-900f-e11478057eb1
@@ -688,3 +687,71 @@ CLOSED: [2026-05-05 Tue 22:05]
 #+IMPORT: [[file:design/log/2026-05-01-org-memory-agent-memory-review.org]]
 The org-memory protocol (the combination of org-tasks and org-plan skills) is intended to provide a cross-session memory mechanism for agents to learn and rebuild context as well as a task management and planning tool for humans.
 Review in this context and identify gaps / suggest improvements
+* CANCELLED [#D] Add Nix-level enable flag for individual pi extensions :dotfiles:nix:feature:
+CLOSED: [2026-05-05 Tue 22:57]
+:PROPERTIES:
+:ID: dabf963a-e0e0-4fac-b7f8-ab5c5740a17e
+:CREATED: [2026-05-02 Sat 17:39]
+:ARCHIVED: [2026-05-05 Tue 22:57]
+:END:
+:LOGBOOK:
+- State "CANCELLED" from "TODO" [2026-05-05 Tue 22:57]
+- Created [2026-05-02 Sat 17:39]
+:END:
+Captured during the vim-mode toggle simplification (bfbc6354). Currently agents.nix symlinks the entire `agents/pi/extensions/` directory into `~/.pi/agent/extensions/`, so per-extension disablement requires either:
+
+- Removing the source directory (lossy)
+- Manually unlinking the target after `home-manager switch` (fragile)
+
+Better: option-based Nix configuration that materialises only the requested subset of extensions.
+
+Sketch:
+
+```nix
+{ piExtensions = {
+    enable = [ "tasks" "term" "git-diff" "leader-menu" "vim-mode" ];
+    # or: disable = [ "vim-mode" ];
+  };
+}
+```
+
+agents.nix iterates the list and creates per-extension symlinks under `~/.pi/agent/extensions/<name>` rather than one bulk symlink. Probably 30-50 lines of Nix.
+
+Useful for:
+- Trying out / disabling vim-mode without removing the source
+- Per-host extension subsets (e.g. fewer extensions on the minimal home-manager profile)
+- Testing builds with one extension excluded
+
+Cancelled eventually -- implementation worked, but was big and ugly -- not worth the maintenance overhead.
+* DONE Activating tasks overlay clobbers text in input area
+CLOSED: [2026-05-05 Tue 22:21]
+:PROPERTIES:
+:ID: 1f8a039b-ef3d-4461-952e-1dc2b2b9a780
+:STARTED: [2026-05-05 Tue 22:18]
+:ARCHIVED: [2026-05-05 Tue 22:21]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-05 Tue 22:21]
+- State "STARTED" from "TODO" [2026-05-05 Tue 22:18]
+:END:
+#+IMPORT: [[file:design/log/2026-05-05-event-dispatch-extension-bindings.org]]
+This is irritating -- address.
+
+* CANCELLED [#D] Add org-mode writing skill?
+CLOSED: [2026-05-05 Tue 23:13]
+:PROPERTIES:
+:ID: f3fd95aa-34ce-4c47-b8d5-569531ca8192
+:STARTED: [2026-05-05 Tue 23:13]
+:ARCHIVED: [2026-05-05 Tue 23:13]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-05-05 Tue 23:13]
+- State "WAITING" from "STARTED" [2026-05-05 Tue 23:13]
+- State "DONE" from "WAITING" [2026-05-05 Tue 23:13]
+- State "WAITING" from "DONE" [2026-05-05 Tue 23:13]
+- State "STARTED" from "WAITING" [2026-05-05 Tue 23:13]
+- State "TODO" from "STARTED" [2026-05-05 Tue 23:13]
+- State "CANCELLED" from "TODO" [2026-05-05 Tue 23:13]
+:END:
+Automatic writes by skill/tooling clobber whitespace. This may be resolvable via one-line addition to the org-tasks skill? Though maybe worth adding a general-purpose org-mode skill...
+DECISION Updated the org-tasks skill - no need for a dedicated writing skill for now
