@@ -36,7 +36,7 @@ in
     llm-agents.claude-code
     llm-agents.codex
     #Support
-    lmstudio
+    # lmstudio
   ];
 
   home.file."${agentsConfig}/skills".source = config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";

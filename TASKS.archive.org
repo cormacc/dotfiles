@@ -514,7 +514,6 @@ This new section in the docs includes some relevant examples:
 https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/extensions.md#widgets-status-and-footer
 
 And the commit including the change...
-
 ** DONE [#C] Review prior art w.r.t. org-memory protocol
 CLOSED: [2026-05-02 Sat 13:58]
 :PROPERTIES:
@@ -534,3 +533,66 @@ https://github.com/farra/dev-agent-backlog
 (Reddit source link: https://www.reddit.com/r/emacs/comments/1q415fx/my_orgmode_based_designtask_tracking_system_for/)
 Looks like a slightly different spin, but interesting to take a look at to see if there are
 some ideas that would benefit my system.
+** DONE [#C] Refactor keybindings extension
+CLOSED: [2026-05-02 Sat 17:15]
+:PROPERTIES:
+:ID: 00e1772c-92eb-4a5b-afc5-bf1bbbb51e5b
+:STARTED: [2026-05-02 Sat 14:55]
+:ARCHIVED: [2026-05-02 Sat 17:15]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-02 Sat 17:15]
+- State "STARTED" from "TODO" [2026-05-02 Sat 14:55]
+:END:
+#+IMPORT: [[file:design/log/2026-05-02-refactor-keybindings-extension.org]]
+- Separate the keybindings extension into a 'which-key' extension (for the leader key / sequence stuff) and a modal editor extension
+- Consider whether to eliminate our own modal extension entirely and use this package: https://github.com/kepatrick/vim-motions-pi
+** DONE [#D] Make leader keys configurable via leader-menu.json :leader-menu:refactor:
+CLOSED: [2026-05-02 Sat 17:30]
+:PROPERTIES:
+:ID: 2703c1ed-457e-4160-9c3f-eea7b06b0e7b
+:CREATED: [2026-05-02 Sat 17:26]
+:STARTED: [2026-05-02 Sat 17:26]
+:ARCHIVED: [2026-05-02 Sat 17:30]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-02 Sat 17:30]
+- State "STARTED" from "TODO" [2026-05-02 Sat 17:26]
+- Created [2026-05-02 Sat 17:26]
+:END:
+Done. Follow-up to the keybindings refactor (00e1772c). The leader-menu extension now exposes two abstract slots — globalMenu (default Space) and localMenu (default ,) — with trigger keys resolvable from ~/.pi/agent/leader-menu.json. Extensions contribute via globalMenu / localMenu fields rather than naming trigger keys directly. vim-mode receives the resolved keys via a new leader-menu:keys-resolved event and updates its Normal-mode dispatcher accordingly.
+
+Migration: the legacy `menus: { foo: { key: " ", items: {...} } }` registration shape is no longer accepted; consumers (tasks, term, git-diff) updated to globalMenu. term moved from `'` to `Space '`.
+
+Closing this task and committing in the same commit as the implementation.
+
+** DONE [#D] Drop redundant vim-mode toggle (single-responsibility cleanup) :vim-mode:refactor:
+CLOSED: [2026-05-02 Sat 17:50]
+:PROPERTIES:
+:ID: bfbc6354-5441-4a8f-8616-a952d75135fa
+:CREATED: [2026-05-02 Sat 17:38]
+:ARCHIVED: [2026-05-02 Sat 17:50]
+:END:
+:LOGBOOK:
+- Created [2026-05-02 Sat 17:38]
+:END:
+Done. Follow-up to the keybindings refactor (00e1772c). vim-mode is a single-responsibility extension; the runtime enable/disable plumbing was redundant — the natural off-state is "extension not loaded".
+
+Removed:
+- vim-mode.json settings file (entirely)
+- /vim-mode on|off|toggle slash command
+- vim-mode:enable / vim-mode:disable events
+- Space t E v / Space t E e leader chords (from defaults.json)
+- installModalEditor / uninstallModalEditor / setMode plumbing
+- previousEditorFactory save/restore
+- modalEnabled field + setModalEnabled / isModalEnabled methods + every guard against it
+- vim-mode's settings migrator
+
+Moved:
+- debug flag (per-keypress logger) → ~/.pi/agent/leader-menu.json
+- Migrator extended in leader-menu to copy debug from vim-mode.json or keybindings-ext.json on first run
+- tasks/overlay.ts retargeted to read debug from leader-menu.json
+
+Net diff: vim-mode/index.ts shrank ~150 lines; defaults.json's globalMenu has no items left (all chords now contributed by other extensions).
+
+To disable vim-mode now, remove the extension directory or comment out its inclusion in agents.nix (TODO: add a clean Nix-level enable flag for this — captured below as a separate follow-up).
