@@ -61,22 +61,152 @@ This was a good choice, but the key bindings / workflows should be reviewed and 
 #+IMPORT: [[file:design/log/2026-05-06-emacs-org-memory-ui.org]]
 - Consider replicating functionality of existing pi extension in =.agents/pi/extensions/tasks=.
 - Evaluate this emacs library for the UI implementation: https://github.com/d12frosted/vui.el
-** DONE [#D] Package org-memory protocol / extensions
-CLOSED: [2026-05-06 Wed 22:50]
+** TODO [#D] tasks-org-ui: port archive flow (pi A) :tasks-org-ui:followup:
 :PROPERTIES:
-:ID: 79d6f4f5-70f9-404d-9b4c-0cf0ef0e7adb
-:STARTED: [2026-05-06 Wed 21:56]
+:ID: ab43f47b-4c54-4ecf-bf11-3411880972ab
+:CREATED: [2026-05-07 Thu 00:06]
 :END:
 :LOGBOOK:
-- State "DONE"       from "STARTED"    [2026-05-06 Wed 22:50]
-- State "STARTED"    from "TODO"       [2026-05-06 Wed 21:56]
+- Created [2026-05-07 Thu 00:06]
 :END:
-#+IMPORT: [[file:design/log/2026-05-06-package-org-memory-protocol-extensions.org]]
-Currently the skills and extensions are embedded in this repo.
-Good to either extract them, or come up with a packaging/deployment strategy to facilitate sharing them with the team / other
-interested parties.
-Ideally the approach would allow me to continue editing skills/extensions live and reloading without having to go through a
-rebuild install step.
+Follow-up to v1 of the Emacs UI (parent =9b5067ca=, change-record
+=design/log/2026-05-06-emacs-org-memory-ui.org=). Add an =A= keybinding
+to =tasks-org-ui-mode= that archives the top-level task containing the
+cursor task: refuse unless status is =DONE= or =CANCELLED=, prompt
+for confirmation, transfer the task as-is to =TASKS.archive.org=
+preserving =#+IMPORT:= and adding =:ARCHIVED:=, re-sort archive by
+=CLOSED:=, clear =#+SELECTED:= when archiving the selected task.
+Mirrors the pi extension's archive semantics; the current
+=tasks-org= layer has no archive helper yet.
+** TODO [#D] tasks-org-ui: surface publish/unpublish in the UI :tasks-org-ui:followup:
+:PROPERTIES:
+:ID: 0c8dc86c-65fb-489a-bd77-359948d92bb0
+:CREATED: [2026-05-07 Thu 00:06]
+:END:
+:LOGBOOK:
+- Created [2026-05-07 Thu 00:06]
+:END:
+Follow-up to v1 of the Emacs UI (=9b5067ca= /
+=design/log/2026-05-06-emacs-org-memory-ui.org=). The =tasks-org=
+helpers =tasks-org-publish-task= and =tasks-org-unpublish-task=
+already exist (bound under =, ; L p= / =, ; L u= in org buffers).
+Wire =P= and =U= keys in =tasks-org-ui-mode= so they operate on the
+cursor task without requiring the user to flip back to the source
+buffer.
+** TODO [#D] tasks-org-ui: port doctor command (/tasks doctor) :tasks-org-ui:followup:
+:PROPERTIES:
+:ID: 8de01feb-bfb0-46fe-b0e8-d50f3955f129
+:CREATED: [2026-05-07 Thu 00:06]
+:END:
+:LOGBOOK:
+- Created [2026-05-07 Thu 00:06]
+:END:
+Follow-up to v1 (=9b5067ca= /
+=design/log/2026-05-06-emacs-org-memory-ui.org=). Add a
+=tasks-org-ui-doctor= command that runs the same health checks as
+pi's =/tasks doctor=: duplicate IDs, broken =#+IMPORT:= paths, stale
+=#+SELECTED:= pointing at non-existent UUIDs, blocker readiness,
+stale parent status. Reuse =tasks-org-load-graph= for the graph;
+report results in a transient buffer with file/line jumps.
+** TODO [#D] tasks-org-ui: port task creation (n / N) :tasks-org-ui:followup:
+:PROPERTIES:
+:ID: aa764479-9744-42a4-b466-27b5ddc93a1c
+:CREATED: [2026-05-07 Thu 00:06]
+:END:
+:LOGBOOK:
+- Created [2026-05-07 Thu 00:06]
+:END:
+Follow-up to v1 (=9b5067ca= /
+=design/log/2026-05-06-emacs-org-memory-ui.org=). Add =n= (sibling)
+and =N= (child) keys in =tasks-org-ui-mode= that prompt for a
+heading text and insert a new =TODO= task into the appropriate file
+(=TASKS.org= for shared; =TASKS.local.org= when the cursor task has
+=:origin local=). Re-use the pi-side =tasks_insert_task= shape
+(=:CREATED:=, =:LOGBOOK:= seed) so files round-trip cleanly between
+both surfaces.
+** TODO [#D] tasks-org-ui: details pane next to the tree :tasks-org-ui:followup:
+:PROPERTIES:
+:ID: 4bd09d61-bd31-4b29-ab50-975a973c610d
+:CREATED: [2026-05-07 Thu 00:06]
+:END:
+:LOGBOOK:
+- Created [2026-05-07 Thu 00:06]
+:END:
+Follow-up to v1 (=9b5067ca= /
+=design/log/2026-05-06-emacs-org-memory-ui.org=). v1 ships the tree
+view only; the pi extension also surfaces a right-hand details pane
+showing the cursor task's title, plan path, and body. Evaluate vui's
+intra-buffer split primitives (=vui-hstack=) vs a separate buffer
+displayed via =display-buffer-alist= and ship whichever fits the
+existing rendering loop.
+** TODO [#C] tasks-org-ui: active ECA bridge (c keybinding) :tasks-org-ui:eca:followup:
+:PROPERTIES:
+:ID: 242d337b-0cc0-42fc-9cf9-3c2f8efb9c19
+:CREATED: [2026-05-07 Thu 00:06]
+:END:
+:LOGBOOK:
+- Created [2026-05-07 Thu 00:06]
+:END:
+Follow-up to v1 (=9b5067ca= /
+=design/log/2026-05-06-emacs-org-memory-ui.org=). The v1 ECA
+interop is loose / file+cursor-mediated. This task adds an explicit
+bridge: =c= in =tasks-org-ui-mode= opens an ECA chat scoped to the
+cursor task with UUID, summary, =#+IMPORT:= path, and
+=:LINKED_ISSUES:= pre-injected as initial context. See the
+change-record's =OPEN= question "When does the active ECA bridge
+earn its keep?" for the decision rule (manual-paste-context
+observation count during validation + first month of use).
+** TODO [#D] tasks-org-ui: evaluate Emacs-primary status-transition delegation (partial flip) :tasks-org-ui:protocol:followup:
+:PROPERTIES:
+:ID: e0931b61-f747-4e42-87e1-456ac48fadc1
+:CREATED: [2026-05-07 Thu 00:06]
+:END:
+:LOGBOOK:
+- Created [2026-05-07 Thu 00:06]
+:END:
+Follow-up to v1 (=9b5067ca= /
+=design/log/2026-05-06-emacs-org-memory-ui.org=). The v1 design
+keeps Emacs writes co-canonical with pi-side writes. This task
+captures the *partial flip* candidate: pi delegates =org-todo=
+calls to Emacs via =emacsclient= / =emacs_eval= when an Emacs
+server is available, falling back to in-process pi writers
+otherwise. Pre-requisites: a stable Emacs-side RPC surface (named
+callable functions with documented signatures + defensive error
+handling) and a latency-tolerance test showing =emacsclient=
+roundtrip stays under 100ms p95. See the change-record's =OPEN=
+question "When does the partial flip earn its keep?" for the
+decision rule.
+** TODO [#D] tasks-org-ui: live cross-process sync with pi (event bridge) :tasks-org-ui:protocol:followup:
+:PROPERTIES:
+:ID: 8b7d9a40-b6ae-4978-b155-70a3a4989f35
+:CREATED: [2026-05-07 Thu 00:06]
+:END:
+:LOGBOOK:
+- Created [2026-05-07 Thu 00:06]
+:END:
+Follow-up to v1 (=9b5067ca= /
+=design/log/2026-05-06-emacs-org-memory-ui.org=). v1 syncs via
+file-watch in both directions. If file-watch latency proves visible
+during interactive use, design a small RPC or named-pipe bridge
+(pi → Emacs and/or Emacs → pi) so cross-process events propagate
+without the file-system hop. Trigger criterion is observed in the
+change-record's =OPEN= question on long-term sync.
+** TODO [#D] tasks-org-ui: agent-assisted change-record drafting :tasks-org-ui:eca:followup:
+:PROPERTIES:
+:ID: 7512d07a-c487-4ede-a8fd-4ab73d8d57b5
+:CREATED: [2026-05-07 Thu 00:06]
+:END:
+:LOGBOOK:
+- Created [2026-05-07 Thu 00:06]
+:END:
+Follow-up to v1 (=9b5067ca= /
+=design/log/2026-05-06-emacs-org-memory-ui.org=). The pi extension's
+=p= keybinding scaffolds an empty change-record AND prompts an agent
+to draft =* Context= and =* Plan= against the parent task. v1 of
+=tasks-org-ui= ships only the scaffold half. This task wires the
+agent prompt — likely as part of the active ECA bridge work
+(=242d337b=), or as a standalone integration if a different agent
+harness is used.
 ** TODO [#D] Investigate Allium
 :PROPERTIES:
 :ID: a46d6a4d-e72f-4923-8472-2daf28cb29d0
