@@ -234,8 +234,8 @@ keyword.
 The pi tasks extension is the canonical UX spec; the v1 Emacs UI
 intentionally ships the read/navigate/cycle subset.  These pi
 features are not yet available from =tasks-org-ui= and are tracked
-as follow-ups in =TASKS.org= (referencing the
-[[file:../../../../../design/log/2026-05-06-emacs-org-memory-ui.org][change-record]]):
+under =* Follow-ups= in the
+[[file:../../../../../design/log/2026-05-06-emacs-org-memory-ui.org][change-record]]:
 
 - Archive flow (pi =A=).
 - Publish / unpublish flows (pi =P= / =U=) — available from the
