@@ -50,10 +50,28 @@ We refactored a while ago to use tmux across all backends for pane management an
 This was a good choice, but the key bindings / workflows should be reviewed and updated - they hark back to an earlier design (or lack thereof).
 - Evaluate whether we should use zellij rather than tmux as the terminal multiplexer.
 - Redesign the slash commands and keybindings around the multiplexer workflow / semantics.
-** TODO [#D] Package org-memory protocol / extensions
+** TODO Implement emacs-based ui for org-memory extension
+:PROPERTIES:
+:ID: 9b5067ca-fec2-4e23-b647-981c31ee9a87
+:CREATED: [2026-05-06 Wed 21:56]
+:END:
+:LOGBOOK:
+- Created [2026-05-06 Wed 21:56]
+:END:
+#+IMPORT: [[file:design/log/2026-05-06-emacs-org-memory-ui.org]]
+- Consider replicating functionality of existing pi extension in =.agents/pi/extensions/tasks=.
+- Evaluate this emacs library for the UI implementation: https://github.com/d12frosted/vui.el
+** DONE [#D] Package org-memory protocol / extensions
+CLOSED: [2026-05-06 Wed 22:50]
 :PROPERTIES:
 :ID: 79d6f4f5-70f9-404d-9b4c-0cf0ef0e7adb
+:STARTED: [2026-05-06 Wed 21:56]
 :END:
+:LOGBOOK:
+- State "DONE"       from "STARTED"    [2026-05-06 Wed 22:50]
+- State "STARTED"    from "TODO"       [2026-05-06 Wed 21:56]
+:END:
+#+IMPORT: [[file:design/log/2026-05-06-package-org-memory-protocol-extensions.org]]
 Currently the skills and extensions are embedded in this repo.
 Good to either extract them, or come up with a packaging/deployment strategy to facilitate sharing them with the team / other
 interested parties.
