@@ -28,15 +28,6 @@
       url = "github:nix-community/home-manager/release-25.11";
       inputs.nixpkgs.follows = "nixpkgs-darwin";
     };
-    nixgl = {
-      # url = "github:nix-community/nixGL";
-      # FIXME: Awaiting merge of nvidia version parsing fix to nixgl master...
-      #        See https://github.com/nix-community/nixGL/pull/187
-      # TODO: Switch back to github: URL once PR #187 merges (tarball URL is not
-      #       content-addressed like a commit-locked github: input).
-      url = "https://github.com/phirsch/nixGL/archive/fix-versionMatch.tar.gz";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     microchip = {
       url = "github:cormacc/nix-microchip";
       # url = "/home/cormacc/dev/nix-microchip";
@@ -87,7 +78,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nixgl, microchip, claude-desktop, rust-overlay, nur, llm-agents, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, microchip, claude-desktop, rust-overlay, nur, llm-agents, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -104,7 +95,6 @@
           segger-jlink.acceptLicense = true;
         };
         overlays = [
-          nixgl.overlay
           microchip.overlays.default
           rust-overlay.overlays.default
           nur.overlays.default
@@ -217,7 +207,7 @@
           ];
           extraSpecialArgs = {
             cfgName = "default";
-            inherit inputs system nixgl;
+            inherit inputs system;
           };
         };
         minimal = home-manager.lib.homeManagerConfiguration {
@@ -225,7 +215,9 @@
           modules = [
             ./home-linux.nix
           ];
-          extraSpecialArgs = { cfgName = "minimal"; inherit inputs system nixgl; };
+          extraSpecialArgs = {
+            cfgName = "minimal";
+            inherit inputs system; };
         };
       };
 

@@ -165,8 +165,13 @@ The flake uses =builtins.getEnv= for identity and a couple of secrets, hence =--
 * Known issues / limitations
 
 ** OpenGL applications on non-NixOS
-Applications requiring OpenGL don't work when installed using Home Manager without NixOS.
-This is an upstream issue with a number of viable workarounds, but for now I'm just installing OpenGL apps from the Arch repositories.
+Applications requiring OpenGL used not work when installed using Home Manager without NixOS.
+For a while you could use NixGL to address this, however home-manager has recently introduced a
+~targets.genericLinux.enable~ option that seems to accomplish the same thing transparently.
+
+See https://nix-community.github.io/home-manager/index.xhtml#sec-usage-gpu-non-nixos
+
+I'm not currently running a non-NixOS installation to test it on though.
 
 * Provisioning a new account/installation
 

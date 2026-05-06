@@ -1,4 +1,4 @@
-{ config, pkgs, nixgl, specialArgs, ... }:
+{ config, pkgs, specialArgs, ... }:
 
 let
   # Input parameters
@@ -15,14 +15,6 @@ let
   flakePath = "${dotRoot}#${cfgName}";
 in
 {
-  # nixgl config -- a np for nixos, but useful on hybrid config...
-  targets.genericLinux.nixGL = {
-    packages = nixgl.packages;
-    defaultWrapper = "mesa";
-    offloadWrapper = "nvidiaPrime";
-    installScripts = [ "mesa" "nvidiaPrime" ];
-  };
-
   imports = [
     ./home-linux.nix
     # Include these at flake level instead?

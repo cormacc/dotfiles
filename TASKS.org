@@ -203,13 +203,6 @@ It's possible that I accidentally hit promote, but don't believe so.
 Investigate -- reproduce manually, then follow up as appropriate.
 * Housekeeping
 
-** WAITING [#C] Update nixGL flake URL :nix:
-:PROPERTIES:
-:ID: 862e9ecf-6992-40e9-b2e2-597edee1ccfa
-:BLOCKED-BY: url:https://github.com/nix-community/nixGL/pull/187
-:END:
-Waiting on an upstream fix for an nvidia-open issue
-
 ** STARTED Create self-improvement skill
 :PROPERTIES:
 :ID: 2262ed25-f0fc-40fd-9d21-41a0b16fb3a1
