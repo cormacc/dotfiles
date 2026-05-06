@@ -1,8 +1,8 @@
-{ config, pkgs, nixgl, ... }:
+{ config, pkgs, ... }:
 
 {
   home.packages = with pkgs; [
-    (config.lib.nixGL.wrap zeal)
+    zeal
 
     # Tools to help with nixpkg development...
     bubblewrap

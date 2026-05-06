@@ -1,9 +1,8 @@
-{config, pkgs, nixgl, ... }:
+{config, pkgs, ... }:
 
 {
   programs.chromium = {
     enable = true;
-    package = config.lib.nixGL.wrap pkgs.chromium;
     commandLineArgs = [ "--remote-debugging-port=9222" ];
     dictionaries = [ pkgs.hunspellDictsChromium.en-gb ];
     extensions = [
@@ -22,18 +21,14 @@
     ];
   };
 
-  # See https://github.com/kuba2k2/firefox-webserial for webserial API polyfill/extension ...
-  # N.B. The provided native executable for linux is dynamically linked -- I'll need to recompile
-  #      from the repo to use on nixos
+  # Firefox have finally started to support webserial as of April 2026 / v151.0 nightlies
+  # ... although nixpkgs hasn't caught up yet
   programs.firefox = {
     enable = true;
-    package = config.lib.nixGL.wrap pkgs.firefox-devedition;
+    # package = pkgs.firefox-devedition; ;; No longer need to install dataspex extension from source -- revert to mainline
   };
 
-
-  home.packages = [
-    # (config.lib.nixGL.wrap pkgs.microsoft-edge)
-    (config.lib.nixGL.wrap pkgs.google-chrome)
+  home.packages = with pkgs; [
+    google-chrome
   ];
-
 }

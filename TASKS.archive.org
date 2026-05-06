@@ -495,6 +495,21 @@ which called =matchesKey(data, "A")= directly rather than
 =matchesKey(data, "shift+a")=. The leader/keybindings extension itself was
 not at fault. Fix landed via a one-line change in =overlay.ts=. See change
 record for the four failed attempts down the wrong path.
+
+* DONE [#C] Token-efficient Jira clone workflow
+CLOSED: [2026-04-28 Tue 16:54]
+:PROPERTIES:
+:ID: 4ad4bb1b-9e74-48a0-9ce4-2d69639a8bc8
+:CREATED: [2026-04-28 Tue 15:16]
+:STARTED: [2026-04-28 Tue 16:34]
+:ARCHIVED: [2026-04-28 Tue 16:54]
+:END:
+#+IMPORT: [[file:design/log/2026-04-28-jira-clone-token-efficiency.org]]
+Follow-up to the read-only Jira integration. Today's `/jira clone` round-trips the
+entire `atlassian_getJiraIssue` JSON and the rendered org body through the model,
+which is wasteful (~17KB ingested for ~6 fields used). Step 1 (field-list filter
+in the prompt) shipped on 2026-04-28. The remaining wins below are tracked here.
+
 * DONE Review 0.71.0 changes re. editor
 CLOSED: [2026-05-01 Fri 18:17]
 :PROPERTIES:
@@ -514,6 +529,7 @@ This new section in the docs includes some relevant examples:
 https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/extensions.md#widgets-status-and-footer
 
 And the commit including the change...
+
 * DONE [#C] Review prior art w.r.t. org-memory protocol
 CLOSED: [2026-05-02 Sat 13:58]
 :PROPERTIES:
@@ -533,6 +549,7 @@ https://github.com/farra/dev-agent-backlog
 (Reddit source link: https://www.reddit.com/r/emacs/comments/1q415fx/my_orgmode_based_designtask_tracking_system_for/)
 Looks like a slightly different spin, but interesting to take a look at to see if there are
 some ideas that would benefit my system.
+
 * DONE [#C] Refactor keybindings extension
 CLOSED: [2026-05-02 Sat 17:15]
 :PROPERTIES:
@@ -547,6 +564,7 @@ CLOSED: [2026-05-02 Sat 17:15]
 #+IMPORT: [[file:design/log/2026-05-02-refactor-keybindings-extension.org]]
 - Separate the keybindings extension into a 'which-key' extension (for the leader key / sequence stuff) and a modal editor extension
 - Consider whether to eliminate our own modal extension entirely and use this package: https://github.com/kepatrick/vim-motions-pi
+
 * DONE [#D] Make leader keys configurable via leader-menu.json :leader-menu:refactor:
 CLOSED: [2026-05-02 Sat 17:30]
 :PROPERTIES:
@@ -565,6 +583,7 @@ Done. Follow-up to the keybindings refactor (00e1772c). The leader-menu extensio
 Migration: the legacy `menus: { foo: { key: " ", items: {...} } }` registration shape is no longer accepted; consumers (tasks, term, git-diff) updated to globalMenu. term moved from `'` to `Space '`.
 
 Closing this task and committing in the same commit as the implementation.
+
 * DONE [#D] Drop redundant vim-mode toggle (single-responsibility cleanup) :vim-mode:refactor:
 CLOSED: [2026-05-02 Sat 17:50]
 :PROPERTIES:
@@ -595,23 +614,7 @@ Moved:
 Net diff: vim-mode/index.ts shrank ~150 lines; defaults.json's globalMenu has no items left (all chords now contributed by other extensions).
 
 To disable vim-mode now, remove the extension directory or comment out its inclusion in agents.nix (TODO: add a clean Nix-level enable flag for this — captured below as a separate follow-up).
-* DONE leader-menu: fix slash command dispatch :leader-menu:
-CLOSED: [2026-05-05 Tue 21:29]
-:PROPERTIES:
-:ID: c22975ff-5ea8-47d4-807e-6499f2ea6970
-:CREATED: [2026-05-05 Tue 20:46]
-:STARTED: [2026-05-05 Tue 20:47]
-:ARCHIVED: [2026-05-05 Tue 21:29]
-:END:
-:LOGBOOK:
-- State "DONE" from "STARTED" [2026-05-05 Tue 21:29] \\
-  Smoke test verified in kitty on macOS; macOS =⌃Space= gotcha
-  documented in =leader-menu/README.md=. Follow-up to re-enable
-  vim-mode tracked separately (=:ID: fe6b1c6d-edcf-4441-9820-c70aa33add23=).
-- Created [2026-05-05 Tue 20:46]
-- State "STARTED" from "TODO" [2026-05-05 Tue 20:47]
-:END:
-#+IMPORT: [[file:design/log/2026-05-05-leader-menu-slash-submission.org]]
+
 * DONE [#D] Resolve default local leader conflict with vim-mode comma repeat :leader-menu:vim-mode:ux:
 CLOSED: [2026-05-03 Sun 13:05]
 :PROPERTIES:
@@ -654,19 +657,25 @@ Decide and implement one of:
 3. Add a priority/escape mechanism so users can choose whether leader or Vim grammar wins for conflicting keys.
 
 Do not resolve accidentally by dropping repeat-find-backward; that was intentionally imported from the upstream evaluation.
-* DONE [#C] Token-efficient Jira clone workflow
-CLOSED: [2026-04-28 Tue 16:54]
+
+* DONE leader-menu: fix slash command dispatch :leader-menu:
+CLOSED: [2026-05-05 Tue 21:29]
 :PROPERTIES:
-:ID: 4ad4bb1b-9e74-48a0-9ce4-2d69639a8bc8
-:CREATED: [2026-04-28 Tue 15:16]
-:STARTED: [2026-04-28 Tue 16:34]
-:ARCHIVED: [2026-04-28 Tue 16:54]
+:ID: c22975ff-5ea8-47d4-807e-6499f2ea6970
+:CREATED: [2026-05-05 Tue 20:46]
+:STARTED: [2026-05-05 Tue 20:47]
+:ARCHIVED: [2026-05-05 Tue 21:29]
 :END:
-#+IMPORT: [[file:design/log/2026-04-28-jira-clone-token-efficiency.org]]
-Follow-up to the read-only Jira integration. Today's `/jira clone` round-trips the
-entire `atlassian_getJiraIssue` JSON and the rendered org body through the model,
-which is wasteful (~17KB ingested for ~6 fields used). Step 1 (field-list filter
-in the prompt) shipped on 2026-04-28. The remaining wins below are tracked here.
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-05 Tue 21:29] \\
+  Smoke test verified in kitty on macOS; macOS =⌃Space= gotcha
+  documented in =leader-menu/README.md=. Follow-up to re-enable
+  vim-mode tracked separately (=:ID: fe6b1c6d-edcf-4441-9820-c70aa33add23=).
+- Created [2026-05-05 Tue 20:46]
+- State "STARTED" from "TODO" [2026-05-05 Tue 20:47]
+:END:
+#+IMPORT: [[file:design/log/2026-05-05-leader-menu-slash-submission.org]]
+
 * DONE [#B] Review org-memory protocol as agent memory
 CLOSED: [2026-05-05 Tue 22:05]
 :PROPERTIES:
@@ -687,6 +696,21 @@ CLOSED: [2026-05-05 Tue 22:05]
 #+IMPORT: [[file:design/log/2026-05-01-org-memory-agent-memory-review.org]]
 The org-memory protocol (the combination of org-tasks and org-plan skills) is intended to provide a cross-session memory mechanism for agents to learn and rebuild context as well as a task management and planning tool for humans.
 Review in this context and identify gaps / suggest improvements
+
+* DONE Activating tasks overlay clobbers text in input area
+CLOSED: [2026-05-05 Tue 22:21]
+:PROPERTIES:
+:ID: 1f8a039b-ef3d-4461-952e-1dc2b2b9a780
+:STARTED: [2026-05-05 Tue 22:18]
+:ARCHIVED: [2026-05-05 Tue 22:21]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-05 Tue 22:21]
+- State "STARTED" from "TODO" [2026-05-05 Tue 22:18]
+:END:
+#+IMPORT: [[file:design/log/2026-05-05-event-dispatch-extension-bindings.org]]
+This is irritating -- address.
+
 * CANCELLED [#D] Add Nix-level enable flag for individual pi extensions :dotfiles:nix:feature:
 CLOSED: [2026-05-05 Tue 22:57]
 :PROPERTIES:
@@ -723,19 +747,6 @@ Useful for:
 - Testing builds with one extension excluded
 
 Cancelled eventually -- implementation worked, but was big and ugly -- not worth the maintenance overhead.
-* DONE Activating tasks overlay clobbers text in input area
-CLOSED: [2026-05-05 Tue 22:21]
-:PROPERTIES:
-:ID: 1f8a039b-ef3d-4461-952e-1dc2b2b9a780
-:STARTED: [2026-05-05 Tue 22:18]
-:ARCHIVED: [2026-05-05 Tue 22:21]
-:END:
-:LOGBOOK:
-- State "DONE" from "STARTED" [2026-05-05 Tue 22:21]
-- State "STARTED" from "TODO" [2026-05-05 Tue 22:18]
-:END:
-#+IMPORT: [[file:design/log/2026-05-05-event-dispatch-extension-bindings.org]]
-This is irritating -- address.
 
 * CANCELLED [#D] Add org-mode writing skill?
 CLOSED: [2026-05-05 Tue 23:13]
@@ -755,3 +766,20 @@ CLOSED: [2026-05-05 Tue 23:13]
 :END:
 Automatic writes by skill/tooling clobber whitespace. This may be resolvable via one-line addition to the org-tasks skill? Though maybe worth adding a general-purpose org-mode skill...
 DECISION Updated the org-tasks skill - no need for a dedicated writing skill for now
+
+** CANCELLED [#C] Update nixGL flake URL :nix:
+CLOSED: [2026-05-06 Wed 09:37]
+:PROPERTIES:
+:ID: 862e9ecf-6992-40e9-b2e2-597edee1ccfa
+:BLOCKED-BY: url:https://github.com/nix-community/nixGL/pull/187
+:STARTED: [2026-05-06 Wed 09:37]
+:ARCHIVED: [2026-05-06 Wed 09:37]
+:END:
+:LOGBOOK:
+- State "STARTED" from "WAITING" [2026-05-06 Wed 09:37]
+- State "TODO" from "STARTED" [2026-05-06 Wed 09:37]
+- State "CANCELLED" from "TODO" [2026-05-06 Wed 09:37]
+:END:
+Waiting on an upstream fix for an nvidia-open issue
+Cancelled - eliminated use of nixGL -- use targets.genericLinux.enable instead on non-NixOS installs.
+See https://nix-community.github.io/home-manager/index.xhtml#sec-usage-gpu-non-nixos

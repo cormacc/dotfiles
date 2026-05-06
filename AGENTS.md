@@ -94,7 +94,7 @@ the `hms`/`nos`/`drs` shell aliases.
 
 - Uses nixpkgs unstable channel (`nixos-unstable`)
 - `allowUnfree = true` globally; `--impure` flag required on all builds (env var reads)
-- Overlays applied: nixGL, nix-microchip, rust-overlay, NUR, llm-agents, claude-desktop
+- Overlays applied: nix-microchip, rust-overlay, NUR, llm-agents, claude-desktop
 - The `rebuild` script in repo root is hardcoded for xps15 NixOS rebuild only
 - `agents.nix` symlinks `agents/pi/` contents into `~/.pi/agent/` (settings, extensions, prompts, skills)
 - Darwin config lives in the root flake — run `drs` alias or `darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure`
