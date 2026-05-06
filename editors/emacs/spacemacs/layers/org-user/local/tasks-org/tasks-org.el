@@ -242,6 +242,271 @@ the property is written only when absent."
     (org-entry-put nil "STARTED"
                    (format "[%s]" (tasks-org--org-timestamp)))))
 
+;;; Status transitions (protocol-aware)
+
+(defconst tasks-org--terminal-states '("DONE" "CANCELLED")
+  "TODO keywords that emit a `CLOSED:' line and clear `:STARTED:' on reopen.")
+
+(defun tasks-org--todo-sequence ()
+  "Return the buffer's TODO keyword sequence as a list of strings.
+Filters out the `|' separator and any keyword fast-access markers."
+  (let ((kws (or (and (boundp 'org-todo-keywords-1)
+                      org-todo-keywords-1)
+                 '("TODO" "STARTED" "WAITING" "DONE" "CANCELLED"))))
+    (mapcar (lambda (k)
+              (replace-regexp-in-string "(.*)" "" k))
+            kws)))
+
+(defun tasks-org--ensure-logbook-drawer ()
+  "Ensure the current heading has a `:LOGBOOK:' drawer; return its body insert pos.
+The insert point is the position immediately before the drawer's `:END:'
+line, suitable for inserting an append-only entry."
+  (save-excursion
+    (unless (org-at-heading-p)
+      (org-back-to-heading t))
+    (let* ((end (save-excursion (outline-next-heading) (point)))
+           (logbook-start
+            (save-excursion
+              (when (re-search-forward "^[ \t]*:LOGBOOK:[ \t]*$" end t)
+                (line-beginning-position)))))
+      (unless logbook-start
+        ;; Insert a new :LOGBOOK: drawer after :PROPERTIES: (or CLOSED:, or
+        ;; the heading line) and before any body text.
+        (goto-char (org-entry-beginning-position))
+        (forward-line 1)
+        (when (looking-at "[ \t]*CLOSED:")
+          (forward-line 1))
+        (when (looking-at "[ \t]*:PROPERTIES:")
+          (while (not (looking-at "[ \t]*:END:"))
+            (forward-line 1))
+          (forward-line 1))
+        (insert ":LOGBOOK:\n:END:\n")
+        (forward-line -2)
+        (setq logbook-start (line-beginning-position)))
+      ;; Move to position before the :END: line.
+      (goto-char logbook-start)
+      (re-search-forward "^[ \t]*:END:[ \t]*$" end t)
+      (line-beginning-position))))
+
+(defun tasks-org--append-logbook-entry (text)
+  "Append TEXT as a new line inside the heading's `:LOGBOOK:' drawer.
+The drawer is created when absent.  TEXT is written verbatim with
+no leading bullet — pass the full bullet (e.g.
+`- State \"DONE\" from \"STARTED\" [...]')."
+  (let ((insert-pos (tasks-org--ensure-logbook-drawer)))
+    (save-excursion
+      (goto-char insert-pos)
+      (insert text "\n"))))
+
+(defun tasks-org--write-closed (timestamp)
+  "Set the heading's `CLOSED:' line to TIMESTAMP (org timestamp string).
+Inserts immediately above `:PROPERTIES:' if absent, else replaces in place."
+  (save-excursion
+    (unless (org-at-heading-p)
+      (org-back-to-heading t))
+    (forward-line 1)
+    (cond
+     ((looking-at "[ \t]*CLOSED:.*$")
+      (replace-match (format "CLOSED: [%s]" timestamp)))
+     (t
+      (let ((before-properties (point)))
+        (when (looking-at "[ \t]*:PROPERTIES:")
+          (goto-char before-properties))
+        (insert (format "CLOSED: [%s]\n" timestamp)))))))
+
+(defun tasks-org--clear-closed ()
+  "Remove the `CLOSED:' line from the current heading if present."
+  (save-excursion
+    (unless (org-at-heading-p)
+      (org-back-to-heading t))
+    (forward-line 1)
+    (when (looking-at "[ \t]*CLOSED:.*\n")
+      (replace-match ""))))
+
+(defun tasks-org--clear-started-property ()
+  "Remove the `:STARTED:' property from the current heading."
+  (save-excursion
+    (unless (org-at-heading-p)
+      (org-back-to-heading t))
+    (org-entry-delete nil "STARTED")))
+
+(defun tasks-org--apply-status-transition (new-status)
+  "Transition the current heading to NEW-STATUS with full protocol writes.
+Writes:
+  * heading TODO keyword (via `org-todo' for normal org behaviour);
+  * append-only `:LOGBOOK:' entry `- State \"NEW\" from \"OLD\" [ts]';
+  * `CLOSED:' on entering DONE/CANCELLED, cleared on reopen;
+  * `:STARTED:' on first transition into STARTED, preserved on reopen.
+
+The append-only LOGBOOK and CLOSED bookkeeping are written here rather
+than relying on `org-log-into-drawer' / `org-log-done', because the
+project's `#+TODO:' line does not declare `(/!)' markers and the
+protocol still expects the entries unconditionally."
+  (let* ((old-status (org-get-todo-state))
+         (ts (tasks-org--org-timestamp))
+         (now-terminal (member new-status tasks-org--terminal-states))
+         (was-terminal (and old-status (member old-status tasks-org--terminal-states))))
+    ;; Heading keyword.  Suppress org's own logging because we drive
+    ;; LOGBOOK / CLOSED ourselves.
+    (let ((org-log-done nil)
+          (org-log-into-drawer nil)
+          (org-todo-log-states nil))
+      (org-todo new-status))
+    ;; LOGBOOK transition entry.
+    (when (and old-status new-status
+               (not (equal old-status new-status)))
+      (tasks-org--append-logbook-entry
+       (format "- State \"%s\"      from \"%s\"      [%s]"
+               new-status old-status ts)))
+    ;; CLOSED bookkeeping.
+    (cond
+     ((and now-terminal (not was-terminal))
+      (tasks-org--write-closed ts))
+     ((and now-terminal was-terminal)
+      ;; Re-close: refresh CLOSED: with the new timestamp.
+      (tasks-org--write-closed ts))
+     ((and was-terminal (not now-terminal))
+      (tasks-org--clear-closed)))
+    ;; :STARTED: bookkeeping.
+    (cond
+     ((and (string= new-status "STARTED")
+           (not (org-entry-get nil "STARTED")))
+      (org-entry-put nil "STARTED" (format "[%s]" ts))))))
+
+(defun tasks-org--cycle-direction (current-status direction)
+  "Return the new status when cycling CURRENT-STATUS in DIRECTION.
+DIRECTION is the symbol `forward' or `backward'.  Wraps modulo the
+buffer's TODO sequence.  When CURRENT-STATUS is nil, returns the
+first sequence keyword."
+  (let* ((seq (tasks-org--todo-sequence))
+         (n (length seq))
+         (cur-idx (or (cl-position current-status seq :test #'equal) -1))
+         (next-idx (mod (+ cur-idx (if (eq direction 'backward) -1 1)) n)))
+    (nth next-idx seq)))
+
+;;;###autoload
+(defun tasks-org-cycle-status (&optional backward)
+  "Cycle the current task's TODO state forward through the sequence.
+With prefix arg BACKWARD non-nil, cycles backward.  Writes the
+heading keyword, append-only `:LOGBOOK:' entry, `CLOSED:' line on
+DONE/CANCELLED transitions (cleared on reopen), and `:STARTED:' on
+first transition into STARTED."
+  (interactive "P")
+  (unless (tasks-org--at-task-heading-p)
+    (user-error "Point is not on an actionable task heading"))
+  (let* ((current (org-get-todo-state))
+         (direction (if backward 'backward 'forward))
+         (new-status (tasks-org--cycle-direction current direction)))
+    (tasks-org--apply-status-transition new-status)
+    (message "Status: %s -> %s" (or current "(none)") new-status)))
+
+;;;###autoload
+(defun tasks-org-cycle-status-back ()
+  "Cycle the current task's TODO state backward through the sequence."
+  (interactive)
+  (tasks-org-cycle-status t))
+
+(defun tasks-org-set-status-at (file pos new-status)
+  "Programmatic entry point: transition the task at FILE / POS to NEW-STATUS.
+Visits FILE via `find-file-noselect', moves to POS, runs
+`tasks-org--apply-status-transition', and saves.  Used by the UI buffer
+to persist a status change without requiring point to already be on the
+task heading.  Returns the new status."
+  (with-current-buffer (find-file-noselect file)
+    (save-excursion
+      (goto-char pos)
+      (tasks-org--apply-status-transition new-status)
+      (save-buffer)))
+  new-status)
+
+;;; Locate by UUID
+
+(defun tasks-org-locate-by-id (id &optional extra-files)
+  "Return (FILE . POS) for the task with `:ID:' ID, or nil.
+Searches `TASKS.org', `TASKS.local.org', and any files in EXTRA-FILES
+\(typically the current task graph's loaded change-record files\)."
+  (let ((candidates (append (list (tasks-org--tasks-file)
+                                  (tasks-org--local-file))
+                            extra-files))
+        result)
+    (dolist (file candidates result)
+      (when (and (not result)
+                 file
+                 (file-readable-p file))
+        (with-current-buffer (find-file-noselect file)
+          (when-let ((pos (tasks-org--find-heading-pos-by-id id)))
+            (setq result (cons file pos))))))))
+
+;;; Change-record scaffold
+
+(defun tasks-org--slugify (s)
+  "Return a filesystem-friendly slug for S."
+  (let ((slug (downcase s)))
+    (setq slug (replace-regexp-in-string "[^a-z0-9]+" "-" slug))
+    (setq slug (replace-regexp-in-string "\\`-+\\|-+\\'" "" slug))
+    slug))
+
+(defun tasks-org--default-import-path-for-heading ()
+  "Return a suggested change-record path for the heading at point.
+Format: <DEFAULT_PLAN_DIR>/<YYYY-MM-DD>-<slug>.org"
+  (let* ((heading (org-get-heading t t t t))
+         (slug (tasks-org--slugify (or heading "change-record")))
+         (date (format-time-string "%Y-%m-%d"))
+         (dir (tasks-org--effective-plans-directory))
+         (root (tasks-org--project-root)))
+    (expand-file-name (format "%s-%s.org" date slug)
+                      (expand-file-name dir root))))
+
+(defun tasks-org--scaffold-change-record (file parent-id title)
+  "Write the org-plan minimal skeleton to FILE for PARENT-ID + TITLE.
+Refuses to overwrite an existing file.  Creates parent directories
+as needed.  See `agents/skills/org-plan/SKILL.md' for the skeleton
+contract."
+  (when (file-exists-p file)
+    (user-error "Refusing to overwrite existing change-record: %s" file))
+  (make-directory (file-name-directory file) t)
+  (with-temp-file file
+    (insert (format "#+TITLE: %s\n" title))
+    (insert (format "#+DATE: %s\n" (format-time-string "%Y-%m-%d %a")))
+    (insert (format "#+PARENT_ID: %s\n" parent-id))
+    (insert "#+STATUS: Draft\n")
+    (insert "#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)\n")
+    (insert "\n* Context\n\n")
+    (insert "** Design decisions\n\n")
+    (insert "* Plan\n\n")
+    (insert "* Implementation\n\n")
+    (insert "* Open questions\n")))
+
+;;;###autoload
+(defun tasks-org-create-import-for-current-task (&optional path)
+  "Scaffold a change-record for the current task and link it via `#+IMPORT:'.
+Prompts for PATH (default suggestion derived from the task heading
+and `#+DEFAULT_PLAN_DIR:').  Refuses to overwrite an existing file.
+Ensures the parent task has an `:ID:'.  Saves the parent buffer.
+Opens the new change-record in another window."
+  (interactive)
+  (unless (tasks-org--at-task-heading-p)
+    (user-error "Point is not on an actionable task heading"))
+  (when (tasks-org--get-import-raw)
+    (user-error "Task already has a #+IMPORT: link; use `tasks-org-open-plan' to open it"))
+  (tasks-org--ensure-id-at-heading)
+  (let* ((default-path (tasks-org--default-import-path-for-heading))
+         (chosen (or path
+                     (read-file-name "Change-record path: "
+                                     (file-name-directory default-path)
+                                     nil nil
+                                     (file-name-nondirectory default-path))))
+         (title (org-get-heading t t t t))
+         (parent-id (org-entry-get nil "ID"))
+         (source-dir (file-name-directory (or buffer-file-name ""))))
+    (tasks-org--scaffold-change-record chosen parent-id title)
+    ;; Set #+IMPORT: as a clickable [[file:...]] relative to source-dir.
+    (let ((rel (file-relative-name chosen source-dir)))
+      (tasks-org--set-import (format "[[file:%s]]" rel)))
+    (save-buffer)
+    (find-file-other-window chosen)
+    (message "Scaffolded change-record: %s" chosen)))
+
 ;;; Selection helpers — TASKS.local.org scheme
 
 (defun tasks-org--local-file ()
@@ -259,14 +524,35 @@ the property is written only when absent."
           (match-string-no-properties 1))))))
 
 (defun tasks-org--write-local-selection (id)
-  "Write ID to TASKS.local.org atomically.
-When ID is nil the file is retained with an empty #+SELECTED: keyword
-rather than deleted, so it remains present for .gitignore purposes."
+  "Write ID as the #+SELECTED: pointer in TASKS.local.org atomically.
+Preserves all other content in the file (local task headings,
+#+IMPORT: keywords, etc.).  When ID is nil the #+SELECTED: keyword
+is retained with an empty value so the file remains gitignored and
+its other content stays intact.  When the file does not yet exist
+it is created with just the keyword."
   (let* ((local-file (tasks-org--local-file))
-         (tmp-file (concat local-file ".tmp")))
+         (tmp-file (concat local-file ".tmp"))
+         (existing (and (file-readable-p local-file)
+                        (with-temp-buffer
+                          (insert-file-contents local-file)
+                          (buffer-string))))
+         (new-line (if id (format "#+SELECTED: %s\n" id) "#+SELECTED:\n")))
     (make-directory (file-name-directory local-file) t)
     (with-temp-file tmp-file
-      (insert (if id (format "#+SELECTED: %s\n" id) "#+SELECTED:\n")))
+      (cond
+       ;; File absent: write just the keyword.
+       ((null existing)
+        (insert new-line))
+       ;; Existing #+SELECTED: line: replace it in place.
+       ((string-match "^#\\+SELECTED:[^\n]*\n?" existing)
+        (insert (replace-match new-line t t existing)))
+       ;; No keyword present: prepend.  Ensure trailing newline on the
+       ;; preserved body so the file shape stays well-formed.
+       (t
+        (insert new-line)
+        (insert existing)
+        (unless (string-suffix-p "\n" existing)
+          (insert "\n")))))
     (rename-file tmp-file local-file t)))
 
 ;;;###autoload
@@ -500,7 +786,9 @@ Prompts for confirmation before making any changes."
               (select-window win)
             (switch-to-buffer tasks-buf))
           (goto-char found-point)
-          (org-show-entry)
+          (if (fboundp 'org-fold-show-entry)
+              (org-fold-show-entry)
+            (with-no-warnings (org-show-entry)))
           (recenter))
       (user-error "No task in %s links to the current file"
                   tasks-org-tasks-file-name))))
