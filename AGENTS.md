@@ -86,7 +86,7 @@ the `hms`/`nos`/`drs` shell aliases.
 | `wayland/` | Wayland compositor configs (sway, hyprland, foot, rofi) |
 | `nmd/` | Work-specific tooling (OneDrive etc.) |
 | `darwin-configuration.nix` | macOS system config (nix-darwin) |
-| `agents/` | AI/coding agent config: pi extensions, prompts, skills |
+| `agents/` | AI/coding agent config: pi extensions, prompts, skills. Also publishes the `agent-org-memory` pi package (manifest in `agents/package.json`, Nix package via `agents/agent-org-memory.nix`, exposed as `packages.<system>.agent-org-memory` in `flake.nix`). See `agents/README.md`. |
 | `microchip/` | Microchip embedded dev tooling (see microchip/README.org) |
 | `legacy/` | Deprecated configs (ruby, matlab, cdrip) |
 
@@ -96,5 +96,7 @@ the `hms`/`nos`/`drs` shell aliases.
 - `allowUnfree = true` globally; `--impure` flag required on all builds (env var reads)
 - Overlays applied: nix-microchip, rust-overlay, NUR, llm-agents, claude-desktop
 - The `rebuild` script in repo root is hardcoded for xps15 NixOS rebuild only
-- `agents.nix` symlinks `agents/pi/` contents into `~/.pi/agent/` (settings, extensions, prompts, skills)
+- `agents.nix` is a Home Manager module with two modes selected via `agents.mode`:
+  - `editable` (default) — whole-directory `mkOutOfStoreSymlink`s point `~/.agents/skills`, `~/.pi/agent/{AGENTS.md,prompts,settings.json,extensions,skills}` at the live `agents/` checkout. The full local suite is installed.
+  - `packaged` — per-entry symlinks from the `agent-org-memory` Nix store output. Only the four packaged extensions (`tasks`, `jira`, `leader-menu`, `emacsclient`) and three packaged skills (`org-tasks`, `org-plan`, `org-jira`) plus the `lib/` helper are installed; other entries in the destination directories are left alone.
 - Darwin config lives in the root flake — run `drs` alias or `darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure`

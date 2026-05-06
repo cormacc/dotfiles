@@ -5,6 +5,12 @@ are available to every coding agent that honours that location
 (=pi=, =claude-code=, =codex=). For pi-only skills that depend on
 specific extensions, see [[file:../pi/skills/][../pi/skills/]].
 
+The =org-tasks=, =org-plan=, and =org-jira= skills below are also
+shipped as part of the =agent-org-memory= pi package alongside the
+=tasks=, =jira=, =leader-menu=, and =emacsclient= extensions. See
+[[file:../README.md][../README.md]] for the package boundary, install routes (npm/git/Nix),
+and the editable-vs-packaged Home Manager modes.
+
 * Skills
 
 - [[file:clj-nrepl/SKILL.md][clj-nrepl]] :: REPL-driven Clojure development for writing,
