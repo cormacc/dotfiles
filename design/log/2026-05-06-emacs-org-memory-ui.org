@@ -167,14 +167,24 @@ protocol helper surface and plain org editing where they fit.
 
 * Plan
 
-** TODO [#B] Evaluate vui.el for the UI implementation :research:
+** DONE [#B] Evaluate vui.el for the UI implementation :research:
+CLOSED: [2026-05-06 Wed 23:30]
 :PROPERTIES:
 :ID: 367d217c-2355-42fa-87b4-bd6a035ba872
 :CREATED: [2026-05-06 Wed 21:56]
+:STARTED: [2026-05-06 Wed 23:00]
 :END:
 :LOGBOOK:
+- State "DONE"       from "STARTED"    [2026-05-06 Wed 23:30]
+- State "STARTED"    from "TODO"       [2026-05-06 Wed 23:00]
 - Created [2026-05-06 Wed 21:56]
 :END:
+Outcome: adopt vui.el (full evaluation in =* Implementation= →
+"vui.el evaluation"). Component model fits the problem shape;
+path-based cursor preservation, face-driven styling, and =widget.el=
+foundation cover all v1 needs. No blockers. Emacs 30.2 environment
+satisfies the 29.1 minimum.
+
 Acceptance criteria:
 - A note (under =design/notes/= or appended to this change-record's
   =* Implementation= section) summarises:
@@ -199,15 +209,48 @@ Acceptance criteria:
 
 Read =vui.el= upstream and build a small spike before committing
 later tasks to its primitives.
-** TODO [#B] Rebuild the =tasks-org= protocol helper surface :helpers:
+** DONE [#B] Rebuild the =tasks-org= protocol helper surface :helpers:
+CLOSED: [2026-05-06 Wed 23:48]
 :PROPERTIES:
 :ID: 7fe12dc9-368e-42ff-ab9c-d7dd4a947697
 :CREATED: [2026-05-06 Wed 23:06]
+:STARTED: [2026-05-06 Wed 23:32]
 :BLOCKED-BY: 367d217c-2355-42fa-87b4-bd6a035ba872
 :END:
 :LOGBOOK:
+- State "DONE"       from "STARTED"    [2026-05-06 Wed 23:48]
+- State "STARTED"    from "TODO"       [2026-05-06 Wed 23:32]
 - Created [2026-05-06 Wed 23:06]
 :END:
+Outcome:
+- Replaced destructive =tasks-org--write-local-selection= with a
+  content-preserving writer (parses existing local file, replaces
+  =#+SELECTED:= line in place or prepends; preserves task headings
+  and =#+IMPORT:= keywords).
+- Added protocol-correct status transition helpers:
+  =tasks-org--apply-status-transition=, =tasks-org-cycle-status=,
+  =tasks-org-cycle-status-back=, =tasks-org-set-status-at=. Drives
+  heading keyword + append-only =:LOGBOOK:= entry +
+  =CLOSED:= (set on terminal, refreshed on re-close, cleared on
+  reopen) + =:STARTED:= (first-transition-only). Logs LOGBOOK
+  unconditionally because the project =#+TODO:= sequence does not
+  declare =/!= markers.
+- Added =tasks-org-locate-by-id= (scans TASKS.org / TASKS.local.org
+  / extra files for a UUID, returns =(file . pos)=).
+- Added =tasks-org-create-import-for-current-task= scaffold using
+  the org-plan minimal skeleton (=#+TITLE/#+DATE/#+PARENT_ID/#+STATUS/#+TODO=
+  + sections =* Context/** Design decisions/* Plan/* Implementation/* Open questions=).
+  Refuses to overwrite existing files; ensures parent has =:ID:=
+  before scaffolding.
+- New Spacemacs bindings on =SPC m ;= prefix: =;c= scaffold, =;n=
+  cycle forward, =;N= cycle back.
+- Tests: 17/17 passing (added 11 new tests covering selection
+  preservation across 4 scenarios, scaffold skeleton + overwrite
+  refusal, status transitions including TODO->STARTED, STARTED->DONE,
+  DONE->STARTED reopen, multi-transition LOGBOOK append, cycle-direction
+  wrap).
+- Byte-compile clean (0 warnings).
+
 Acceptance criteria:
 - Existing helper names and behaviours are reviewed against the current
   org-memory protocol and either retained, renamed, or discarded; no legacy
@@ -230,16 +273,38 @@ Acceptance criteria:
 - Unit tests cover selection preservation with local drafts, =#+IMPORT:= open
   + scaffold insertion, and representative status transitions including
   reopen from DONE.
-** TODO [#B] Define the in-Emacs task-graph model :model:
+** DONE [#B] Define the in-Emacs task-graph model :model:
+CLOSED: [2026-05-06 Wed 23:53]
 :PROPERTIES:
 :ID: ee133a81-c08c-4820-bad4-e672f102d0a7
 :CREATED: [2026-05-06 Wed 21:56]
+:STARTED: [2026-05-06 Wed 23:48]
 :BLOCKED-BY: 367d217c-2355-42fa-87b4-bd6a035ba872
 :BLOCKED-BY+: 7fe12dc9-368e-42ff-ab9c-d7dd4a947697
 :END:
 :LOGBOOK:
+- State "DONE"       from "STARTED"    [2026-05-06 Wed 23:53]
+- State "STARTED"    from "TODO"       [2026-05-06 Wed 23:48]
 - Created [2026-05-06 Wed 21:56]
 :END:
+Outcome: =tasks-org-graph.el= ships the documented task-graph
+plist shape, a pure-elisp reader =tasks-org-load-graph= built on
+=org-element-parse-buffer= + =find-file-noselect=, and accessors
+=tasks-org-graph-find-by-id= / =-tasks= / =-selected-id= / =-files=.
+Plan-file ingestion follows =#+IMPORT:= into =* Plan= sections with
+recursive subtask traversal. Local tasks ingested with =:origin=
+=local=. Linked-issue parser handles bare keys + org-link tokens.
+Tests: 7 new tests covering heading-line parsing, linked-issue
+extraction, full-graph load with import + selection, local-task
+ingestion, find-by-id across imports, and a read-only invariant
+(graph load does not mutate source files). Byte-compile clean.
+Two implementation gotchas captured during this task:
+- =split-string= clobbers global match data; capture
+  =match-beginning= / =match-string= before calling it.
+- A plan file without =#+TODO:= keeps =org-todo-keywords-1= at the
+  org default =("TODO" "DONE")=. The reader uses a protocol-keyword
+  union so STARTED / WAITING / CANCELLED still surface.
+
 Acceptance criteria:
 - A documented data shape for a loaded task graph: top-level tasks,
   subtasks (including subtasks pulled in via =#+IMPORT:= change-record files),
@@ -270,16 +335,53 @@ Acceptance criteria:
 
 The vui.el evaluation may constrain how the model is exposed to the
 renderer, hence the dependency.
-** TODO [#B] Implement the expanded tasks UI buffer :ui:
+** DONE [#B] Implement the expanded tasks UI buffer :ui:
+CLOSED: [2026-05-06 Wed 23:59]
 :PROPERTIES:
 :ID: b44c8e53-7b12-4800-aab1-9319225356ec
 :CREATED: [2026-05-06 Wed 21:56]
+:STARTED: [2026-05-06 Wed 23:53]
 :BLOCKED-BY: 367d217c-2355-42fa-87b4-bd6a035ba872
 :BLOCKED-BY+: ee133a81-c08c-4820-bad4-e672f102d0a7
 :END:
 :LOGBOOK:
+- State "DONE"       from "STARTED"    [2026-05-06 Wed 23:59]
+- State "STARTED"    from "TODO"       [2026-05-06 Wed 23:53]
 - Created [2026-05-06 Wed 21:56]
 :END:
+Outcome:
+- =tasks-org-ui.el= ships the visualisation buffer:
+  =tasks-org-ui-mode= (derives from =special-mode=; =vui-mount=
+  enables =vui-mode= on render per vui release notes); the
+  =tasks-org-ui--root= vui component; row formatting with the pi
+  colour palette + linked-issue badges + =⇲= change-record indicator
+  + =⊠= local-draft marker; default expansion rules that walk the
+  selected task's ancestor path; debounced file-notify watchers for
+  every loaded graph file; =org-id-update-id-locations= on each load.
+- Public commands: =tasks-org-ui-show=, =-toggle-expand=,
+  =-cycle-status= (forward/back), =-toggle-selected=,
+  =-visit-source= (reuses already-visible windows), =-open-or-create-import=,
+  =-refresh=. =SPC= deliberately unbound in the local map.
+- Spacemacs wiring in =org-user/packages.el=: =vui= recipe-fetched
+  from =github.com/d12frosted/vui.el=; =tasks-org-ui= local;
+  evilified-state mapping registered via
+  =evilified-state-evilify-map= so j/k/RET/TAB/h/l/s/e/p/g/q remap
+  while =SPC= stays the leader; launchers =SPC a t= (global) and
+  =, ; T= (in =org-mode= local-leader, alongside the existing
+  =;s/;p/;P/;c/;n/;N/;t/;Lp/;Lu= bindings).
+- Tests: 8 new tests covering default-expansion empty/path/sibling
+  rules and label formatting (selected-marker, local-origin tint,
+  =#+IMPORT= indicator, badge rendering). 31/31 total tests pass.
+- =tasks-org-ui.el= is =:no-byte-compile= because vui's component
+  macros expand at load time and vui may not be available in
+  arbitrary batch contexts. The Spacemacs layer
+  load order (=:after (vui tasks-org)=) ensures vui is loaded before
+  the file at runtime.
+- Runtime behaviour with vui not yet exercised in batch
+  (the eval environment lacks vui); validation deferred to plan
+  task =9a985abf=. Observations queued in the post-implementation
+  review TODO list.
+
 Acceptance criteria:
 - New command =tasks-org-ui-show= (working title) opens a dedicated
   buffer, e.g. =*tasks-org*=, in a new derived major mode
@@ -340,15 +442,31 @@ Acceptance criteria:
 - ID jump prerequisite: the graph load runs =org-id-update-id-locations=
   over the loaded fileset so =org-id-goto= works on first =e= without
   the user having opened each file manually.
-** TODO [#C] Compact selected-task indicator :ui:selection:
+** DONE [#C] Compact selected-task indicator :ui:selection:
+CLOSED: [2026-05-07 Thu 00:01]
 :PROPERTIES:
 :ID: 0513b800-e184-4b24-a0ef-6dac18fca226
 :CREATED: [2026-05-06 Wed 21:56]
+:STARTED: [2026-05-06 Wed 23:59]
 :BLOCKED-BY: b44c8e53-7b12-4800-aab1-9319225356ec
 :END:
 :LOGBOOK:
+- State "DONE"       from "STARTED"    [2026-05-07 Thu 00:01]
+- State "STARTED"    from "TODO"       [2026-05-06 Wed 23:59]
 - Created [2026-05-06 Wed 21:56]
 :END:
+Outcome: =tasks-org-ui-show-selected= opens the compact widget in a
+top side window via =display-buffer-in-side-window=. Renders the
+top-level subtree containing the selected task with =★= marker;
+elides DONE/CANCELLED subtrees as =… N completed subtasks=; truncates
+overflow lines as =  … N more rows=. File-notify watchers re-render
+on disk changes. =tasks-org-ui-compact-mode= is a separate
+=special-mode= derivative with =q= -> =quit-window=. Documented as
+optional via the configuration knob =tasks-org-ui-compact-display-action=
+so users can disable or relocate the side window. 4 new tests
+covering containing-top-level lookup, completed-subtree elision,
+no-selection fallback, and overflow truncation. 35/35 total tests pass.
+
 Acceptance criteria:
 - A command =tasks-org-ui-show-selected= opens the compact view in a
   side window via =display-buffer= rules.
@@ -363,15 +481,32 @@ Acceptance criteria:
   package.
 
 Optional Emacs analogue of the pi compact widget.
-** TODO [#C] Linked-issue badges and =J= keybinding :issues:
+** DONE [#C] Linked-issue badges and =J= keybinding :issues:
+CLOSED: [2026-05-07 Thu 00:02]
 :PROPERTIES:
 :ID: d63cc5a5-57ee-4329-9ca7-07cc0800d162
 :CREATED: [2026-05-06 Wed 21:56]
+:STARTED: [2026-05-07 Thu 00:01]
 :BLOCKED-BY: b44c8e53-7b12-4800-aab1-9319225356ec
 :END:
 :LOGBOOK:
+- State "DONE"       from "STARTED"    [2026-05-07 Thu 00:02]
+- State "STARTED"    from "TODO"       [2026-05-07 Thu 00:01]
 - Created [2026-05-06 Wed 21:56]
 :END:
+Outcome: Badge rendering already landed in task =b44c8e53= (=⤴=
+prefix in =tasks-org-ui--format-summary=). Added the resolver
+=tasks-org-ui--resolve-issue-token= (handles =[[url][label]]= and
+bare keys against =#+ISSUE_URL_BASE:= with =`{ID}`= placeholder or
+prefix-append; URL-encodes the key) and command
+=tasks-org-ui-open-linked-issues= bound to =J= in both the
+keymap and the evilified-state mapping. Caps URLs opened at
+=tasks-org-ui-linked-issues-cap= (default 5) with overflow message;
+silent on empty/absent property; missing-base trigger surfaces a
+message pointing at the keyword. 5 new tests covering org-link,
+template, prefix, unresolvable, and percent-encoding cases. 40/40
+total tests pass.
+
 Acceptance criteria:
 - Each task row renders linked-issue tokens as =⤴= badges immediately
   before the tag suffix.
@@ -387,15 +522,36 @@ Acceptance criteria:
 
 Mirrors the pi extension's =:LINKED_ISSUES:= rendering and browser
 open key.
-** TODO [#C] Document the UI in the layer README :docs:
+** DONE [#C] Document the UI in the layer README :docs:
+CLOSED: [2026-05-07 Thu 00:05]
 :PROPERTIES:
 :ID: 2990f011-7534-4010-8f9f-e3e89d645937
 :CREATED: [2026-05-06 Wed 21:56]
+:STARTED: [2026-05-07 Thu 00:02]
 :BLOCKED-BY: b44c8e53-7b12-4800-aab1-9319225356ec
 :END:
 :LOGBOOK:
+- State "DONE"       from "STARTED"    [2026-05-07 Thu 00:05]
+- State "STARTED"    from "TODO"       [2026-05-07 Thu 00:02]
 - Created [2026-05-06 Wed 21:56]
 :END:
+Outcome: =editors/emacs/spacemacs/layers/org-user/README.org=
+restructured. New section "tasks-org-ui: task graph visualisation"
+documents activation, in-buffer keymap, status colour palette,
+default collapse rules, the compact widget, linked-issue badges +
+=J= behaviour, and explicitly enumerates features-not-yet-ported
+with links to the change-record. The =tasks-org= command table
+is updated with the new =;c=, =;n=, =;N=, =;T= bindings. Protocol
+conventions section now covers =:STARTED:=, =CLOSED:=, =:LOGBOOK:=
+semantics + change-record scaffold + =:LINKED_ISSUES:= /
+=#+ISSUE_URL_BASE:= resolution. Cross-references include
+=agents/pi/extensions/tasks/README.md= as the canonical UX spec
+and =agents/skills/org-tasks/SKILL.md= +
+=agents/skills/org-plan/SKILL.md= as the file-protocol contracts.
+The "Relationship to pi" section documents the v1 co-canonical
+write model and points at the change-record for the deferred
+partial-flip decision.
+
 Acceptance criteria:
 - README documents activation, the keymap, status colour palette, and
   default collapse rules.
@@ -411,15 +567,52 @@ Acceptance criteria:
 
 Update =editors/emacs/spacemacs/layers/org-user/README.org= so the
 new UI is discoverable and its scope vs the pi extension is clear.
-** TODO [#D] Validate end-to-end against TASKS.org and a real plan :verification:
+** WAITING [#D] Validate end-to-end against TASKS.org and a real plan :verification:
 :PROPERTIES:
 :ID: 9a985abf-0572-43dc-8df3-5fde75567a17
 :CREATED: [2026-05-06 Wed 21:56]
+:STARTED: [2026-05-07 Thu 00:05]
 :BLOCKED-BY: b44c8e53-7b12-4800-aab1-9319225356ec
 :END:
 :LOGBOOK:
+- State "WAITING"    from "STARTED"    [2026-05-07 Thu 00:06]
+- State "STARTED"    from "TODO"       [2026-05-07 Thu 00:05]
 - Created [2026-05-06 Wed 21:56]
 :END:
+Batch validation completed during implementation:
+- =tasks-org.el= and =tasks-org-graph.el= byte-compile cleanly
+  (0 warnings).
+- 40/40 ERT tests pass — protocol helpers (selection preservation,
+  status transitions, change-record scaffold), graph reader
+  (heading-line parsing, linked-issue extraction, full-graph load
+  with =#+IMPORT=, local-task ingestion, find-by-id, read-only
+  invariant), UI logic (default-expansion rules, label formatting,
+  badge resolution, compact widget elision/truncation).
+- All 7 UI commands defined:
+  =tasks-org-ui-show=, =-toggle-expand=, =-cycle-status=,
+  =-cycle-status-back=, =-toggle-selected=, =-visit-source=,
+  =-open-or-create-import=, =-show-selected=, =-open-linked-issues=.
+
+Outstanding interactive validation (requires a live Spacemacs
+session with the layer loaded and pi running against this repo):
+- Open =TASKS.org=, launch UI via =SPC a t=, navigate to a task
+  with =#+IMPORT=, expand into subtasks, cycle status; confirm
+  the on-disk file shows new status with LOGBOOK + CLOSED, and
+  pi's compact widget refreshes via its file watcher.
+- Toggle =#+SELECTED:= via =s=; confirm pi shifts selection and
+  no local-draft content is lost.
+- Press =p= on a task with no =#+IMPORT:=; confirm the scaffold
+  runs end-to-end (file written + parent linked + buffer opened).
+- Press =J= on a task with =:LINKED_ISSUES:=; confirm browser opens
+  the URL set, with the cap-and-message behaviour when over 5.
+- Confirm vui rendering, evilified-state mapping, file-notify
+  refresh, and post-implementation review TODOs (filed under
+  task =d19bfbf6='s container task list).
+
+Status =WAITING= until the interactive smoke test runs. New TODOs
+arising from interactive validation should be filed in =TASKS.org=
+referencing this change-record.
+
 Acceptance criteria:
 - Open this repo's =TASKS.org=, launch the UI, navigate to a task
   with a =#+IMPORT:= change-record, expand into subtasks, cycle status, and confirm:
@@ -436,15 +629,36 @@ Acceptance criteria:
 
 Manual smoke test mirroring the =tasks-org= validation task
 (=437d6716-1135-4459-ad0f-ee9f88eff294=) — but for the UI buffer.
-** TODO [#D] File follow-ups deferred from v1 :followup:
+** DONE [#D] File follow-ups deferred from v1 :followup:
+CLOSED: [2026-05-07 Thu 00:09]
 :PROPERTIES:
 :ID: d19bfbf6-a161-41a0-8779-c4f79d3b289f
 :CREATED: [2026-05-06 Wed 21:56]
+:STARTED: [2026-05-07 Thu 00:06]
 :BLOCKED-BY: 9a985abf-0572-43dc-8df3-5fde75567a17
 :END:
 :LOGBOOK:
+- State "DONE"       from "STARTED"    [2026-05-07 Thu 00:09]
+- State "STARTED"    from "TODO"       [2026-05-07 Thu 00:06]
 - Created [2026-05-06 Wed 21:56]
 :END:
+Outcome: nine deferred follow-ups filed under "Improvements" in
+=TASKS.org=, each referencing parent =9b5067ca= and this
+change-record:
+- =ab43f47b= [#D] Port archive flow (pi =A=)
+- =0c8dc86c= [#D] Surface publish/unpublish in the UI
+- =8de01feb= [#D] Port doctor command (=/tasks doctor=)
+- =aa764479= [#D] Port task creation (=n= / =N=)
+- =4bd09d61= [#D] Details pane next to the tree
+- =242d337b= [#C] Active ECA bridge (=c= keybinding)
+- =e0931b61= [#D] Evaluate Emacs-primary status-transition
+  delegation (partial flip)
+- =8b7d9a40= [#D] Live cross-process sync with pi (event bridge)
+- =7512d07a= [#D] Agent-assisted change-record drafting
+The =BLOCKED-BY 9a985abf= chain is logical, not lifecycle-blocking
+— filing the follow-ups before validation completes is fine because
+they describe parity gaps that the validation cannot retire.
+
 Acceptance criteria:
 - Each deferred parity gap is filed as its own =TODO= in =TASKS.org=
   when v1 closes, referencing this change-record. At minimum:
@@ -485,6 +699,103 @@ section focused on:
 - Tricky =org-element= / status-writer integration details discovered
   during the UI build.
 - Any divergences from the pi tasks extension's UX and why.
+
+** vui.el evaluation
+:PROPERTIES:
+:DATE: [2026-05-06 Wed 23:30]
+:END:
+
+Sources: upstream README at =github.com/d12frosted/vui.el=, the
+=docs/guide/01-getting-started.org= guide, and release notes through
+the first stable cut.
+
+*** What vui.el offers
+- Declarative, component-based UI library; React/Vue/Solid mental model.
+  Core building blocks are =vui-defcomponent= (component definition with
+  props, state, lifecycle hooks like =:on-mount=) and =vui-mount= /
+  =vui-render= for buffer attachment.
+- State management via =vui-set-state= triggers virtual-DOM diffing and
+  reconciliation. Re-renders are scoped by component.
+- Hooks: =vui-use-effect=, =vui-use-ref=, =vui-use-memo=,
+  =vui-use-callback=. Context API via =vui-defcontext= /
+  =vui-use-<context>=.
+- Layout primitives: =vui-vstack=, =vui-hstack=, =vui-box=, =vui-table=,
+  =vui-list=, plus leaf elements =vui-text=, =vui-button=, =vui-field=,
+  =vui-newline=, =vui-fragment=. All are intra-buffer; cross-buffer split
+  panes still go through =display-buffer= rules with vui content inside
+  each.
+- Major mode: =vui-mode= derives from =special-mode= and exposes
+  =vui-mode-map= for extension. Per release notes, packages can derive
+  their own modes from =vui-mode= and add bindings while preserving
+  widget functionality.
+- Cursor preservation: path-based widget tracking (recent fix) so the
+  cursor follows widgets across re-renders even when widgets above are
+  added/removed. This maps directly onto our "preserve cursor task by
+  UUID across file-notify refresh" requirement.
+- Faces: leaf widgets accept =:face=, so the pi colour palette
+  (status tokens, badges) is expressible without raw overlays.
+- Built on Emacs =widget.el=; no external deps; requires Emacs 29+.
+
+*** What it does *not* directly cover
+- Per-region keymaps: navigation is widget-based (TAB / S-TAB between
+  =vui-button= / =vui-field= widgets). For evil-style =j= / =k= on tree
+  rows we will need to either (a) render each row as a =vui-button= and
+  bind motion keys in our derived mode-map to the next/prev widget, or
+  (b) layer overlay-driven cursor + bindings in our derived mode. Option
+  (a) is the more idiomatic vui path and stays consistent with TAB
+  semantics; we adopt it as the v1 default.
+- Cross-buffer split layouts: vui has no opinion. Side-pane / split
+  layouts use =display-buffer-alist= the same way magit/dired do.
+- File-notify: not built in. We use Emacs =file-notify= directly and
+  call =vui-set-state= from the watcher callback to trigger re-render.
+
+*** Recommendation: adopt vui.el for v1
+The reactive component model maps cleanly onto our problem shape: graph
+state → tree rendering, with file-notify driving graph reloads. Path-
+based cursor preservation removes the manual UUID-tracking work the
+plan called out as a separate concern. Faces cover the colour palette.
+Component composition keeps the rendering code small.
+
+The single-widget TAB bug from Emacs 29 is documented as fixed in Emacs
+30; the dotfiles target =pkgs.emacs-pgtk= on Emacs 30.2, so the
+workaround is unnecessary in this environment.
+
+*** v1 vui primitives we will rely on
+- =vui-defcomponent= for: =task-row=, =task-tree=, =tasks-app= (root).
+- =vui-mount= called by =tasks-org-ui-show= to attach =tasks-app= to
+  the =*tasks-org*= buffer.
+- =vui-vstack= for the tree column; =vui-fragment= for inline groups
+  (status token + summary + badges + tags).
+- =vui-text= with =:face= for status tokens, priority cookies,
+  badges, tags, =#+IMPORT:= path indicators.
+- =vui-button= for each tree row, so TAB/S-TAB widget navigation
+  doubles as our row navigation; =j= / =k= / arrow keys in the
+  derived mode-map call =widget-forward= / =widget-backward=.
+- =:on-click= handlers on each row =vui-button= for default
+  expand/collapse on RET; explicit keymap entries for =l=/=h=/=s=/=e=/=p=
+  per the UI task acceptance criteria.
+- =vui-use-effect= on the root component for registering
+  =file-notify= watchers on TASKS.org / TASKS.local.org / loaded
+  change-records, with cleanup on unmount.
+- Local component state for collapse expansion set; graph itself
+  lives in a buffer-local var refreshed by the watcher.
+
+*** Packaging note
+- vui.el is not on MELPA stable as of evaluation. An =emacsmirror/vui=
+  repo exists (suggesting MELPA-readiness in progress). For the
+  Spacemacs layer wiring we declare:
+  =(vui :location (recipe :fetcher github :repo "d12frosted/vui.el"))=
+  in =org-user-packages=, with a =use-package vui= block in
+  =org-user/init-vui= that just =:require=s the library. If/when MELPA
+  publishes it, the recipe simplifies to =(vui :location elpa)=.
+- Emacs version requirement (29.1 minimum) is satisfied by the dotfiles
+  =pkgs.emacs-pgtk= pin (verified at evaluation time:
+  =GNU Emacs 30.2=). No upgrade required.
+- vui has no external runtime deps; the recipe pulls in only the
+  upstream repo.
+
+Decision: adopt vui.el. Proceed with the helper-surface refactor and
+graph model tasks knowing the renderer is a vui component tree.
 
 * Open questions
 
