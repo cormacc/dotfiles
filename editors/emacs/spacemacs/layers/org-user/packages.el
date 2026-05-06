@@ -33,6 +33,10 @@
   '(
     (org-archive-subtree-hierarchical :location local)
     (tasks-org :location local)
+    (tasks-org-ui :location local)
+    (vui :location (recipe
+                    :fetcher github
+                    :repo "d12frosted/vui.el"))
     org
     org-web-tools
     org-sidebar
@@ -168,6 +172,9 @@ Each entry is either:
                tasks-org-toggle-selected
                tasks-org-open-plan
                tasks-org-open-plan-other-window
+               tasks-org-create-import-for-current-task
+               tasks-org-cycle-status
+               tasks-org-cycle-status-back
                tasks-org-jump-to-parent-task
                tasks-org-publish-task
                tasks-org-unpublish-task)
@@ -178,9 +185,45 @@ Each entry is either:
       ";s" 'tasks-org-toggle-selected
       ";p" 'tasks-org-open-plan
       ";P" 'tasks-org-open-plan-other-window
+      ";c" 'tasks-org-create-import-for-current-task
+      ";n" 'tasks-org-cycle-status
+      ";N" 'tasks-org-cycle-status-back
       ";t" 'tasks-org-jump-to-parent-task
       ";Lp" 'tasks-org-publish-task
-      ";Lu" 'tasks-org-unpublish-task)))
+      ";Lu" 'tasks-org-unpublish-task
+      ";T" 'tasks-org-ui-show)))
+
+(defun org-user/init-vui ()
+  (use-package vui
+    :defer t))
+
+(defun org-user/init-tasks-org-ui ()
+  (use-package tasks-org-ui
+    :commands (tasks-org-ui-show)
+    :after (vui tasks-org)
+    :init
+    (spacemacs/declare-prefix "at" "tasks-org-ui")
+    (spacemacs/set-leader-keys
+      "at" 'tasks-org-ui-show)
+    :config
+    ;; Spacemacs evilified-state: motion keys remap to UI actions while
+    ;; SPC remains the global leader.
+    (when (fboundp 'evilified-state-evilify-map)
+      (evilified-state-evilify-map tasks-org-ui-mode-map
+        :mode tasks-org-ui-mode
+        :bindings
+        "j" 'next-line
+        "k" 'previous-line
+        "RET" 'tasks-org-ui-toggle-expand
+        "TAB" 'tasks-org-ui-toggle-expand
+        "l" 'tasks-org-ui-cycle-status
+        "h" 'tasks-org-ui-cycle-status-back
+        "s" 'tasks-org-ui-toggle-selected
+        "e" 'tasks-org-ui-visit-source
+        "p" 'tasks-org-ui-open-or-create-import
+        "J" 'tasks-org-ui-open-linked-issues
+        "g" 'tasks-org-ui-refresh
+        "q" 'quit-window))))
 
 (defun org-user/post-init-org-archive-subtree-hierarchical ()
   (setq org-archive-default-command 'org-archive-subtree-hierarchical))

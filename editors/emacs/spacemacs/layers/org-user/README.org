@@ -12,109 +12,263 @@
   - [[#activation][Activation]]
   - [[#commands--key-bindings][Commands & key bindings]]
   - [[#protocol-conventions][Protocol conventions]]
-  - [[#relationship-to-the-pi-tasks-extension][Relationship to the pi tasks extension]]
+- [[#tasks-org-ui-task-graph-visualisation][tasks-org-ui: task graph visualisation]]
+  - [[#launching-the-ui][Launching the UI]]
+  - [[#in-buffer-keymap][In-buffer keymap]]
+  - [[#status-colours][Status colours]]
+  - [[#default-collapse-rules][Default collapse rules]]
+  - [[#compact-selected-task-widget][Compact selected-task widget]]
+  - [[#linked-issue-badges][Linked-issue badges]]
+  - [[#features-not-yet-ported-from-pi][Features not yet ported from pi]]
+- [[#relationship-to-the-pi-tasks-extension][Relationship to the pi tasks extension]]
 - [[#key-bindings][Key bindings]]
 
 * Description
 Personal additions on top of Spacemacs' built-in =+lang/org= layer:
 custom org-mode tweaks, archive helper, web tools, =org-roam= setup,
-and the =tasks-org= local package for the plain-org task-memory
-protocol.
+the =tasks-org= local package for the plain-org task-memory
+protocol, and =tasks-org-ui= — a vui.el-rendered visualisation of the
+project task graph.
 
 ** Features
   - Hierarchical archive (=org-archive-subtree-hierarchical=)
   - org-web-tools for web capture
   - org-roam (with custom capture templates)
   - =tasks-org= local package (see below)
+  - =tasks-org-ui= local package (see below) — interactive task tree
+    UI with feature-parity to the pi tasks extension's expanded view
 
 * Install
-To use this configuration layer, add it to your =~/.spacemacs=. You will need to
-add =org-user= to the existing =dotspacemacs-configuration-layers= list in this
-file.
+Add =org-user= to =dotspacemacs-configuration-layers= in your
+=~/.spacemacs=.  The =vui= dependency required by =tasks-org-ui= is
+recipe-fetched from =github.com/d12frosted/vui.el= the first time
+the layer activates.
 
 * tasks-org: plain-org task memory helpers
 
 Local package providing Emacs-side helpers for the plain-org
 task-memory protocol used by the =pi= tasks extension.
 
-Files remain plain org. Pi (when present) reloads via its file
-watchers; there is no live IPC. The package is useful even without pi
-because it just maintains conventions on top of standard org.
+Files remain plain org.  Pi (when present) reloads via its file
+watchers; there is no live IPC.  The package is useful even without
+pi because it just maintains conventions on top of standard org.
 
 ** Activation
 
-=tasks-org-mode= auto-enables on any org buffer that matches either rule:
+=tasks-org-mode= auto-enables on any org buffer matching either:
 
-- The buffer contains a =#+DEFAULT_PLAN_DIR:= keyword (canonical marker
-  of a task-memory root file — matches =TASKS.org= regardless of where
-  it lives relative to the project).
-- The buffer's path (relative to the project root) matches a pattern in
-  =tasks-org-auto-enable-paths= (defaults: =TASKS.org=, =design/log/*.org=).
+- A buffer that contains a =#+DEFAULT_PLAN_DIR:= keyword (canonical
+  marker of a task-memory root file — matches =TASKS.org= regardless
+  of where it lives relative to the project).
+- A buffer whose project-relative path matches a pattern in
+  =tasks-org-auto-enable-paths= (defaults: =TASKS.org=,
+  =design/log/*.org=).
 
-Manual activation: =M-x tasks-org-mode=.
+Manual activation: =M-x tasks-org-mode=.  =tasks-org-ui-mode= buffers
+are explicitly excluded from this auto-enable.
 
-Project root is resolved via =projectile-project-root= when projectile
-is loaded, falling back to the buffer's directory otherwise.
+Project root is resolved via =projectile-project-root= when
+projectile is loaded, falling back to the buffer's directory.
 
 ** Commands & key bindings
 
 All bindings are registered under the org local-leader prefix =, ;=
-(=SPC m ;= in Spacemacs). =;= is free in the Spacemacs org layer and
-reachable without Shift, with no unbinding gymnastics required.
+(=SPC m ;= in Spacemacs).  =;= is free in the Spacemacs org layer
+and reachable without Shift.
 
-| Key       | Command                            | Description                                                   |
-|-----------+------------------------------------+---------------------------------------------------------------|
-| =, ; s=   | =tasks-org-toggle-selected=        | Toggle =#+SELECTED:= on the current task (single-selection)   |
-| =, ; p=   | =tasks-org-open-plan=              | Open the =#+IMPORT:='d change-record (errors if absent)       |
-| =, ; P=   | =tasks-org-open-plan-other-window= | Same, but open in another window                              |
-| =, ; t=   | =tasks-org-jump-to-parent-task=    | Jump to the task in =TASKS.org= whose =#+IMPORT:= is this file   |
-| =, ; L p= | =tasks-org-publish-task=           | Publish local task → =TASKS.org= (moves subtree, saves both)  |
-| =, ; L u= | =tasks-org-unpublish-task=         | Unpublish top-level task → =TASKS.local.org= (top-level only) |
+| Key       | Command                                       | Description                                                       |
+|-----------+-----------------------------------------------+-------------------------------------------------------------------|
+| =, ; s=   | =tasks-org-toggle-selected=                   | Toggle =#+SELECTED:= on the current task (single-selection)       |
+| =, ; p=   | =tasks-org-open-plan=                         | Open the =#+IMPORT:='d change-record (errors if absent)           |
+| =, ; P=   | =tasks-org-open-plan-other-window=            | Same, but open in another window                                  |
+| =, ; c=   | =tasks-org-create-import-for-current-task=    | Scaffold an empty change-record and link via =#+IMPORT:=          |
+| =, ; n=   | =tasks-org-cycle-status=                      | Cycle TODO state forward (writes LOGBOOK / CLOSED / =:STARTED:=)  |
+| =, ; N=   | =tasks-org-cycle-status-back=                 | Cycle TODO state backward                                         |
+| =, ; t=   | =tasks-org-jump-to-parent-task=               | Jump to the task in =TASKS.org= whose =#+IMPORT:= is this file    |
+| =, ; T=   | =tasks-org-ui-show=                           | Open the tasks UI buffer (also reachable globally as =SPC a t=)   |
+| =, ; L p= | =tasks-org-publish-task=                      | Publish local task → =TASKS.org= (moves subtree, saves both)      |
+| =, ; L u= | =tasks-org-unpublish-task=                    | Unpublish top-level task → =TASKS.local.org=                      |
 
-The mode lighter is =Tasks=.
-
-** Scope
-
-This package is for *review, edit, and reorganisation* of existing
-task graphs and change-records. Plan creation and task creation are
-the remit of the agent harness (the pi tasks extension's `/tasks new',
-=n=, =N=, and =p= keybindings); =tasks-org-open-plan= opens an
-existing =#+IMPORT:= linked file but does not scaffold a new one.
+The minor-mode lighter is =Tasks=.
 
 ** Protocol conventions
 
-See =agents/skills/org-tasks/SKILL.md= for the canonical file
-protocol (TODO cycle, properties, =#+IMPORT:=, =#+DEFAULT_PLAN_DIR:=,
-=#+SELECTED:=). Emacs-side specifics:
+See =agents/skills/org-tasks/SKILL.md= and =agents/skills/org-plan/SKILL.md=
+for the canonical file protocol (TODO cycle, properties, =#+IMPORT:=,
+=#+DEFAULT_PLAN_DIR:=, =#+SELECTED:=, =:LINKED_ISSUES:=, =#+ISSUE_URL_BASE:=,
+change-record sections).  Emacs-side specifics:
 
-- =:ID:= backfill is the responsibility of the pi tasks extension
-  and the agent org-memory skill; this package does not scan or
-  mutate IDs, except to assign one when a task is selected via
-  =tasks-org-toggle-selected=.
+- =:ID:= is auto-stamped on demand (when toggling selection or
+  scaffolding a change-record).  Bulk backfill is the responsibility
+  of the pi tasks extension and the agent org-memory skill.
 
 - =#+SELECTED:= is written to the gitignored =TASKS.local.org= as a
-  single =#+SELECTED: <UUID>= keyword. Deselecting clears the value
-  but retains the file (it may carry local drafts or =#+IMPORT:=
-  keywords alongside the selection).
+  single =#+SELECTED: <UUID>= line.  The writer preserves all other
+  content in the file (local task headings, =#+IMPORT:= keywords).
+  Deselecting clears the value but retains the file.
+
+- =:STARTED:=, =CLOSED:=, and the =:LOGBOOK:= drawer are written by
+  =tasks-org-cycle-status= per the org-memory protocol: heading
+  keyword updated, append-only LOGBOOK entry, =CLOSED:= refreshed
+  on terminal transitions and cleared on reopen, =:STARTED:=
+  recorded once on first entry into =STARTED= and preserved across
+  re-opens.
+
+- Change-record scaffolding (=, ; c=) writes the =org-plan= minimal
+  skeleton (=#+TITLE / #+DATE / #+PARENT_ID / #+STATUS / #+TODO=,
+  sections =* Context / ** Design decisions / * Plan / * Implementation /
+  * Open questions=) and links the parent task via =#+IMPORT:
+  [[file:relative/path]]=.  Refuses to overwrite existing files.
 
 - =#+DEFAULT_PLAN_DIR:= is read from =TASKS.org= and used as an
-  auto-enable hint so plan files inside the project's change-record
-  directory pick up =tasks-org-mode= automatically.
-  =tasks-org-plans-directory= (default: =design/log=) is the
-  fallback when the keyword is absent.
+  auto-enable hint plus the suggested directory for new
+  change-records.  =tasks-org-plans-directory= (default:
+  =design/log=) is the fallback when the keyword is absent.
 
-** Relationship to the pi tasks extension
+* tasks-org-ui: task graph visualisation
 
-Both consumers share the same plain-org files. Pi's file watchers
-pick up Emacs saves automatically; the compact widget and overlay
-refresh without manual intervention. Plan/task creation lives on
-the pi side; Emacs is the reading and refactoring environment.
+A vui.el-rendered visualisation of the project task graph.  Mirrors
+the pi tasks extension's expanded UI for navigate / expand / select /
+cycle workflows; see =agents/pi/extensions/tasks/README.md= for the
+canonical UX contract.
+
+** Launching the UI
+
+| Key                     | Command                | Notes                                            |
+|-------------------------+------------------------+--------------------------------------------------|
+| =SPC a t=               | =tasks-org-ui-show=    | Global launcher; reachable from any buffer       |
+| =, ; T= (in org buffer) | =tasks-org-ui-show=    | Local-leader alias when point is in a task graph |
+
+When invoked from a =tasks-org-mode= buffer with point on a task,
+the UI opens with that task as the cursor row.  Otherwise the cursor
+lands on the selected task (if any) or the first top-level task.
+
+** In-buffer keymap
+
+The buffer is registered with =evilified-state= so motion keys remap
+to UI actions while =SPC= remains the global Spacemacs leader.
+=SPC= is deliberately *not* bound locally.
+
+| Key                  | Action                                                        |
+|----------------------+---------------------------------------------------------------|
+| =j= / =↓=            | Move cursor down                                              |
+| =k= / =↑=            | Move cursor up                                                |
+| =RET= / =TAB=        | Toggle expand/collapse on the cursor task                     |
+| =l= / =→=            | Cycle status forward (via the protocol helper)                |
+| =h= / =←=            | Cycle status backward                                         |
+| =s=                  | Toggle =#+SELECTED:= on the cursor task                       |
+| =e=                  | Visit the source heading (reuses an already-visible window)   |
+| =p=                  | Open the cursor task's =#+IMPORT:=, or scaffold one if absent |
+| =J=                  | Open every resolvable linked-issue URL in the browser         |
+| =g=                  | Reload the graph from disk                                    |
+| =q=                  | Quit the UI buffer                                            |
+
+The graph re-renders automatically when =TASKS.org=, =TASKS.local.org=,
+or any loaded change-record changes on disk (file-notify watchers
+debounce-trigger a refresh).  The cursor task is preserved across
+re-renders by UUID where possible.
+
+On first load, =org-id-update-id-locations= is called over the
+loaded fileset so =e= can jump to source by UUID without the user
+having opened each file manually.
+
+** Status colours
+
+Colours match the pi extension's palette:
+
+| Status      | Face                                  | Default colour |
+|-------------+---------------------------------------+----------------|
+| =TODO=      | =tasks-org-ui-status-todo-face=       | yellow         |
+| =STARTED=   | =tasks-org-ui-status-started-face=    | blue           |
+| =WAITING=   | =tasks-org-ui-status-waiting-face=    | orange         |
+| =DONE=      | =tasks-org-ui-status-done-face=       | green          |
+| =CANCELLED= | =tasks-org-ui-status-cancelled-face=  | red            |
+
+Priority cookies and tag/badge faces are similarly themable; see
+=M-x customize-group RET tasks-org-ui RET=.
+
+** Default collapse rules
+
+On open the UI starts compact:
+
+- Top-level tasks visible.
+- The path leading to the currently selected task is expanded.
+- Sibling subtrees of the selected path stay collapsed.
+- =DONE= / =CANCELLED= subtrees stay collapsed unless they fall on
+  the selected path.
+
+Manual expand/collapse via =RET= or =TAB= persists for the lifetime
+of the UI buffer.
+
+** Compact selected-task widget
+
+=M-x tasks-org-ui-show-selected= opens a side window (top, height
+8 by default) with a read-only view of the selected task's
+containing top-level tree.  Renders at most
+=tasks-org-ui-compact-max-lines= rows (default 6); completed
+subtrees are elided as =… N completed subtasks=, and overflow rows
+collapse as =  … N more rows=.  Refreshes on disk changes.  The
+widget is optional — close with =q= or never open it.  The display
+action is configurable via =tasks-org-ui-compact-display-action=.
+
+** Linked-issue badges
+
+Tasks with =:LINKED_ISSUES:= render =⤴= badges immediately before
+the tag suffix.  Tokens may be:
+
+- *Bare keys* (e.g. =MBE-123=) — resolved against the project's
+  =#+ISSUE_URL_BASE:= keyword in =TASKS.org=.  The keyword may
+  contain a =`{ID}`= placeholder (substituted with the URL-encoded
+  key) or be a prefix that the encoded key is appended to.
+- *Org-link forms* =[[url][label]]= — rendered as the label,
+  resolved to the URL verbatim.
+
+=J= on the cursor task opens every resolvable URL via =browse-url=,
+capped at =tasks-org-ui-linked-issues-cap= (default 5).  Empty/absent
+property is a silent no-op.  Bare tokens with no resolvable URL
+trigger a message pointing at the missing =#+ISSUE_URL_BASE:=
+keyword.
+
+** Features not yet ported from pi
+
+The pi tasks extension is the canonical UX spec; the v1 Emacs UI
+intentionally ships the read/navigate/cycle subset.  These pi
+features are not yet available from =tasks-org-ui= and are tracked
+as follow-ups in =TASKS.org= (referencing the
+[[file:../../../../../design/log/2026-05-06-emacs-org-memory-ui.org][change-record]]):
+
+- Archive flow (pi =A=).
+- Publish / unpublish flows (pi =P= / =U=) — available from the
+  source buffer via =, ; L p= / =, ; L u= but not from the UI.
+- Doctor command (pi =/tasks doctor=).
+- Agent-assisted change-record drafting (pi =p= prompts an agent
+  to draft =* Context= and =* Plan= after scaffolding).
+- Active ECA bridge (=c= keybinding to scope an ECA chat to the
+  cursor task).
+- Details pane next to the tree.
+- Task creation (pi =n= / =N=).
+- Live cross-process sync with pi (events, not just file-watch).
+
+* Relationship to the pi tasks extension
+
+Both consumers share the same plain-org files.  Mutations from
+either side go through ordinary file writes; the other side picks
+them up via file watchers (pi) or =auto-revert=/file-notify (Emacs
++ =tasks-org-ui=).  Plan creation, task creation, agent prompts,
+and the doctor command live on the pi side; Emacs covers reading,
+refactoring, and the UI subset documented above.
+
+For v1, Emacs writes are *co-canonical* with pi-side writes — neither
+side is the canonical writer.  See the
+[[file:../../../../../design/log/2026-05-06-emacs-org-memory-ui.org][UI change-record]]
+for the design decision and the documented triggers under which a
+partial flip (Emacs-primary status transitions) would be considered.
 
 * Key bindings
 
-See [[#commands--key-bindings][tasks-org commands & key bindings]]
-above for the =, ;= prefix. Other layer bindings remain those
-inherited from Spacemacs' =+lang/org= layer.
+See above for the =, ;= local-leader prefix and the
+=SPC a t= global launcher for the UI.  All other layer bindings
+are inherited from Spacemacs' =+lang/org= layer.
 
 # Use GitHub URLs if you wish to link a Spacemacs documentation file or its heading.
 # Examples:
