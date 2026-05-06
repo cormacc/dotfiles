@@ -199,6 +199,23 @@
         };
       };
 
+      packages =
+        let
+          mkPackages = pkgs: {
+            # Pi package + agent-skills bundle for the org-memory task
+            # protocol. Build with:
+            #   nix build .#agent-org-memory --impure
+            agent-org-memory = pkgs.callPackage ./agents/agent-org-memory.nix { };
+          };
+          darwinPkgsAarch64 = import nixpkgs-darwin {
+            system = "aarch64-darwin";
+            config.allowUnfree = true;
+          };
+        in {
+          x86_64-linux  = mkPackages pkgs;
+          aarch64-darwin = mkPackages darwinPkgsAarch64;
+        };
+
       homeConfigurations = {
         default = home-manager.lib.homeManagerConfiguration {
           inherit pkgs;
