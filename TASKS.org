@@ -40,12 +40,14 @@
 
 * Improvements
 
-** STARTED [#A] Extract agent skills and extensions as new flake
+** DONE [#A] Extract agent skills and extensions as new flake
+CLOSED: [2026-05-07 Thu 22:46]
 :PROPERTIES:
 :ID: 9e134ad1-6a9c-4e7d-9fe9-82df2634224e
 :STARTED: [2026-05-07 Thu 21:25]
 :END:
 :LOGBOOK:
+- State "DONE"      from "STARTED"   [2026-05-07 Thu 22:46]
 - State "STARTED"   from "TODO"      [2026-05-07 Thu 21:25]
 :END:
 #+IMPORT: [[file:design/log/2026-05-07-extract-agent-skills.org]]

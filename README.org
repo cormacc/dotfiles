@@ -163,6 +163,89 @@ The flake uses =builtins.getEnv= for identity and a couple of secrets, hence =--
 | =legacy/= | Deprecated configs (ruby, matlab, cdrip) |
 | =darwin-configuration.nix= | macOS system config (nix-darwin) |
 
+* The dotagents submodule
+
+** What it is
+Agent skills, pi extensions, prompt templates, the pi-side =AGENTS.md=,
+and the =agent-org-memory= pi package live in a sibling repo at
+[[https://github.com/cormacc/dotagents][github:cormacc/dotagents]].
+This repo registers it as a git submodule under [[file:./agents-src/][=agents-src/=]].
+
+Why a submodule rather than a flake input? Editability. Home Manager
+points =mkOutOfStoreSymlink=s at the live submodule working tree, so
+editable changes (skills, extensions, prompts) reload via pi's =/reload=
+without a Home Manager switch. A flake input would resolve to an
+immutable Nix store path and lose that property.
+
+** Bootstrap
+#+begin_src shell
+  # Fresh clone
+  git clone --recurse-submodules https://github.com/cormacc/dotfiles ~/dotfiles
+
+  # Already cloned without --recurse-submodules
+  git -C ~/dotfiles submodule update --init --recursive
+#+end_src
+[[./agents.nix]] runs a fail-fast =home.activation= guard that refuses
+to activate when =agents-src/package.json= is missing, with the same
+instruction in the error message.
+
+** Update workflow
+#+begin_src shell
+  # Pull the latest dotagents commit, leaving you on a detached HEAD
+  git -C ~/dotfiles/agents-src fetch origin
+  git -C ~/dotfiles/agents-src checkout origin/main
+  # Or shorthand:
+  git -C ~/dotfiles submodule update --remote agents-src
+
+  # Commit the new submodule pointer in this dotfiles repo
+  git -C ~/dotfiles add agents-src
+  git -C ~/dotfiles commit -m "chore(agents-src): bump dotagents pointer"
+#+end_src
+
+** Editing in place
+Work inside =agents-src/= directly. Stage and commit changes there, push
+to the dotagents repo, then bump the dotfiles submodule pointer (above)
+so other checkouts pick up the new revision. Pi sessions running on the
+same machine see edits immediately because the install paths are
+symlinks into the live working tree.
+
+** What stays in dotfiles, what moved to dotagents
+After the 2026-05-07 extraction (see
+[[file:design/log/2026-05-07-extract-agent-skills.org]]):
+
+- *Stayed in dotfiles* :: =agents.nix= (Home Manager wiring),
+  =agents-config/pi/settings.json= (user-local pi configuration:
+  default provider/model, package list, secrets toggles), this README,
+  the dotfiles =flake.nix= and =flake.lock=, NixOS / Home Manager /
+  nix-darwin host configs.
+- *Moved to dotagents* :: every reusable skill (generic + pi-specific),
+  every pi extension (active and disabled), shared helper modules
+  (=pi/extensions/lib/=), prompt templates, the pi-side =AGENTS.md=,
+  =package.json=, =agent-org-memory.nix=, the agent-related
+  =TASKS.org= / =TASKS.archive.org= history, and 28 change-record
+  files under =design/log/=.
+
+After you pull this dotfiles change, any =TASKS.local.org= =#+SELECTED:=
+UUID that referenced an extracted task (everything except
+=9e134ad1-...= which is the extraction parent itself) becomes stale.
+Re-select the task in dotagents' =TASKS.org= via the pi tasks overlay
+or by editing =~/dev/agents/dotagents/TASKS.local.org=.
+
+** Releasing dotagents
+Dotagents tags are advisory; this dotfiles repo always tracks an exact
+submodule commit, so consumers don't actually need a tag to pin to.
+When a meaningful slice of dotagents work lands, tag it from inside the
+dotagents working tree:
+
+#+begin_src shell
+  cd ~/dotfiles/agents-src
+  git tag -a v0.2.0 -m "agent-org-memory + foo extension"
+  git push origin v0.2.0
+#+end_src
+Then bump the dotfiles submodule pointer (see *Update workflow* above)
+so the dotfiles flake.lock-like commit captures the tagged dotagents
+revision.
+
 * Known issues / limitations
 
 ** OpenGL applications on non-NixOS
@@ -229,8 +312,15 @@ Then rebuild with =sudo nixos-rebuild switch=.
 
 *** Clone dotfiles repo
 #+begin_src shell
-  git clone https://github.com/cormacc/dotfiles ~/dotfiles
+  # ALWAYS clone with --recurse-submodules so the dotagents submodule
+  # under agents-src/ is initialised in one step.
+  git clone --recurse-submodules https://github.com/cormacc/dotfiles ~/dotfiles
 #+end_src
+
+If you already cloned without =--recurse-submodules=, run
+=git -C ~/dotfiles submodule update --init --recursive=. The Home
+Manager activation script refuses to run when the dotagents submodule
+is missing, with the same instruction in the error message.
 
 *** Integrate host hardware configuration and apply NixOS config from flake
 For a brand new host:
