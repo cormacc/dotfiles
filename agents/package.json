@@ -1,7 +1,7 @@
 {
   "name": "@cormacc/agent-org-memory",
   "version": "0.1.0",
-  "description": "Org-memory task protocol skills (org-tasks, org-plan, org-jira) plus the pi extensions that implement them (tasks, jira, leader-menu, emacsclient).",
+  "description": "Org-memory task protocol skills (org-tasks, org-plan, org-jira) plus the pi extensions that implement them (tasks, jira, emacsclient).",
   "keywords": ["pi-package", "org-mode", "task-management", "agent-skills"],
   "license": "MIT",
   "author": "Cormac Cannon",
@@ -18,7 +18,6 @@
     "extensions": [
       "./pi/extensions/tasks",
       "./pi/extensions/jira",
-      "./pi/extensions/leader-menu",
       "./pi/extensions/emacsclient"
     ],
     "skills": [
@@ -35,7 +34,6 @@
   "files": [
     "pi/extensions/tasks",
     "pi/extensions/jira",
-    "pi/extensions/leader-menu",
     "pi/extensions/emacsclient",
     "pi/extensions/lib",
     "skills/org-tasks",
