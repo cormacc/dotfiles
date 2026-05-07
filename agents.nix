@@ -56,6 +56,42 @@ in
 
     # home.sessionVariables.PI_CODING_AGENT_DIR = "$piConfig";
 
+    # Local-only pi extensions such as chromium and pi-clojure live in the
+    # editable dotagents checkout but are intentionally excluded from the
+    # published agent-org-memory package. Pi still auto-discovers them from
+    # ~/.pi/agent/extensions, so their npm runtime dependencies must exist in
+    # the live checkout. Install them into ignored node_modules directories and
+    # rerun only when the extension package.json changes.
+    home.activation.installLocalPiExtensionDeps =
+      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        install_local_pi_extension_deps() {
+          local label="$1"
+          local dir="$2"
+          local package_json="$dir/package.json"
+          local node_modules="$dir/node_modules"
+          local stamp="$node_modules/.pi-local-deps-package-json.sha256"
+
+          if [ ! -f "$package_json" ]; then
+            echo "WARNING: local pi extension $label has no package.json at $package_json" >&2
+            return 0
+          fi
+
+          local hash
+          hash="$(${pkgs.coreutils}/bin/sha256sum "$package_json" | ${pkgs.coreutils}/bin/cut -d ' ' -f 1)"
+          if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$hash" ]; then
+            return 0
+          fi
+
+          echo "Installing local pi extension npm deps for $label"
+          (cd "$dir" && ${pkgs.nodejs}/bin/npm install --omit=dev --package-lock=false --no-audit --no-fund)
+          mkdir -p "$node_modules"
+          printf '%s\n' "$hash" > "$stamp"
+        }
+
+        install_local_pi_extension_deps chromium "${piRoot}/extensions/chromium"
+        install_local_pi_extension_deps pi-clojure "${piRoot}/extensions/pi-clojure"
+      '';
+
     # npm's default global prefix points into the (read-only) Nix store when
     # node comes from nixpkgs. Redirect it to a writable location so
     # `pi install` works. This is philosophically unsound w.r.t. Nix, but
