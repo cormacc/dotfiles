@@ -23,35 +23,36 @@ let
   # piConfig = "${config.xdg.configHome}/pi";
   npmCache = "${config.xdg.cacheHome}/npm";
 
-  # ─────────────────────── Submodule sanity check ─────────────────────────
-  # Fail-fast if the dotagents submodule is not initialised. The submodule
-  # provides every skill, extension, prompt, and the pi-side AGENTS.md;
-  # silently installing against an empty tree yields dangling symlinks
-  # under ~/.agents/skills and ~/.pi/agent/* that confuse pi at runtime.
-  #
-  # Uses the absolute working-tree path (not a relative Nix path) because
-  # nix flakes don't include git submodules in their evaluated source by
-  # default. With `--impure` (already required by the rest of this flake)
-  # `builtins.pathExists` peeks at the live filesystem.
-  submoduleInitialised = builtins.pathExists "${agentsRoot}/package.json";
 in
 {
   config = {
-    assertions = [
-      {
-        assertion = submoduleInitialised;
-        message = ''
-          The dotagents git submodule under `~/dotfiles/agents-src` is not
-          initialised. Run:
-
-              git -C ~/dotfiles submodule update --init --recursive
-
-          Or, on a fresh clone:
-
-              git clone --recurse-submodules <dotfiles-url>
-        '';
-      }
-    ];
+    # ────────────────────── Submodule sanity check ────────────────────────
+    # Fail-fast at activation time if the dotagents submodule is not
+    # initialised. The submodule provides every skill, extension, prompt,
+    # and the pi-side AGENTS.md; silently activating against an empty
+    # tree yields dangling symlinks under ~/.agents/skills and
+    # ~/.pi/agent/* that confuse pi at runtime.
+    #
+    # Implemented as a `home.activation` script (pre `writeBoundary`)
+    # rather than the `assertions` option because per-user assertions
+    # are silently dropped under `darwinConfigurations`/`nixosConfigurations`
+    # `home-manager.users.<user>` integration. The activation script
+    # runs on every `home-manager switch` and `darwin-rebuild switch`.
+    home.activation.checkDotagentsSubmodule =
+      lib.hm.dag.entryBefore [ "writeBoundary" ] ''
+        if [ ! -f "${agentsRoot}/package.json" ]; then
+          echo >&2
+          echo "ERROR: dotagents git submodule under ${agentsRoot} is not initialised." >&2
+          echo >&2
+          echo "Run:" >&2
+          echo "    git -C ${dotRoot} submodule update --init --recursive" >&2
+          echo >&2
+          echo "Or, on a fresh clone:" >&2
+          echo "    git clone --recurse-submodules <dotfiles-url>" >&2
+          echo >&2
+          exit 1
+        fi
+      '';
 
     # home.sessionVariables.PI_CODING_AGENT_DIR = "$piConfig";
 

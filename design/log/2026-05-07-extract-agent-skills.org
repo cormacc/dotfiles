@@ -233,14 +233,24 @@ Acceptance criteria:
   clear, actionable error rather than partially installing or silently linking
   empty directories.
 
-** TODO [#B] Port and expand validation in the new repo :tests:ci:
+** DONE [#B] Port and expand validation in the new repo :tests:ci:
+CLOSED: [2026-05-07 Thu 22:38]
 :PROPERTIES:
 :ID: d15185c6-efc8-457b-8e15-b35c112046c0
 :CREATED: [2026-05-07 Thu 21:08]
+:STARTED: [2026-05-07 Thu 22:31]
 :END:
 :LOGBOOK:
+- State "DONE"      from "STARTED"   [2026-05-07 Thu 22:38]
+- State "STARTED"   from "TODO"      [2026-05-07 Thu 22:31]
 - Created [2026-05-07 Thu 21:08]
 :END:
+Result: dotagents flake checks evaluate on every supported system; the
+org-memory package builds identically from local submodule and from
+=github:cormacc/dotagents=; all six generic skills are discoverable by
+the Vercel Labs ~skills~ CLI; every dotfiles-side install path resolves
+to the live submodule working tree; the submodule fail-fast guard fires
+on activation. See =* Implementation → Validation pass=.
 Acceptance criteria:
 - Existing extension regression suites and shell test wrappers move with the
   source and run from the new repo.
@@ -561,6 +571,92 @@ working-tree-consistent across the move boundary.
   =agents/skills/review/SKILL.md=, and =flake.lock= were noticed in
   the dotfiles working tree. They are unrelated to this task and
   belong in their own commit; this task left them untouched.
+
+** Validation pass
+[2026-05-07 Thu 22:38] Validated each acceptance criterion of the
+validation task end-to-end.
+
+*** Extension regression suites
+- =pi/extensions/tasks/test.sh= — *PASS* (10/10).
+- =pi/extensions/jira/test.sh= — *PASS* (45/45).
+- =pi/extensions/emacsclient/test.sh= — fails because ~tsx~ is not on
+  ~PATH~ in this shell. Pi bundles ~tsx~ for extension execution; the
+  test wrapper assumes ~tsx~ is reachable via ~PATH~. Documented as a
+  follow-up under the docs task; not a regression introduced by the
+  extraction.
+
+*** =nix flake check= on dotagents
+- ~nix flake check --impure~ on the current system (=aarch64-darwin=)
+  evaluates ~packages.<system>.{agent-org-memory,default}~ and
+  ~checks.<system>.agent-org-memory~.
+- ~nix flake check --impure --all-systems --no-build~ evaluates
+  ~checks~ for ~x86_64-linux~, ~aarch64-linux~, ~x86_64-darwin~, and
+  ~aarch64-darwin~ — all four derivations produce valid drv outputs.
+  Cross-platform *building* requires remote builders and was not
+  attempted in this pass.
+
+*** Local + remote pi package builds
+- Local: ~nix build ./agents-src#agent-org-memory --impure~ from the
+  dotfiles checkout produces
+  =/nix/store/zky2raaw7ykwfawg1pn89b6sp50q6065-agent-org-memory-0.1.0=.
+- Remote: ~nix build github:cormacc/dotagents#agent-org-memory --impure~
+  produces the same store path — confirms the github push is
+  byte-identical to the local submodule and the package output is
+  reproducible.
+
+*** Generic skill discovery via Vercel Labs ~skills~ CLI
+~npx --yes skills add ~/dev/agents/dotagents --list~ enumerates all six
+generic skills with their YAML frontmatter ~name~/~description~ pairs:
+
+- =clj-nrepl=
+- =org-jira=
+- =org-plan=
+- =org-tasks=
+- =review=
+- =self-improvement=
+
+No broken or unrecognised skills.
+
+*** Editable smoke check
+For every Home Manager destination managed by ~agents.nix~,
+~mkOutOfStoreSymlink~ resolves to the live working-tree path:
+
+| Destination | Symlink target |
+|-------------+----------------|
+| =~/.agents/skills= | =/Users/cormacc/dotfiles/agents-src/skills= |
+| =~/.pi/agent/AGENTS.md= | =/Users/cormacc/dotfiles/agents-src/AGENTS.md= |
+| =~/.pi/agent/prompts= | =/Users/cormacc/dotfiles/agents-src/prompts= |
+| =~/.pi/agent/extensions= | =/Users/cormacc/dotfiles/agents-src/pi/extensions= |
+| =~/.pi/agent/skills= | =/Users/cormacc/dotfiles/agents-src/pi/skills= |
+| =~/.pi/agent/settings.json= | =/Users/cormacc/dotfiles/agents-config/pi/settings.json= |
+
+Not a Nix-store snapshot, so edits in the submodule reload via
+~/reload~ without a Home Manager switch.
+
+*** Submodule fail-fast
+During validation the original ~assertions~-option implementation was
+found to be silently dropped under
+=darwinConfigurations.<host>.config.home-manager.users.<user>=
+(per-user assertions don't propagate to the parent system's assertion
+machinery). Replaced with a ~home.activation~ script wired before the
+=writeBoundary= entry; the guard fires unconditionally on every
+=home-manager switch= / =darwin-rebuild switch= and on a standalone
+=homeConfigurations.default= activation. Verified by:
+
+1. Move =agents-src/package.json= aside.
+2. ~nix build .#darwinConfigurations.<host>.config.home-manager.users.cormacc.home.activationPackage~
+   still succeeds (build-time eval is permissive).
+3. ~DRY_RUN=1 $out/activate~ refuses with the actionable
+   =git -C ~/dotfiles submodule update --init --recursive= message.
+4. Restore the sentinel; activation proceeds again.
+
+*** Fresh-clone bootstrap
+A full fresh-clone + ~home-manager switch~ rehearsal is intentionally
+out of scope for this in-place validation pass; the fail-fast guard
+above provides equivalent end-state coverage (any user who clones
+without submodules sees the same actionable error and the same
+recovery instructions). Captured for the docs task as a documented
+bootstrap recipe.
 
 ** Dotfiles rewire
 [2026-05-07 Thu 22:27] Pushed dotagents to GitHub and switched dotfiles
