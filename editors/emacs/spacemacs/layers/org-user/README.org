@@ -27,8 +27,8 @@
 Personal additions on top of Spacemacs' built-in =+lang/org= layer:
 custom org-mode tweaks, archive helper, web tools, =org-roam= setup,
 the =tasks-org= local package for the plain-org task-memory
-protocol, and =tasks-org-ui= — a vui.el-rendered visualisation of the
-project task graph.
+protocol, and =tasks-org-ui= — a Treemacs/treelib-rendered visualisation
+of the project task graph.
 
 ** Features
   - Hierarchical archive (=org-archive-subtree-hierarchical=)
@@ -40,9 +40,9 @@ project task graph.
 
 * Install
 Add =org-user= to =dotspacemacs-configuration-layers= in your
-=~/.spacemacs=.  The =vui= dependency required by =tasks-org-ui= is
-recipe-fetched from =github.com/d12frosted/vui.el= the first time
-the layer activates.
+=~/.spacemacs=.  =tasks-org-ui= uses Treemacs' =treemacs-treelib=
+extension API; this dotfiles configuration already enables the Spacemacs
+=treemacs= layer.
 
 * tasks-org: plain-org task memory helpers
 
@@ -64,8 +64,8 @@ pi because it just maintains conventions on top of standard org.
   =tasks-org-auto-enable-paths= (defaults: =TASKS.org=,
   =design/log/*.org=).
 
-Manual activation: =M-x tasks-org-mode=.  =tasks-org-ui-mode= buffers
-are explicitly excluded from this auto-enable.
+Manual activation: =M-x tasks-org-mode=.  The dedicated Treemacs
+=*tasks-org*= UI buffer is explicitly excluded from this auto-enable.
 
 Project root is resolved via =projectile-project-root= when
 projectile is loaded, falling back to the buffer's directory.
@@ -85,7 +85,7 @@ and reachable without Shift.
 | =, ; n=   | =tasks-org-cycle-status=                      | Cycle TODO state forward (writes LOGBOOK / CLOSED / =:STARTED:=)  |
 | =, ; N=   | =tasks-org-cycle-status-back=                 | Cycle TODO state backward                                         |
 | =, ; t=   | =tasks-org-jump-to-parent-task=               | Jump to the task in =TASKS.org= whose =#+IMPORT:= is this file    |
-| =, ; T=   | =tasks-org-ui-show=                           | Open the tasks UI buffer (also reachable globally as =SPC a t=)   |
+| =, ; T=   | =tasks-org-ui-show=                           | Open the tasks UI buffer (also reachable globally as =SPC a T=)   |
 | =, ; L p= | =tasks-org-publish-task=                      | Publish local task → =TASKS.org= (moves subtree, saves both)      |
 | =, ; L u= | =tasks-org-unpublish-task=                    | Unpublish top-level task → =TASKS.local.org=                      |
 
@@ -127,16 +127,18 @@ change-record sections).  Emacs-side specifics:
 
 * tasks-org-ui: task graph visualisation
 
-A vui.el-rendered visualisation of the project task graph.  Mirrors
+A Treemacs/treelib-rendered visualisation of the project task graph.  Mirrors
 the pi tasks extension's expanded UI for navigate / expand / select /
 cycle workflows; see =agents/pi/extensions/tasks/README.md= for the
-canonical UX contract.
+canonical UX contract.  The first implementation used =vui.el=, but the
+expanded hierarchy renderer was converted to Treemacs because the
+button-oriented vui tree was harder to read for nested task graphs.
 
 ** Launching the UI
 
 | Key                     | Command                | Notes                                            |
 |-------------------------+------------------------+--------------------------------------------------|
-| =SPC a t=               | =tasks-org-ui-show=    | Global launcher; reachable from any buffer       |
+| =SPC a T=               | =tasks-org-ui-show=    | Global launcher; reachable from any buffer       |
 | =, ; T= (in org buffer) | =tasks-org-ui-show=    | Local-leader alias when point is in a task graph |
 
 When invoked from a =tasks-org-mode= buffer with point on a task,
@@ -145,9 +147,10 @@ lands on the selected task (if any) or the first top-level task.
 
 ** In-buffer keymap
 
-The buffer is registered with =evilified-state= so motion keys remap
-to UI actions while =SPC= remains the global Spacemacs leader.
-=SPC= is deliberately *not* bound locally.
+The buffer's major mode is =treemacs-mode=, with =tasks-org-ui-mode= layered
+on top for task-specific actions.  It is registered with =evilified-state= so
+motion keys remap to UI actions while =SPC= remains the global Spacemacs
+leader.  =SPC= is deliberately *not* bound locally.
 
 | Key                  | Action                                                        |
 |----------------------+---------------------------------------------------------------|
@@ -267,7 +270,7 @@ partial flip (Emacs-primary status transitions) would be considered.
 * Key bindings
 
 See above for the =, ;= local-leader prefix and the
-=SPC a t= global launcher for the UI.  All other layer bindings
+=SPC a T= global launcher for the UI.  All other layer bindings
 are inherited from Spacemacs' =+lang/org= layer.
 
 # Use GitHub URLs if you wish to link a Spacemacs documentation file or its heading.

@@ -11,11 +11,10 @@
 (require 'tasks-org)
 (require 'tasks-org-graph)
 
-;; tasks-org-ui.el is intentionally `no-byte-compile' because vui.el is
-;; the runtime renderer.  Load it interpreted for the pure-elisp
-;; helpers we test here; vui-using forms are guarded with
-;; `(when (require 'vui nil t) ...)' so this load succeeds in batch
-;; without vui present.
+;; tasks-org-ui.el is intentionally `no-byte-compile' because Treemacs treelib
+;; is the runtime renderer and may not be present in minimal batch contexts.
+;; Load it interpreted for the pure-elisp helpers we test here; Treemacs node
+;; types are defined lazily only when the package is available.
 (load (expand-file-name "tasks-org-ui.el" (file-name-directory load-file-name))
       nil t)
 
@@ -159,6 +158,31 @@
                            (insert-file-contents local-file)
                            (buffer-string))))
             (should (equal content "#+SELECTED: first-uuid\n"))))
+      (when-let ((buf (find-buffer-visiting local-file)))
+        (kill-buffer buf))
+      (delete-directory tmp t))))
+
+(ert-deftest tasks-org-write-local-selection-updates-open-local-buffer ()
+  "Selection writes go through a visiting buffer so Emacs does not prompt to reload."
+  (let* ((tmp (make-temp-file "tasks-org-test" t))
+         (local-file (expand-file-name "TASKS.local.org" tmp))
+         buf)
+    (unwind-protect
+        (cl-letf (((symbol-function 'tasks-org--project-root)
+                   (lambda () tmp)))
+          (with-temp-file local-file
+            (insert "#+SELECTED: old-uuid\n"
+                    "* TODO Local draft\n"))
+          (setq buf (find-file-noselect local-file))
+          (tasks-org--write-local-selection "new-uuid")
+          (with-current-buffer buf
+            (should-not (buffer-modified-p))
+            (should (string-match-p "^#\\+SELECTED: new-uuid$"
+                                    (buffer-string)))
+            (should (string-match-p "^\\* TODO Local draft$"
+                                    (buffer-string)))))
+      (when (buffer-live-p buf)
+        (kill-buffer buf))
       (delete-directory tmp t))))
 
 ;;; Status transitions
@@ -358,6 +382,25 @@ FN is called with the project root path and must return its result."
    "TASKS.local.org"
    "#+SELECTED: parent-1\n"))
 
+(ert-deftest tasks-org-graph-collects-tasks-under-category-headings ()
+  "TASKS.org may use non-task level-1 category headings above task roots."
+  (tasks-org-tests--with-fixture-project
+   (lambda (root)
+     (let* ((graph (tasks-org-load-graph))
+            (tasks (tasks-org-graph-tasks graph))
+            (task (car tasks)))
+       (should (= (length tasks) 1))
+       (should (equal (plist-get task :id) "nested-root"))
+       (should (equal (plist-get task :summary) "Nested shared task"))))
+   "TASKS.org"
+   (concat "* Improvements\n"
+           "** TODO Nested shared task\n"
+           ":PROPERTIES:\n"
+           ":ID: nested-root\n"
+           ":END:\n")
+   "TASKS.local.org"
+   "#+SELECTED:\n"))
+
 (ert-deftest tasks-org-graph-ingests-local-tasks ()
   "Local task headings in TASKS.local.org are surfaced with origin 'local."
   (tasks-org-tests--with-fixture-project
@@ -488,11 +531,14 @@ FN is called with the project root path and must return its result."
     (should-not (gethash "other-branch" expanded))
     (should-not (gethash "other-leaf" expanded))))
 
-(ert-deftest tasks-org-ui-format-summary-marks-selected ()
-  "Summary formatter prefixes the selected task with the star marker."
+(ert-deftest tasks-org-ui-format-summary-marks-selected-with-face-only ()
+  "Summary formatter marks selection with face, not an extra prefix."
   (let* ((task (list :id "x" :status "TODO" :summary "Demo"))
-         (out (tasks-org-ui--format-summary task "x")))
-    (should (string-match-p "^★ " (substring-no-properties out)))))
+         (out (tasks-org-ui--format-summary task "x"))
+         (plain (substring-no-properties out)))
+    (should (string-prefix-p "TODO Demo" plain))
+    (should (eq (get-text-property 0 'face out)
+                'tasks-org-ui-selected-face))))
 
 (ert-deftest tasks-org-ui-format-summary-tints-local-origin ()
   "Local-origin tasks get the magenta marker."
@@ -517,6 +563,35 @@ FN is called with the project root path and must return its result."
          (plain (substring-no-properties out)))
     (should (string-match-p "⤴MBE-1" plain))
     (should (string-match-p "⤴gh#1" plain))))
+
+(ert-deftest tasks-org-ui-treemacs-key-falls-back-to-source-locator ()
+  "Treemacs node keys prefer :ID: and fall back to source file/position."
+  (should (equal (tasks-org-ui--treemacs-key (list :id "task-id"))
+                 "task-id"))
+  (should (equal (tasks-org-ui--treemacs-key
+                  (list :source-file "/tmp/TASKS.org" :source-pos 42))
+                 "/tmp/TASKS.org:42")))
+
+(ert-deftest tasks-org-ui-treemacs-icons-distinguish-branches-and-leaves ()
+  "Treemacs icons show branches as expandable and leaves as bullets."
+  (should (equal (tasks-org-ui--treemacs-closed-icon
+                  (list :children (list (list :id "c"))))
+                 "▸ "))
+  (should (equal (tasks-org-ui--treemacs-closed-icon (list :children nil))
+                 "• "))
+  (should (equal (tasks-org-ui--treemacs-open-icon nil) "▾ ")))
+
+(ert-deftest tasks-org-ui-treemacs-task-paths-include-child-paths ()
+  "Treemacs path precomputation preserves parent-before-child order."
+  (let* ((tasks (list (list :id "p"
+                            :children (list (list :id "c")))))
+         (paths (tasks-org-ui--task-paths tasks)))
+    (should (equal (cdr (assoc "p" paths))
+                   '("tasks-org-root" "p")))
+    (should (equal (cdr (assoc "c" paths))
+                   '("tasks-org-root" "p" "c")))
+    (should (< (cl-position "p" paths :key #'car :test #'equal)
+               (cl-position "c" paths :key #'car :test #'equal)))))
 
 ;;; Compact widget
 

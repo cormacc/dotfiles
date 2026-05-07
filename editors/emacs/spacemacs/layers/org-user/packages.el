@@ -29,14 +29,25 @@
 
 ;;; Code:
 
+;; macOS bsdtar writes AppleDouble `._*' entries for files with extended
+;; attributes unless COPYFILE_DISABLE is set.  Emacs 30's `package-install-file'
+;; trips over those entries when quelpa builds recipe packages.  Set this before
+;; Spacemacs/quelpa installs layer packages so generated tarballs contain only
+;; the package files package.el expects.
+(setenv "COPYFILE_DISABLE" "1")
+
+(defconst org-user--tasks-org-local-dir
+  (expand-file-name "local/tasks-org"
+                    (file-name-directory (or load-file-name buffer-file-name)))
+  "Directory containing the folded tasks-org local package modules.")
+
+(add-to-list 'load-path org-user--tasks-org-local-dir)
+
 (defconst org-user-packages
   '(
     (org-archive-subtree-hierarchical :location local)
     (tasks-org :location local)
-    (tasks-org-ui :location local)
-    (vui :location (recipe
-                    :fetcher github
-                    :repo "d12frosted/vui.el"))
+    treemacs
     org
     org-web-tools
     org-sidebar
@@ -173,12 +184,26 @@ Each entry is either:
                tasks-org-open-plan
                tasks-org-open-plan-other-window
                tasks-org-create-import-for-current-task
+               tasks-org-ui-show
+               tasks-org-ui-show-selected
                tasks-org-cycle-status
                tasks-org-cycle-status-back
                tasks-org-jump-to-parent-task
                tasks-org-publish-task
                tasks-org-unpublish-task)
     :init
+    ;; `tasks-org-ui.el' is part of the folded local tasks-org package, not a
+    ;; separate Spacemacs local package directory.  Install explicit autoloads so
+    ;; leader bindings are real commands before the UI module is loaded.
+    (autoload 'tasks-org-ui-show "tasks-org-ui"
+      "Open the org-memory task UI buffer." t)
+    (autoload 'tasks-org-ui-show-selected "tasks-org-ui"
+      "Open the compact selected-task UI buffer." t)
+    ;; `SPC a t' is already a Spacemacs prefix on this config (tab/session
+    ;; commands bind keys below it, e.g. `SPC a t s'), so use `SPC a T' for
+    ;; the global tasks UI launcher rather than turning `a t' into a command.
+    (spacemacs/set-leader-keys
+      "aT" 'tasks-org-ui-show)
     (spacemacs/declare-prefix-for-mode 'org-mode "m;" "tasks-org")
     (spacemacs/declare-prefix-for-mode 'org-mode "m;L" "local")
     (spacemacs/set-leader-keys-for-major-mode 'org-mode
@@ -191,39 +216,28 @@ Each entry is either:
       ";t" 'tasks-org-jump-to-parent-task
       ";Lp" 'tasks-org-publish-task
       ";Lu" 'tasks-org-unpublish-task
-      ";T" 'tasks-org-ui-show)))
-
-(defun org-user/init-vui ()
-  (use-package vui
-    :defer t))
-
-(defun org-user/init-tasks-org-ui ()
-  (use-package tasks-org-ui
-    :commands (tasks-org-ui-show)
-    :after (vui tasks-org)
-    :init
-    (spacemacs/declare-prefix "at" "tasks-org-ui")
-    (spacemacs/set-leader-keys
-      "at" 'tasks-org-ui-show)
+      ";T" 'tasks-org-ui-show)
     :config
     ;; Spacemacs evilified-state: motion keys remap to UI actions while
-    ;; SPC remains the global leader.
-    (when (fboundp 'evilified-state-evilify-map)
-      (evilified-state-evilify-map tasks-org-ui-mode-map
-        :mode tasks-org-ui-mode
-        :bindings
-        "j" 'next-line
-        "k" 'previous-line
-        "RET" 'tasks-org-ui-toggle-expand
-        "TAB" 'tasks-org-ui-toggle-expand
-        "l" 'tasks-org-ui-cycle-status
-        "h" 'tasks-org-ui-cycle-status-back
-        "s" 'tasks-org-ui-toggle-selected
-        "e" 'tasks-org-ui-visit-source
-        "p" 'tasks-org-ui-open-or-create-import
-        "J" 'tasks-org-ui-open-linked-issues
-        "g" 'tasks-org-ui-refresh
-        "q" 'quit-window))))
+    ;; SPC remains the global leader.  This runs after the UI module is loaded;
+    ;; some minimal Emacs sessions may not have evilified-state available.
+    (with-eval-after-load 'tasks-org-ui
+      (when (fboundp 'evilified-state-evilify-map)
+        (evilified-state-evilify-map tasks-org-ui-mode-map
+          :mode tasks-org-ui-mode
+          :bindings
+          "j" 'next-line
+          "k" 'previous-line
+          "RET" 'tasks-org-ui-toggle-expand
+          "TAB" 'tasks-org-ui-toggle-expand
+          "l" 'tasks-org-ui-cycle-status
+          "h" 'tasks-org-ui-cycle-status-back
+          "s" 'tasks-org-ui-toggle-selected
+          "e" 'tasks-org-ui-visit-source
+          "p" 'tasks-org-ui-open-or-create-import
+          "J" 'tasks-org-ui-open-linked-issues
+          "g" 'tasks-org-ui-refresh
+          "q" 'quit-window)))))
 
 (defun org-user/post-init-org-archive-subtree-hierarchical ()
   (setq org-archive-default-command 'org-archive-subtree-hierarchical))

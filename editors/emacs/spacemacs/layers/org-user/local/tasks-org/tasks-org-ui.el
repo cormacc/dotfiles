@@ -1,39 +1,37 @@
-;;; tasks-org-ui.el --- Expanded tasks UI buffer over org-memory protocol -*- lexical-binding: t; no-byte-compile: t; -*-
+;;; tasks-org-ui.el --- Treemacs task hierarchy over org-memory protocol -*- lexical-binding: t; no-byte-compile: t; -*-
 
 ;; Author: Cormac Cannon
 ;; URL: https://github.com/cormacc/dotfiles
 ;; Keywords: org, tasks, productivity
-;; Package-Requires: ((emacs "29.1") (vui "1.0") (org "9.4"))
+;; Package-Requires: ((emacs "29.1") (treemacs "3.1") (org "9.4"))
 
 ;;; Commentary:
 
-;; A vui.el-rendered visualisation of the org-memory task graph for the
-;; current project.  Mirrors the pi `tasks' extension's expanded UI for
-;; navigate / expand / select / cycle workflows, while delegating
-;; durable mutations to `tasks-org.el's protocol helpers and the graph
-;; reader in `tasks-org-graph.el'.
+;; A Treemacs/treelib-rendered visualisation of the org-memory task graph for
+;; the current project.  Mirrors the pi `tasks' extension's expanded UI for
+;; navigate / expand / select / cycle workflows, while delegating durable
+;; mutations to `tasks-org.el's protocol helpers and the graph reader in
+;; `tasks-org-graph.el'.
 ;;
 ;; Architecture
 ;; ------------
-;;   * Major mode `tasks-org-ui-mode' derives from `vui-mode' (which
-;;     derives from `special-mode').  Spacemacs registers an
-;;     evilified-state mapping in the layer's `packages.el' so motion
-;;     keys remap to UI actions while `SPC' remains the global leader.
-;;   * `tasks-org-ui-show' creates `*tasks-org*', mounts the
-;;     `tasks-org-ui--root' component, and registers `file-notify'
-;;     watchers on every graph-contributing file so external edits
-;;     trigger a re-render that preserves the cursor task by UUID.
-;;   * Status cycling delegates to `tasks-org-set-status-at' (so
-;;     LOGBOOK / CLOSED / :STARTED: stay protocol-correct).  Selection
-;;     uses the non-destructive `tasks-org--write-local-selection'.
-;;     Plan open / scaffold delegate to `tasks-org-open-plan' /
+;;   * The expanded hierarchy uses Treemacs' treelib extension API in a
+;;     dedicated `*tasks-org*' buffer.  It does not embed task nodes in the
+;;     normal Treemacs project sidebar.
+;;   * `tasks-org-ui-show' creates the buffer, renders top-level org-memory
+;;     tasks as a variadic treelib root, and registers `file-notify' watchers
+;;     on every graph-contributing file so external edits trigger a re-render
+;;     that preserves the cursor task by UUID.
+;;   * Status cycling delegates to `tasks-org-set-status-at' (so LOGBOOK /
+;;     CLOSED / :STARTED: stay protocol-correct).  Selection uses the
+;;     non-destructive `tasks-org--write-local-selection'.  Plan open /
+;;     scaffold delegate to `tasks-org-open-plan' /
 ;;     `tasks-org-create-import-for-current-task'.
 ;;
-;; Byte-compilation is intentionally disabled (file-local
-;; `no-byte-compile: t') because vui's component-defining macros must
-;; expand at load time with `vui' already available; the layer's
-;; `org-user/init-tasks-org' guarantees that ordering at runtime but
-;; not necessarily during a batch byte-compile of the layer.
+;; Byte-compilation is intentionally disabled because Treemacs' extension
+;; macros are only available when the Spacemacs treemacs layer/package is on
+;; the load-path.  Batch tests still load this file without Treemacs present;
+;; the treelib-specific node types are defined lazily at runtime.
 
 ;;; Code:
 
@@ -41,21 +39,26 @@
 (require 'filenotify)
 (require 'org)
 (require 'org-id)
+(require 'subr-x)
 
 (require 'tasks-org)
 (require 'tasks-org-graph)
 
-(declare-function vui-defcomponent "vui")
-(declare-function vui-mount "vui")
-(declare-function vui-component "vui")
-(declare-function vui-set-state "vui")
-(declare-function vui-vstack "vui")
-(declare-function vui-fragment "vui")
-(declare-function vui-text "vui")
-(declare-function vui-button "vui")
-(declare-function vui-newline "vui")
-(declare-function vui-use-effect "vui")
-(defvar vui-mode-map)
+(declare-function treemacs-mode "treemacs-mode")
+(declare-function treemacs--disable-fringe-indicator "treemacs-core-utils")
+(declare-function treemacs--evade-image "treemacs-core-utils")
+(declare-function treemacs--render-extension "treemacs-treelib" (ext &optional expand-depth))
+(declare-function treemacs-button-get "treemacs-core-utils" (button prop))
+(declare-function treemacs-button-start "treemacs-core-utils" (button))
+(declare-function treemacs-current-button "treemacs-core-utils")
+(declare-function treemacs-expand-extension-node "treemacs-treelib" (&optional arg))
+(declare-function treemacs-find-node "treemacs-dom" (path))
+(declare-function treemacs-is-node-collapsed? "treemacs-core-utils" (btn))
+(declare-function treemacs-node-at-point "treemacs-core-utils")
+(defvar treemacs-fringe-indicator-mode)
+(defvar treemacs-mode-map)
+(defvar treemacs-space-between-root-nodes)
+(defvar treemacs--in-this-buffer)
 
 ;;; Customisation
 
@@ -129,7 +132,7 @@ regardless of this setting."
 
 (defface tasks-org-ui-local-marker-face
   '((t :foreground "magenta"))
-  "Face for the local-draft marker (\u22a0) and tinted summary."
+  "Face for the local-draft marker (⊠) and tinted summary."
   :group 'tasks-org-ui)
 
 (defface tasks-org-ui-selected-face
@@ -152,7 +155,7 @@ regardless of this setting."
     (_           'default)))
 
 (defun tasks-org-ui--priority-face (letter)
-  "Return the face symbol for priority LETTER (\"A\"..\"D\")."
+  "Return the face symbol for priority LETTER (A..D)."
   (pcase letter
     ("A" 'tasks-org-ui-priority-critical-face)
     ("B" 'tasks-org-ui-priority-high-face)
@@ -193,19 +196,23 @@ they fall on that path."
 ;;; Row formatting
 
 (defun tasks-org-ui--format-status (status)
+  "Return a propertized STATUS token for a row."
   (when status
     (propertize (concat status " ") 'face (tasks-org-ui--status-face status))))
 
 (defun tasks-org-ui--format-priority (letter)
+  "Return a propertized priority cookie for LETTER."
   (when letter
     (propertize (format "[#%s] " letter) 'face (tasks-org-ui--priority-face letter))))
 
 (defun tasks-org-ui--format-tags (tags)
+  "Return a propertized org tag suffix for TAGS."
   (when tags
     (propertize (concat " :" (mapconcat #'identity tags ":") ":")
                 'face 'tasks-org-ui-tag-face)))
 
 (defun tasks-org-ui--format-badges (linked-issues)
+  "Return propertized linked-issue badges for LINKED-ISSUES."
   (when linked-issues
     (mapconcat
      (lambda (token)
@@ -219,6 +226,7 @@ they fall on that path."
      "")))
 
 (defun tasks-org-ui--format-import-indicator (task)
+  "Return the change-record indicator for TASK when it has #+IMPORT."
   (let ((path (plist-get task :import-path))
         (raw (plist-get task :import-raw)))
     (when (or path raw)
@@ -236,7 +244,6 @@ Marks the row as selected if its :id equals SELECTED-ID."
          (linked-issues (plist-get task :linked-issues))
          (selected-p (and id selected-id (equal id selected-id)))
          (text (concat
-                (and selected-p (propertize "★ " 'face 'tasks-org-ui-selected-face))
                 (and (eq origin 'local)
                      (propertize "⊠ " 'face 'tasks-org-ui-local-marker-face))
                 (or (tasks-org-ui--format-status status) "")
@@ -252,14 +259,30 @@ Marks the row as selected if its :id equals SELECTED-ID."
         (propertize text 'face 'tasks-org-ui-selected-face)
       text)))
 
-(defun tasks-org-ui--collapse-marker (task expanded-ids)
-  "Return the leading marker for TASK depending on whether it has children."
-  (let ((kids (plist-get task :children))
-        (id (plist-get task :id)))
-    (cond
-     ((null kids) "  • ")
-     ((and id (gethash id expanded-ids)) "  ▼ ")
-     (t "  ▶ "))))
+(defun tasks-org-ui--task-has-children-p (task)
+  "Return non-nil when TASK has child tasks."
+  (and (plist-get task :children) t))
+
+(defun tasks-org-ui--treemacs-key (task)
+  "Return the semi-unique Treemacs key for TASK."
+  (or (plist-get task :id)
+      (format "%s:%s"
+              (or (plist-get task :source-file) "unknown")
+              (or (plist-get task :source-pos) 0))))
+
+(defun tasks-org-ui--treemacs-label (task)
+  "Return the Treemacs row label for TASK."
+  (tasks-org-ui--format-summary
+   task (and tasks-org-ui--graph
+             (tasks-org-graph-selected-id tasks-org-ui--graph))))
+
+(defun tasks-org-ui--treemacs-closed-icon (task)
+  "Return the Treemacs closed/leaf icon for TASK."
+  (if (tasks-org-ui--task-has-children-p task) "▸ " "• "))
+
+(defun tasks-org-ui--treemacs-open-icon (_task)
+  "Return the Treemacs open icon."
+  "▾ ")
 
 ;;; UI state — buffer-local
 
@@ -280,11 +303,55 @@ first top-level task.")
 (defvar-local tasks-org-ui--refresh-timer nil
   "Idle timer used to debounce file-notify driven re-renders.")
 
+;;; Treemacs extension node types
+
+(defconst tasks-org-ui--treemacs-root-key "tasks-org-root"
+  "Hidden root key for the variadic Treemacs task extension.")
+
+(defvar tasks-org-ui--treemacs-types-defined nil
+  "Non-nil after the treelib node types have been defined.")
+
+(defun tasks-org-ui--ensure-treemacs ()
+  "Ensure Treemacs treelib is available and task node types are defined."
+  (unless (require 'treemacs-treelib nil t)
+    (user-error "Treemacs treelib is not installed; cannot open the tasks UI"))
+  (unless tasks-org-ui--treemacs-types-defined
+    ;; Use `eval' so this file remains loadable in batch tests where Treemacs is
+    ;; not present on the load-path.  The macros are available after the require
+    ;; above succeeds.
+    (eval
+     '(progn
+        (treemacs-define-expandable-node-type tasks-org-task
+          :closed-icon (tasks-org-ui--treemacs-closed-icon item)
+          :open-icon (tasks-org-ui--treemacs-open-icon item)
+          :label (tasks-org-ui--treemacs-label item)
+          :key (tasks-org-ui--treemacs-key item)
+          :children (plist-get item :children)
+          :child-type 'tasks-org-task
+          :more-properties (list :tasks-org-ui-task item
+                                 :tasks-org-ui-task-id (plist-get item :id)
+                                 :leaf (not (tasks-org-ui--task-has-children-p item)))
+          :ret-action #'tasks-org-ui-toggle-expand
+          :double-click-action #'tasks-org-ui-toggle-expand)
+        (treemacs-define-variadic-entry-node-type tasks-org-root
+          :key tasks-org-ui--treemacs-root-key
+          :children (tasks-org-graph-tasks tasks-org-ui--graph)
+          :child-type 'tasks-org-task)))
+    (setq tasks-org-ui--treemacs-types-defined t)))
+
 ;;; Cursor / row tracking
+
+(defun tasks-org-ui--treemacs-button-at-point ()
+  "Return the Treemacs button on the current line, or nil."
+  (when (fboundp 'treemacs-node-at-point)
+    (ignore-errors (treemacs-node-at-point))))
 
 (defun tasks-org-ui--row-task ()
   "Return the task plist attached to the row at point, or nil."
-  (get-text-property (line-beginning-position) 'tasks-org-ui-task))
+  (or (when-let* ((btn (tasks-org-ui--treemacs-button-at-point)))
+        (or (ignore-errors (treemacs-button-get btn :tasks-org-ui-task))
+            (ignore-errors (treemacs-button-get btn :item))))
+      (get-text-property (line-beginning-position) 'tasks-org-ui-task)))
 
 (defun tasks-org-ui--initial-cursor-id (graph)
   "Pick the cursor id when the UI opens.
@@ -307,103 +374,101 @@ task, then the first top-level task."
             (forward-line 1))))
       found)))
 
-;;; Rendering — vui component tree
+(defun tasks-org-ui--task-paths (tasks &optional prefix)
+  "Return an alist mapping task ids/keys in TASKS to Treemacs paths.
+PREFIX is the parent path, defaulting to the hidden root path."
+  (let ((base (or prefix (list tasks-org-ui--treemacs-root-key)))
+        paths)
+    (dolist (task tasks)
+      (let* ((key (tasks-org-ui--treemacs-key task))
+             (path (append base (list key)))
+             (id (plist-get task :id)))
+        (push (cons (or id key) path) paths)
+        (setq paths
+              (append (nreverse (tasks-org-ui--task-paths
+                                 (plist-get task :children) path))
+                      paths))))
+    (nreverse paths)))
 
-(defun tasks-org-ui--render-row (task expanded-ids selected-id depth)
-  "Return a vui fragment for TASK at DEPTH.
-Recursively renders children when TASK's :id is in EXPANDED-IDS."
-  (let* ((id (plist-get task :id))
-         (label (concat (make-string (* 2 depth) ?\s)
-                        (tasks-org-ui--collapse-marker task expanded-ids)
-                        (tasks-org-ui--format-summary task selected-id)))
-         (button (vui-button label
-                             :on-click
-                             (lambda ()
-                               (tasks-org-ui-toggle-expand id))
-                             :face nil))
-         (children (and id
-                        (gethash id expanded-ids)
-                        (plist-get task :children))))
-    ;; Tag the underlying widget text so cursor lookups can recover the
-    ;; task object without re-parsing the buffer.
-    (apply #'vui-fragment
-           (cons (vui-text (propertize "" 'tasks-org-ui-task task))
-                 (cons button
-                       (cons (vui-newline)
-                             (mapcar
-                              (lambda (child)
-                                (tasks-org-ui--render-row
-                                 child expanded-ids selected-id (1+ depth)))
-                              (or children nil))))))))
+(defun tasks-org-ui--apply-treemacs-expansion ()
+  "Expand Treemacs nodes according to `tasks-org-ui--expanded-ids'."
+  (when (and tasks-org-ui--graph tasks-org-ui--expanded-ids
+             (fboundp 'treemacs-find-node))
+    (dolist (cell (tasks-org-ui--task-paths
+                   (tasks-org-graph-tasks tasks-org-ui--graph)))
+      (let ((id (car cell))
+            (path (cdr cell)))
+        (when (gethash id tasks-org-ui--expanded-ids)
+          (when-let* ((btn (ignore-errors (treemacs-find-node path))))
+            (when (ignore-errors (treemacs-is-node-collapsed? btn))
+              (goto-char (treemacs-button-start btn))
+              (ignore-errors (treemacs-expand-extension-node)))))))))
 
-(defun tasks-org-ui--make-tree (graph expanded-ids)
-  "Return a vui-vstack rendering the top-level tasks in GRAPH."
-  (let* ((selected-id (tasks-org-graph-selected-id graph))
-         (top-tasks (tasks-org-graph-tasks graph)))
-    (apply #'vui-vstack
-           (or (mapcar
-                (lambda (task)
-                  (tasks-org-ui--render-row task expanded-ids selected-id 0))
-                top-tasks)
-               (list (vui-text "(no tasks)"))))))
-
-;;; Component definitions
-
-;; vui macros expand at load time; ensure vui is present.
-(when (require 'vui nil t)
-  (vui-defcomponent tasks-org-ui--root ()
-    :state ((graph nil)
-            (expanded-ids nil)
-            (refresh-tick 0))
-    :on-mount
-    (lambda ()
-      ;; Initial graph load + watchers; cleanup runs on unmount.
-      (tasks-org-ui--load-and-set-state)
-      (tasks-org-ui--register-watchers
-       (tasks-org-graph-files tasks-org-ui--graph))
-      ;; Cleanup thunk for vui to invoke on unmount.
-      (lambda ()
-        (tasks-org-ui--unregister-watchers)))
-    :render
-    (let ((g (or graph tasks-org-ui--graph))
-          (e (or expanded-ids tasks-org-ui--expanded-ids)))
-      (if (null g)
-          (vui-text "Loading task graph…")
-        (tasks-org-ui--make-tree g e)))))
-
-;;; State management
+;;; Rendering — Treemacs/treelib
 
 (defun tasks-org-ui--load-and-set-state ()
   "Load the task graph and refresh `tasks-org-ui--expanded-ids'."
   (setq tasks-org-ui--graph (tasks-org-load-graph))
-  ;; Register all loaded files with org-id so `org-id-goto' works on
-  ;; first invocation of `e' without the user having visited them.
+  ;; Register all loaded files with org-id so `org-id-goto' works on first
+  ;; invocation of `e' without the user having visited them.
   (let ((files (tasks-org-graph-files tasks-org-ui--graph)))
     (when files
       (ignore-errors
         (org-id-update-id-locations files))))
-  ;; Default expansion: keep any previously expanded ids that still
-  ;; exist, plus the current selection path.
+  ;; Default expansion: keep any previously expanded ids that still exist, plus
+  ;; the current selection path.
   (let* ((default (tasks-org-ui--default-expanded-ids tasks-org-ui--graph))
          (carried (or tasks-org-ui--expanded-ids
                       (make-hash-table :test 'equal))))
     (maphash (lambda (k _v) (puthash k t default)) carried)
     (setq tasks-org-ui--expanded-ids default)))
 
-(defun tasks-org-ui--remount ()
-  "Re-mount the root component so vui re-renders with current state."
-  (let ((buf (get-buffer tasks-org-ui-buffer-name)))
-    (when (buffer-live-p buf)
-      (with-current-buffer buf
-        (let ((cur-id (or (and (tasks-org-ui--row-task)
-                               (plist-get (tasks-org-ui--row-task) :id))
-                          tasks-org-ui--cursor-id)))
-          (setq tasks-org-ui--cursor-id cur-id)
-          (when (fboundp 'vui-mount)
-            (vui-mount (vui-component 'tasks-org-ui--root)
-                       tasks-org-ui-buffer-name))
-          (when cur-id
-            (tasks-org-ui--goto-task-id cur-id)))))))
+(defun tasks-org-ui--render-treemacs ()
+  "Render `tasks-org-ui--graph' into the current buffer using treelib."
+  (tasks-org-ui--ensure-treemacs)
+  (let ((graph tasks-org-ui--graph)
+        (expanded-ids tasks-org-ui--expanded-ids)
+        (cursor-id (tasks-org-ui--initial-cursor-id tasks-org-ui--graph)))
+    (treemacs--disable-fringe-indicator)
+    (let ((treemacs-fringe-indicator-mode nil)
+          (treemacs--in-this-buffer t)
+          (inhibit-read-only t))
+      (erase-buffer)
+      (treemacs-mode))
+    (setq-local treemacs-space-between-root-nodes nil)
+    (setq-local treemacs--in-this-buffer :extension)
+    (setq-local tasks-org-ui--graph graph)
+    (setq-local tasks-org-ui--expanded-ids expanded-ids)
+    (setq-local tasks-org-ui--cursor-id cursor-id)
+    (setq-local tasks-org-mode nil)
+    (tasks-org-ui-mode 1)
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (if (tasks-org-graph-tasks tasks-org-ui--graph)
+          (progn
+            (treemacs--render-extension 'tasks-org-root 0)
+            (tasks-org-ui--apply-treemacs-expansion))
+        (insert "(no tasks)\n")))
+    (goto-char (point-min))
+    (treemacs--evade-image)
+    (or (tasks-org-ui--goto-task-id cursor-id)
+        (tasks-org-ui--goto-task-id (tasks-org-ui--initial-cursor-id tasks-org-ui--graph)))))
+
+(defun tasks-org-ui--rerender (&optional reload)
+  "Re-render the UI, optionally RELOADing the graph first."
+  (let ((cur-id (or (and (tasks-org-ui--row-task)
+                         (plist-get (tasks-org-ui--row-task) :id))
+                    tasks-org-ui--cursor-id)))
+    (setq tasks-org-ui--cursor-id cur-id)
+    (when reload
+      (tasks-org-ui--load-and-set-state))
+    (let ((files (and tasks-org-ui--graph
+                      (tasks-org-graph-files tasks-org-ui--graph))))
+      (tasks-org-ui--unregister-watchers)
+      (tasks-org-ui--render-treemacs)
+      (tasks-org-ui--register-watchers files)
+      (when cur-id
+        (tasks-org-ui--goto-task-id cur-id)))))
 
 ;;; File-notify watchers
 
@@ -427,8 +492,7 @@ Recursively renders children when TASK's :id is in EXPANDED-IDS."
            (let ((buf (get-buffer tasks-org-ui-buffer-name)))
              (when (buffer-live-p buf)
                (with-current-buffer buf
-                 (tasks-org-ui--load-and-set-state)
-                 (tasks-org-ui--remount))))))))
+                 (tasks-org-ui--rerender t))))))))
 
 (defun tasks-org-ui--register-watchers (files)
   "Watch FILES for changes and schedule a refresh on each event."
@@ -448,12 +512,11 @@ Recursively renders children when TASK's :id is in EXPANDED-IDS."
 ;;;###autoload
 (defun tasks-org-ui-show ()
   "Open the org-memory task UI buffer.
-When invoked from a `tasks-org-mode' buffer with point on a task, the
-UI opens with that task as the cursor row.  Otherwise the cursor lands
-on the selected task (if any) or the first top-level task."
+When invoked from a `tasks-org-mode' buffer with point on a task, the UI opens
+with that task as the cursor row.  Otherwise the cursor lands on the selected
+task (if any) or the first top-level task."
   (interactive)
-  (unless (require 'vui nil t)
-    (user-error "vui.el is not installed; cannot open the tasks UI"))
+  (tasks-org-ui--ensure-treemacs)
   (let* ((source-task-id
           (when (and (derived-mode-p 'org-mode)
                      (fboundp 'tasks-org--at-task-heading-p)
@@ -461,27 +524,26 @@ on the selected task (if any) or the first top-level task."
             (org-entry-get nil "ID")))
          (buf (get-buffer-create tasks-org-ui-buffer-name)))
     (with-current-buffer buf
-      (unless (derived-mode-p 'tasks-org-ui-mode)
-        (tasks-org-ui-mode))
       (setq tasks-org-ui--cursor-id source-task-id)
-      (vui-mount (vui-component 'tasks-org-ui--root)
-                 tasks-org-ui-buffer-name)
-      (when source-task-id
-        (tasks-org-ui--goto-task-id source-task-id)))
+      (tasks-org-ui--load-and-set-state)
+      (setq tasks-org-ui--cursor-id
+            (or source-task-id (tasks-org-ui--initial-cursor-id tasks-org-ui--graph)))
+      (tasks-org-ui--rerender nil))
     (pop-to-buffer buf)))
 
-(defun tasks-org-ui-toggle-expand (&optional id)
-  "Toggle the expanded state of the task at point (or with explicit ID)."
+(defun tasks-org-ui-toggle-expand (&optional _arg)
+  "Toggle the expanded state of the task at point."
   (interactive)
-  (let* ((task (or (and id (tasks-org-graph-find-by-id tasks-org-ui--graph id))
-                   (tasks-org-ui--row-task)))
+  (let* ((task (tasks-org-ui--row-task))
          (tid (plist-get task :id)))
     (unless tid
       (user-error "No task on this row"))
+    (unless (tasks-org-ui--task-has-children-p task)
+      (message "Task has no subtasks"))
     (if (gethash tid tasks-org-ui--expanded-ids)
         (remhash tid tasks-org-ui--expanded-ids)
       (puthash tid t tasks-org-ui--expanded-ids))
-    (tasks-org-ui--remount)))
+    (tasks-org-ui--rerender nil)))
 
 (defun tasks-org-ui-cycle-status (&optional backward)
   "Cycle the status of the task at point forward (or BACKWARD)."
@@ -496,8 +558,7 @@ on the selected task (if any) or the first top-level task."
     (unless (and file pos new-status)
       (user-error "No task at point with a cyclable status"))
     (tasks-org-set-status-at file pos new-status)
-    (tasks-org-ui--load-and-set-state)
-    (tasks-org-ui--remount)
+    (tasks-org-ui--rerender t)
     (message "Status: %s -> %s" current new-status)))
 
 (defun tasks-org-ui-cycle-status-back ()
@@ -515,16 +576,15 @@ on the selected task (if any) or the first top-level task."
     (let ((current (tasks-org-graph-selected-id tasks-org-ui--graph)))
       (tasks-org--write-local-selection
        (if (equal current id) nil id))
-      (tasks-org-ui--load-and-set-state)
-      (tasks-org-ui--remount)
+      (tasks-org-ui--rerender t)
       (message (if (equal current id)
                    "Cleared selection"
                  "Selected: %s") (or (plist-get task :summary) id)))))
 
 (defun tasks-org-ui-visit-source ()
   "Visit the task at point in its source file.
-Reuses an already-visible window for the source file when available
-rather than creating a new split."
+Reuses an already-visible window for the source file when available rather than
+creating a new split."
   (interactive)
   (let* ((task (tasks-org-ui--row-task))
          (file (plist-get task :source-file))
@@ -564,16 +624,12 @@ rather than creating a new split."
           (tasks-org-open-plan #'find-file-other-window))
          (t
           (tasks-org-create-import-for-current-task)))))
-    (tasks-org-ui--load-and-set-state)
-    (tasks-org-ui--remount)))
+    (tasks-org-ui--rerender t)))
 
 (defun tasks-org-ui-refresh ()
   "Reload the task graph and re-render the UI."
   (interactive)
-  (tasks-org-ui--load-and-set-state)
-  (tasks-org-ui--register-watchers
-   (tasks-org-graph-files tasks-org-ui--graph))
-  (tasks-org-ui--remount)
+  (tasks-org-ui--rerender t)
   (message "Tasks reloaded."))
 
 ;;; Linked-issue resolution
@@ -598,9 +654,9 @@ Reads from `TASKS.org' at the project root."
 
 (defun tasks-org-ui--resolve-issue-token (token base)
   "Return a URL for TOKEN, or nil when unresolvable.
-TOKEN is either an org-link form `[[url][label]]' (returns the URL
-verbatim) or a bare key resolved against BASE.  When TOKEN is a bare
-key and BASE is nil, returns nil — caller should surface a message."
+TOKEN is either an org-link form `[[url][label]]' (returns the URL verbatim) or
+a bare key resolved against BASE.  When TOKEN is a bare key and BASE is nil,
+returns nil — caller should surface a message."
   (cond
    ;; Org-link: extract the URL.
    ((and (string-prefix-p "[[" token)
@@ -608,6 +664,7 @@ key and BASE is nil, returns nil — caller should surface a message."
     (match-string 1 token))
    ;; Bare key: resolve via BASE.
    (base
+    (require 'url-util)
     (let ((encoded (url-hexify-string token)))
       (cond
        ((string-match-p "{ID}" base)
@@ -618,12 +675,11 @@ key and BASE is nil, returns nil — caller should surface a message."
 
 (defun tasks-org-ui-open-linked-issues ()
   "Open every resolvable linked-issue URL on the cursor task in the browser.
-Caps at `tasks-org-ui-linked-issues-cap' with an informational message
-when exceeded.  Empty / absent property is a silent no-op.  Unresolvable
-bare tokens (no `#+ISSUE_URL_BASE:' configured) trigger a message
-pointing at the missing keyword."
+Caps at `tasks-org-ui-linked-issues-cap' with an informational message when
+exceeded.  Empty / absent property is a silent no-op.  Unresolvable bare tokens
+(no `#+ISSUE_URL_BASE:' configured) trigger a message pointing at the missing
+keyword."
   (interactive)
-  (require 'url-util)
   (let* ((task (tasks-org-ui--row-task))
          (tokens (and task (plist-get task :linked-issues)))
          (base (tasks-org-ui--issue-url-base)))
@@ -690,8 +746,8 @@ stay visible."
 
 (defun tasks-org-ui--compact-collect-lines (task selected-id depth)
   "Walk TASK and its children, returning a list of rendered lines.
-Subtrees of completed tasks are summarised as a single elision line
-when they contain children."
+Subtrees of completed tasks are summarised as a single elision line when they
+contain children."
   (let* ((line (tasks-org-ui--compact-format-task task selected-id depth))
          (kids (plist-get task :children)))
     (cond
@@ -712,13 +768,12 @@ when they contain children."
   "Truncate LINES to MAX, eliding the trailing completed-subtree blocks first."
   (if (<= (length lines) max)
       lines
-    (let ((kept lines)
-          (overflow (- (length lines) max)))
-      ;; Walk backward dropping lines that look like elision summaries
-      ;; or are below the selected row; simplest cut: just take the
-      ;; first MAX lines (selected row is on the path so head-keeping
-      ;; preserves it) and append a truncation indicator.
-      (append (cl-subseq kept 0 (1- max))
+    (let ((overflow (- (length lines) max)))
+      ;; Walk backward dropping lines that look like elision summaries or are
+      ;; below the selected row; simplest cut: just take the first MAX lines
+      ;; (selected row is on the path so head-keeping preserves it) and append a
+      ;; truncation indicator.
+      (append (cl-subseq lines 0 (1- max))
               (list (format "  … %d more rows" (1+ overflow)))))))
 
 (defun tasks-org-ui--compact-render-text (graph)
@@ -797,7 +852,8 @@ Subsequent calls re-render and surface the existing buffer."
 
 (defvar tasks-org-ui-mode-map
   (let ((map (make-sparse-keymap)))
-    ;; Movement (also handled by widget-forward/backward in vui-mode-map).
+    ;; Movement.  Treemacs also binds many of these; this minor-mode map keeps
+    ;; the pi tasks-extension muscle memory active in the dedicated buffer.
     (define-key map (kbd "j") #'next-line)
     (define-key map (kbd "k") #'previous-line)
     (define-key map (kbd "<down>") #'next-line)
@@ -814,7 +870,7 @@ Subsequent calls re-render and surface the existing buffer."
     (define-key map (kbd "s") #'tasks-org-ui-toggle-selected)
     (define-key map (kbd "e") #'tasks-org-ui-visit-source)
     (define-key map (kbd "p") #'tasks-org-ui-open-or-create-import)
-    ;; Refresh / quit.
+    ;; Linked issues / refresh / quit.
     (define-key map (kbd "J") #'tasks-org-ui-open-linked-issues)
     (define-key map (kbd "g") #'tasks-org-ui-refresh)
     (define-key map (kbd "q") #'quit-window)
@@ -822,21 +878,17 @@ Subsequent calls re-render and surface the existing buffer."
   "Keymap for `tasks-org-ui-mode'.
 `SPC' is deliberately unbound — it remains the global Spacemacs leader.")
 
-(define-derived-mode tasks-org-ui-mode special-mode "Tasks-Org-UI"
-  "Major mode for the org-memory task graph visualisation buffer.
+(define-minor-mode tasks-org-ui-mode
+  "Minor mode for the org-memory task graph visualisation buffer.
 
-Renders the project's task tree using vui.el components, with status
-colours and badges matching the pi `tasks' extension.  Status writes
-go through the org-memory protocol helpers in `tasks-org.el', so
-LOGBOOK / CLOSED / :STARTED: bookkeeping stays consistent across pi
-and Emacs surfaces.
-
-Derives from `special-mode'; `vui-mount' enables `vui-mode' on the
-buffer at render time (per vui release notes), which preserves the
-derived mode and its keybindings while overlaying vui's widget
-navigation."
-  ;; Skip `tasks-org-mode' auto-enable so the minor mode does not
-  ;; trigger inside the visualisation buffer.
+The buffer's major mode is `treemacs-mode'; this minor mode overlays the
+org-memory task actions and preserves the pi `tasks' extension's keybindings.
+Status writes go through the org-memory protocol helpers in `tasks-org.el', so
+LOGBOOK / CLOSED / :STARTED: bookkeeping stays consistent across pi and Emacs
+surfaces."
+  :init-value nil
+  :lighter " TasksOrg"
+  :keymap tasks-org-ui-mode-map
   (setq-local tasks-org-mode nil))
 
 (provide 'tasks-org-ui)
