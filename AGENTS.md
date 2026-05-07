@@ -86,7 +86,8 @@ the `hms`/`nos`/`drs` shell aliases.
 | `wayland/` | Wayland compositor configs (sway, hyprland, foot, rofi) |
 | `nmd/` | Work-specific tooling (OneDrive etc.) |
 | `darwin-configuration.nix` | macOS system config (nix-darwin) |
-| `agents/` | AI/coding agent config: pi extensions, prompts, skills. Also publishes the `agent-org-memory` pi package (manifest in `agents/package.json`, Nix package via `agents/agent-org-memory.nix`, exposed as `packages.<system>.agent-org-memory` in `flake.nix`). See `agents/README.md`. |
+| `agents-src/` | Git submodule pointing at [`cormacc/dotagents`](https://github.com/cormacc/dotagents) — every reusable skill, pi extension, prompt template, the pi-side `AGENTS.md`, and the `agent-org-memory` pi package. Edited in place; `agents.nix` symlinks the working tree into `~/.agents/skills` and `~/.pi/agent/{extensions,skills,prompts,AGENTS.md}`. |
+| `agents-config/pi/settings.json` | User-local pi configuration (default provider/model, package list, secrets toggles). Stays in dotfiles, *outside* the dotagents submodule. Symlinked to `~/.pi/agent/settings.json`. |
 | `microchip/` | Microchip embedded dev tooling (see microchip/README.org) |
 | `legacy/` | Deprecated configs (ruby, matlab, cdrip) |
 
@@ -96,7 +97,5 @@ the `hms`/`nos`/`drs` shell aliases.
 - `allowUnfree = true` globally; `--impure` flag required on all builds (env var reads)
 - Overlays applied: nix-microchip, rust-overlay, NUR, llm-agents, claude-desktop
 - The `rebuild` script in repo root is hardcoded for xps15 NixOS rebuild only
-- `agents.nix` is a Home Manager module with two modes selected via `agents.mode`:
-  - `editable` (default) — whole-directory `mkOutOfStoreSymlink`s point `~/.agents/skills`, `~/.pi/agent/{AGENTS.md,prompts,settings.json,extensions,skills}` at the live `agents/` checkout. The full local suite is installed.
-  - `packaged` — per-entry symlinks from the `agent-org-memory` Nix store output. Only the four packaged extensions (`tasks`, `jira`, `leader-menu`, `emacsclient`) and three packaged skills (`org-tasks`, `org-plan`, `org-jira`) plus the `lib/` helper are installed; other entries in the destination directories are left alone.
+- `agents.nix` is a Home Manager module that symlinks the dotagents submodule working tree (`agents-src/`) into `~/.agents/skills` and `~/.pi/agent/{AGENTS.md,prompts,extensions,skills}`, plus `agents-config/pi/settings.json` into `~/.pi/agent/settings.json`. Edits in `agents-src/` reload in place via `/reload` without a Home Manager switch. The module fails fast with an actionable error if the submodule is uninitialised.
 - Darwin config lives in the root flake — run `drs` alias or `darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure`

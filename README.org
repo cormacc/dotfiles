@@ -157,7 +157,8 @@ The flake uses =builtins.getEnv= for identity and a couple of secrets, hence =--
 | =desktop/= | Desktop app modules (web, audio, office, entertainment) |
 | =wayland/= | Wayland compositor configs (sway, hyprland, foot, rofi) |
 | =nmd/= | Work-specific tooling (OneDrive etc.) |
-| =agents/= | AI / coding agent config: pi extensions, prompts, skills. The =org-tasks= / =org-plan= / =org-jira= skills plus the =tasks= / =jira= / =leader-menu= / =emacsclient= extensions are also published as the =agent-org-memory= pi package (=packages.<system>.agent-org-memory= in this flake; see [[./agents/README.md]]). [[./agents.nix]] toggles between editable mode (default, full local suite) and packaged mode (collaborators, slice only) via =agents.mode=. |
+| =agents-src/= | Git submodule pointing at [[https://github.com/cormacc/dotagents][=cormacc/dotagents=]] — every reusable skill, pi extension, prompt template, the pi-side =AGENTS.md=, and the =agent-org-memory= pi package. [[./agents.nix]] symlinks the working tree into =~/.agents/skills= and =~/.pi/agent/{extensions,skills,prompts,AGENTS.md}= for live editing. |
+| =agents-config/= | User-local pi configuration (=pi/settings.json=). Stays in dotfiles, outside the dotagents submodule. |
 | =microchip/= | Microchip embedded dev tooling (see [[./microchip/README.org]]) |
 | =legacy/= | Deprecated configs (ruby, matlab, cdrip) |
 | =darwin-configuration.nix= | macOS system config (nix-darwin) |
