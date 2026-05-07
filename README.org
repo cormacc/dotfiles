@@ -229,7 +229,7 @@ After you pull this dotfiles change, any =TASKS.local.org= =#+SELECTED:=
 UUID that referenced an extracted task (everything except
 =9e134ad1-...= which is the extraction parent itself) becomes stale.
 Re-select the task in dotagents' =TASKS.org= via the pi tasks overlay
-or by editing =~/dev/agents/dotagents/TASKS.local.org=.
+or by editing =~/dotfiles/agents-src/TASKS.local.org=.
 
 ** Releasing dotagents
 Dotagents tags are advisory; this dotfiles repo always tracks an exact
@@ -477,8 +477,6 @@ Defined in [[./home-core.nix]] and available after the first successful apply:
 | =nos= | =sudo nixos-rebuild switch --flake './dotfiles#$(hostname)' --impure= |
 | =nob= | =nixos-rebuild build --flake './dotfiles#$(hostname)' --impure= |
 | =drs= | =sudo darwin-rebuild switch --flake './dotfiles#<host>' --impure= |
-
-The top-level [[./rebuild]] script is hardcoded for the =xps15= NixOS rebuild only -- prefer =nos= on other hosts.
 
 ** Updating packages
 Nix freezes the revision of nixpkgs used initially (in [[./flake.lock]]) to ensure the build is reproducible.

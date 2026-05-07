@@ -18,9 +18,11 @@ home-manager switch --flake './dotfiles#minimal' --impure -b backup   # server/W
 # Update flake inputs
 nix flake update
 
-# Shell aliases defined after first apply:
+# Shell aliases defined after first apply (see home-core.nix):
 #   hms  - home-manager switch (default config)
+#   hmb  - home-manager build  (default config)
 #   nos  - nixos-rebuild switch (auto-detects hostname)
+#   nob  - nixos-rebuild build  (auto-detects hostname)
 #   drs  - darwin-rebuild switch (macOS, requires sudo)
 
 # Validate flake
@@ -93,9 +95,32 @@ the `hms`/`nos`/`drs` shell aliases.
 
 ## Nix-Specific Notes
 
-- Uses nixpkgs unstable channel (`nixos-unstable`)
-- `allowUnfree = true` globally; `--impure` flag required on all builds (env var reads)
-- Overlays applied: nix-microchip, rust-overlay, NUR, llm-agents, claude-desktop
-- The `rebuild` script in repo root is hardcoded for xps15 NixOS rebuild only
-- `agents.nix` is a Home Manager module that symlinks the dotagents submodule working tree (`agents-src/`) into `~/.agents/skills` and `~/.pi/agent/{AGENTS.md,prompts,extensions,skills}`, plus `agents-config/pi/settings.json` into `~/.pi/agent/settings.json`. Edits in `agents-src/` reload in place via `/reload` without a Home Manager switch. The module fails fast with an actionable error if the submodule is uninitialised.
-- Darwin config lives in the root flake — run `drs` alias or `darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure`
+- Uses nixpkgs unstable channel (`nixos-unstable`); darwin pins to `nixpkgs-darwin` (release-25.11) until [nixpkgs#507531](https://github.com/NixOS/nixpkgs/issues/507531) is fixed.
+- `allowUnfree = true` globally; `--impure` flag required on all builds (env var reads).
+- Overlays differ per platform: Linux `pkgs` applies nix-microchip, rust-overlay, NUR, llm-agents, claude-desktop; the darwin builder applies only llm-agents and claude-desktop.
+- `agents.nix` is a Home Manager module that symlinks the dotagents submodule working tree (`agents-src/`) into `~/.agents/skills` and `~/.pi/agent/{AGENTS.md,prompts,extensions,skills}`, plus `agents-config/pi/settings.json` into `~/.pi/agent/settings.json`. Edits in `agents-src/` reload in place via `/reload` without a Home Manager switch. The module fails fast with an actionable error if the submodule is uninitialised, and runs `npm install --omit=dev` for local-only pi extensions (`chromium`, `pi-clojure`) on activation when their `package.json` changes.
+- Darwin config lives in the root flake — run `drs` alias or `darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure`.
+
+## Per-clone bootstrap
+
+Two durable steps after a fresh clone, both required:
+
+1. **Initialise the dotagents submodule** (provides every skill, pi extension, prompt, and the pi-side `AGENTS.md`):
+
+   ```shell
+   # Either clone with submodules in one step:
+   git clone --recurse-submodules <dotfiles-url>
+
+   # Or, if already cloned without --recurse-submodules:
+   git -C ~/dotfiles submodule update --init --recursive
+   ```
+
+   `home-manager switch` refuses to activate without it.
+
+2. **Register the pi-settings clean filter** so volatile fields (`defaultProvider`, `defaultModel`, `lastChangelogVersion`) in `agents-config/pi/settings.json` aren't staged on every `/model` swap:
+
+   ```shell
+   ~/dotfiles/agents-config/install-git-filter.sh
+   ```
+
+   Idempotent; requires `jq`. Bound to `agents-config/pi/settings.json` via `.gitattributes`. See README.org § *The pi-settings clean filter* for details.

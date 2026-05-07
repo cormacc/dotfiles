@@ -161,17 +161,7 @@
             ./nixos-gaming.nix
           ];
         };
-        # Retiring C2750D box as nas...
-        # nas = nixpkgs.lib.nixosSystem {
-        #   system = "${system}";
-        #   specialArgs = { hostName = "nas"; };
-        #   modules = [
-        #     ./hosts/c2750d4i/hardware-configuration.nix
-        #     ./hosts/c2750d4i/nixos-configuration.nix
-        #     ./nixos-server.nix
-        #   ];
-        # };
-        #... in favour of t470p
+        # t470p hardware doubling as a NAS (succeeded the retired C2750D box).
         t470-nas = nixpkgs.lib.nixosSystem {
           system = "${system}";
           specialArgs = { hostName = "t470-nas"; };
@@ -184,7 +174,7 @@
             # ./nixos-workstation.nix
           ];
         };
-        #... or odroid h4
+        # Current NAS: odroid-h4.
         nas = nixpkgs.lib.nixosSystem {
           system = "${system}";
           specialArgs = { hostName = "nas"; };
