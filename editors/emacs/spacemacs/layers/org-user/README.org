@@ -93,7 +93,7 @@ The minor-mode lighter is =Tasks=.
 
 ** Protocol conventions
 
-See =agents/skills/org-tasks/SKILL.md= and =agents/skills/org-plan/SKILL.md=
+See =agents-src/skills/org-tasks/SKILL.md= and =agents-src/skills/org-plan/SKILL.md=
 for the canonical file protocol (TODO cycle, properties, =#+IMPORT:=,
 =#+DEFAULT_PLAN_DIR:=, =#+SELECTED:=, =:LINKED_ISSUES:=, =#+ISSUE_URL_BASE:=,
 change-record sections).  Emacs-side specifics:
@@ -129,7 +129,7 @@ change-record sections).  Emacs-side specifics:
 
 A Treemacs/treelib-rendered visualisation of the project task graph.  Mirrors
 the pi tasks extension's expanded UI for navigate / expand / select /
-cycle workflows; see =agents/pi/extensions/tasks/README.md= for the
+cycle workflows; see =agents-src/pi/extensions/tasks/README.md= for the
 canonical UX contract.  The first implementation used =vui.el=, but the
 expanded hierarchy renderer was converted to Treemacs because the
 button-oriented vui tree was harder to read for nested task graphs.

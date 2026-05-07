@@ -1,28 +1,11 @@
-{ config, pkgs, lib, specialArgs, ... }:
+{ config, pkgs, lib, ... }:
 
-let
-  # Input parameters
-  inherit (specialArgs) cfgName;
-
-  # Personal Info
-  name = builtins.getEnv "NAME";
-  email = builtins.getEnv "EMAIL";
-  username = builtins.getEnv "USER";
-
-  # Paths
-  homedir = builtins.getEnv "HOME";
-  dotRoot = "${homedir}/dotfiles";
-  flakePath = "${dotRoot}#${cfgName}";
-in
 {
   imports = [
     ./home-core.nix
-    # Include these at flake level instead?
-    #./nmd/nmd.nix
     ./editors/editors.nix
     ./dev/dev.nix
     ./agents.nix
-    #./desktop/office.nix
   ];
 
   # HM 25.11 flipped the macOS default from linkApps -> copyApps, which on

@@ -460,7 +460,7 @@ Format: <DEFAULT_PLAN_DIR>/<YYYY-MM-DD>-<slug>.org"
 (defun tasks-org--scaffold-change-record (file parent-id title)
   "Write the org-plan minimal skeleton to FILE for PARENT-ID + TITLE.
 Refuses to overwrite an existing file.  Creates parent directories
-as needed.  See `agents/skills/org-plan/SKILL.md' for the skeleton
+as needed.  See `agents-src/skills/org-plan/SKILL.md' for the skeleton
 contract."
   (when (file-exists-p file)
     (user-error "Refusing to overwrite existing change-record: %s" file))
