@@ -1,3 +1,22 @@
+* DONE [#A] Extract agent skills and extensions as new flake
+CLOSED: [2026-05-07 Thu 22:46]
+:PROPERTIES:
+:ID: 9e134ad1-6a9c-4e7d-9fe9-82df2634224e
+:STARTED: [2026-05-07 Thu 21:25]
+:ARCHIVED: [2026-05-07 Thu 23:01]
+:END:
+:LOGBOOK:
+- State "DONE"      from "STARTED"   [2026-05-07 Thu 22:46]
+- State "STARTED"   from "TODO"      [2026-05-07 Thu 21:25]
+:END:
+#+IMPORT: [[file:design/log/2026-05-07-extract-agent-skills.org]]
+Most of the recent activity in this repo is iterating on agent skills.
+Dotfiles/system config should be relatively static. Let's extract these as follows:
+- Extract skills and extensions to a new git-repo / flake -- it'll be at github:cormacc/dotagents
+- The new repo will contain only the skills and extensions -- the actual agent installation will remain here in agents.nix
+- The new repo will be a monorepo -- initially it'll have the existing package definition for the org-memory family of skills, but later at least one other package definition for a clojure-development related set of skills
+- the local/dev install mechanism for the skills and extensions will remain symlink based -- i.e. editable and reloadable immediately in-place without a home-manager switch iteration. If not straightforward via flake, including the new repo as a submodule here is an acceptable compromise.
+
 * CANCELLED [#C] Update nixGL flake URL :nix:
 CLOSED: [2026-05-06 Wed 09:37]
 :PROPERTIES:
