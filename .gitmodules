@@ -1,3 +1,6 @@
 [submodule "git/dotrepos/git-subrepo"]
 	path = git/dotrepos/git-subrepo
 	url = git@github.com:ingydotnet/git-subrepo
+[submodule "agents-src"]
+	path = agents-src
+	url = git@github.com:cormacc/dotagents.git
