@@ -37,7 +37,6 @@ Acceptance criteria:
 - Conclusions either confirm the planned `agents/package.json` shape or propose a concrete alternative.
 
 This must complete before the boundary task below, so the manifest design is grounded in what pi actually accepts.
-
 ** DONE [#B] Define the package boundary and pi manifest :agents:pi:
 CLOSED: [2026-05-06 Wed 22:05]
 :PROPERTIES:
@@ -56,7 +55,6 @@ Acceptance criteria:
 - The manifest preserves the generic-skill vs pi-extension distinction.
 
 Import audit (already done) confirms the helper set: `tasks` → `lib/pi-utils.ts` + `emacsclient/{emacsclient,elisp}.ts`; `jira` → `lib/pi-utils.ts` + `tasks/insert.ts`; `leader-menu` → `lib/{editor,pi-utils}.js`; `emacsclient/index.ts` → `lib/wm.ts`.
-
 ** DONE [#B] Add a Nix package for the agent memory bundle :nix:agents:
 CLOSED: [2026-05-06 Wed 22:30]
 :PROPERTIES:
@@ -80,7 +78,6 @@ Acceptance criteria:
 - Generated/cache artefacts are excluded from the package output.
 
 Prefer a simple copy/filter package initially. Avoid introducing unnecessary build steps unless tests or dependency vendoring require them.
-
 ** DONE [#B] Refactor Home Manager wiring into editable and packaged modes :home-manager:nix:
 CLOSED: [2026-05-06 Wed 22:37]
 :PROPERTIES:
@@ -99,7 +96,6 @@ Acceptance criteria:
 - Darwin and Linux Home Manager entry points continue to evaluate (`home-darwin.nix` and `home.nix` both import `agents.nix`).
 
 This likely means introducing a small local module option set or let-bound source selector in `agents.nix` rather than hard-coding only `${config.home.homeDirectory}/dotfiles/agents` paths.
-
 ** DONE [#C] Verify pi discovery, hot reload, and package installation paths :pi:validation:
 CLOSED: [2026-05-06 Wed 22:43]
 :PROPERTIES:
@@ -119,7 +115,6 @@ Acceptance criteria:
 - Existing extension tests that are practical to run still pass against the editable checkout (`emacsclient/test.sh`, `tasks/test.sh`, `jira/test.sh`).
 
 Validation also runs `nix flake check --impure` and a targeted build of the new package.
-
 ** DONE [#C] Document usage and future extraction path :docs:
 CLOSED: [2026-05-06 Wed 22:49]
 :PROPERTIES:
@@ -137,7 +132,6 @@ Acceptance criteria:
 - Documentation states that user settings (`settings.json`, per-extension `*-ext.json`, `leader-menu.json`) are not shipped — consumers compose their own pi configuration on top of the bundle.
 - Documentation includes how another flake could reference the package, and how this layout could later move to a dedicated repo with minimal redesign.
 - Existing README references (`agents/skills/README.org`, top-level `README.org` if it touches agents wiring) are updated where package assumptions change.
-
 * Implementation
 ** Spike: pi package manifest format
 :PROPERTIES:

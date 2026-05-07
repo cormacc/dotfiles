@@ -766,7 +766,6 @@ CLOSED: [2026-05-05 Tue 23:13]
 :END:
 Automatic writes by skill/tooling clobber whitespace. This may be resolvable via one-line addition to the org-tasks skill? Though maybe worth adding a general-purpose org-mode skill...
 DECISION Updated the org-tasks skill - no need for a dedicated writing skill for now
-
 ** CANCELLED [#C] Update nixGL flake URL :nix:
 CLOSED: [2026-05-06 Wed 09:37]
 :PROPERTIES:
@@ -783,3 +782,21 @@ CLOSED: [2026-05-06 Wed 09:37]
 Waiting on an upstream fix for an nvidia-open issue
 Cancelled - eliminated use of nixGL -- use targets.genericLinux.enable instead on non-NixOS installs.
 See https://nix-community.github.io/home-manager/index.xhtml#sec-usage-gpu-non-nixos
+
+** DONE [#D] Package org-memory protocol / extensions
+CLOSED: [2026-05-06 Wed 22:50]
+:PROPERTIES:
+:ID: 79d6f4f5-70f9-404d-9b4c-0cf0ef0e7adb
+:STARTED: [2026-05-06 Wed 21:56]
+:ARCHIVED: [2026-05-06 Wed 22:50]
+:END:
+:LOGBOOK:
+- State "DONE"       from "STARTED"    [2026-05-06 Wed 22:50]
+- State "STARTED"    from "TODO"       [2026-05-06 Wed 21:56]
+:END:
+#+IMPORT: [[file:design/log/2026-05-06-package-org-memory-protocol-extensions.org]]
+Currently the skills and extensions are embedded in this repo.
+Good to either extract them, or come up with a packaging/deployment strategy to facilitate sharing them with the team / other
+interested parties.
+Ideally the approach would allow me to continue editing skills/extensions live and reloading without having to go through a
+rebuild install step.

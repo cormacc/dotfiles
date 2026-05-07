@@ -232,20 +232,38 @@ Stops when a sibling or shallower heading is reached."
             (outline-next-heading))))))
     (nreverse children)))
 
+(defun tasks-org-graph--has-actionable-ancestor-p ()
+  "Return non-nil when point's heading is nested under an actionable task."
+  (save-excursion
+    (let (found)
+      (while (and (not found) (org-up-heading-safe))
+        (when (tasks-org-graph--task-heading-p)
+          (setq found t)))
+      found)))
+
 (defun tasks-org-graph--collect-top-level (source-file origin)
-  "Collect every actionable top-level task in the current buffer."
+  "Collect actionable root tasks in the current buffer.
+A root task is any actionable heading with no actionable ancestor.  This lets
+`TASKS.org' use non-task category headings such as `* Improvements' while the
+actual task roots live at level 2."
   (let ((tasks nil))
     (org-with-wide-buffer
      (goto-char (point-min))
-     (while (re-search-forward "^\\* " nil t)
+     (while (re-search-forward org-heading-regexp nil t)
        (beginning-of-line)
-       (when (tasks-org-graph--task-heading-p)
-         (let ((task (tasks-org-graph--parse-task-at-point source-file origin)))
-           (setq task (plist-put task :children
-                                 (tasks-org-graph--collect-subtree
-                                  source-file origin (org-outline-level))))
-           (push task tasks)))
-       (org-end-of-subtree t t)))
+       (if (and (tasks-org-graph--task-heading-p)
+                (not (tasks-org-graph--has-actionable-ancestor-p)))
+           (progn
+             (let ((task (tasks-org-graph--parse-task-at-point source-file origin)))
+               (setq task (plist-put task :children
+                                     (tasks-org-graph--collect-subtree
+                                      source-file origin (org-outline-level))))
+               (push task tasks))
+             ;; A root actionable task owns its subtree, so skip descendants.
+             (org-end-of-subtree t t))
+         ;; Non-task category headings (e.g. `* Improvements') do not own task
+         ;; subtrees; descend into them so level-2 task roots are collected.
+         (outline-next-heading))))
     (nreverse tasks)))
 
 ;;; Plan-file ingestion

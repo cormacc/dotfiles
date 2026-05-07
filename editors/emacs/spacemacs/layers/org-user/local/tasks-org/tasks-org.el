@@ -524,36 +524,42 @@ Opens the new change-record in another window."
           (match-string-no-properties 1))))))
 
 (defun tasks-org--write-local-selection (id)
-  "Write ID as the #+SELECTED: pointer in TASKS.local.org atomically.
+  "Write ID as the #+SELECTED: pointer in TASKS.local.org.
 Preserves all other content in the file (local task headings,
 #+IMPORT: keywords, etc.).  When ID is nil the #+SELECTED: keyword
 is retained with an empty value so the file remains gitignored and
 its other content stays intact.  When the file does not yet exist
-it is created with just the keyword."
+it is created with just the keyword.
+
+The write edits a live buffer visiting TASKS.local.org, then persists it via
+an atomic temp-file rename.  That keeps any visible TASKS.local.org buffer in
+sync and avoids Emacs' reload prompt when selection is toggled from the tree UI."
   (let* ((local-file (tasks-org--local-file))
          (tmp-file (concat local-file ".tmp"))
-         (existing (and (file-readable-p local-file)
-                        (with-temp-buffer
-                          (insert-file-contents local-file)
-                          (buffer-string))))
          (new-line (if id (format "#+SELECTED: %s\n" id) "#+SELECTED:\n")))
     (make-directory (file-name-directory local-file) t)
-    (with-temp-file tmp-file
-      (cond
-       ;; File absent: write just the keyword.
-       ((null existing)
-        (insert new-line))
-       ;; Existing #+SELECTED: line: replace it in place.
-       ((string-match "^#\\+SELECTED:[^\n]*\n?" existing)
-        (insert (replace-match new-line t t existing)))
-       ;; No keyword present: prepend.  Ensure trailing newline on the
-       ;; preserved body so the file shape stays well-formed.
-       (t
-        (insert new-line)
-        (insert existing)
-        (unless (string-suffix-p "\n" existing)
-          (insert "\n")))))
-    (rename-file tmp-file local-file t)))
+    (with-current-buffer (find-file-noselect local-file)
+      (let ((pos (point))
+            (inhibit-read-only t))
+        (goto-char (point-min))
+        (cond
+         ;; Existing #+SELECTED: line: replace it in place.
+         ((re-search-forward "^#\\+SELECTED:[^\n]*\n?" nil t)
+          (replace-match new-line t t))
+         ;; No keyword present: prepend.  If the file is empty this writes just
+         ;; the keyword; otherwise the existing body follows unchanged because
+         ;; NEW-LINE already ends with a newline.
+         (t
+          (goto-char (point-min))
+          (insert new-line)))
+        (let ((inhibit-message t))
+          (write-region (point-min) (point-max) tmp-file nil nil)
+          (rename-file tmp-file local-file t))
+        (set-visited-file-modtime)
+        (set-buffer-modified-p nil)
+        (goto-char (min pos (point-max)))
+        (when (bound-and-true-p tasks-org-mode)
+          (tasks-org--refresh-selection-overlay))))))
 
 ;;;###autoload
 (defun tasks-org-toggle-selected ()

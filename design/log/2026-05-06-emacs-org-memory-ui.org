@@ -28,11 +28,13 @@ this UI work may replace or substantially refactor the existing helpers
 where that produces a cleaner implementation.
 
 This change-record plans a *visualisation/UI layer* added to the
-existing =tasks-org= package, with =vui.el= (https://github.com/d12frosted/vui.el)
-as the candidate rendering library. The goal is feature-parity with
-the pi tasks extension's expanded UI for read/navigate/cycle workflows
-while delegating durable state mutation to a refactored =tasks-org=
-protocol helper surface and plain org editing where they fit.
+existing =tasks-org= package. The first implementation spike used
+=vui.el= (https://github.com/d12frosted/vui.el); the next phase converts
+the expanded hierarchy to a Treemacs/treelib-backed renderer for better
+readability. The goal remains feature-parity with the pi tasks extension's
+expanded UI for read/navigate/cycle workflows while delegating durable state
+mutation to a refactored =tasks-org= protocol helper surface and plain org
+editing where they fit.
 
 ** Design decisions
 
@@ -63,16 +65,25 @@ protocol helper surface and plain org editing where they fit.
   Key bindings, status cycling, selection behaviour, default collapse
   rules, and the split-pane shape should mirror
   =agents/pi/extensions/tasks/README.md= so muscle memory transfers.
-  The rendering technology is Emacs-idiomatic (vui.el / overlays /
+  The rendering technology is Emacs-idiomatic (Treemacs / overlays /
   buttons), not a port of the pi widget tree.
-- Evaluate vui.el before committing :: =vui.el= is the leading
+- Evaluate vui.el before committing :: =vui.el= was the first renderer
   candidate because it targets exactly this kind of "rich read-mostly
   buffer with navigable interactive regions" need that the pi tasks
-  UI fills. The evaluation task below decides whether vui.el covers
-  per-region keymaps, status-cycle hooks, badge/tag rendering, split
-  panes (or whether splits are layered on top with =display-buffer=),
-  and refresh-on-file-change cleanly. Fallback is overlays + a custom
-  =special-mode= derivative.
+  UI fills. It was adopted for the first implementation spike, but live
+  review showed the resulting button-oriented hierarchy is visually poor
+  for this task tree.
+- Convert rendering to Treemacs as the next phase :: Keep the graph reader,
+  protocol helpers, =#+SELECTED:= / =#+IMPORT:= semantics, compact widget
+  behaviour, and launch commands, but replace the expanded UI renderer with
+  a Treemacs/treelib-backed tree. Treemacs' extension API
+  (=treemacs-define-entry-node-type=, =treemacs-define-expandable-node-type=,
+  =treemacs-define-leaf-node-type=) supports non-file hierarchical nodes with
+  per-node labels, keys, properties, icons, and RET/TAB actions. Use a
+  dedicated =*tasks-org*= buffer rather than embedding tasks in the normal
+  Treemacs project sidebar, so file/workspace assumptions do not leak into
+  the org-memory UI. If the conversion fully replaces the expanded vui UI,
+  retire the =vui= package dependency from the Spacemacs layer.
 - Read-mostly v1 with a minimal mutation substrate :: First cut focuses on
   navigate / expand / select / cycle and plan/edit jumps. Unlike the
   existing helper set, v1 may add a minimal Emacs-side =#+IMPORT:= scaffold
@@ -120,23 +131,23 @@ protocol helper surface and plain org editing where they fit.
   partial flip proves the model.
 - Spacemacs binding scheme :: Two complementary launchers, both registered
   through the standard Spacemacs declarations:
-  - Global launcher =SPC a t= (applications → tasks) so the UI is reachable
-    from any buffer. Uses =spacemacs/declare-prefix= + =spacemacs/set-leader-keys=.
+  - Global launcher =SPC a T= (applications → tasks) so the UI is reachable
+    from any buffer without colliding with Spacemacs' existing =SPC a t=
+    prefix. Uses =spacemacs/declare-prefix= + =spacemacs/set-leader-keys=.
   - In-context alias =, ; T= added to the existing
     =spacemacs/set-leader-keys-for-major-mode 'org-mode= block in
     =editors/emacs/spacemacs/layers/org-user/packages.el= alongside the
     current =;s=, =;p=, =;P=, =;t=, =;Lp=, =;Lu= bindings, so users
     inside =TASKS.org= or a change-record reach the UI from the same
     prefix as the rest of =tasks-org=.
-- UI buffer is an evilified Spacemacs buffer :: If =vui.el= is adopted,
-  =tasks-org-ui-mode= derives from =vui-mode= (which itself derives from
-  =special-mode=); if the fallback renderer is used, it derives directly
-  from =special-mode=. The mode is registered with =spacemacs/evilify-map=
-  (or the =evilified-state-evilify-map= helper) so vim motion keys remap to
-  UI actions while =SPC= remains the global leader. Do NOT bind =SPC= as a
-  local toggle — it would shadow the leader. The UI buffer must also be
-  excluded from =tasks-org-mode='s filename auto-enable so the minor mode
-  does not run inside the visualisation buffer.
+- UI buffer is an evilified Spacemacs buffer :: The expanded UI should use a
+  dedicated Treemacs/treelib-backed buffer with a task-specific mode/map, while
+  preserving Spacemacs evilified motion semantics. The mode is registered with
+  =spacemacs/evilify-map= (or the =evilified-state-evilify-map= helper) so vim
+  motion keys remap to UI actions while =SPC= remains the global leader. Do NOT
+  bind =SPC= as a local toggle — it would shadow the leader. The UI buffer must
+  also be excluded from =tasks-org-mode='s filename auto-enable so the minor
+  mode does not run inside the visualisation buffer.
 - Transparent interop with org source buffers :: Crossing between source
   org buffers and the UI must preserve location and stay live without a
   manual refresh:
@@ -366,7 +377,7 @@ Outcome:
   from =github.com/d12frosted/vui.el=; =tasks-org-ui= local;
   evilified-state mapping registered via
   =evilified-state-evilify-map= so j/k/RET/TAB/h/l/s/e/p/g/q remap
-  while =SPC= stays the leader; launchers =SPC a t= (global) and
+  while =SPC= stays the leader; launchers =SPC a T= (global) and
   =, ; T= (in =org-mode= local-leader, alongside the existing
   =;s/;p/;P/;c/;n/;N/;t/;Lp/;Lu= bindings).
 - Tests: 8 new tests covering default-expansion empty/path/sibling
@@ -429,7 +440,7 @@ Acceptance criteria:
   =org-todo= internally, tests must prove LOGBOOK / CLOSED / =:STARTED:=
   semantics match the org-memory protocol.
 - Launchers (per the binding scheme in =* Context= → Design decisions):
-  - =SPC a t= globally via =spacemacs/declare-prefix= +
+  - =SPC a T= globally via =spacemacs/declare-prefix= +
     =spacemacs/set-leader-keys=.
   - =, ; T= added to the existing =set-leader-keys-for-major-mode 'org-mode=
     block in =org-user/packages.el= so it sits alongside the current
@@ -567,12 +578,85 @@ Acceptance criteria:
 
 Update =editors/emacs/spacemacs/layers/org-user/README.org= so the
 new UI is discoverable and its scope vs the pi extension is clear.
+** DONE [#A] Convert expanded UI renderer from vui.el to Treemacs :ui:treemacs:
+CLOSED: [2026-05-07 Thu 00:52]
+:PROPERTIES:
+:ID: c0459781-8cba-4bf1-aa4d-b1591dc30c2e
+:CREATED: [2026-05-07 Thu 00:40]
+:STARTED: [2026-05-07 Thu 00:44]
+:BLOCKED-BY: b44c8e53-7b12-4800-aab1-9319225356ec
+:END:
+:LOGBOOK:
+- State "DONE"       from "STARTED"    [2026-05-07 Thu 00:52]
+- State "STARTED"    from "TODO"       [2026-05-07 Thu 00:44]
+- Created [2026-05-07 Thu 00:40]
+:END:
+Outcome:
+- Replaced the expanded =vui.el= renderer in =tasks-org-ui.el= with a
+  dedicated Treemacs/treelib-backed =*tasks-org*= buffer.  The graph reader,
+  protocol mutation helpers, selection/import semantics, linked-issue command,
+  compact widget, and launch commands are preserved.
+- Treemacs node types are defined lazily through treelib: a variadic hidden
+  root for top-level tasks plus recursive task nodes with branch/leaf icons,
+  row properties, and existing status/priority/badge/tag formatting.
+- =tasks-org-ui-mode= is now a minor mode layered over =treemacs-mode= so the
+  pi-style keymap remains active without embedding tasks in the normal
+  Treemacs project sidebar.
+- Spacemacs packaging no longer recipe-fetches =vui=; =treemacs= is declared
+  as the renderer dependency.  README documents the Treemacs conversion and
+  why the vui spike was superseded.
+- Validation: pure ERT suite passes =45/45=; additional batch smoke test with
+  package-initialised Treemacs rendered a selected parent/child tree and
+  expanded the selected path.
+- Follow-up polish after live use: =#+SELECTED:= writes now update a live
+  =TASKS.local.org= buffer via =find-file-noselect=, then persist it with the
+  existing atomic temp-file rename pattern.  This avoids Emacs' external-change
+  reload prompt when selection is toggled from the tree.  Selected task rows
+  rely on the green selection face only; the extra =★= prefix was removed
+  because it disturbed Treemacs indentation.
+
+Acceptance criteria:
+- =tasks-org-ui-show= opens the expanded hierarchy in a dedicated
+  Treemacs/treelib-backed =*tasks-org*= buffer, not in the normal Treemacs
+  project sidebar.
+- The existing =tasks-org-graph.el= model and protocol helper surface remain
+  the data/mutation layer; the conversion does not change the canonical
+  =#+SELECTED:= and =#+IMPORT:= file protocol.
+- Task rows use Treemacs-style tree rendering with clear open/closed icons,
+  indentation, status/priority/summary/tags/linked-issue badges, selected-task
+  marker, local-draft marker, and change-record indicator.
+- Expand/collapse, cursor preservation, and default expansion rules match the
+  current UI semantics: top-level visible, selected path expanded, completed
+  subtrees collapsed unless on that path.
+- Keybindings from the vui implementation are preserved where practical
+  (=j/k=, =RET=/=TAB=, =h/l= status cycle, =s= select, =e= source jump,
+  =p= import open/create, =J= linked issues, =g= refresh, =q= quit), with any
+  Treemacs-map conflicts documented in the README.
+- File-notify refresh still reloads the graph and preserves the cursor task by
+  UUID where possible.
+- Spacemacs packaging removes or disables the =vui= dependency for the
+  expanded UI once Treemacs is the active renderer, while keeping the global
+  and org-local launchers working.
+- Tests are updated to cover the Treemacs renderer's task-node labelling,
+  expansion/default-selection state, and command dispatch; stale vui-specific
+  tests are removed or rewritten. The full =tasks-org= ERT suite passes.
+- README and implementation notes state that the first vui renderer was
+  superseded by Treemacs because the hierarchy readability was poor.
+
+Implementation notes:
+- Prefer Treemacs' treelib extension API over hand-assembling button text.
+  Confirm whether task nodes should be one recursive expandable node type plus
+  leaf node type, or a variadic entry node rooted at loaded top-level tasks.
+- Keep the compact selected-task widget unchanged unless Treemacs conversion
+  makes sharing row-formatting trivial; this phase is specifically the
+  expanded hierarchy renderer.
+
 ** WAITING [#D] Validate end-to-end against TASKS.org and a real plan :verification:
 :PROPERTIES:
 :ID: 9a985abf-0572-43dc-8df3-5fde75567a17
 :CREATED: [2026-05-06 Wed 21:56]
 :STARTED: [2026-05-07 Thu 00:05]
-:BLOCKED-BY: b44c8e53-7b12-4800-aab1-9319225356ec
+:BLOCKED-BY: c0459781-8cba-4bf1-aa4d-b1591dc30c2e
 :END:
 :LOGBOOK:
 - State "WAITING"    from "STARTED"    [2026-05-07 Thu 00:06]
@@ -595,7 +679,7 @@ Batch validation completed during implementation:
 
 Outstanding interactive validation (requires a live Spacemacs
 session with the layer loaded and pi running against this repo):
-- Open =TASKS.org=, launch UI via =SPC a t=, navigate to a task
+- Open =TASKS.org=, launch UI via =SPC a T=, navigate to a task
   with =#+IMPORT=, expand into subtasks, cycle status; confirm
   the on-disk file shows new status with LOGBOOK + CLOSED, and
   pi's compact widget refreshes via its file watcher.
@@ -605,7 +689,7 @@ session with the layer loaded and pi running against this repo):
   runs end-to-end (file written + parent linked + buffer opened).
 - Press =J= on a task with =:LINKED_ISSUES:=; confirm browser opens
   the URL set, with the cap-and-message behaviour when over 5.
-- Confirm vui rendering, evilified-state mapping, file-notify
+- Confirm Treemacs rendering, evilified-state mapping, file-notify
   refresh, and post-implementation review TODOs (filed under
   task =d19bfbf6='s container task list).
 
