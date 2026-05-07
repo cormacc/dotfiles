@@ -1,9 +1,6 @@
 {
-  "lastChangelogVersion": "0.73.0",
   "hideThinkingBlock": true,
   "defaultThinkingLevel": "high",
-  "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.5",
   "packages": [
     "npm:@gotgenes/pi-anthropic-auth",
     "npm:pi-mcp-adapter",

@@ -246,6 +246,54 @@ Then bump the dotfiles submodule pointer (see *Update workflow* above)
 so the dotfiles flake.lock-like commit captures the tagged dotagents
 revision.
 
+* The pi-settings clean filter
+
+[[file:./agents-config/pi/settings.json]] is a single source of truth for two
+very different concerns: a stable list of installed pi packages
+(=packages= field) and volatile runtime preferences (=defaultProvider=,
+=defaultModel=, =lastChangelogVersion=) that pi rewrites on every
+=/model= swap or version bump. Without intervention the volatile fields
+show up as repo churn.
+
+A git clean filter strips them when staging while leaving the working
+tree untouched. Pi keeps writing through unchanged; git only ever sees
+the durable subset.
+
+** First-time setup
+After cloning, register the filter once:
+#+begin_src shell
+  ~/dotfiles/agents-config/install-git-filter.sh
+#+end_src
+The script writes three entries into =.git/config= under
+=[filter "pi-settings"]= and is idempotent. If =jq= is missing it
+fails fast with a clear error.
+
+The [[file:./.gitattributes]] entry binds the filter to
+=agents-config/pi/settings.json= so subsequent =git add= /
+=git commit= invocations honour it automatically.
+
+** Verifying it works
+#+begin_src shell
+  # Edit a runtime field directly:
+  jq '.defaultModel = "some-other-model"' \
+    agents-config/pi/settings.json > /tmp/settings.json && \
+    mv /tmp/settings.json agents-config/pi/settings.json
+
+  # git status should be clean (filter elides the change):
+  git status agents-config/pi/settings.json
+
+  # Add a package to the persisted list — git status DOES report this:
+  jq '.packages += ["npm:foo"]' \
+    agents-config/pi/settings.json > /tmp/settings.json && \
+    mv /tmp/settings.json agents-config/pi/settings.json
+  git diff agents-config/pi/settings.json
+#+end_src
+
+** Adjusting the field list
+Edit the =clean= command in [[file:./agents-config/install-git-filter.sh]] and
+re-run the install script. The =jq 'del(...)'= expression takes
+comma-separated paths.
+
 * Known issues / limitations
 
 ** OpenGL applications on non-NixOS
