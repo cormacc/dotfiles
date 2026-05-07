@@ -1,7 +1,7 @@
 #+TITLE: Extract agent skills and extensions as new flake
 #+DATE: 2026-05-07 Thu
 #+PARENT_ID: 9e134ad1-6a9c-4e7d-9fe9-82df2634224e
-#+STATUS: Active
+#+STATUS: Complete
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 
 * Context
@@ -269,14 +269,26 @@ Acceptance criteria:
   running ~home-manager switch~ produces a working install on Linux and Darwin
   without manual intervention beyond standard ~--impure~ and submodule init.
 
-** TODO [#B] Document migration, release, and consumer workflows :docs:release:
+** DONE [#B] Document migration, release, and consumer workflows :docs:release:
+CLOSED: [2026-05-07 Thu 22:45]
 :PROPERTIES:
 :ID: 85a1d974-eb7a-469c-a37c-e367801bfc59
 :CREATED: [2026-05-07 Thu 21:08]
+:STARTED: [2026-05-07 Thu 22:42]
 :END:
 :LOGBOOK:
+- State "DONE"      from "STARTED"   [2026-05-07 Thu 22:45]
+- State "STARTED"   from "TODO"      [2026-05-07 Thu 22:42]
 - Created [2026-05-07 Thu 21:08]
 :END:
+Result: dotfiles =README.org= now has a top-level =* The dotagents
+submodule= section covering bootstrap, update workflow, editing,
+release tagging, what-stayed/what-moved, and stale-=#+SELECTED:=
+guidance. dotagents =README.md= grew a parallel =Releasing= section.
+Follow-up work captured as fresh TODOs in dotagents (=5f847a49-…=
+clojure-development skill package, =7e21788d-…= self-improvement
+routing rework). The self-improvement skill itself carries an inline
+notice pointing at the rework TODO.
 Acceptance criteria:
 - The new repo README documents pi package installation, flake consumption,
   editable local development, and Vercel Labs skills installation.
@@ -294,6 +306,28 @@ Acceptance criteria:
   package, is captured separately rather than blocking the extraction.
 
 * Implementation
+
+** Outcome
+[2026-05-07 Thu 22:46] Extraction complete. Agent skills, pi extensions,
+prompt templates, the pi-side =AGENTS.md=, and the agent-related task
+graph live in [[https://github.com/cormacc/dotagents][github:cormacc/dotagents]];
+dotfiles consumes the repo as a git submodule under =agents-src/= with
+=mkOutOfStoreSymlink=s pointing at the live working tree, so editable
+reload via pi's =/reload= still works without a Home Manager switch.
+User-local pi configuration stays in dotfiles at
+=agents-config/pi/settings.json=. ~nix flake check~ on dotagents
+evaluates on every supported system; the org-memory pi package builds
+identically from the local submodule and from
+=github:cormacc/dotagents=. Activation refuses with an actionable error
+when the submodule is uninitialised. Documentation in both repos covers
+bootstrap, update, editing, and release workflows. Two follow-up TODOs
+are captured in dotagents (clojure-development skill package; self-
+improvement routing rework for the two-tier dotfiles/dotagents split).
+
+Dotfiles commits landed: =a456268= (rewire) and =c25b10f= (activation
+guard). Dotagents commits: =802cb5f= (skeleton), =d65c3e7= (source
+import), =00b2915= (flake.lock), =2235b52= (task graph + design log
+import).
 
 ** Inventory of agent assets under =agents/=
 [2026-05-07 Thu 21:25] First-pass classification of every reusable source path
@@ -735,7 +769,32 @@ Left *unstaged* for user triage (ambient out-of-session changes):
   (~openai-codex/gpt-5.5~ → ~anthropic/claude-opus-4-7~).
 - =flake.lock= — ~nix flake update~ since the last commit.
 
-*** Carried forward to follow-up tasks
+*** Documentation pass
+[2026-05-07 Thu 22:45] Closed every documentation criterion explicitly:
+
+- Dotfiles =README.org= grew =* The dotagents submodule= with five
+  subsections — What it is, Bootstrap, Update workflow, Editing in
+  place, What stays in dotfiles vs what moved, Releasing dotagents.
+  The provisioning section's =git clone= example now uses
+  =--recurse-submodules=.
+- Dotagents =README.md= already documented pi-package /
+  flake-input / submodule / Vercel Labs ~skills~ install routes from
+  the skeleton task; this pass added a =Releasing= section explaining
+  how tags interact with each consumer route.
+- Stale =#+SELECTED:= guidance lives in the dotfiles README's
+  what-moved subsection. The current dotfiles =TASKS.local.org=
+  selects =9e134ad1-…= (the extraction parent, still in dotfiles), so
+  no immediate stale-selection issue for this user.
+- Follow-up TODOs captured in dotagents =TASKS.org=:
+  - =5f847a49-c227-4284-a49d-c9b3db972da6= — clojure-development skill
+    package alongside =agent-org-memory=.
+  - =7e21788d-b4e6-439b-b300-ca84ab4a2fcc= — self-improvement skill
+    routing rework for the two-tier (dotagents + dotfiles) split.
+- =skills/self-improvement/SKILL.md= now opens with a routing-under-
+  review notice pointing at the second TODO; the body is unchanged so
+  existing single-tier behaviour still works until the rework lands.
+
+** Carried forward to follow-up tasks
 - =skills/self-improvement/SKILL.md= still points global agent feedback
   at =~/dotfiles/TASKS.org=. After the rewire, *some* global feedback
   (skills, extensions, prompts) becomes a dotagents concern while other
