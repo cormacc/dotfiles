@@ -10,6 +10,7 @@
 (require 'ert)
 (require 'tasks-org)
 (require 'tasks-org-graph)
+(require 'tasks-org-doctor)
 
 ;; tasks-org-ui.el is intentionally `no-byte-compile' because Treemacs treelib
 ;; is the runtime renderer and may not be present in minimal batch contexts.
@@ -263,6 +264,32 @@ is returned.  The buffer is killed afterwards."
                 "- State \"DONE\"      from \"STARTED\"      \\[" content))))))
 
 ;;; Change-record scaffold
+
+(ert-deftest tasks-org-build-task-block-shape ()
+  "Block matches the pi `buildTaskBlock' shape: heading + :PROPERTIES: with
+:ID:/:CREATED: + :LOGBOOK: with `- Created' seed at the requested level."
+  (let* ((id "deadbeef-1234-4567-8abc-def012345678")
+         (ts "2026-05-08 Fri 01:08")
+         (block (tasks-org--build-task-block 2 "Hello world" id ts)))
+    (should (string-prefix-p "** TODO Hello world\n" block))
+    (should (string-match-p "^:PROPERTIES:$" block))
+    (should (string-match-p (concat "^:ID: " (regexp-quote id) "$") block))
+    (should (string-match-p (concat "^:CREATED: \\[" (regexp-quote ts) "\\]$")
+                            block))
+    (should (string-match-p "^:LOGBOOK:$" block))
+    (should (string-match-p (concat "^- Created \\[" (regexp-quote ts) "\\]$")
+                            block))
+    ;; Two `:END:' markers — one for :PROPERTIES:, one for :LOGBOOK:.
+    (should (= 2 (cl-count-if (lambda (line) (string= line ":END:"))
+                              (split-string block "\n"))))
+    (should (string-suffix-p "\n" block))))
+
+(ert-deftest tasks-org-build-task-block-respects-level ()
+  "Outline level controls the leading star count; child level adds one star."
+  (let ((b2 (tasks-org--build-task-block 2 "Sib" "id-2" "2026-05-08 Fri 01:08"))
+        (b3 (tasks-org--build-task-block 3 "Sub" "id-3" "2026-05-08 Fri 01:08")))
+    (should (string-prefix-p "** TODO Sib" b2))
+    (should (string-prefix-p "*** TODO Sub" b3))))
 
 (ert-deftest tasks-org-scaffold-change-record-skeleton ()
   "Scaffold writes the org-plan minimal skeleton with the supplied parent ID."
@@ -673,6 +700,397 @@ FN is called with the project root path and must return its result."
     (should text)
     (should (string-match-p "more rows" text))
     (should (= (length (split-string text "\n")) 4))))
+
+;;; Details pane
+
+(ert-deftest tasks-org-ui-details-placeholder-when-task-is-nil ()
+  "With no task at point the pane shows a plain placeholder buffer."
+  (let ((buf (tasks-org-ui--details-prepare-buffer nil)))
+    (unwind-protect
+        (with-current-buffer buf
+          (should (string-match-p "no task at point" (buffer-string)))
+          ;; Placeholder is not an indirect buffer.
+          (should-not (buffer-base-buffer buf)))
+      (when (buffer-live-p buf) (kill-buffer buf)))))
+
+(ert-deftest tasks-org-ui-details-narrows-indirect-buffer-to-subtree ()
+  "Prepare returns an indirect `org-mode' buffer narrowed to the cursor task's subtree."
+  (let* ((tmp (make-temp-file "tasks-org-details" t))
+         (file (expand-file-name "plan.org" tmp)))
+    (unwind-protect
+        (progn
+          (with-temp-file file
+            (insert "** TODO First\n:PROPERTIES:\n:ID: a\n:END:\nFirst body.\n\n"
+                    "** TODO Second\n:PROPERTIES:\n:ID: b\n:END:\nSecond body.\n"))
+          (let* ((pos (tasks-org-tests--heading-pos file "^\\*\\* TODO First"))
+                 (task (list :id "a" :source-file file
+                             :source-pos pos :level 2))
+                 (buf (tasks-org-ui--details-prepare-buffer task)))
+            (unwind-protect
+                (with-current-buffer buf
+                  (should (buffer-base-buffer buf)) ;; indirect
+                  (should (derived-mode-p 'org-mode))
+                  (should buffer-read-only)
+                  (should (string-match-p "\\`\\*\\* TODO First"
+                                          (buffer-string)))
+                  (should (string-match-p "First body\\." (buffer-string)))
+                  (should-not (string-match-p "Second body" (buffer-string)))
+                  (should (equal tasks-org-ui--details-last-rendered-id "a")))
+              (when (buffer-live-p buf) (kill-buffer buf)))))
+      (when-let ((b (find-buffer-visiting file))) (kill-buffer b))
+      (delete-directory tmp t))))
+
+(ert-deftest tasks-org-ui-details-same-file-reuses-indirect-buffer ()
+  "Cursor changes within the same source file widen + re-narrow the existing buffer."
+  (let* ((tmp (make-temp-file "tasks-org-details" t))
+         (file (expand-file-name "plan.org" tmp)))
+    (unwind-protect
+        (progn
+          (with-temp-file file
+            (insert "** TODO First\n:PROPERTIES:\n:ID: a\n:END:\nFirst body.\n\n"
+                    "** TODO Second\n:PROPERTIES:\n:ID: b\n:END:\nSecond body.\n"))
+          (let* ((p1 (tasks-org-tests--heading-pos file "^\\*\\* TODO First"))
+                 (p2 (tasks-org-tests--heading-pos file "^\\*\\* TODO Second"))
+                 (t1 (list :id "a" :source-file file :source-pos p1 :level 2))
+                 (t2 (list :id "b" :source-file file :source-pos p2 :level 2))
+                 (buf1 (tasks-org-ui--details-prepare-buffer t1))
+                 (buf2 (tasks-org-ui--details-prepare-buffer t2)))
+            (unwind-protect
+                (progn
+                  (should (eq buf1 buf2))
+                  (with-current-buffer buf2
+                    (should (string-match-p "TODO Second" (buffer-string)))
+                    (should-not (string-match-p "First body" (buffer-string)))
+                    (should (equal tasks-org-ui--details-last-rendered-id "b"))))
+              (when (buffer-live-p buf2) (kill-buffer buf2)))))
+      (when-let ((b (find-buffer-visiting file))) (kill-buffer b))
+      (delete-directory tmp t))))
+
+(ert-deftest tasks-org-ui-details-different-file-rebuilds-indirect-buffer ()
+  "A cursor move into a different source file rebuilds the indirect buffer."
+  (let* ((tmp (make-temp-file "tasks-org-details" t))
+         (file-a (expand-file-name "plan-a.org" tmp))
+         (file-b (expand-file-name "plan-b.org" tmp)))
+    (unwind-protect
+        (progn
+          (with-temp-file file-a
+            (insert "** TODO Alpha\n:PROPERTIES:\n:ID: alpha\n:END:\nAlpha body.\n"))
+          (with-temp-file file-b
+            (insert "** TODO Beta\n:PROPERTIES:\n:ID: beta\n:END:\nBeta body.\n"))
+          (let* ((pa (tasks-org-tests--heading-pos file-a "Alpha"))
+                 (pb (tasks-org-tests--heading-pos file-b "Beta"))
+                 (ta (list :id "alpha" :source-file file-a :source-pos pa :level 2))
+                 (tb (list :id "beta" :source-file file-b :source-pos pb :level 2))
+                 (buf-a (tasks-org-ui--details-prepare-buffer ta))
+                 (base-a (find-buffer-visiting file-a))
+                 (buf-b (tasks-org-ui--details-prepare-buffer tb)))
+            (unwind-protect
+                (progn
+                  ;; The first indirect buffer is killed when we switch files.
+                  (should-not (buffer-live-p buf-a))
+                  (with-current-buffer buf-b
+                    (should (eq (buffer-base-buffer buf-b)
+                                (find-buffer-visiting file-b)))
+                    (should (string-match-p "TODO Beta" (buffer-string)))
+                    (should-not (string-match-p "Alpha body" (buffer-string))))
+                  ;; The previous base buffer can be reaped.
+                  (when (buffer-live-p base-a) (kill-buffer base-a)))
+              (when (buffer-live-p buf-b) (kill-buffer buf-b))))
+          (dolist (f (list file-a file-b))
+            (when-let ((b (find-buffer-visiting f))) (kill-buffer b))))
+      (delete-directory tmp t))))
+
+;;; Doctor checks
+
+(defun tasks-org-tests--mk-task (&rest props)
+  "Build a graph-task plist with sane defaults overridden by PROPS."
+  (let ((base (list :id nil :status "TODO" :summary "" :children nil
+                    :source-file nil :source-pos 1 :level 2
+                    :import-raw nil :import-path nil :closed nil)))
+    (while props
+      (setq base (plist-put base (pop props) (pop props))))
+    base))
+
+(ert-deftest tasks-org-doctor-detects-duplicate-ids ()
+  "Each occurrence of a duplicated :ID: produces its own jumpable finding."
+  (let* ((a (tasks-org-tests--mk-task :id "dup" :summary "A"))
+         (b (tasks-org-tests--mk-task :id "dup" :summary "B"))
+         (graph (list :tasks (list a b) :selected-id nil :files nil))
+         (findings (tasks-org-doctor-run graph))
+         (codes (mapcar (lambda (f) (plist-get f :code)) findings)))
+    (should (= 2 (cl-count 'duplicate-id codes)))
+    (should (cl-every (lambda (f) (eq (plist-get f :severity) 'error))
+                      (cl-remove-if-not
+                       (lambda (f) (eq (plist-get f :code) 'duplicate-id))
+                       findings)))))
+
+(ert-deftest tasks-org-doctor-flags-selected-not-found ()
+  "`#+SELECTED:` referencing an absent UUID surfaces a single error."
+  (let* ((graph (list :tasks (list (tasks-org-tests--mk-task :id "only"))
+                      :selected-id "missing"
+                      :files nil))
+         (codes (mapcar (lambda (f) (plist-get f :code))
+                        (tasks-org-doctor-run graph))))
+    (should (memq 'selected-not-found codes))))
+
+(ert-deftest tasks-org-doctor-flags-broken-import ()
+  "`#+IMPORT:` with no resolved path is broken-import (error)."
+  (let* ((task (tasks-org-tests--mk-task
+                :id "x" :import-raw "[[file:./missing.org]]" :import-path nil))
+         (graph (list :tasks (list task) :selected-id nil :files nil))
+         (findings (tasks-org-doctor-run graph)))
+    (should (cl-some (lambda (f)
+                       (and (eq (plist-get f :code) 'broken-import)
+                            (eq (plist-get f :severity) 'error)))
+                     findings))))
+
+(ert-deftest tasks-org-doctor-flags-closed-without-timestamp ()
+  "DONE/CANCELLED tasks lacking CLOSED: surface a warning."
+  (let* ((task (tasks-org-tests--mk-task :id "x" :status "DONE" :closed nil))
+         (graph (list :tasks (list task) :selected-id nil :files nil))
+         (findings (tasks-org-doctor-run graph)))
+    (should (cl-some (lambda (f)
+                       (and (eq (plist-get f :code) 'closed-without-timestamp)
+                            (eq (plist-get f :severity) 'warn)))
+                     findings))))
+
+(ert-deftest tasks-org-doctor-flags-stale-parent-status ()
+  "TODO parents with active/closed children get a stale-parent-status warn."
+  (let* ((child (tasks-org-tests--mk-task :id "c" :status "STARTED"))
+         (parent (tasks-org-tests--mk-task
+                  :id "p" :status "TODO" :children (list child)))
+         (graph (list :tasks (list parent) :selected-id nil :files nil))
+         (findings (tasks-org-doctor-run graph)))
+    (should (cl-some (lambda (f)
+                       (and (eq (plist-get f :code) 'stale-parent-status)
+                            (eq (plist-get f :severity) 'warn)
+                            (string-match-p "STARTED"
+                                            (plist-get f :message))))
+                     findings))))
+
+(defun tasks-org-tests--heading-pos (file pattern)
+  "Return the buffer position of the first line in FILE matching PATTERN."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (goto-char (point-min))
+    (re-search-forward pattern)
+    (line-beginning-position)))
+
+(ert-deftest tasks-org-doctor-flags-waiting-without-blocker ()
+  "WAITING tasks whose source carries no :BLOCKED-BY: entry surface a warn."
+  (let* ((tmp (make-temp-file "tasks-org-doctor" t))
+         (file (expand-file-name "TASKS.org" tmp)))
+    (unwind-protect
+        (progn
+          (with-temp-file file
+            (insert "* Improvements\n\n"
+                    "** WAITING [#C] No blocker\n"
+                    ":PROPERTIES:\n:ID: w\n:END:\n"))
+          (let* ((pos (tasks-org-tests--heading-pos
+                       file "^\\*\\* WAITING"))
+                 (task (tasks-org-tests--mk-task
+                        :id "w" :status "WAITING"
+                        :source-file file :source-pos pos))
+                 (graph (list :tasks (list task) :selected-id nil
+                              :files (list file)))
+                 (findings (tasks-org-doctor-run graph)))
+            (should (cl-some (lambda (f)
+                               (and (eq (plist-get f :code)
+                                        'waiting-without-blocker)
+                                    (eq (plist-get f :severity) 'warn)))
+                             findings))))
+      (delete-directory tmp t))))
+
+(ert-deftest tasks-org-doctor-flags-invalid-task-blocker ()
+  "`:BLOCKED-BY: task:UUID' pointing at an absent UUID is an error finding."
+  (let* ((tmp (make-temp-file "tasks-org-doctor" t))
+         (file (expand-file-name "TASKS.org" tmp)))
+    (unwind-protect
+        (progn
+          (with-temp-file file
+            (insert "* Improvements\n\n"
+                    "** TODO [#A] Blocked\n"
+                    ":PROPERTIES:\n:ID: a\n:BLOCKED-BY: task:absent\n:END:\n"))
+          (let* ((pos (tasks-org-tests--heading-pos file "^\\*\\* TODO"))
+                 (task (tasks-org-tests--mk-task
+                        :id "a" :status "TODO"
+                        :source-file file :source-pos pos))
+                 (graph (list :tasks (list task) :selected-id nil
+                              :files (list file)))
+                 (findings (tasks-org-doctor-run graph)))
+            (should (cl-some (lambda (f)
+                               (and (eq (plist-get f :code)
+                                        'invalid-task-blocker)
+                                    (eq (plist-get f :severity) 'error)))
+                             findings))))
+      (delete-directory tmp t))))
+
+(ert-deftest tasks-org-doctor-clean-graph-yields-no-findings ()
+  "A graph with all checks satisfied returns an empty findings list."
+  (let* ((task (tasks-org-tests--mk-task
+                :id "clean" :status "DONE" :closed "[2026-05-08 Fri 01:18]"))
+         (graph (list :tasks (list task) :selected-id "clean" :files nil))
+         (findings (tasks-org-doctor-run graph)))
+    (should (null findings))))
+
+(ert-deftest tasks-org-doctor-format-line-includes-location ()
+  "`tasks-org-doctor--format-line' renders the trailing =(file:line)= when both are present."
+  (let ((finding (list :code 'duplicate-id :severity 'error
+                       :message "Duplicate :ID: x (2 occurrences)"
+                       :file "/tmp/TASKS.org" :line 42)))
+    (should (equal (tasks-org-doctor--format-line finding)
+                   "[ERROR] duplicate-id: Duplicate :ID: x (2 occurrences) (/tmp/TASKS.org:42)"))))
+
+(ert-deftest tasks-org-doctor-format-report-empty ()
+  "Empty findings render as a single OK line."
+  (should (string-match-p "\\`OK" (tasks-org-doctor-format-report nil))))
+
+;;; Archive helpers
+
+(ert-deftest tasks-org-archive-sort-key-prefers-closed ()
+  "CLOSED: line on its own (between heading and :PROPERTIES:) wins."
+  (let ((text (concat "* DONE Foo\n"
+                      "CLOSED: [2026-04-25 Sat 13:03]\n"
+                      ":PROPERTIES:\n:ID: x\n:END:\n"
+                      ":LOGBOOK:\n- State \"DONE\" from \"STARTED\" [2026-04-30 Thu 09:00]\n:END:\n")))
+    (should (equal (tasks-org--archive-sort-key text)
+                   "2026-04-25 Sat 13:03"))))
+
+(ert-deftest tasks-org-archive-sort-key-falls-back-to-logbook ()
+  "Without CLOSED: line, the most recent DONE/CANCELLED LOGBOOK transition wins."
+  (let ((text (concat "* DONE Foo\n"
+                      ":PROPERTIES:\n:ID: x\n:END:\n"
+                      ":LOGBOOK:\n"
+                      "- State \"STARTED\" from \"TODO\" [2026-04-20 Mon 09:00]\n"
+                      "- State \"DONE\" from \"STARTED\" [2026-04-22 Wed 11:00]\n"
+                      "- State \"DONE\" from \"STARTED\" [2026-05-02 Sat 17:00]\n"
+                      ":END:\n")))
+    (should (equal (tasks-org--archive-sort-key text)
+                   "2026-05-02 Sat 17:00"))))
+
+(ert-deftest tasks-org-archive-sort-key-falls-back-to-archived ()
+  "Without CLOSED: line or LOGBOOK closes, :ARCHIVED: drawer property wins."
+  (let ((text (concat "* DONE Foo\n"
+                      ":PROPERTIES:\n:ID: x\n:ARCHIVED: [2026-04-30 Thu 12:00]\n:END:\n")))
+    (should (equal (tasks-org--archive-sort-key text)
+                   "2026-04-30 Thu 12:00"))))
+
+(ert-deftest tasks-org-archive-sort-key-far-future-fallback ()
+  "Entries with no resolvable timestamp sink to the far-future fallback."
+  (let ((text "* DONE Foo\n:PROPERTIES:\n:ID: x\n:END:\n"))
+    (should (equal (tasks-org--archive-sort-key text)
+                   tasks-org--archive-far-future))))
+
+(ert-deftest tasks-org-promote-subtree-text-reduces-stars ()
+  "Promotion drops one leading star from every heading line."
+  (let* ((text (concat "** TODO Parent\n"
+                       ":PROPERTIES:\n:ID: a\n:END:\n"
+                       "*** TODO Child\n"
+                       "**** TODO Grandchild\n"))
+         (out (tasks-org--promote-subtree-text text)))
+    (should (string-match-p "^\\* TODO Parent$" out))
+    (should (string-match-p "^\\*\\* TODO Child$" out))
+    (should (string-match-p "^\\*\\*\\* TODO Grandchild$" out))
+    ;; Property drawer lines (leading colon) must NOT be promoted.
+    (should (string-match-p "^:PROPERTIES:$" out))))
+
+(ert-deftest tasks-org-add-archived-property-injects-before-first-end ()
+  "Insertion targets the :PROPERTIES: drawer's :END:, never :LOGBOOK:'s."
+  (let* ((text (concat "* DONE Foo\n"
+                       ":PROPERTIES:\n:ID: x\n:END:\n"
+                       ":LOGBOOK:\n- Created [2026-04-25 Sat 09:00]\n:END:\n"))
+         (out (tasks-org--add-archived-property text "2026-05-08 Fri 01:11")))
+    ;; Two :END: markers remain (one per drawer).
+    (should (= 2 (cl-count-if (lambda (line) (string= line ":END:"))
+                              (split-string out "\n"))))
+    ;; ARCHIVED line lives inside :PROPERTIES:, before its :END:.
+    (should (string-match-p
+             ":PROPERTIES:\n:ID: x\n:ARCHIVED: \\[2026-05-08 Fri 01:11\\]\n:END:"
+             out))
+    ;; LOGBOOK content is intact.
+    (should (string-match-p "^:LOGBOOK:$" out))
+    (should (string-match-p "^- Created \\[2026-04-25 Sat 09:00\\]$" out))))
+
+(ert-deftest tasks-org-add-archived-property-errors-without-properties-drawer ()
+  "Caller error: archived task missing :PROPERTIES: surfaces an error."
+  (should-error
+   (tasks-org--add-archived-property "* DONE Foo\nNo drawer\n"
+                                     "2026-05-08 Fri 01:11")))
+
+(ert-deftest tasks-org-rewrite-archive-sorted-orders-ascending ()
+  "Re-emitting the archive yields entries sorted ascending by sort key."
+  (with-temp-buffer
+    (insert "#+TITLE: Archive\n\n"
+            "* DONE Beta\n:PROPERTIES:\n:ID: b\n:ARCHIVED: [2026-05-01 Fri 12:00]\n:END:\n\n"
+            "* DONE Alpha\nCLOSED: [2026-04-20 Mon 09:00]\n:PROPERTIES:\n:ID: a\n:END:\n\n"
+            "* DONE Gamma\nCLOSED: [2026-05-05 Tue 08:00]\n:PROPERTIES:\n:ID: g\n:END:\n")
+    (let ((entries (tasks-org--collect-archive-entries)))
+      (tasks-org--rewrite-archive-sorted entries))
+    (let ((buf (buffer-string)))
+      ;; Preamble preserved.
+      (should (string-prefix-p "#+TITLE: Archive\n" buf))
+      ;; Order: Alpha (Apr 20) < Beta (May 1) < Gamma (May 5).
+      (let ((alpha (string-match "\\* DONE Alpha" buf))
+            (beta (string-match "\\* DONE Beta" buf))
+            (gamma (string-match "\\* DONE Gamma" buf)))
+        (should alpha) (should beta) (should gamma)
+        (should (< alpha beta))
+        (should (< beta gamma))))))
+
+(ert-deftest tasks-org-archive-task-end-to-end ()
+  "`tasks-org-archive-task' moves a top-level DONE task and stamps :ARCHIVED:."
+  (let* ((tmp (make-temp-file "tasks-org-archive-test" t))
+         (tasks-file (expand-file-name "TASKS.org" tmp))
+         (archive-file (expand-file-name "TASKS.archive.org" tmp))
+         (local-file (expand-file-name "TASKS.local.org" tmp)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'tasks-org--project-root)
+                   (lambda () tmp))
+                  ((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+          ;; Seed TASKS.org with two top-level tasks under a category.
+          (with-temp-file tasks-file
+            (insert "#+TITLE: P\n"
+                    "#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)\n\n"
+                    "* Improvements\n\n"
+                    "** DONE Closed task\n"
+                    "CLOSED: [2026-04-25 Sat 13:03]\n"
+                    ":PROPERTIES:\n:ID: closed-id\n:END:\n"
+                    ":LOGBOOK:\n- Created [2026-04-25 Sat 09:00]\n:END:\n\n"
+                    "** TODO Active task\n"
+                    ":PROPERTIES:\n:ID: active-id\n:END:\n"))
+          ;; Seed selection at the about-to-be-archived task.
+          (with-temp-file local-file
+            (insert "#+SELECTED: closed-id\n"))
+          (with-temp-file archive-file (insert "#+TITLE: Archive\n\n"))
+          (let ((buf (find-file-noselect tasks-file)))
+            (with-current-buffer buf
+              (goto-char (point-min))
+              (re-search-forward "^\\*\\* DONE Closed task$")
+              (goto-char (line-beginning-position))
+              (tasks-org-archive-task))
+            (kill-buffer buf))
+          ;; Source file lost the closed task but kept the active one.
+          (let ((tasks (with-temp-buffer
+                         (insert-file-contents tasks-file)
+                         (buffer-string))))
+            (should-not (string-match-p "DONE Closed task" tasks))
+            (should (string-match-p "TODO Active task" tasks)))
+          ;; Archive gained a level-1 entry with :ARCHIVED: stamp.
+          (let ((archive (with-temp-buffer
+                           (insert-file-contents archive-file)
+                           (buffer-string))))
+            (should (string-match-p "^\\* DONE Closed task" archive))
+            (should (string-match-p
+                     ":ARCHIVED: \\[2026-04-25 Sat 13:03\\]"
+                     archive)))
+          ;; Selection cleared (file retained, value empty).
+          (let ((local (with-temp-buffer
+                         (insert-file-contents local-file)
+                         (buffer-string))))
+            (should (string-match-p "^#\\+SELECTED:[ \t]*$" local))))
+      (dolist (f (list tasks-file archive-file local-file))
+        (when-let ((b (find-buffer-visiting f))) (kill-buffer b)))
+      (delete-directory tmp t))))
 
 (provide 'tasks-org-tests)
 ;;; tasks-org-tests.el ends here

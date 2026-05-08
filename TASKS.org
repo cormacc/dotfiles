@@ -39,3 +39,14 @@
 - [[#improvements][Improvements]]
 
 * Improvements
+
+** TODO Implement emacs-based ui for org-memory extension
+:PROPERTIES:
+:ID: 9b5067ca-fec2-4e23-b647-981c31ee9a87
+:CREATED: [2026-05-06 Wed 21:56]
+:END:
+:LOGBOOK:
+- Created [2026-05-06 Wed 21:56]
+:END:
+#+IMPORT: [[file:design/log/2026-05-06-emacs-org-memory-ui.org]]
+- Consider replicating functionality of existing pi extension in =pi/extensions/tasks=.

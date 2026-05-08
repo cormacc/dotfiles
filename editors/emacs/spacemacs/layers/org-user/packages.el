@@ -190,7 +190,10 @@ Each entry is either:
                tasks-org-cycle-status-back
                tasks-org-jump-to-parent-task
                tasks-org-publish-task
-               tasks-org-unpublish-task)
+               tasks-org-unpublish-task
+               tasks-org-archive-task
+               tasks-org-doctor-show
+               tasks-org-ui-show-details)
     :init
     ;; `tasks-org-ui.el' is part of the folded local tasks-org package, not a
     ;; separate Spacemacs local package directory.  Install explicit autoloads so
@@ -230,11 +233,24 @@ Each entry is either:
           "k" 'previous-line
           "RET" 'tasks-org-ui-toggle-expand
           "TAB" 'tasks-org-ui-toggle-expand
+          ;; `S-<right>' / `S-<left>' are the primary status-cycling keys:
+          ;; they mirror `org-shiftright' / `org-shiftleft' and slip past
+          ;; Treemacs' own `h' / `l' / `<right>' / `<left>' bindings, which
+          ;; would otherwise shadow the minor-mode entries.
+          "S-<right>" 'tasks-org-ui-cycle-status
+          "S-<left>"  'tasks-org-ui-cycle-status-back
           "l" 'tasks-org-ui-cycle-status
           "h" 'tasks-org-ui-cycle-status-back
           "s" 'tasks-org-ui-toggle-selected
           "e" 'tasks-org-ui-visit-source
           "p" 'tasks-org-ui-open-or-create-import
+          "P" 'tasks-org-ui-publish-task
+          "U" 'tasks-org-ui-unpublish-task
+          "A" 'tasks-org-ui-archive-task
+          "D" 'tasks-org-ui-doctor
+          "i" 'tasks-org-ui-show-details
+          "n" 'tasks-org-ui-create-task
+          "N" 'tasks-org-ui-create-subtask
           "J" 'tasks-org-ui-open-linked-issues
           "g" 'tasks-org-ui-refresh
           "q" 'quit-window)))))

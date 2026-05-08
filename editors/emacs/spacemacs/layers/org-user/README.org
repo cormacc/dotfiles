@@ -157,14 +157,29 @@ leader.  =SPC= is deliberately *not* bound locally.
 | =j= / =↓=            | Move cursor down                                              |
 | =k= / =↑=            | Move cursor up                                                |
 | =RET= / =TAB=        | Toggle expand/collapse on the cursor task                     |
-| =l= / =→=            | Cycle status forward (via the protocol helper)                |
-| =h= / =←=            | Cycle status backward                                         |
+| =S-→= / =S-←=        | Cycle status forward / backward (mirrors =org-shift{right,left}=) |
+| =l= / =→=            | Cycle status forward (non-Spacemacs only — see note below)    |
+| =h= / =←=            | Cycle status backward (non-Spacemacs only — see note below)   |
 | =s=                  | Toggle =#+SELECTED:= on the cursor task                       |
 | =e=                  | Visit the source heading (reuses an already-visible window)   |
 | =p=                  | Open the cursor task's =#+IMPORT:=, or scaffold one if absent |
+| =P=                  | Publish the cursor task's subtree to =TASKS.org=              |
+| =U=                  | Unpublish the cursor top-level task to =TASKS.local.org=      |
+| =A=                  | Archive the cursor top-level DONE/CANCELLED task              |
+| =D=                  | Run org-memory doctor and show findings (RET on a line jumps) |
+| =i=                  | Open / refresh the cursor task's details side pane            |
+| =n=                  | Create a new TODO task as a sibling of the cursor task        |
+| =N=                  | Create a new TODO task as a child of the cursor task          |
 | =J=                  | Open every resolvable linked-issue URL in the browser         |
 | =g=                  | Reload the graph from disk                                    |
 | =q=                  | Quit the UI buffer                                            |
+
+*Treemacs binding collision.*  The buffer's major mode is =treemacs-mode=,
+which claims =h= / =l= / =→= / =←= for tree navigation.  In the Spacemacs
+build Treemacs' evilified entries shadow this minor mode's, so use
+=S-→= / =S-←= for status cycling.  The plain =h= / =l= / arrow bindings
+remain in the keymap as a fallback for non-Spacemacs / non-evilified
+configurations where they win precedence.
 
 The graph re-renders automatically when =TASKS.org=, =TASKS.local.org=,
 or any loaded change-record changes on disk (file-notify watchers
@@ -240,17 +255,15 @@ features are not yet available from =tasks-org-ui= and are tracked
 under =* Follow-ups= in the
 [[file:../../../../../design/log/2026-05-06-emacs-org-memory-ui.org][change-record]]:
 
-- Archive flow (pi =A=).
-- Publish / unpublish flows (pi =P= / =U=) — available from the
-  source buffer via =, ; L p= / =, ; L u= but not from the UI.
-- Doctor command (pi =/tasks doctor=).
 - Agent-assisted change-record drafting (pi =p= prompts an agent
   to draft =* Context= and =* Plan= after scaffolding).
-- Active ECA bridge (=c= keybinding to scope an ECA chat to the
-  cursor task).
-- Details pane next to the tree.
-- Task creation (pi =n= / =N=).
 - Live cross-process sync with pi (events, not just file-watch).
+
+The archive flow (=A=), publish/unpublish (=P= / =U=), task
+creation (=n= / =N=), the doctor command (=D=), and the details
+side pane (=i=) are now available directly from the UI; their
+entries above were retired as the corresponding follow-up tasks
+closed.
 
 * Relationship to the pi tasks extension
 
@@ -258,8 +271,10 @@ Both consumers share the same plain-org files.  Mutations from
 either side go through ordinary file writes; the other side picks
 them up via file watchers (pi) or =auto-revert=/file-notify (Emacs
 + =tasks-org-ui=).  Plan creation, task creation, agent prompts,
-and the doctor command live on the pi side; Emacs covers reading,
-refactoring, and the UI subset documented above.
+live on the pi side; Emacs now covers archive, publish/unpublish,
+task creation, and doctor in addition to the read/navigate/cycle
+core.  Agent-assisted plan drafting and the live event bridge
+remain pi-only for now.
 
 For v1, Emacs writes are *co-canonical* with pi-side writes — neither
 side is the canonical writer.  See the

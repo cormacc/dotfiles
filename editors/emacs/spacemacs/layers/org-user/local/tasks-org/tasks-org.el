@@ -67,6 +67,11 @@ should activate on a buffer."
   :type 'string
   :group 'tasks-org)
 
+(defcustom tasks-org-archive-file-name "TASKS.archive.org"
+  "Filename of the project's archived-task store."
+  :type 'string
+  :group 'tasks-org)
+
 (defcustom tasks-org-auto-enable-paths
   '("\\`TASKS\\.org\\'" "\\`design/log/.*\\.org\\'")
   "Path patterns (regexps) that auto-enable `tasks-org-mode'.
@@ -90,6 +95,10 @@ current buffer's directory."
 (defun tasks-org--tasks-file ()
   "Return the absolute path of the project's TASKS.org."
   (expand-file-name tasks-org-tasks-file-name (tasks-org--project-root)))
+
+(defun tasks-org--archive-file ()
+  "Return the absolute path of the project's TASKS.archive.org."
+  (expand-file-name tasks-org-archive-file-name (tasks-org--project-root)))
 
 ;;; Activation
 
@@ -171,6 +180,22 @@ the responsibility of the pi tasks extension and the agent org-memory skill."
       (org-back-to-heading t))
     (unless (org-entry-get nil "ID")
       (org-entry-put nil "ID" (org-id-new)))))
+
+(defun tasks-org--build-task-block (level summary id timestamp)
+  "Return a TODO task block string at outline LEVEL with SUMMARY, ID, TIMESTAMP.
+Mirrors the pi `buildTaskBlock' shape: heading + :PROPERTIES: drawer with
+:ID: / :CREATED: + :LOGBOOK: drawer seeded with `- Created [TIMESTAMP]'.  Files
+created this way round-trip cleanly between pi and Emacs surfaces."
+  (let ((stars (make-string level ?*)))
+    (concat
+     (format "%s TODO %s\n" stars summary)
+     ":PROPERTIES:\n"
+     (format ":ID: %s\n" id)
+     (format ":CREATED: [%s]\n" timestamp)
+     ":END:\n"
+     ":LOGBOOK:\n"
+     (format "- Created [%s]\n" timestamp)
+     ":END:\n")))
 
 ;;; Plan link parsing
 
@@ -798,6 +823,180 @@ Prompts for confirmation before making any changes."
           (recenter))
       (user-error "No task in %s links to the current file"
                   tasks-org-tasks-file-name))))
+
+;;; Archive
+
+(defconst tasks-org--archive-far-future "9999-12-31 Zzz 23:59"
+  "Sort-key fallback for archive entries with no resolvable timestamp.
+Matches pi's `archiveSortTimestamp' fallback so the two surfaces order
+entries identically when neither =CLOSED:= nor a LOGBOOK close event nor
+=:ARCHIVED:= can be parsed.")
+
+(defun tasks-org--archive-sort-key (subtree-text)
+  "Return the archive-ordering key for SUBTREE-TEXT.
+Priority mirrors pi's `archiveSortTimestamp':
+  1. =CLOSED:= timestamp on its own line.
+  2. Most recent =DONE= / =CANCELLED= LOGBOOK transition.
+  3. =:ARCHIVED:= drawer property.
+  4. Far-future fallback so undated entries sink to the bottom."
+  (or (and (string-match "^CLOSED:[ \t]+\\[\\([^]]+\\)\\]" subtree-text)
+           (match-string 1 subtree-text))
+      (let ((logbook-key nil)
+            (start 0))
+        (while (string-match
+                "^-[ \t]+State[ \t]+\"\\(DONE\\|CANCELLED\\)\"[ \t]+from[ \t]+\"[^\"]+\"[ \t]+\\[\\([^]]+\\)\\]"
+                subtree-text start)
+          (setq logbook-key (match-string 2 subtree-text)
+                start (match-end 0)))
+        logbook-key)
+      (and (string-match "^:ARCHIVED:[ \t]+\\[\\([^]]+\\)\\]" subtree-text)
+           (match-string 1 subtree-text))
+      tasks-org--archive-far-future))
+
+(defun tasks-org--collect-archive-entries ()
+  "Return level-1 entries from the current buffer as `(SORT-KEY . TEXT)' pairs.
+Text runs from each level-1 heading through the position immediately before
+the next sibling (or buffer end).  Pre-heading content (file-level keywords,
+comments) is left in place by the caller; this helper only inspects the
+heading region."
+  (let (entries)
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "^\\* " nil t)
+        (let* ((start (match-beginning 0))
+               (end (save-excursion
+                      (goto-char start)
+                      (org-end-of-subtree t t)
+                      (point)))
+               (text (buffer-substring-no-properties start end)))
+          (push (cons (tasks-org--archive-sort-key text) text) entries)
+          (goto-char end))))
+    (nreverse entries)))
+
+(defun tasks-org--rewrite-archive-sorted (entries)
+  "Replace the level-1 entry region of the current buffer with sorted ENTRIES.
+ENTRIES is a list of `(SORT-KEY . TEXT)' pairs; the buffer is rewritten with
+entries sorted ascending by SORT-KEY (string compare — ISO-style timestamps
+order chronologically).  Any pre-heading preamble (keywords, comments) is
+preserved verbatim."
+  (let* ((sorted (sort (copy-sequence entries)
+                       (lambda (a b) (string< (car a) (car b)))))
+         (preamble-end (save-excursion
+                         (goto-char (point-min))
+                         (if (re-search-forward "^\\* " nil t)
+                             (match-beginning 0)
+                           (point-max)))))
+    (delete-region preamble-end (point-max))
+    (goto-char (point-max))
+    (dolist (entry sorted)
+      (let ((text (cdr entry)))
+        (insert text)
+        (unless (string-suffix-p "\n" text) (insert "\n"))))))
+
+(defun tasks-org--promote-subtree-text (text)
+  "Return TEXT with every heading line's leading star count reduced by one.
+Used when transferring a level-2 task from `TASKS.org' to the archive—which
+has no category section, so its tasks live at level 1."
+  (replace-regexp-in-string
+   "^\\(\\*+\\) "
+   (lambda (m)
+     (let ((stars (match-string 1 m)))
+       (concat (substring stars 1) " ")))
+   text))
+
+(defun tasks-org--add-archived-property (text timestamp)
+  "Return TEXT with =:ARCHIVED: [TIMESTAMP]= inserted before the first =:END:=.
+Assumes the heading carries a =:PROPERTIES:= drawer; signals an error if
+no drawer or no closing =:END:= is found.  Only the first drawer is
+touched, so a later =:LOGBOOK:= drawer's =:END:= is unaffected."
+  (let ((props-pos (string-match "^:PROPERTIES:$" text)))
+    (unless props-pos
+      (error "Archived task is missing :PROPERTIES: drawer"))
+    (let ((end-pos (string-match "^:END:$" text props-pos)))
+      (unless end-pos
+        (error "Archived task has unterminated :PROPERTIES: drawer"))
+      (concat (substring text 0 end-pos)
+              ":ARCHIVED: [" timestamp "]\n"
+              (substring text end-pos)))))
+
+;;;###autoload
+(defun tasks-org-archive-task ()
+  "Archive the top-level task at point to `TASKS.archive.org'.
+Mirrors the pi tasks extension's archive flow:
+  - Refuses unless the heading is a level-2 task (top-level under a category
+    section in `TASKS.org') with status =DONE= or =CANCELLED=.
+  - Refuses for local-origin tasks (publish first).
+  - Prompts for confirmation.
+  - Transfers the subtree as-is (heading promoted by one level, =#+IMPORT:=
+    preserved, plan files not inlined), stamping a =:ARCHIVED:= property.
+  - Re-sorts archive entries by =CLOSED:= ascending (LOGBOOK fallback,
+    =:ARCHIVED:= fallback, far-future fallback) so order matches pi.
+  - Clears `#+SELECTED:' when the archived task is the selected one.
+Both source files are saved."
+  (interactive)
+  (unless (tasks-org--at-task-heading-p)
+    (user-error "Point is not on an actionable task heading"))
+  (unless buffer-file-name
+    (user-error "Current buffer is not visiting a file"))
+  (save-excursion
+    (org-back-to-heading t)
+    (unless (= (org-outline-level) 2)
+      (user-error
+       "Only top-level tasks (level 2 under a category section) may be archived"))
+    (let ((status (org-get-todo-state)))
+      (unless (member status '("DONE" "CANCELLED"))
+        (user-error "Cannot archive: status is %s, not DONE/CANCELLED"
+                    (or status "unset")))))
+  (let* ((tasks-file (tasks-org--tasks-file))
+         (archive-file (tasks-org--archive-file))
+         (current-abs (expand-file-name buffer-file-name)))
+    (unless (string= current-abs (expand-file-name tasks-file))
+      (user-error "Archive only operates on tasks in %s (publish local first)"
+                  tasks-org-tasks-file-name))
+    (let* ((id (org-entry-get nil "ID"))
+           (summary (org-get-heading t t t t))
+           ;; `org-entry-get' for CLOSED returns the value with surrounding
+           ;; brackets included (e.g. "[2026-04-25 Sat 13:03]"); strip them
+           ;; so we re-emit `:ARCHIVED: [TIMESTAMP]' with single brackets.
+           (closed-raw (org-entry-get nil "CLOSED"))
+           (closed (and closed-raw
+                        (if (string-match "\\`\\[\\(.*\\)\\]\\'" closed-raw)
+                            (match-string 1 closed-raw)
+                          closed-raw)))
+           (timestamp (or closed (tasks-org--org-timestamp))))
+      (unless (yes-or-no-p
+               (format "Archive '%s' to %s? " summary tasks-org-archive-file-name))
+        (user-error "Cancelled"))
+      ;; Capture + cut the subtree from TASKS.org.
+      (let ((subtree (save-excursion
+                       (org-back-to-heading t)
+                       (let ((start (point))
+                             (end (save-excursion
+                                    (org-end-of-subtree t t)
+                                    (point))))
+                         (buffer-substring-no-properties start end)))))
+        (org-cut-subtree)
+        (save-buffer)
+        ;; Build the archive entry: promote, stamp :ARCHIVED:, ensure newline.
+        (let* ((promoted (tasks-org--promote-subtree-text subtree))
+               (stamped (tasks-org--add-archived-property promoted timestamp))
+               (entry (if (string-suffix-p "\n" stamped) stamped
+                        (concat stamped "\n"))))
+          (with-current-buffer (find-file-noselect archive-file)
+            (let ((entries (tasks-org--collect-archive-entries)))
+              (push (cons (tasks-org--archive-sort-key entry) entry) entries)
+              ;; Ensure a blank line follows the preamble before any entries.
+              (save-excursion
+                (goto-char (point-min))
+                (unless (re-search-forward "^\\* " nil t)
+                  (goto-char (point-max))
+                  (unless (bolp) (insert "\n"))))
+              (tasks-org--rewrite-archive-sorted entries))
+            (save-buffer)))
+        ;; Clear #+SELECTED: when the archived task was the selected one.
+        (when (and id (equal (tasks-org-selected-id) id))
+          (tasks-org--write-local-selection nil))
+        (message "Archived '%s' to %s" summary tasks-org-archive-file-name)))))
 
 ;;; Minor mode + keymap
 
