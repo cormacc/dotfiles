@@ -10,8 +10,7 @@ CLOSED: [2026-05-07 Thu 22:46]
 - State "STARTED"   from "TODO"      [2026-05-07 Thu 21:25]
 :END:
 #+IMPORT: [[file:design/log/2026-05-07-extract-agent-skills.org]]
-Most of the recent activity in this repo is iterating on agent skills.
-Dotfiles/system config should be relatively static. Let's extract these as follows:
+Most of the recent activity in this repo is iterating on agent skills. Dotfiles/system config should be relatively static. Let's extract these as follows:
 - Extract skills and extensions to a new git-repo / flake -- it'll be at github:cormacc/dotagents
 - The new repo will contain only the skills and extensions -- the actual agent installation will remain here in agents.nix
 - The new repo will be a monorepo -- initially it'll have the existing package definition for the org-memory family of skills, but later at least one other package definition for a clojure-development related set of skills
@@ -30,6 +29,4 @@ CLOSED: [2026-05-06 Wed 09:37]
 - State "TODO" from "STARTED" [2026-05-06 Wed 09:37]
 - State "CANCELLED" from "TODO" [2026-05-06 Wed 09:37]
 :END:
-Waiting on an upstream fix for an nvidia-open issue
-Cancelled - eliminated use of nixGL -- use targets.genericLinux.enable instead on non-NixOS installs.
-See https://nix-community.github.io/home-manager/index.xhtml#sec-usage-gpu-non-nixos
+Waiting on an upstream fix for an nvidia-open issue Cancelled - eliminated use of nixGL -- use targets.genericLinux.enable instead on non-NixOS installs. See https://nix-community.github.io/home-manager/index.xhtml#sec-usage-gpu-non-nixos
