@@ -1,7 +1,7 @@
 * DONE [#A] Extract agent skills and extensions as new flake
 CLOSED: [2026-05-07 Thu 22:46]
 :PROPERTIES:
-:ID: 9e134ad1-6a9c-4e7d-9fe9-82df2634224e
+:CUSTOM_ID: 9e134ad1-6a9c-4e7d-9fe9-82df2634224e
 :STARTED: [2026-05-07 Thu 21:25]
 :ARCHIVED: [2026-05-07 Thu 23:01]
 :END:
@@ -20,7 +20,7 @@ Dotfiles/system config should be relatively static. Let's extract these as follo
 * CANCELLED [#C] Update nixGL flake URL :nix:
 CLOSED: [2026-05-06 Wed 09:37]
 :PROPERTIES:
-:ID: 862e9ecf-6992-40e9-b2e2-597edee1ccfa
+:CUSTOM_ID: 862e9ecf-6992-40e9-b2e2-597edee1ccfa
 :BLOCKED-BY: url:https://github.com/nix-community/nixGL/pull/187
 :STARTED: [2026-05-06 Wed 09:37]
 :ARCHIVED: [2026-05-06 Wed 09:37]

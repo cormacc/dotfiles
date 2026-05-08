@@ -1,6 +1,6 @@
 #+TITLE: Extract agent skills and extensions as new flake
 #+DATE: 2026-05-07 Thu
-#+PARENT_ID: 9e134ad1-6a9c-4e7d-9fe9-82df2634224e
+#+PARENT: [[file:../../TASKS.archive.org::#9e134ad1-6a9c-4e7d-9fe9-82df2634224e][Extract agent skills and extensions as new flake]]
 #+STATUS: Complete
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 
@@ -77,7 +77,7 @@ The migration should preserve the existing runtime destinations:
 ** DONE [#A] Inventory and classify the extractable agent assets :agents:scope:
 CLOSED: [2026-05-07 Thu 21:26]
 :PROPERTIES:
-:ID: 3758918e-342f-47d8-8f63-4af728ffe6c0
+:CUSTOM_ID: 3758918e-342f-47d8-8f63-4af728ffe6c0
 :CREATED: [2026-05-07 Thu 21:08]
 :STARTED: [2026-05-07 Thu 21:25]
 :END:
@@ -103,7 +103,7 @@ Acceptance criteria:
 ** DONE [#A] Create the dotagents repository/flake skeleton :nix:packaging:
 CLOSED: [2026-05-07 Thu 21:56]
 :PROPERTIES:
-:ID: b1878959-333c-440a-abf8-aa4cd058940a
+:CUSTOM_ID: b1878959-333c-440a-abf8-aa4cd058940a
 :CREATED: [2026-05-07 Thu 21:08]
 :STARTED: [2026-05-07 Thu 21:27]
 :END:
@@ -130,7 +130,7 @@ Acceptance criteria:
 ** DONE [#A] Move source assets and fix repository-relative references :migration:
 CLOSED: [2026-05-07 Thu 22:01]
 :PROPERTIES:
-:ID: 259f931f-b68f-43a8-8126-7671cf1baa7c
+:CUSTOM_ID: 259f931f-b68f-43a8-8126-7671cf1baa7c
 :CREATED: [2026-05-07 Thu 21:08]
 :STARTED: [2026-05-07 Thu 21:58]
 :END:
@@ -168,7 +168,7 @@ Acceptance criteria:
 ** DONE [#A] Extract org-memory task and design artefacts :org:memory:migration:
 CLOSED: [2026-05-07 Thu 22:12]
 :PROPERTIES:
-:ID: dfbed57b-7063-4032-871c-60851b8a423d
+:CUSTOM_ID: dfbed57b-7063-4032-871c-60851b8a423d
 :CREATED: [2026-05-07 Thu 21:15]
 :STARTED: [2026-05-07 Thu 22:06]
 :END:
@@ -198,7 +198,7 @@ Acceptance criteria:
 ** DONE [#A] Rewire dotfiles to consume dotagents editably :dotfiles:home-manager:
 CLOSED: [2026-05-07 Thu 22:27]
 :PROPERTIES:
-:ID: c0c6ce35-364d-4b0e-8481-c6cd4f4c4621
+:CUSTOM_ID: c0c6ce35-364d-4b0e-8481-c6cd4f4c4621
 :CREATED: [2026-05-07 Thu 21:08]
 :STARTED: [2026-05-07 Thu 22:21]
 :END:
@@ -236,7 +236,7 @@ Acceptance criteria:
 ** DONE [#B] Port and expand validation in the new repo :tests:ci:
 CLOSED: [2026-05-07 Thu 22:38]
 :PROPERTIES:
-:ID: d15185c6-efc8-457b-8e15-b35c112046c0
+:CUSTOM_ID: d15185c6-efc8-457b-8e15-b35c112046c0
 :CREATED: [2026-05-07 Thu 21:08]
 :STARTED: [2026-05-07 Thu 22:31]
 :END:
@@ -272,7 +272,7 @@ Acceptance criteria:
 ** DONE [#B] Document migration, release, and consumer workflows :docs:release:
 CLOSED: [2026-05-07 Thu 22:45]
 :PROPERTIES:
-:ID: 85a1d974-eb7a-469c-a37c-e367801bfc59
+:CUSTOM_ID: 85a1d974-eb7a-469c-a37c-e367801bfc59
 :CREATED: [2026-05-07 Thu 21:08]
 :STARTED: [2026-05-07 Thu 22:42]
 :END:
