@@ -626,6 +626,132 @@ creating a new split."
           (tasks-org-create-import-for-current-task)))))
     (tasks-org-ui--rerender t)))
 
+(defun tasks-org-ui--invoke-at-source (command)
+  "Run COMMAND with point on the cursor task's source heading.
+Resolves the cursor task's source file and position, visits the file in a
+`find-file-noselect' buffer, navigates to the heading, and calls COMMAND there.
+UI is re-rendered afterwards.  Used by mutation wrappers (publish, unpublish)
+that delegate to `tasks-org' helpers operating at point."
+  (let* ((task (tasks-org-ui--row-task))
+         (file (plist-get task :source-file))
+         (pos (plist-get task :source-pos)))
+    (unless task
+      (user-error "No task on this row"))
+    (unless (and file pos)
+      (user-error "Task at point has no source file/position"))
+    (with-current-buffer (find-file-noselect file)
+      (save-excursion
+        (goto-char pos)
+        (call-interactively command)))
+    (tasks-org-ui--rerender t)))
+
+(defun tasks-org-ui-publish-task ()
+  "Publish the cursor task's subtree to TASKS.org.
+Delegates to `tasks-org-publish-task' at the source heading; prompts for
+confirmation, moves the subtree from its current file (typically
+TASKS.local.org) into TASKS.org as a new top-level entry, and re-renders the
+UI.  The cursor follows the task by ID across the move."
+  (interactive)
+  (tasks-org-ui--invoke-at-source #'tasks-org-publish-task))
+
+(defun tasks-org-ui-unpublish-task ()
+  "Unpublish the cursor top-level task from TASKS.org to TASKS.local.org.
+Delegates to `tasks-org-unpublish-task' at the source heading; refuses for
+non-top-level tasks, prompts for confirmation, and re-renders the UI."
+  (interactive)
+  (tasks-org-ui--invoke-at-source #'tasks-org-unpublish-task))
+
+(defun tasks-org-ui-archive-task ()
+  "Archive the cursor top-level task to `TASKS.archive.org'.
+Delegates to `tasks-org-archive-task' at the source heading; refuses unless
+the task is a level-2 DONE/CANCELLED entry in `TASKS.org' (publish local
+tasks first).  Prompts for confirmation, transfers the subtree as-is
+(promoted to level 1, =#+IMPORT:= preserved, =:ARCHIVED:= stamped), re-sorts
+the archive by =CLOSED:= ascending, clears `#+SELECTED:' when archiving the
+selected task, and re-renders the UI."
+  (interactive)
+  (tasks-org-ui--invoke-at-source #'tasks-org-archive-task))
+
+(defun tasks-org-ui-doctor ()
+  "Run org-memory health checks against the loaded task graph.
+Thin wrapper around `tasks-org-doctor-show': opens a transient
+`*tasks-org-doctor*' buffer with one line per finding (severity, code,
+message, source location) and RET-to-visit on each line.  Mirrors
+the pi tasks extension's =/tasks doctor= command."
+  (interactive)
+  (require 'tasks-org-doctor)
+  (tasks-org-doctor-show))
+
+(defun tasks-org-ui--read-task-summary (prompt)
+  "Read a non-empty heading summary using PROMPT, or signal `user-error'."
+  (let* ((raw (read-string prompt))
+         (trimmed (and raw (string-trim raw))))
+    (when (or (null trimmed) (string-empty-p trimmed))
+      (user-error "Cancelled (empty summary)"))
+    trimmed))
+
+(defun tasks-org-ui--insert-new-task (file pos level summary)
+  "Insert a new TODO task at LEVEL after the heading at POS in FILE.
+SUMMARY is the heading text.  The task is appended at the end of the parent
+heading's subtree (`org-end-of-subtree') with a leading blank line so siblings
+stay readable.  Returns the new task's :ID:.  Buffer is saved."
+  (let* ((id (org-id-new))
+         (timestamp (tasks-org--org-timestamp))
+         (block (tasks-org--build-task-block level summary id timestamp)))
+    (with-current-buffer (find-file-noselect file)
+      (save-excursion
+        (goto-char pos)
+        (org-back-to-heading t)
+        (org-end-of-subtree t t)
+        (unless (bolp) (insert "\n"))
+        (unless (looking-back "\n\n" 2) (insert "\n"))
+        (insert block))
+      (save-buffer))
+    id))
+
+(defun tasks-org-ui-create-task ()
+  "Create a new TODO task as a sibling of the cursor task.
+The new task is inserted at the same outline level as the cursor task,
+immediately after the cursor task's subtree, in the same source file (which is
+`TASKS.local.org' for local-origin tasks and `TASKS.org' or the change-record
+plan file otherwise).  Prompts for the heading summary; an empty summary
+cancels.  The new task becomes the cursor row after re-render."
+  (interactive)
+  (let* ((task (tasks-org-ui--row-task))
+         (file (plist-get task :source-file))
+         (pos (plist-get task :source-pos))
+         (level (plist-get task :level)))
+    (unless task
+      (user-error "No task on this row"))
+    (unless (and file pos level)
+      (user-error "Task at point has no source file/position/level"))
+    (let* ((summary (tasks-org-ui--read-task-summary "New sibling task: "))
+           (new-id (tasks-org-ui--insert-new-task file pos level summary)))
+      (setq-local tasks-org-ui--cursor-id new-id)
+      (tasks-org-ui--rerender t)
+      (message "Created sibling task: %s" summary))))
+
+(defun tasks-org-ui-create-subtask ()
+  "Create a new TODO task as a child of the cursor task.
+The new task is inserted one level deeper than the cursor task at the end of
+its subtree, in the same source file.  Prompts for the heading summary; an
+empty summary cancels.  The new subtask becomes the cursor row after
+re-render."
+  (interactive)
+  (let* ((task (tasks-org-ui--row-task))
+         (file (plist-get task :source-file))
+         (pos (plist-get task :source-pos))
+         (level (plist-get task :level)))
+    (unless task
+      (user-error "No task on this row"))
+    (unless (and file pos level)
+      (user-error "Task at point has no source file/position/level"))
+    (let* ((summary (tasks-org-ui--read-task-summary "New subtask: "))
+           (new-id (tasks-org-ui--insert-new-task file pos (1+ level) summary)))
+      (setq-local tasks-org-ui--cursor-id new-id)
+      (tasks-org-ui--rerender t)
+      (message "Created subtask: %s" summary))))
+
 (defun tasks-org-ui-refresh ()
   "Reload the task graph and re-render the UI."
   (interactive)
@@ -848,6 +974,131 @@ Subsequent calls re-render and surface the existing buffer."
     (tasks-org-ui--compact-rerender)
     (display-buffer buf tasks-org-ui-compact-display-action)))
 
+;;; Details pane
+;;
+;; The details pane is a read-only `org-mode' indirect buffer onto the cursor
+;; task's source file, narrowed to the task's subtree.  Indirect buffers
+;; share text with their base buffer (`find-file-noselect' on the source
+;; file), so the pane stays in sync with file-watch reloads automatically and
+;; gets native org fontification, folding, and link handling for free.  When
+;; the cursor moves to a task in a *different* source file, the indirect
+;; buffer is rebuilt against the new base; same-file moves only widen +
+;; re-narrow.
+
+(defcustom tasks-org-ui-details-buffer-name "*tasks-org details*"
+  "Buffer name for the cursor task's details pane (an indirect org buffer)."
+  :type 'string :group 'tasks-org-ui)
+
+(defcustom tasks-org-ui-details-display-action
+  '((display-buffer-in-side-window)
+    (side . left)
+    (slot . 1)
+    (window-height . 0.4)
+    (preserve-size . (nil . t)))
+  "Default `display-buffer' action for the details pane.
+Defaults to a side window in the same column (=left=) as the Treemacs tree,
+occupying 40%% of the column's height in slot 1 (below the tree at slot 0).
+Customise to relocate (e.g. =right= side, fixed line height)."
+  :type 'sexp :group 'tasks-org-ui)
+
+(defcustom tasks-org-ui-details-auto-update t
+  "When non-nil, the details pane refreshes as the cursor row changes.
+Driven by a `post-command-hook' installed in the tasks UI buffer; only fires
+when the cursor task's :ID: actually changed."
+  :type 'boolean :group 'tasks-org-ui)
+
+(defvar-local tasks-org-ui--details-last-rendered-id nil
+  "Buffer-local cache of the last :ID: rendered in the details pane.
+Used by the auto-update hook to skip no-op refreshes.")
+
+(defun tasks-org-ui--details-make-placeholder ()
+  "Replace any existing details buffer with a plain placeholder buffer.
+Used when there is no task at point; the previous buffer (which may be an
+indirect buffer onto a source file) is killed so the next valid task gets
+a fresh indirect buffer."
+  (let ((existing (get-buffer tasks-org-ui-details-buffer-name)))
+    (when existing (kill-buffer existing)))
+  (let ((buf (get-buffer-create tasks-org-ui-details-buffer-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "(no task at point)\n"))
+      (special-mode)
+      (setq-local tasks-org-ui--details-last-rendered-id nil))
+    buf))
+
+(defun tasks-org-ui--details-prepare-buffer (task)
+  "Return the details buffer narrowed to TASK's subtree.
+The buffer is an indirect buffer of TASK's source file in `org-mode';
+same-file cursor moves widen + re-narrow the existing indirect buffer,
+different-file moves rebuild it.  Returns nil only when TASK is non-nil
+but its source file is unreadable."
+  (let* ((file (plist-get task :source-file))
+         (pos (plist-get task :source-pos)))
+    (cond
+     ((or (null file) (null pos) (not (file-readable-p file)))
+      (tasks-org-ui--details-make-placeholder))
+     (t
+      (let* ((base (find-file-noselect file))
+             (existing (get-buffer tasks-org-ui-details-buffer-name))
+             (recreate (or (null existing)
+                           (not (buffer-live-p existing))
+                           (not (eq (buffer-base-buffer existing) base))))
+             (buf (cond
+                   (recreate
+                    (when existing (kill-buffer existing))
+                    (make-indirect-buffer
+                     base tasks-org-ui-details-buffer-name t))
+                   (t existing))))
+        (with-current-buffer buf
+          ;; Indirect buffers inherit the base's major mode (`org-mode' for
+          ;; .org files); make sure narrowing changes are unrestricted before
+          ;; we re-narrow on each task change.
+          (widen)
+          (goto-char (min pos (point-max)))
+          (when (fboundp 'org-back-to-heading)
+            (ignore-errors (org-back-to-heading t)))
+          (let ((start (point))
+                (end (save-excursion (org-end-of-subtree t t) (point))))
+            (narrow-to-region start end)
+            (goto-char start))
+          (when (fboundp 'org-fold-show-subtree)
+            (ignore-errors (org-fold-show-subtree)))
+          (setq buffer-read-only t)
+          (setq-local tasks-org-ui--details-last-rendered-id
+                      (plist-get task :id)))
+        buf)))))
+
+(defun tasks-org-ui--details-rerender-for (task)
+  "Refresh / rebuild the details buffer to show TASK (or a placeholder)."
+  (tasks-org-ui--details-prepare-buffer task))
+
+(defun tasks-org-ui--details-track-cursor ()
+  "Post-command hook: refresh details pane if the cursor row task changed.
+No-op when the details buffer is not displayed in any window or when the
+cursor task's :ID: has not changed since the last render."
+  (when tasks-org-ui-details-auto-update
+    (let ((buf (get-buffer tasks-org-ui-details-buffer-name)))
+      (when (and (buffer-live-p buf) (get-buffer-window buf))
+        (let* ((task (ignore-errors (tasks-org-ui--row-task)))
+               (id (and task (plist-get task :id)))
+               (last (with-current-buffer buf
+                       tasks-org-ui--details-last-rendered-id)))
+          (unless (equal id last)
+            (tasks-org-ui--details-rerender-for task)))))))
+
+;;;###autoload
+(defun tasks-org-ui-show-details ()
+  "Open the cursor task's details pane.
+The pane is a read-only `org-mode' indirect buffer narrowed to the cursor
+task's subtree, displayed in a side window beneath the Treemacs tree by
+default.  Subsequent calls re-narrow to the current row; auto-tracking is
+controlled by `tasks-org-ui-details-auto-update'."
+  (interactive)
+  (let* ((task (ignore-errors (tasks-org-ui--row-task)))
+         (buf (tasks-org-ui--details-rerender-for task)))
+    (display-buffer buf tasks-org-ui-details-display-action)))
+
 ;;; Mode
 
 (defvar tasks-org-ui-mode-map
@@ -861,7 +1112,14 @@ Subsequent calls re-render and surface the existing buffer."
     ;; Collapse / expand.
     (define-key map (kbd "RET") #'tasks-org-ui-toggle-expand)
     (define-key map (kbd "TAB") #'tasks-org-ui-toggle-expand)
-    ;; Status cycling.
+    ;; Status cycling.  `S-<right>' / `S-<left>' mirror `org-shiftright' /
+    ;; `org-shiftleft' so cycling here matches org buffers.  These are the
+    ;; primary bindings because Treemacs claims `h' / `l' / `<right>' /
+    ;; `<left>' for tree navigation in the Spacemacs build and shadows the
+    ;; minor-mode entries below.  The plain bindings remain for
+    ;; non-Spacemacs / non-evilified setups where they win.
+    (define-key map (kbd "S-<right>") #'tasks-org-ui-cycle-status)
+    (define-key map (kbd "S-<left>")  #'tasks-org-ui-cycle-status-back)
     (define-key map (kbd "l") #'tasks-org-ui-cycle-status)
     (define-key map (kbd "h") #'tasks-org-ui-cycle-status-back)
     (define-key map (kbd "<right>") #'tasks-org-ui-cycle-status)
@@ -870,6 +1128,19 @@ Subsequent calls re-render and surface the existing buffer."
     (define-key map (kbd "s") #'tasks-org-ui-toggle-selected)
     (define-key map (kbd "e") #'tasks-org-ui-visit-source)
     (define-key map (kbd "p") #'tasks-org-ui-open-or-create-import)
+    ;; Publish / unpublish (mirrors pi tasks extension's `P' / `U').
+    (define-key map (kbd "P") #'tasks-org-ui-publish-task)
+    (define-key map (kbd "U") #'tasks-org-ui-unpublish-task)
+    ;; Archive (mirrors pi tasks extension's `A').
+    (define-key map (kbd "A") #'tasks-org-ui-archive-task)
+    ;; Doctor (mirrors pi tasks extension's `d', remapped to `D' so
+    ;; Treemacs' lowercase `d' bindings remain available).
+    (define-key map (kbd "D") #'tasks-org-ui-doctor)
+    ;; Details pane.
+    (define-key map (kbd "i") #'tasks-org-ui-show-details)
+    ;; Task creation (mirrors pi tasks extension's `n' / `N').
+    (define-key map (kbd "n") #'tasks-org-ui-create-task)
+    (define-key map (kbd "N") #'tasks-org-ui-create-subtask)
     ;; Linked issues / refresh / quit.
     (define-key map (kbd "J") #'tasks-org-ui-open-linked-issues)
     (define-key map (kbd "g") #'tasks-org-ui-refresh)
@@ -889,7 +1160,12 @@ surfaces."
   :init-value nil
   :lighter " TasksOrg"
   :keymap tasks-org-ui-mode-map
-  (setq-local tasks-org-mode nil))
+  (setq-local tasks-org-mode nil)
+  (if tasks-org-ui-mode
+      (add-hook 'post-command-hook
+                #'tasks-org-ui--details-track-cursor nil t)
+    (remove-hook 'post-command-hook
+                 #'tasks-org-ui--details-track-cursor t)))
 
 (provide 'tasks-org-ui)
 ;;; tasks-org-ui.el ends here
