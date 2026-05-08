@@ -5,73 +5,38 @@
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 
 * Context
-The dotfiles repo currently carries rapidly changing agent assets under
-~agents/~: generic skills, pi-specific skills, pi extensions, shared extension
-helpers, prompt templates, package metadata, and user-local pi settings. Most
-recent work is in that agent surface, while the rest of the dotfiles and system
-configuration should remain relatively static.
+The dotfiles repo currently carries rapidly changing agent assets under ~agents/~: generic skills, pi-specific skills, pi extensions, shared extension helpers, prompt templates, package metadata, and user-local pi settings. Most recent work is in that agent surface, while the rest of the dotfiles and system configuration should remain relatively static.
 
-This change extracts the reusable agent assets into a new dedicated repository
-and flake, expected to be ~github:cormacc/dotagents~. The extracted repo should
-ship the reusable source and packaging surfaces; this dotfiles repo should keep
-only the user's local installation/configuration wiring and the pi
-~settings.json~ file.
+This change extracts the reusable agent assets into a new dedicated repository and flake, expected to be ~github:cormacc/dotagents~. The extracted repo should ship the reusable source and packaging surfaces; this dotfiles repo should keep only the user's local installation/configuration wiring and the pi ~settings.json~ file.
 
 Scope includes:
 - generic agent skills under ~agents/skills~;
 - pi-specific skills under ~agents/pi/skills~;
-- pi extensions under ~agents/pi/extensions~ plus shared helper modules such as
-  ~agents/pi/extensions/lib~;
+- pi extensions under ~agents/pi/extensions~ plus shared helper modules such as ~agents/pi/extensions/lib~;
 - prompt templates under ~agents/prompts~;
-- package, README, Nix packaging, validation, and any manifest files needed for
-  pi package installation and Vercel Labs ~skills~ installer compatibility.
+- package, README, Nix packaging, validation, and any manifest files needed for pi package installation and Vercel Labs ~skills~ installer compatibility.
 
 Scope excludes:
 - ~agents/pi/settings.json~, because it is user-local pi configuration;
-- forcing the existing ~agents.mode = editable|packaged~ abstraction to survive
-  in dotfiles. Dotfiles should always use editable symlink wiring after the
-  migration.
+- forcing the existing ~agents.mode = editable|packaged~ abstraction to survive in dotfiles. Dotfiles should always use editable symlink wiring after the migration.
 
 The migration should preserve the existing runtime destinations:
 - =~/.agents/skills= for generic cross-agent skills;
 - =~/.pi/agent/extensions= for pi extensions;
 - =~/.pi/agent/skills= for pi-specific skills;
 - =~/.pi/agent/prompts= for prompt templates;
-- =~/.pi/agent/AGENTS.md= if the extracted repo continues to provide pi-local
-  agent instructions;
+- =~/.pi/agent/AGENTS.md= if the extracted repo continues to provide pi-local agent instructions;
 - =~/.pi/agent/settings.json= from this dotfiles repo.
 
 ** Design decisions
-- Dedicated repository :: Use a new repo rather than a subdirectory-only flake so
-  rapid agent iteration can move independently of stable system/dotfiles work.
-- Editable install is the primary consumer contract :: The dotfiles integration
-  must point symlinks at a live checkout of the new repo so skill and extension
-  edits are reloadable in place without a Home Manager switch.
-- Submodule + flake outputs :: Dotfiles consumes dotagents as a git submodule
-  for the editable source checkout, while dotagents still exposes flake outputs
-  for packages and checks. ~mkOutOfStoreSymlink~ targets the live submodule
-  working tree rather than an immutable Nix store path.
-- Disabled extensions stay in source, out of packaging :: Move
-  ~agents/pi/extensions/disabled/~ as-is into the new repo, but exclude its
-  contents from all exposing package scripts, ~package.json~ entries, the Nix
-  package fileset, and any flake outputs.
-- User-local settings stay local :: Do not move ~agents/pi/settings.json~ into
-  the extracted repo; keep package/source registration and secrets/local toggles
-  under the user's dotfiles checkout.
-- Preserve public installer compatibility :: Keep generic skills discoverable by
-  the Vercel Labs ~skills~ CLI. Its discovery supports root ~skills/~ directories,
-  direct ~SKILL.md~ subpaths, and optional plugin manifests, so the extracted
-  repo should keep a conventional ~skills/<name>/SKILL.md~ layout and document
-  ~npx skills add cormacc/dotagents --list~ / selected-skill installs.
-- Preserve pi package compatibility :: Continue exposing pi package metadata for
-  pi extensions and skills, including any helper directories required for
-  relative imports. Treat manifest/package membership as the source of truth.
-  ~leader-menu~ has been retired from the active set into
-  ~pi/extensions/disabled/leader-menu/~ and is excluded from the org-memory
-  bundle accordingly.
-- Keep Linux and Darwin first-class :: Flake outputs, Home Manager integration,
-  package builds, and checks should cover both ~x86_64-linux~ and
-  ~aarch64-darwin~.
+- Dedicated repository :: Use a new repo rather than a subdirectory-only flake so rapid agent iteration can move independently of stable system/dotfiles work.
+- Editable install is the primary consumer contract :: The dotfiles integration must point symlinks at a live checkout of the new repo so skill and extension edits are reloadable in place without a Home Manager switch.
+- Submodule + flake outputs :: Dotfiles consumes dotagents as a git submodule for the editable source checkout, while dotagents still exposes flake outputs for packages and checks. ~mkOutOfStoreSymlink~ targets the live submodule working tree rather than an immutable Nix store path.
+- Disabled extensions stay in source, out of packaging :: Move ~agents/pi/extensions/disabled/~ as-is into the new repo, but exclude its contents from all exposing package scripts, ~package.json~ entries, the Nix package fileset, and any flake outputs.
+- User-local settings stay local :: Do not move ~agents/pi/settings.json~ into the extracted repo; keep package/source registration and secrets/local toggles under the user's dotfiles checkout.
+- Preserve public installer compatibility :: Keep generic skills discoverable by the Vercel Labs ~skills~ CLI. Its discovery supports root ~skills/~ directories, direct ~SKILL.md~ subpaths, and optional plugin manifests, so the extracted repo should keep a conventional ~skills/<name>/SKILL.md~ layout and document ~npx skills add cormacc/dotagents --list~ / selected-skill installs.
+- Preserve pi package compatibility :: Continue exposing pi package metadata for pi extensions and skills, including any helper directories required for relative imports. Treat manifest/package membership as the source of truth. ~leader-menu~ has been retired from the active set into ~pi/extensions/disabled/leader-menu/~ and is excluded from the org-memory bundle accordingly.
+- Keep Linux and Darwin first-class :: Flake outputs, Home Manager integration, package builds, and checks should cover both ~x86_64-linux~ and ~aarch64-darwin~.
 
 * Plan
 ** DONE [#A] Inventory and classify the extractable agent assets :agents:scope:
@@ -86,19 +51,11 @@ CLOSED: [2026-05-07 Thu 21:26]
 - State "STARTED"   from "TODO"      [2026-05-07 Thu 21:25]
 - Created [2026-05-07 Thu 21:08]
 :END:
-Result: see =* Implementation → Inventory of agent assets under =agents/== for
-the full classification table and decisions emerging from inventory.
-Acceptance criteria:
-- A migration inventory identifies every reusable source path under ~agents/~ and
-  whether it moves to ~dotagents~, stays local in dotfiles, or is deferred.
-- The inventory covers generic skills, pi skills, active pi extensions, disabled
-  or experimental extensions, shared helper modules, prompt templates, Nix/package
-  files, README/docs, and validation scripts.
-- The inventory explicitly records that ~agents/pi/settings.json~ stays in
-  dotfiles.
-- Public-vs-private treatment is clear for less generic assets such as
-  ~self-improvement~, ~review~, ~clj-nrepl~, browser/webdriver skills, disabled
-  extensions, and work-in-progress extensions.
+Result: see =* Implementation → Inventory of agent assets under =agents/== for the full classification table and decisions emerging from inventory. Acceptance criteria:
+- A migration inventory identifies every reusable source path under ~agents/~ and whether it moves to ~dotagents~, stays local in dotfiles, or is deferred.
+- The inventory covers generic skills, pi skills, active pi extensions, disabled or experimental extensions, shared helper modules, prompt templates, Nix/package files, README/docs, and validation scripts.
+- The inventory explicitly records that ~agents/pi/settings.json~ stays in dotfiles.
+- Public-vs-private treatment is clear for less generic assets such as ~self-improvement~, ~review~, ~clj-nrepl~, browser/webdriver skills, disabled extensions, and work-in-progress extensions.
 
 ** DONE [#A] Create the dotagents repository/flake skeleton :nix:packaging:
 CLOSED: [2026-05-07 Thu 21:56]
@@ -112,20 +69,12 @@ CLOSED: [2026-05-07 Thu 21:56]
 - State "STARTED"   from "TODO"      [2026-05-07 Thu 21:27]
 - Created [2026-05-07 Thu 21:08]
 :END:
-Result: scaffold landed at =~/dev/agents/dotagents= (root commit 802cb5f).
-See =* Implementation → dotagents skeleton= for what landed.
-Acceptance criteria:
-- The new repo has a documented layout for ~skills/~, pi-specific assets,
-  extensions, prompts, shared helpers, and package metadata.
-- ~flake.nix~ exposes package outputs for the pi extension/skill bundles on
-  ~x86_64-linux~ and ~aarch64-darwin~.
-- Package metadata supports pi package installation and preserves the helper
-  module layout needed by extension relative imports.
-- Generic skills are discoverable by the Vercel Labs ~skills~ installer using a
-  conventional ~skills/<name>/SKILL.md~ layout, with docs for listing and
-  installing selected skills.
-- The skeleton includes README guidance for local editable development,
-  flake-based consumption, and any submodule/path-input fallback.
+Result: scaffold landed at =~/dev/agents/dotagents= (root commit 802cb5f). See =* Implementation → dotagents skeleton= for what landed. Acceptance criteria:
+- The new repo has a documented layout for ~skills/~, pi-specific assets, extensions, prompts, shared helpers, and package metadata.
+- ~flake.nix~ exposes package outputs for the pi extension/skill bundles on ~x86_64-linux~ and ~aarch64-darwin~.
+- Package metadata supports pi package installation and preserves the helper module layout needed by extension relative imports.
+- Generic skills are discoverable by the Vercel Labs ~skills~ installer using a conventional ~skills/<name>/SKILL.md~ layout, with docs for listing and installing selected skills.
+- The skeleton includes README guidance for local editable development, flake-based consumption, and any submodule/path-input fallback.
 
 ** DONE [#A] Move source assets and fix repository-relative references :migration:
 CLOSED: [2026-05-07 Thu 22:01]
@@ -139,31 +88,15 @@ CLOSED: [2026-05-07 Thu 22:01]
 - State "STARTED"   from "TODO"      [2026-05-07 Thu 21:58]
 - Created [2026-05-07 Thu 21:08]
 :END:
-Result: source content imported into dotagents (commits d65c3e7 + 00b2915);
-dotfiles =agents/= remains in place pending the rewire task. See
-=* Implementation → Source move into dotagents=.
-Acceptance criteria:
-- Selected skills, pi skills, extensions, shared helper modules, prompts,
-  ~agents/AGENTS.md~, ~agents/prompts/~, package files, docs, and test assets
-  are moved to the new repo with history preserved where practical.
-- ~agents/pi/extensions/disabled/~ is moved as-is to dotagents and is explicitly
-  excluded from ~package.json~'s ~pi.extensions~ and ~files~ arrays, the Nix
-  package's ~lib.fileset~ slice, and all flake outputs.
-- Relative links in ~SKILL.md~, extension READMEs, package metadata, and docs are
-  updated to the new layout.
-- ~agents/README.md~ no longer claims the package lives inside the dotfiles
-  repo, and ~package.json~ ~repository.url~, ~repository.directory~,
-  ~homepage~, and ~bugs.url~ point at the new repo.
-- Extension imports that depend on sibling ~lib~ modules continue to resolve
-  from both source checkout symlinks and package outputs.
-- The org-memory packaging docs and manifests stay reconciled with the current
-  active set (no ~leader-menu~ in ~pi.extensions~, slice, or docs).
-- Dotfiles-local files are either removed from the extracted set or replaced with
-  pointers to their new home.
-- The repository remains in a working state across the move: source paths used
-  by ~agents.nix~ remain reachable until the rewire task lands, e.g. by adding
-  the dotagents submodule before deleting the in-tree ~agents/~ slice, so a
-  ~home-manager switch~ run between commits does not break the editable install.
+Result: source content imported into dotagents (commits d65c3e7 + 00b2915); dotfiles =agents/= remains in place pending the rewire task. See =* Implementation → Source move into dotagents=. Acceptance criteria:
+- Selected skills, pi skills, extensions, shared helper modules, prompts, ~agents/AGENTS.md~, ~agents/prompts/~, package files, docs, and test assets are moved to the new repo with history preserved where practical.
+- ~agents/pi/extensions/disabled/~ is moved as-is to dotagents and is explicitly excluded from ~package.json~'s ~pi.extensions~ and ~files~ arrays, the Nix package's ~lib.fileset~ slice, and all flake outputs.
+- Relative links in ~SKILL.md~, extension READMEs, package metadata, and docs are updated to the new layout.
+- ~agents/README.md~ no longer claims the package lives inside the dotfiles repo, and ~package.json~ ~repository.url~, ~repository.directory~, ~homepage~, and ~bugs.url~ point at the new repo.
+- Extension imports that depend on sibling ~lib~ modules continue to resolve from both source checkout symlinks and package outputs.
+- The org-memory packaging docs and manifests stay reconciled with the current active set (no ~leader-menu~ in ~pi.extensions~, slice, or docs).
+- Dotfiles-local files are either removed from the extracted set or replaced with pointers to their new home.
+- The repository remains in a working state across the move: source paths used by ~agents.nix~ remain reachable until the rewire task lands, e.g. by adding the dotagents submodule before deleting the in-tree ~agents/~ slice, so a ~home-manager switch~ run between commits does not break the editable install.
 
 ** DONE [#A] Extract org-memory task and design artefacts :org:memory:migration:
 CLOSED: [2026-05-07 Thu 22:12]
@@ -177,23 +110,12 @@ CLOSED: [2026-05-07 Thu 22:12]
 - State "STARTED"   from "TODO"      [2026-05-07 Thu 22:06]
 - Created [2026-05-07 Thu 21:15]
 :END:
-Result: agent-related task graph and change-records imported into
-dotagents; dotfiles trimmed in working tree (commit pending). See
-=* Implementation → Org-memory artefact extraction=.
-Acceptance criteria:
-- ~TASKS.org~ and ~TASKS.archive.org~ are reviewed for agent-related tasks that
-  should move with the extracted agent work.
-- Agent-related change-record files under ~design/log/~ are reviewed and moved
-  to the new repo when they document agent skills, pi extensions, org-memory, or
-  related agent workflow changes.
-- Change-records and task entries for this extraction exercise remain in this
-  dotfiles repo until the extraction itself is complete; once complete they are
-  closed and archived into ~TASKS.archive.org~ in dotfiles via the normal
-  archive flow rather than copied into dotagents.
-- Moved task/change-record links still resolve in the new repo, with imports or
-  archived references adjusted so there is one canonical task node per UUID.
-- Any ambiguous historical records are listed in implementation notes rather than
-  silently dropped.
+Result: agent-related task graph and change-records imported into dotagents; dotfiles trimmed in working tree (commit pending). See =* Implementation → Org-memory artefact extraction=. Acceptance criteria:
+- ~TASKS.org~ and ~TASKS.archive.org~ are reviewed for agent-related tasks that should move with the extracted agent work.
+- Agent-related change-record files under ~design/log/~ are reviewed and moved to the new repo when they document agent skills, pi extensions, org-memory, or related agent workflow changes.
+- Change-records and task entries for this extraction exercise remain in this dotfiles repo until the extraction itself is complete; once complete they are closed and archived into ~TASKS.archive.org~ in dotfiles via the normal archive flow rather than copied into dotagents.
+- Moved task/change-record links still resolve in the new repo, with imports or archived references adjusted so there is one canonical task node per UUID.
+- Any ambiguous historical records are listed in implementation notes rather than silently dropped.
 
 ** DONE [#A] Rewire dotfiles to consume dotagents editably :dotfiles:home-manager:
 CLOSED: [2026-05-07 Thu 22:27]
@@ -207,31 +129,14 @@ CLOSED: [2026-05-07 Thu 22:27]
 - State "STARTED"   from "TODO"      [2026-05-07 Thu 22:21]
 - Created [2026-05-07 Thu 21:08]
 :END:
-Result: dotagents pushed to ~github:cormacc/dotagents~ and registered as
-the ~agents-src/~ git submodule of dotfiles. ~agents.nix~ rewritten to
-symlink the live submodule working tree. The dotfiles ~agents/~ tree is
-deleted. Home Manager evaluation succeeds; the symlink helper resolves
-to =/Users/cormacc/dotfiles/agents-src/pi/extensions= as expected. Stage
-for commit; commit pending user review.
-Acceptance criteria:
-- Dotfiles registers dotagents as a git submodule (e.g. ~dotagents/~) and
-  exposes its flake outputs as packages where useful.
-- ~agents.nix~ no longer assumes reusable agent source lives under ~./agents~
-  in this repo, except for local configuration such as ~pi/settings.json~.
-- ~mkOutOfStoreSymlink~ entries target the submodule working tree (not a Nix
-  store path) so edits in the submodule reload in place without a Home Manager
-  switch.
-- Dotfiles installs the extracted checkout editably into the existing destinations
-  =~/.agents/skills=, =~/.pi/agent/extensions=, =~/.pi/agent/skills=, and
-  =~/.pi/agent/prompts=.
-- Submodule bootstrap is documented and works on a fresh clone
-  (~git clone --recurse-submodules~ or ~git submodule update --init --recursive~)
-  on both Linux and Darwin.
-- The old ~agents.mode~ abstraction is removed or reduced if it no longer earns
-  its complexity; dotfiles behaviour is always editable.
-- If the submodule is not initialised, ~home-manager switch~ fails fast with a
-  clear, actionable error rather than partially installing or silently linking
-  empty directories.
+Result: dotagents pushed to ~github:cormacc/dotagents~ and registered as the ~agents-src/~ git submodule of dotfiles. ~agents.nix~ rewritten to symlink the live submodule working tree. The dotfiles ~agents/~ tree is deleted. Home Manager evaluation succeeds; the symlink helper resolves to =/Users/cormacc/dotfiles/agents-src/pi/extensions= as expected. Stage for commit; commit pending user review. Acceptance criteria:
+- Dotfiles registers dotagents as a git submodule (e.g. ~dotagents/~) and exposes its flake outputs as packages where useful.
+- ~agents.nix~ no longer assumes reusable agent source lives under ~./agents~ in this repo, except for local configuration such as ~pi/settings.json~.
+- ~mkOutOfStoreSymlink~ entries target the submodule working tree (not a Nix store path) so edits in the submodule reload in place without a Home Manager switch.
+- Dotfiles installs the extracted checkout editably into the existing destinations =~/.agents/skills=, =~/.pi/agent/extensions=, =~/.pi/agent/skills=, and =~/.pi/agent/prompts=.
+- Submodule bootstrap is documented and works on a fresh clone (~git clone --recurse-submodules~ or ~git submodule update --init --recursive~) on both Linux and Darwin.
+- The old ~agents.mode~ abstraction is removed or reduced if it no longer earns its complexity; dotfiles behaviour is always editable.
+- If the submodule is not initialised, ~home-manager switch~ fails fast with a clear, actionable error rather than partially installing or silently linking empty directories.
 
 ** DONE [#B] Port and expand validation in the new repo :tests:ci:
 CLOSED: [2026-05-07 Thu 22:38]
@@ -245,29 +150,13 @@ CLOSED: [2026-05-07 Thu 22:38]
 - State "STARTED"   from "TODO"      [2026-05-07 Thu 22:31]
 - Created [2026-05-07 Thu 21:08]
 :END:
-Result: dotagents flake checks evaluate on every supported system; the
-org-memory package builds identically from local submodule and from
-=github:cormacc/dotagents=; all six generic skills are discoverable by
-the Vercel Labs ~skills~ CLI; every dotfiles-side install path resolves
-to the live submodule working tree; the submodule fail-fast guard fires
-on activation. See =* Implementation → Validation pass=.
-Acceptance criteria:
-- Existing extension regression suites and shell test wrappers move with the
-  source and run from the new repo.
-- ~nix flake check~ or equivalent checks validate package outputs on Linux and
-  Darwin where practical.
-- The pi package output builds for supported systems, both from a local
-  submodule path and from a github reference (the dotagents flake builds in
-  isolation, not just inside dotfiles).
-- Generic skill discovery is validated with the Vercel Labs ~skills~ CLI or an
-  equivalent deterministic check against ~skills/<name>/SKILL.md~ frontmatter.
-- Dotfiles validation proves that indirect inclusion still points at an editable
-  source checkout rather than an immutable store copy: a smoke check confirms
-  =~/.agents/skills=, =~/.pi/agent/extensions=, =~/.pi/agent/skills=, and
-  =~/.pi/agent/prompts= resolve into the live submodule working tree.
-- Fresh-clone bootstrap is exercised: cloning dotfiles with submodules and
-  running ~home-manager switch~ produces a working install on Linux and Darwin
-  without manual intervention beyond standard ~--impure~ and submodule init.
+Result: dotagents flake checks evaluate on every supported system; the org-memory package builds identically from local submodule and from =github:cormacc/dotagents=; all six generic skills are discoverable by the Vercel Labs ~skills~ CLI; every dotfiles-side install path resolves to the live submodule working tree; the submodule fail-fast guard fires on activation. See =* Implementation → Validation pass=. Acceptance criteria:
+- Existing extension regression suites and shell test wrappers move with the source and run from the new repo.
+- ~nix flake check~ or equivalent checks validate package outputs on Linux and Darwin where practical.
+- The pi package output builds for supported systems, both from a local submodule path and from a github reference (the dotagents flake builds in isolation, not just inside dotfiles).
+- Generic skill discovery is validated with the Vercel Labs ~skills~ CLI or an equivalent deterministic check against ~skills/<name>/SKILL.md~ frontmatter.
+- Dotfiles validation proves that indirect inclusion still points at an editable source checkout rather than an immutable store copy: a smoke check confirms =~/.agents/skills=, =~/.pi/agent/extensions=, =~/.pi/agent/skills=, and =~/.pi/agent/prompts= resolve into the live submodule working tree.
+- Fresh-clone bootstrap is exercised: cloning dotfiles with submodules and running ~home-manager switch~ produces a working install on Linux and Darwin without manual intervention beyond standard ~--impure~ and submodule init.
 
 ** DONE [#B] Document migration, release, and consumer workflows :docs:release:
 CLOSED: [2026-05-07 Thu 22:45]
@@ -281,67 +170,28 @@ CLOSED: [2026-05-07 Thu 22:45]
 - State "STARTED"   from "TODO"      [2026-05-07 Thu 22:42]
 - Created [2026-05-07 Thu 21:08]
 :END:
-Result: dotfiles =README.org= now has a top-level =* The dotagents
-submodule= section covering bootstrap, update workflow, editing,
-release tagging, what-stayed/what-moved, and stale-=#+SELECTED:=
-guidance. dotagents =README.md= grew a parallel =Releasing= section.
-Follow-up work captured as fresh TODOs in dotagents (=5f847a49-…=
-clojure-development skill package, =7e21788d-…= self-improvement
-routing rework). The self-improvement skill itself carries an inline
-notice pointing at the rework TODO.
-Acceptance criteria:
-- The new repo README documents pi package installation, flake consumption,
-  editable local development, and Vercel Labs skills installation.
-- This dotfiles repo documents the dotagents submodule contract: where it
-  lives, how to bootstrap it on a fresh clone, how to update it
-  (~git submodule update --remote~), and how Home Manager wires it into the
-  existing destinations.
-- Release/tag guidance exists for publishing package outputs and updating the
-  dotfiles submodule pointer.
-- Migration notes explain what stayed behind in dotfiles, especially
-  ~pi/settings.json~ and any user-local overrides.
-- Migration notes warn owners with a stale ~TASKS.local.org~ ~#+SELECTED:~
-  pointing at a migrated UUID that they need to re-select after the move.
-- Follow-up work for future skill families, such as a clojure-development skill
-  package, is captured separately rather than blocking the extraction.
+Result: dotfiles =README.org= now has a top-level =* The dotagents submodule= section covering bootstrap, update workflow, editing, release tagging, what-stayed/what-moved, and stale-=#+SELECTED:= guidance. dotagents =README.md= grew a parallel =Releasing= section. Follow-up work captured as fresh TODOs in dotagents (=5f847a49-…= clojure-development skill package, =7e21788d-…= self-improvement routing rework). The self-improvement skill itself carries an inline notice pointing at the rework TODO. Acceptance criteria:
+- The new repo README documents pi package installation, flake consumption, editable local development, and Vercel Labs skills installation.
+- This dotfiles repo documents the dotagents submodule contract: where it lives, how to bootstrap it on a fresh clone, how to update it (~git submodule update --remote~), and how Home Manager wires it into the existing destinations.
+- Release/tag guidance exists for publishing package outputs and updating the dotfiles submodule pointer.
+- Migration notes explain what stayed behind in dotfiles, especially ~pi/settings.json~ and any user-local overrides.
+- Migration notes warn owners with a stale ~TASKS.local.org~ ~#+SELECTED:~ pointing at a migrated UUID that they need to re-select after the move.
+- Follow-up work for future skill families, such as a clojure-development skill package, is captured separately rather than blocking the extraction.
 
 * Implementation
 
 ** Outcome
-[2026-05-07 Thu 22:46] Extraction complete. Agent skills, pi extensions,
-prompt templates, the pi-side =AGENTS.md=, and the agent-related task
-graph live in [[https://github.com/cormacc/dotagents][github:cormacc/dotagents]];
-dotfiles consumes the repo as a git submodule under =agents-src/= with
-=mkOutOfStoreSymlink=s pointing at the live working tree, so editable
-reload via pi's =/reload= still works without a Home Manager switch.
-User-local pi configuration stays in dotfiles at
-=agents-config/pi/settings.json=. ~nix flake check~ on dotagents
-evaluates on every supported system; the org-memory pi package builds
-identically from the local submodule and from
-=github:cormacc/dotagents=. Activation refuses with an actionable error
-when the submodule is uninitialised. Documentation in both repos covers
-bootstrap, update, editing, and release workflows. Two follow-up TODOs
-are captured in dotagents (clojure-development skill package; self-
-improvement routing rework for the two-tier dotfiles/dotagents split).
+[2026-05-07 Thu 22:46] Extraction complete. Agent skills, pi extensions, prompt templates, the pi-side =AGENTS.md=, and the agent-related task graph live in [[https://github.com/cormacc/dotagents][github:cormacc/dotagents]]; dotfiles consumes the repo as a git submodule under =agents-src/= with =mkOutOfStoreSymlink=s pointing at the live working tree, so editable reload via pi's =/reload= still works without a Home Manager switch. User-local pi configuration stays in dotfiles at =agents-config/pi/settings.json=. ~nix flake check~ on dotagents evaluates on every supported system; the org-memory pi package builds identically from the local submodule and from =github:cormacc/dotagents=. Activation refuses with an actionable error when the submodule is uninitialised. Documentation in both repos covers bootstrap, update, editing, and release workflows. Two follow-up TODOs are captured in dotagents (clojure-development skill package; self- improvement routing rework for the two-tier dotfiles/dotagents split).
 
-Dotfiles commits landed: =a456268= (rewire) and =c25b10f= (activation
-guard). Dotagents commits: =802cb5f= (skeleton), =d65c3e7= (source
-import), =00b2915= (flake.lock), =2235b52= (task graph + design log
-import).
+Dotfiles commits landed: =a456268= (rewire) and =c25b10f= (activation guard). Dotagents commits: =802cb5f= (skeleton), =d65c3e7= (source import), =00b2915= (flake.lock), =2235b52= (task graph + design log import).
 
 ** Inventory of agent assets under =agents/=
-[2026-05-07 Thu 21:25] First-pass classification of every reusable source path
-under =agents/=. Disposition column values:
+[2026-05-07 Thu 21:25] First-pass classification of every reusable source path under =agents/=. Disposition column values:
 
 - *dotagents* :: moves to the new repo as part of its public/source surface.
-- *dotagents (excluded from packaging)* :: moves to the new repo for source
-  preservation but excluded from ~package.json~ ~pi.extensions~/~files~, the
-  Nix package fileset, and any flake outputs. Per the disabled-folder design
-  decision.
+- *dotagents (excluded from packaging)* :: moves to the new repo for source preservation but excluded from ~package.json~ ~pi.extensions~/~files~, the Nix package fileset, and any flake outputs. Per the disabled-folder design decision.
 - *dotfiles* :: stays in this repo as user-local configuration.
-- *dotfiles → dotagents flake output* :: Nix derivation logic itself moves to
-  dotagents' flake; dotfiles continues to reference it via the dotagents flake
-  output rather than a local file.
+- *dotfiles → dotagents flake output* :: Nix derivation logic itself moves to dotagents' flake; dotfiles continues to reference it via the dotagents flake output rather than a local file.
 
 *** Generic skills (=agents/skills/=)
 | Path | Disposition | Notes |
@@ -414,233 +264,115 @@ under =agents/=. Disposition column values:
 | =flake.nix= (repo root) | dotfiles (rewritten) | Adds dotagents as a flake input or, if submodule-only, re-exports its flake outputs; ~packages.<system>.agent-org-memory~ either re-exports or is dropped. |
 
 *** Public-vs-private treatment
-- =skills/self-improvement/= and =skills/review/= are kept as public generic
-  skills under the conventional ~skills/<name>/SKILL.md~ layout. Both are
-  harness-agnostic and useful for third parties using the Vercel Labs installer.
+- =skills/self-improvement/= and =skills/review/= are kept as public generic skills under the conventional ~skills/<name>/SKILL.md~ layout. Both are harness-agnostic and useful for third parties using the Vercel Labs installer.
 - =skills/clj-nrepl/= is also kept as a public generic skill.
-- =pi/skills/chromium/=, =pi/skills/ext-dev/=, =pi/skills/webdriver/= remain
-  pi-specific; they install under =~/.pi/agent/skills/= rather than the generic
-  =~/.agents/skills/= location.
-- All disabled extensions stay together under =pi/extensions/disabled/= as
-  source/history but are excluded from any installer-visible manifest. They are
-  *not* split into a separate experimental namespace in this first extraction;
-  if any becomes worth re-enabling it can be promoted out of =disabled/=.
-- =pi/extensions/pi-clojure/= is a fork; its upstream license/notice remain
-  in-tree. It is *excluded* from the org-memory bundle's ~pi.extensions~ /
-  ~files~ — the org-memory protocol is language-agnostic, and Clojure-specific
-  tooling belongs in a separate package (a clojure-development bundle is the
-  follow-up the user mentioned in the parent-task description).
+- =pi/skills/chromium/=, =pi/skills/ext-dev/=, =pi/skills/webdriver/= remain pi-specific; they install under =~/.pi/agent/skills/= rather than the generic =~/.agents/skills/= location.
+- All disabled extensions stay together under =pi/extensions/disabled/= as source/history but are excluded from any installer-visible manifest. They are *not* split into a separate experimental namespace in this first extraction; if any becomes worth re-enabling it can be promoted out of =disabled/=.
+- =pi/extensions/pi-clojure/= is a fork; its upstream license/notice remain in-tree. It is *excluded* from the org-memory bundle's ~pi.extensions~ / ~files~ — the org-memory protocol is language-agnostic, and Clojure-specific tooling belongs in a separate package (a clojure-development bundle is the follow-up the user mentioned in the parent-task description).
 
 *** Decisions emerging from inventory
-- =pi/extensions/leader-menu/= is now disabled and lives under
-  =pi/extensions/disabled/leader-menu/=. It is excluded from the org-memory
-  bundle (~pi.extensions~ array, Nix slice, docs). Stale references in
-  ~agents/README.md~, ~agents/skills/README.org~, ~agents.nix~, ~README.org~,
-  ~AGENTS.md~, and ~agents/agent-org-memory.nix~ have been cleaned up.
-- =agent-org-memory.nix= source-of-truth moves to dotagents; dotfiles' flake
-  pulls it as a flake-input output. This is captured in the rewire task and
-  doesn't need its own plan node.
-- =pi/extensions/lib/= continues to ship inside packaging (in the manifest
-  ~files~ array but not in ~pi.extensions~); it does *not* require
-  re-architecting into a separate package for this extraction.
-- Single-file extensions (=ext-dev.ts=, =question.ts=, =systemprompt.ts=) move
-  alongside the directory-based extensions; pi's loader handles both shapes
-  uniformly.
-- ~agents/skills/README.org~ moves with the skills tree; it stays an index
-  rather than being inlined into the repo README.
+- =pi/extensions/leader-menu/= is now disabled and lives under =pi/extensions/disabled/leader-menu/=. It is excluded from the org-memory bundle (~pi.extensions~ array, Nix slice, docs). Stale references in ~agents/README.md~, ~agents/skills/README.org~, ~agents.nix~, ~README.org~, ~AGENTS.md~, and ~agents/agent-org-memory.nix~ have been cleaned up.
+- =agent-org-memory.nix= source-of-truth moves to dotagents; dotfiles' flake pulls it as a flake-input output. This is captured in the rewire task and doesn't need its own plan node.
+- =pi/extensions/lib/= continues to ship inside packaging (in the manifest ~files~ array but not in ~pi.extensions~); it does *not* require re-architecting into a separate package for this extraction.
+- Single-file extensions (=ext-dev.ts=, =question.ts=, =systemprompt.ts=) move alongside the directory-based extensions; pi's loader handles both shapes uniformly.
+- ~agents/skills/README.org~ moves with the skills tree; it stays an index rather than being inlined into the repo README.
 
 ** dotagents skeleton
-[2026-05-07 Thu 21:56] Created the dotagents monorepo at
-=~/dev/agents/dotagents= (root commit 802cb5f). Initial skeleton ships
-metadata only; source files move in the next plan task.
+[2026-05-07 Thu 21:56] Created the dotagents monorepo at =~/dev/agents/dotagents= (root commit 802cb5f). Initial skeleton ships metadata only; source files move in the next plan task.
 
-- =package.json= :: ~@cormacc/agent-org-memory~ pi-package manifest. ~pi~
-  field exposes three extensions (~tasks~, ~jira~, ~emacsclient~) and three
-  skills (~org-tasks~, ~org-plan~, ~org-jira~). ~repository.url~ /
-  ~homepage~ / ~bugs.url~ point at ~github.com/cormacc/dotagents~.
-  ~leader-menu~ and ~pi-clojure~ are *not* in the manifest, matching the
-  decisions captured above.
-- =agent-org-memory.nix= :: Filtered Nix derivation. Uses ~lib.fileset.unions~
-  for the slice and ~lib.fileset.fileFilter~ to drop ~*.test.ts~, ~test.sh~,
-  and ~default.nix~ co-located build wrappers. Header comment now reflects
-  the dotagents layout (no =agents/= prefix).
-- =flake.nix= :: Exposes ~packages.<system>.agent-org-memory~ for
-  ~x86_64-linux~, ~aarch64-linux~, ~x86_64-darwin~, ~aarch64-darwin~ via a
-  ~genAttrs~ helper, plus a ~checks.<system>.agent-org-memory~ output so
-  ~nix flake check~ exercises the build on every supported system. No
-  external inputs beyond ~nixpkgs~ unstable, matching the dotfiles style.
-- =README.md= :: Documents the layout, the install routes (pi package,
-  flake, git submodule, Vercel Labs ~skills~ installer), and what the repo
-  deliberately does *not* ship (user settings, disabled extensions, tests).
-  Drops the "currently lives inside dotfiles" framing.
-- =AGENTS.md= :: Placeholder; the live pi-side instructions move in the
-  next plan task.
+- =package.json= :: ~@cormacc/agent-org-memory~ pi-package manifest. ~pi~ field exposes three extensions (~tasks~, ~jira~, ~emacsclient~) and three skills (~org-tasks~, ~org-plan~, ~org-jira~). ~repository.url~ / ~homepage~ / ~bugs.url~ point at ~github.com/cormacc/dotagents~. ~leader-menu~ and ~pi-clojure~ are *not* in the manifest, matching the decisions captured above.
+- =agent-org-memory.nix= :: Filtered Nix derivation. Uses ~lib.fileset.unions~ for the slice and ~lib.fileset.fileFilter~ to drop ~*.test.ts~, ~test.sh~, and ~default.nix~ co-located build wrappers. Header comment now reflects the dotagents layout (no =agents/= prefix).
+- =flake.nix= :: Exposes ~packages.<system>.agent-org-memory~ for ~x86_64-linux~, ~aarch64-linux~, ~x86_64-darwin~, ~aarch64-darwin~ via a ~genAttrs~ helper, plus a ~checks.<system>.agent-org-memory~ output so ~nix flake check~ exercises the build on every supported system. No external inputs beyond ~nixpkgs~ unstable, matching the dotfiles style.
+- =README.md= :: Documents the layout, the install routes (pi package, flake, git submodule, Vercel Labs ~skills~ installer), and what the repo deliberately does *not* ship (user settings, disabled extensions, tests). Drops the "currently lives inside dotfiles" framing.
+- =AGENTS.md= :: Placeholder; the live pi-side instructions move in the next plan task.
 - =LICENSE= :: MIT (matches ~package.json~).
-- =.gitignore= :: ignores ~node_modules/~, build outputs, OS clutter, and
-  ~result*~ symlinks.
+- =.gitignore= :: ignores ~node_modules/~, build outputs, OS clutter, and ~result*~ symlinks.
 
-The flake will not build until source content lands (~lib.fileset.unions~
-references paths under ~pi/extensions/~ and ~skills/~ that are still empty).
-The sources move in the next plan task; the validation task exercises
-~nix flake check~ once they exist.
+The flake will not build until source content lands (~lib.fileset.unions~ references paths under ~pi/extensions/~ and ~skills/~ that are still empty). The sources move in the next plan task; the validation task exercises ~nix flake check~ once they exist.
 
-The skeleton was committed as a single root commit so the source-move
-commit lands cleanly on top of a known-empty tree.
+The skeleton was committed as a single root commit so the source-move commit lands cleanly on top of a known-empty tree.
 
 ** Source move into dotagents
-[2026-05-07 Thu 22:01] Imported the agent surface from
-=cormacc/dotfiles=' =agents/= into dotagents. Two commits landed:
+[2026-05-07 Thu 22:01] Imported the agent surface from =cormacc/dotfiles=' =agents/= into dotagents. Two commits landed:
 
-- =d65c3e7 feat: import agent skills, pi extensions, and prompts from
-  dotfiles= — source content + cross-reference fixups.
-- =00b2915 chore: pin flake.lock= — ~flake.lock~ generated by the
-  first ~nix build~ verification, pinned for reproducibility.
+- =d65c3e7 feat: import agent skills, pi extensions, and prompts from dotfiles= — source content + cross-reference fixups.
+- =00b2915 chore: pin flake.lock= — ~flake.lock~ generated by the first ~nix build~ verification, pinned for reproducibility.
 
 *** What moved
-- =skills/{clj-nrepl,org-jira,org-plan,org-tasks,review,self-improvement}/=
-  plus =skills/README.org= — the generic harness-agnostic skills.
-- =pi/skills/{chromium,disabled/webdriver,ext-dev}/= — pi-specific
-  skills. Note that =pi/skills/= already had a =disabled/= subfolder for
-  retired pi-skills (containing =webdriver=); that pattern survives
-  unchanged.
-- =pi/extensions/{bb-tasks,chromium,emacsclient,jira,lib,lsp,pi-clojure,
-  tasks,term}/= — the active pi extensions, plus =pi/extensions/lib/=
-  shared helpers.
-- =pi/extensions/{ext-dev,question,systemprompt}.ts= — single-file
-  extensions, copied alongside the directory-based ones.
-- =pi/extensions/disabled/{codex,fetch,leader-menu,vim-mode,web-search,
-  webdriver}/= plus =pi/extensions/disabled/meridian-claude.ts= —
-  retired/experimental, preserved as source/history but excluded from
-  every packaging surface.
+- =skills/{clj-nrepl,org-jira,org-plan,org-tasks,review,self-improvement}/= plus =skills/README.org= — the generic harness-agnostic skills.
+- =pi/skills/{chromium,disabled/webdriver,ext-dev}/= — pi-specific skills. Note that =pi/skills/= already had a =disabled/= subfolder for retired pi-skills (containing =webdriver=); that pattern survives unchanged.
+- =pi/extensions/{bb-tasks,chromium,emacsclient,jira,lib,lsp,pi-clojure, tasks,term}/= — the active pi extensions, plus =pi/extensions/lib/= shared helpers.
+- =pi/extensions/{ext-dev,question,systemprompt}.ts= — single-file extensions, copied alongside the directory-based ones.
+- =pi/extensions/disabled/{codex,fetch,leader-menu,vim-mode,web-search, webdriver}/= plus =pi/extensions/disabled/meridian-claude.ts= — retired/experimental, preserved as source/history but excluded from every packaging surface.
 - =prompts/{init.md,system/clojure.md}= — prompt templates.
-- =AGENTS.md= — pi-side agent instructions (overwrote the skeleton
-  placeholder).
+- =AGENTS.md= — pi-side agent instructions (overwrote the skeleton placeholder).
 
 *** What stayed in dotfiles
-- =agents/pi/settings.json= — user-local pi configuration. Will be
-  promoted to its final dotfiles-side path during the rewire.
-- =agents/= itself — left in place so =agents.nix= continues to install
-  the working tree until the rewire task lands. Per the M3 sequencing
-  fix, this means the editable install never broke during the move.
+- =agents/pi/settings.json= — user-local pi configuration. Will be promoted to its final dotfiles-side path during the rewire.
+- =agents/= itself — left in place so =agents.nix= continues to install the working tree until the rewire task lands. Per the M3 sequencing fix, this means the editable install never broke during the move.
 
 *** Cross-reference fixups inside dotagents
-Dotfiles-relative paths inside the moved content were rewritten to the
-dotagents layout (=agents/skills/...= → =skills/...=,
-=agents/pi/extensions/...= → =pi/extensions/...=) in:
+Dotfiles-relative paths inside the moved content were rewritten to the dotagents layout (=agents/skills/...= → =skills/...=, =agents/pi/extensions/...= → =pi/extensions/...=) in:
 
 - =skills/README.org= (also dropped the broken =[[file:../../agents.nix]]= link)
 - =skills/org-tasks/SKILL.md=
 - =pi/extensions/jira/{index.ts,README.md}=
 - =pi/extensions/tasks/{README.md,parser.test.ts}=
 
-Runtime install paths under =~/.agents/skills/...= and =~/.pi/agent/...=
-are preserved unchanged — they describe the destinations, not source
-locations.
+Runtime install paths under =~/.agents/skills/...= and =~/.pi/agent/...= are preserved unchanged — they describe the destinations, not source locations.
 
 *** Verification
-- =nix build .#agent-org-memory --impure= succeeds in dotagents and
-  ships exactly the org-memory slice: 3 extensions (=tasks=, =jira=,
-  =emacsclient=) + helper =lib/= + 3 skills (=org-tasks=, =org-plan=,
-  =org-jira=). No =*.test.ts=, no =test.sh=, no =disabled/=, no
-  =pi-clojure=, no =leader-menu=.
-- =nix flake check --impure= passes for the current system
-  (=aarch64-darwin=); other systems require remote builders and are
-  exercised by the validation task.
-- File count after import: ~125 files under git in dotagents (skeleton
-  was 7).
+- =nix build .#agent-org-memory --impure= succeeds in dotagents and ships exactly the org-memory slice: 3 extensions (=tasks=, =jira=, =emacsclient=) + helper =lib/= + 3 skills (=org-tasks=, =org-plan=, =org-jira=). No =*.test.ts=, no =test.sh=, no =disabled/=, no =pi-clojure=, no =leader-menu=.
+- =nix flake check --impure= passes for the current system (=aarch64-darwin=); other systems require remote builders and are exercised by the validation task.
+- File count after import: ~125 files under git in dotagents (skeleton was 7).
 
 ** Org-memory artefact extraction
-[2026-05-07 Thu 22:12] Imported the agent-related task graph and
-change-record library from dotfiles into dotagents.
+[2026-05-07 Thu 22:12] Imported the agent-related task graph and change-record library from dotfiles into dotagents.
 
 *** Imported into dotagents
-- =TASKS.org= — 13 active tasks across Improvements / Fixes /
-  Housekeeping. UUIDs preserved. =#+IMPORT:= keywords resolve to four
-  files under =design/log/=.
-- =TASKS.archive.org= — ~50 archived agent-related tasks (org-memory
-  protocol development, =tasks=/=jira=/=leader-menu=/=vim-mode=/
-  =keybindings= extensions, =tasks-org= Emacs minor mode). UUIDs
-  preserved. =#+IMPORT:= keywords resolve to 20 files under
-  =design/log/=.
-- =design/log/= — 28 change-record files (every dotfiles
-  =design/log/*.{org,html}= except the active extraction record).
+- =TASKS.org= — 13 active tasks across Improvements / Fixes / Housekeeping. UUIDs preserved. =#+IMPORT:= keywords resolve to four files under =design/log/=.
+- =TASKS.archive.org= — ~50 archived agent-related tasks (org-memory protocol development, =tasks=/=jira=/=leader-menu=/=vim-mode=/ =keybindings= extensions, =tasks-org= Emacs minor mode). UUIDs preserved. =#+IMPORT:= keywords resolve to 20 files under =design/log/=.
+- =design/log/= — 28 change-record files (every dotfiles =design/log/*.{org,html}= except the active extraction record).
 
-Commit on dotagents side: =feat: import org-memory tasks and design
-records from dotfiles=.
+Commit on dotagents side: =feat: import org-memory tasks and design records from dotfiles=.
 
 *** Pending dotfiles deletions
-The corresponding deletions in dotfiles are staged in the working
-tree but not yet committed:
+The corresponding deletions in dotfiles are staged in the working tree but not yet committed:
 
-- =TASKS.org= trimmed to the extraction task only; ~Fixes~ and
-  ~Housekeeping~ sections + table-of-contents links removed.
-- =TASKS.archive.org= trimmed to the lone =CANCELLED Update nixGL
-  flake URL= entry (promoted to level-1).
+- =TASKS.org= trimmed to the extraction task only; ~Fixes~ and ~Housekeeping~ sections + table-of-contents links removed.
+- =TASKS.archive.org= trimmed to the lone =CANCELLED Update nixGL flake URL= entry (promoted to level-1).
 - =design/log/= reduced to just =2026-05-07-extract-agent-skills.org=.
 
-These deletions land in the rewire commit so the dotfiles repo stays
-working-tree-consistent across the move boundary.
+These deletions land in the rewire commit so the dotfiles repo stays working-tree-consistent across the move boundary.
 
 *** Cross-reference integrity
-- Every =#+IMPORT:= in the new dotagents =TASKS.org= and
-  =TASKS.archive.org= resolves to a file under =design/log/= in
-  dotagents (verified by ~rg + test -e~).
+- Every =#+IMPORT:= in the new dotagents =TASKS.org= and =TASKS.archive.org= resolves to a file under =design/log/= in dotagents (verified by ~rg + test -e~).
 - All task =:ID:= values are unique within their file.
-- Inter-task references in task bodies use UUID prefixes
-  (e.g. "parent task 5aed17ed", "parent task 00e1772c",
-  "parent task 724c0332", "parent task aef78bbe"). Those UUIDs
-  belong to entries that moved together with the referencing task,
-  so the references continue to resolve in dotagents.
+- Inter-task references in task bodies use UUID prefixes (e.g. "parent task 5aed17ed", "parent task 00e1772c", "parent task 724c0332", "parent task aef78bbe"). Those UUIDs belong to entries that moved together with the referencing task, so the references continue to resolve in dotagents.
 
 *** Notes on records that needed cleanup
-- The orphaned level-2 =** DONE [#D] Package org-memory protocol /
-  extensions= entry in dotfiles =TASKS.archive.org= had no enclosing
-  level-1 parent. It was promoted to =* DONE= during the import to
-  dotagents (UUID =79d6f4f5-...= preserved).
-- The =** CANCELLED Update nixGL flake URL= entry was a similar
-  orphan-level-2; in dotfiles it has been promoted to =*= since it
-  is now the only archived entry there (UUID =862e9ecf-...=
-  preserved).
-- Ambient out-of-session modifications to =agents/pi/settings.json=,
-  =agents/skills/review/SKILL.md=, and =flake.lock= were noticed in
-  the dotfiles working tree. They are unrelated to this task and
-  belong in their own commit; this task left them untouched.
+- The orphaned level-2 =** DONE [#D] Package org-memory protocol / extensions= entry in dotfiles =TASKS.archive.org= had no enclosing level-1 parent. It was promoted to =* DONE= during the import to dotagents (UUID =79d6f4f5-...= preserved).
+- The =** CANCELLED Update nixGL flake URL= entry was a similar orphan-level-2; in dotfiles it has been promoted to =*= since it is now the only archived entry there (UUID =862e9ecf-...= preserved).
+- Ambient out-of-session modifications to =agents/pi/settings.json=, =agents/skills/review/SKILL.md=, and =flake.lock= were noticed in the dotfiles working tree. They are unrelated to this task and belong in their own commit; this task left them untouched.
 
 ** Validation pass
-[2026-05-07 Thu 22:38] Validated each acceptance criterion of the
-validation task end-to-end.
+[2026-05-07 Thu 22:38] Validated each acceptance criterion of the validation task end-to-end.
 
 *** Extension regression suites
 - =pi/extensions/tasks/test.sh= — *PASS* (10/10).
 - =pi/extensions/jira/test.sh= — *PASS* (45/45).
-- =pi/extensions/emacsclient/test.sh= — fails because ~tsx~ is not on
-  ~PATH~ in this shell. Pi bundles ~tsx~ for extension execution; the
-  test wrapper assumes ~tsx~ is reachable via ~PATH~. Documented as a
-  follow-up under the docs task; not a regression introduced by the
-  extraction.
+- =pi/extensions/emacsclient/test.sh= — fails because ~tsx~ is not on ~PATH~ in this shell. Pi bundles ~tsx~ for extension execution; the test wrapper assumes ~tsx~ is reachable via ~PATH~. Documented as a follow-up under the docs task; not a regression introduced by the extraction.
 
 *** =nix flake check= on dotagents
-- ~nix flake check --impure~ on the current system (=aarch64-darwin=)
-  evaluates ~packages.<system>.{agent-org-memory,default}~ and
-  ~checks.<system>.agent-org-memory~.
-- ~nix flake check --impure --all-systems --no-build~ evaluates
-  ~checks~ for ~x86_64-linux~, ~aarch64-linux~, ~x86_64-darwin~, and
-  ~aarch64-darwin~ — all four derivations produce valid drv outputs.
-  Cross-platform *building* requires remote builders and was not
-  attempted in this pass.
+- ~nix flake check --impure~ on the current system (=aarch64-darwin=) evaluates ~packages.<system>.{agent-org-memory,default}~ and ~checks.<system>.agent-org-memory~.
+- ~nix flake check --impure --all-systems --no-build~ evaluates ~checks~ for ~x86_64-linux~, ~aarch64-linux~, ~x86_64-darwin~, and ~aarch64-darwin~ — all four derivations produce valid drv outputs. Cross-platform *building* requires remote builders and was not attempted in this pass.
 
 *** Local + remote pi package builds
-- Local: ~nix build ./agents-src#agent-org-memory --impure~ from the
-  dotfiles checkout produces
-  =/nix/store/zky2raaw7ykwfawg1pn89b6sp50q6065-agent-org-memory-0.1.0=.
-- Remote: ~nix build github:cormacc/dotagents#agent-org-memory --impure~
-  produces the same store path — confirms the github push is
-  byte-identical to the local submodule and the package output is
-  reproducible.
+- Local: ~nix build ./agents-src#agent-org-memory --impure~ from the dotfiles checkout produces =/nix/store/zky2raaw7ykwfawg1pn89b6sp50q6065-agent-org-memory-0.1.0=.
+- Remote: ~nix build github:cormacc/dotagents#agent-org-memory --impure~ produces the same store path — confirms the github push is byte-identical to the local submodule and the package output is reproducible.
 
 *** Generic skill discovery via Vercel Labs ~skills~ CLI
-~npx --yes skills add ~/dev/agents/dotagents --list~ enumerates all six
-generic skills with their YAML frontmatter ~name~/~description~ pairs:
+~npx --yes skills add ~/dev/agents/dotagents --list~ enumerates all six generic skills with their YAML frontmatter ~name~/~description~ pairs:
 
 - =clj-nrepl=
 - =org-jira=
@@ -652,8 +384,7 @@ generic skills with their YAML frontmatter ~name~/~description~ pairs:
 No broken or unrecognised skills.
 
 *** Editable smoke check
-For every Home Manager destination managed by ~agents.nix~,
-~mkOutOfStoreSymlink~ resolves to the live working-tree path:
+For every Home Manager destination managed by ~agents.nix~, ~mkOutOfStoreSymlink~ resolves to the live working-tree path:
 
 | Destination | Symlink target |
 |-------------+----------------|
@@ -664,59 +395,33 @@ For every Home Manager destination managed by ~agents.nix~,
 | =~/.pi/agent/skills= | =/Users/cormacc/dotfiles/agents-src/pi/skills= |
 | =~/.pi/agent/settings.json= | =/Users/cormacc/dotfiles/agents-config/pi/settings.json= |
 
-Not a Nix-store snapshot, so edits in the submodule reload via
-~/reload~ without a Home Manager switch.
+Not a Nix-store snapshot, so edits in the submodule reload via ~/reload~ without a Home Manager switch.
 
 *** Submodule fail-fast
-During validation the original ~assertions~-option implementation was
-found to be silently dropped under
-=darwinConfigurations.<host>.config.home-manager.users.<user>=
-(per-user assertions don't propagate to the parent system's assertion
-machinery). Replaced with a ~home.activation~ script wired before the
-=writeBoundary= entry; the guard fires unconditionally on every
-=home-manager switch= / =darwin-rebuild switch= and on a standalone
-=homeConfigurations.default= activation. Verified by:
+During validation the original ~assertions~-option implementation was found to be silently dropped under =darwinConfigurations.<host>.config.home-manager.users.<user>= (per-user assertions don't propagate to the parent system's assertion machinery). Replaced with a ~home.activation~ script wired before the =writeBoundary= entry; the guard fires unconditionally on every =home-manager switch= / =darwin-rebuild switch= and on a standalone =homeConfigurations.default= activation. Verified by:
 
 1. Move =agents-src/package.json= aside.
-2. ~nix build .#darwinConfigurations.<host>.config.home-manager.users.cormacc.home.activationPackage~
-   still succeeds (build-time eval is permissive).
-3. ~DRY_RUN=1 $out/activate~ refuses with the actionable
-   =git -C ~/dotfiles submodule update --init --recursive= message.
+2. ~nix build .#darwinConfigurations.<host>.config.home-manager.users.cormacc.home.activationPackage~ still succeeds (build-time eval is permissive).
+3. ~DRY_RUN=1 $out/activate~ refuses with the actionable =git -C ~/dotfiles submodule update --init --recursive= message.
 4. Restore the sentinel; activation proceeds again.
 
 *** Fresh-clone bootstrap
-A full fresh-clone + ~home-manager switch~ rehearsal is intentionally
-out of scope for this in-place validation pass; the fail-fast guard
-above provides equivalent end-state coverage (any user who clones
-without submodules sees the same actionable error and the same
-recovery instructions). Captured for the docs task as a documented
-bootstrap recipe.
+A full fresh-clone + ~home-manager switch~ rehearsal is intentionally out of scope for this in-place validation pass; the fail-fast guard above provides equivalent end-state coverage (any user who clones without submodules sees the same actionable error and the same recovery instructions). Captured for the docs task as a documented bootstrap recipe.
 
 ** Dotfiles rewire
-[2026-05-07 Thu 22:27] Pushed dotagents to GitHub and switched dotfiles
-over to consume it via submodule.
+[2026-05-07 Thu 22:27] Pushed dotagents to GitHub and switched dotfiles over to consume it via submodule.
 
 *** Repository wiring
-- Pushed dotagents to =git@github.com:cormacc/dotagents.git= (initial
-  remote = ~origin/main~).
-- Registered the dotagents repo as a git submodule of dotfiles at
-  ~agents-src/~ via ~git submodule add git@github.com:cormacc/dotagents.git
-  agents-src~. Resulting ~.gitmodules~ entry points at the github URL.
-- Moved ~agents/pi/settings.json~ → ~agents-config/pi/settings.json~ via
-  ~git mv~. The new path is dotfiles-local and never appears in the
-  dotagents tree.
-- Deleted the entire dotfiles ~agents/~ tree (~ git rm -rf agents/~ +
-  cleanup of untracked ~node_modules/~ residue).
+- Pushed dotagents to =git@github.com:cormacc/dotagents.git= (initial remote = ~origin/main~).
+- Registered the dotagents repo as a git submodule of dotfiles at ~agents-src/~ via ~git submodule add git@github.com:cormacc/dotagents.git agents-src~. Resulting ~.gitmodules~ entry points at the github URL.
+- Moved ~agents/pi/settings.json~ → ~agents-config/pi/settings.json~ via ~git mv~. The new path is dotfiles-local and never appears in the dotagents tree.
+- Deleted the entire dotfiles ~agents/~ tree (~ git rm -rf agents/~ + cleanup of untracked ~node_modules/~ residue).
 
 *** Home Manager wiring (=agents.nix=)
 Rewritten end-to-end:
 
-- Dropped the ~agents.mode~ enum and the ~agents.package~ option —
-  dotfiles now installs editably and only editably. The packaged-mode
-  manifest plumbing (=manifest=, =pkgExtensions=, =pkgSkills=,
-  =perEntrySymlinks=) is gone.
-- New source paths: ~agentsRoot = "${dotRoot}/agents-src"~,
-  ~piSettings = "${dotRoot}/agents-config/pi/settings.json"~.
+- Dropped the ~agents.mode~ enum and the ~agents.package~ option — dotfiles now installs editably and only editably. The packaged-mode manifest plumbing (=manifest=, =pkgExtensions=, =pkgSkills=, =perEntrySymlinks=) is gone.
+- New source paths: ~agentsRoot = "${dotRoot}/agents-src"~, ~piSettings = "${dotRoot}/agents-config/pi/settings.json"~.
 - Symlinks installed unconditionally:
   - =~/.agents/skills= → ~agents-src/skills~
   - =~/.pi/agent/AGENTS.md= → ~agents-src/AGENTS.md~
@@ -724,31 +429,15 @@ Rewritten end-to-end:
   - =~/.pi/agent/extensions= → ~agents-src/pi/extensions~
   - =~/.pi/agent/skills= → ~agents-src/pi/skills~
   - =~/.pi/agent/settings.json= → ~agents-config/pi/settings.json~
-- Fail-fast assertion: if ~${agentsRoot}/package.json~ is missing,
-  Home Manager activation refuses with a clear ~git submodule update
-  --init --recursive~ instruction. Implemented via the home-manager
-  ~assertions~ option (top-level Nix ~assert~ caused infinite recursion
-  during module evaluation; the ~assertions~ option fires inside the
-  config block and avoids that). The check uses the absolute submodule
-  path because flakes do not include git submodules in their evaluated
-  source by default.
+- Fail-fast assertion: if ~${agentsRoot}/package.json~ is missing, Home Manager activation refuses with a clear ~git submodule update --init --recursive~ instruction. Implemented via the home-manager ~assertions~ option (top-level Nix ~assert~ caused infinite recursion during module evaluation; the ~assertions~ option fires inside the config block and avoids that). The check uses the absolute submodule path because flakes do not include git submodules in their evaluated source by default.
 
 *** Flake wiring (=flake.nix=)
-Dropped the local ~packages.<system>.agent-org-memory~ wrapper. Anyone
-who wants the package builds it directly from dotagents (~nix build
-./agents-src#agent-org-memory~ locally, or
-~nix build github:cormacc/dotagents#agent-org-memory~ remotely).
+Dropped the local ~packages.<system>.agent-org-memory~ wrapper. Anyone who wants the package builds it directly from dotagents (~nix build ./agents-src#agent-org-memory~ locally, or ~nix build github:cormacc/dotagents#agent-org-memory~ remotely).
 
 *** Verification
-- ~nix eval --impure '.#homeConfigurations.default.activationPackage'~
-  succeeds; the agents.nix module evaluates cleanly.
-- ~nix build~ of the darwin home-manager file output for
-  ~/Users/cormacc/.pi/agent/extensions~ succeeds and ~readlink~ on the
-  result yields =/Users/cormacc/dotfiles/agents-src/pi/extensions= —
-  i.e. =mkOutOfStoreSymlink= correctly targets the live submodule.
-- The pre-existing ~git/dotrepos/git-subrepo~ submodule is also
-  registered in this repo and is uninitialised; it is unrelated to this
-  task and is not required by the home-manager build path.
+- ~nix eval --impure '.#homeConfigurations.default.activationPackage'~ succeeds; the agents.nix module evaluates cleanly.
+- ~nix build~ of the darwin home-manager file output for ~/Users/cormacc/.pi/agent/extensions~ succeeds and ~readlink~ on the result yields =/Users/cormacc/dotfiles/agents-src/pi/extensions= — i.e. =mkOutOfStoreSymlink= correctly targets the live submodule.
+- The pre-existing ~git/dotrepos/git-subrepo~ submodule is also registered in this repo and is uninitialised; it is unrelated to this task and is not required by the home-manager build path.
 
 *** Pending dotfiles commit
 Staged for commit:
@@ -758,69 +447,39 @@ Staged for commit:
 - =flake.nix= (drop local agent-org-memory wrapper)
 - =AGENTS.md=, =README.org= (description update)
 - =TASKS.org=, =TASKS.archive.org= (trim from the artefact-extraction step)
-- =design/log/2026-05-07-extract-agent-skills.org= (this change-record,
-  newly tracked)
+- =design/log/2026-05-07-extract-agent-skills.org= (this change-record, newly tracked)
 - 155 deletions of files under =agents/= (the entire old tree)
 - =RM agents/pi/settings.json -> agents-config/pi/settings.json= (move)
 - 28 deletions under =design/log/= (artefact extraction)
 
 Left *unstaged* for user triage (ambient out-of-session changes):
-- =agents-config/pi/settings.json= — provider/model swap
-  (~openai-codex/gpt-5.5~ → ~anthropic/claude-opus-4-7~).
+- =agents-config/pi/settings.json= — provider/model swap (~openai-codex/gpt-5.5~ → ~anthropic/claude-opus-4-7~).
 - =flake.lock= — ~nix flake update~ since the last commit.
 
 *** Documentation pass
 [2026-05-07 Thu 22:45] Closed every documentation criterion explicitly:
 
-- Dotfiles =README.org= grew =* The dotagents submodule= with five
-  subsections — What it is, Bootstrap, Update workflow, Editing in
-  place, What stays in dotfiles vs what moved, Releasing dotagents.
-  The provisioning section's =git clone= example now uses
-  =--recurse-submodules=.
-- Dotagents =README.md= already documented pi-package /
-  flake-input / submodule / Vercel Labs ~skills~ install routes from
-  the skeleton task; this pass added a =Releasing= section explaining
-  how tags interact with each consumer route.
-- Stale =#+SELECTED:= guidance lives in the dotfiles README's
-  what-moved subsection. The current dotfiles =TASKS.local.org=
-  selects =9e134ad1-…= (the extraction parent, still in dotfiles), so
-  no immediate stale-selection issue for this user.
+- Dotfiles =README.org= grew =* The dotagents submodule= with five subsections — What it is, Bootstrap, Update workflow, Editing in place, What stays in dotfiles vs what moved, Releasing dotagents. The provisioning section's =git clone= example now uses =--recurse-submodules=.
+- Dotagents =README.md= already documented pi-package / flake-input / submodule / Vercel Labs ~skills~ install routes from the skeleton task; this pass added a =Releasing= section explaining how tags interact with each consumer route.
+- Stale =#+SELECTED:= guidance lives in the dotfiles README's what-moved subsection. The current dotfiles =TASKS.local.org= selects =9e134ad1-…= (the extraction parent, still in dotfiles), so no immediate stale-selection issue for this user.
 - Follow-up TODOs captured in dotagents =TASKS.org=:
-  - =5f847a49-c227-4284-a49d-c9b3db972da6= — clojure-development skill
-    package alongside =agent-org-memory=.
-  - =7e21788d-b4e6-439b-b300-ca84ab4a2fcc= — self-improvement skill
-    routing rework for the two-tier (dotagents + dotfiles) split.
-- =skills/self-improvement/SKILL.md= now opens with a routing-under-
-  review notice pointing at the second TODO; the body is unchanged so
-  existing single-tier behaviour still works until the rework lands.
+  - =5f847a49-c227-4284-a49d-c9b3db972da6= — clojure-development skill package alongside =agent-org-memory=.
+  - =7e21788d-b4e6-439b-b300-ca84ab4a2fcc= — self-improvement skill routing rework for the two-tier (dotagents + dotfiles) split.
+- =skills/self-improvement/SKILL.md= now opens with a routing-under- review notice pointing at the second TODO; the body is unchanged so existing single-tier behaviour still works until the rework lands.
 
 ** Carried forward to follow-up tasks
-- =skills/self-improvement/SKILL.md= still points global agent feedback
-  at =~/dotfiles/TASKS.org=. After the rewire, *some* global feedback
-  (skills, extensions, prompts) becomes a dotagents concern while other
-  feedback (NixOS / Home Manager wiring, =agents.nix=, =flake.nix=
-  outputs) remains a dotfiles concern. Updating that skill to route
-  feedback to the right tier is captured under the docs task and is
-  intentionally out of scope for the source-move commit.
-- The dotagents repo has no GitHub remote yet. Pushing it (and adding
-  it as a dotfiles git submodule) lands during the rewire task.
+- =skills/self-improvement/SKILL.md= still points global agent feedback at =~/dotfiles/TASKS.org=. After the rewire, *some* global feedback (skills, extensions, prompts) becomes a dotagents concern while other feedback (NixOS / Home Manager wiring, =agents.nix=, =flake.nix= outputs) remains a dotfiles concern. Updating that skill to route feedback to the right tier is captured under the docs task and is intentionally out of scope for the source-move commit.
+- The dotagents repo has no GitHub remote yet. Pushing it (and adding it as a dotfiles git submodule) lands during the rewire task.
 
 * Open questions
 ** DECIDED Should dotfiles consume dotagents primarily as a flake input, git submodule, or explicit local checkout path?
 :PROPERTIES:
 :DECIDED: [2026-05-07 Thu 21:18]
 :END:
-Decision: use a git submodule for the editable source checkout, with dotagents
-still exposing flake outputs for packages and checks. This should keep the
-Home Manager implementation simple and maintainable because
-~mkOutOfStoreSymlink~ can target a live checkout in the dotfiles tree rather
-than an immutable flake store path.
+Decision: use a git submodule for the editable source checkout, with dotagents still exposing flake outputs for packages and checks. This should keep the Home Manager implementation simple and maintainable because ~mkOutOfStoreSymlink~ can target a live checkout in the dotfiles tree rather than an immutable flake store path.
 
 ** DECIDED Which experimental or disabled extensions should move in the first extraction?
 :PROPERTIES:
 :DECIDED: [2026-05-07 Thu 21:18]
 :END:
-Decision: move ~./agents/pi/extensions/disabled~ as-is into the new repo, but
-exclude its contents from all exposing package scripts/manifests/flake outputs.
-Disabled extensions remain available as source/history without becoming public
-installable API.
+Decision: move ~./agents/pi/extensions/disabled~ as-is into the new repo, but exclude its contents from all exposing package scripts/manifests/flake outputs. Disabled extensions remain available as source/history without becoming public installable API.
