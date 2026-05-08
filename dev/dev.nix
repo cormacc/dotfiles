@@ -41,6 +41,10 @@
     cargo
     rustc
 
+    # cloud services
+    glab
+    github-cli
+
     # Misc tools
     libxml2
   ];
