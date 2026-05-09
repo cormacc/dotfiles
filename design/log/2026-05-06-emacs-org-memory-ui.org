@@ -4,6 +4,40 @@
 #+STATUS: Accepted
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 
+* Summary
+Added a Treemacs-backed Emacs UI to the existing =tasks-org= Spacemacs package, giving feature parity with the pi tasks extension's expanded UI for navigate / expand / select / cycle workflows over the org-memory protocol. The UI lives in a dedicated =*tasks-org*= buffer, reads the graph from =TASKS.org= + =TASKS.local.org= + linked change-records, mutates through a small protocol helper surface, and refreshes via =file-notify= rather than RPC with pi. Initial v1 also covers archive, publish/unpublish, doctor, task creation, linked-issue badges + =J= browser open, and a compact selected-task indicator.
+
+** Shipped
+- =tasks-org= folded the new UI in alongside the existing minor mode under =editors/emacs/spacemacs/layers/org-user/local/tasks-org/=; both modules share one graph reader and one set of protocol writers.
+- Renderer: started as =vui.el= for the v1 spike, then converted to Treemacs/treelib after live review (plan task =c0459781=); =vui= dependency retired.
+- Spacemacs bindings: global =SPC a T= launcher and in-context =, ; T= alias for =org-mode= buffers.
+- UI buffer is an evilified Spacemacs buffer; vim motion keys remap to UI actions while =SPC= remains the global leader. Excluded from =tasks-org-mode='s filename auto-enable.
+- Transparent interop with org sources: launching from a =tasks-org-mode= buffer positions the cursor on the task at point; =e= jumps to the source heading; =org-id-update-id-locations= runs over the loaded fileset on graph load.
+- Status cycling stays on the org-memory contract: protocol writer emits LOGBOOK / =CLOSED:= / =:STARTED:= identical to the pi-side semantics.
+- Parity ports landed under =* Follow-ups= as DONE: archive (=A=), publish/unpublish (=P=/=U=), doctor command, task creation (=n=/=N=), and a details pane next to the tree.
+
+** Decisions
+- Fold UI into =tasks-org=, no sibling package :: One graph reader, one writer surface, one Nix slice when packaging arrives.
+- Match pi UX semantics, not its rendering :: Keys and behaviour mirror =pi/extensions/tasks/README.md=; rendering is Emacs-idiomatic.
+- Files remain canonical; no Emacs↔pi RPC :: Pi's file-watcher refreshes the pi widget; Emacs refreshes via =auto-revert=.
+- Read-mostly v1 with minimal mutation substrate :: Initial cut focused on navigate / cycle / select / =#+IMPORT: scaffold; richer mutations landed under =* Follow-ups=.
+- Emacs writes are co-canonical with pi-side writes for v1 :: A whole-flip to Emacs-canonical mutation was considered and rejected; the safer staged path is partial flip (status transitions only) if drift becomes observed.
+- ECA interop is loose and file/cursor-mediated for v1 :: =e= -> source heading is sufficient passive context; explicit ECA bridge deferred.
+
+** Gotchas
+- =vui.el= proved insufficient for the desired tree readability and was replaced by Treemacs mid-flight; the migration cleanly carried over the graph reader, protocol helpers, =#+SELECTED:= / =#+IMPORT:= semantics, compact widget, and launch commands.
+- =org-entry-get= returns timestamps with surrounding brackets included; archive code strips them before re-emitting =:ARCHIVED:= to keep single-bracket form. Caught by the end-to-end ERT test.
+- The folded =tasks-org= still lives under the Spacemacs =org-user= layer; relocation to a packaging-friendly path is captured as an open question.
+
+** Validation
+- ERT suite for =tasks-org= (56+ tests across base, archive, publish/unpublish, doctor, creation, details pane).
+- =tasks-org.el= / =tasks-org-graph.el= byte-compile clean.
+- Manual: end-to-end against live =TASKS.org= + a real linked change-record.
+
+** Follow-ups
+- =OPEN= Should the folded =tasks-org= package relocate out of the Spacemacs =org-user= layer? (resolve before Nix packaging work).
+- =OPEN= Should status cycling go through =org-todo= or stay on the custom writer?
+
 * Context
 
 The pi =tasks= extension (see =agents/pi/extensions/tasks/README.md=) is the canonical UI today over the plain-org task-memory protocol owned by the =org-tasks= / =org-plan= / =org-jira= skills. It provides a centred split-pane tree+details view, status cycling, single-selection via the checkout-local =#+SELECTED:= pointer in =TASKS.local.org=, change-record open/create via =#+IMPORT: [[file:...]]= links (=p=), archive (=A=), publish/unpublish (=P=/=U=), linked-issue badges + browser open (=J=), doctor checks, slash commands, leader-menu keybindings, and a compact selected-task widget.
