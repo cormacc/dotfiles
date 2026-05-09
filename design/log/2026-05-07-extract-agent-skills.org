@@ -4,6 +4,39 @@
 #+STATUS: Complete
 #+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 
+* Summary
+Extracted the reusable agent surface (generic skills, pi extensions, prompts, the pi-side =AGENTS.md=, the org-memory task graph and design log) from =~/dotfiles/agents/= into a new repository [[https://github.com/cormacc/dotagents]] and consumed it back into dotfiles as a git submodule under =agents-src/=. Dotfiles keeps only the installation wiring (=agents.nix=) and user-local pi configuration (=agents-config/pi/settings.json=). The submodule is symlinked into =~/.agents= and =~/.pi/agent= via =mkOutOfStoreSymlink= so pi's =/reload= still picks up live edits without a Home Manager switch.
+
+** Shipped
+- New repo: =github:cormacc/dotagents= containing =skills/=, =pi/extensions/=, =pi/skills/=, prompt templates, =AGENTS.md=, =TASKS.org= + =design/log/=, and the =agent-org-memory= pi package.
+- Dotfiles =agents.nix= rewritten to symlink the submodule working tree into runtime locations and run =npm install --omit=dev= on activation for local-only extensions when their =package.json= changes.
+- Activation refuses with an actionable error when the submodule is uninitialised.
+- =nix flake check= on dotagents evaluates on every supported system; the =agent-org-memory= pi package builds identically from the local submodule and from =github:cormacc/dotagents=.
+- Documentation in both repos covers bootstrap, update, editing, and release workflows.
+
+** Decisions
+- Submodule + =mkOutOfStoreSymlink=, not Nix store copy :: Live editability of skills / extensions / prompts via =/reload= is the primary daily workflow; staging through the Nix store would defeat that.
+- User-local pi config stays in dotfiles :: =agents-config/pi/settings.json= holds machine-specific provider/model/secrets toggles; only neutral defaults live in dotagents.
+- pi-settings clean filter ships in dotfiles :: A git clean filter strips volatile fields (=defaultProvider=, =defaultModel=, =lastChangelogVersion=) so =/model= swaps don't churn version control. Idempotent install script.
+- Two-tier global feedback :: Skill / extension / prompt feedback routes to dotagents; installation, packaging, AGENTS.md (dotfiles-side) feedback routes to dotfiles. Captured as a follow-up to rework the self-improvement skill routing.
+
+** Gotchas
+- Two-step bootstrap on a fresh clone: =git submodule update --init --recursive= and =agents-config/install-git-filter.sh=. Home Manager activation refuses without the first; the clean filter requires =jq=.
+- Editing skills directly in the live symlink target (=agents-src/=) is the intended workflow; commits land in dotagents, then the dotfiles submodule pointer is bumped in a follow-up commit when needed.
+
+** Validation
+- =nix flake check --impure= on both repos.
+- =home-manager switch --flake './dotfiles#default' --impure -b backup= on the dev host with the submodule in place — activation succeeds.
+- Manual: =/reload= in pi picks up edits made directly in =agents-src/= without a switch.
+
+** Follow-ups
+- Clojure-development skill package (TASKS.org task =5f847a49= in =dotagents=).
+- Re-tier self-improvement skill routing for the dotfiles/dotagents split (TASKS.org task =7e21788d= in =dotagents=).
+
+** Dotfiles / dotagents commits landed
+- Dotfiles: =a456268= (rewire), =c25b10f= (activation guard).
+- Dotagents: =802cb5f= (skeleton), =d65c3e7= (source import), =00b2915= (flake.lock), =2235b52= (task graph + design log import).
+
 * Context
 The dotfiles repo currently carries rapidly changing agent assets under ~agents/~: generic skills, pi-specific skills, pi extensions, shared extension helpers, prompt templates, package metadata, and user-local pi settings. Most recent work is in that agent surface, while the rest of the dotfiles and system configuration should remain relatively static.
 
@@ -178,12 +211,7 @@ Result: dotfiles =README.org= now has a top-level =* The dotagents submodule= se
 - Migration notes warn owners with a stale ~TASKS.local.org~ ~#+SELECTED:~ pointing at a migrated UUID that they need to re-select after the move.
 - Follow-up work for future skill families, such as a clojure-development skill package, is captured separately rather than blocking the extraction.
 
-* Implementation
-
-** Outcome
-[2026-05-07 Thu 22:46] Extraction complete. Agent skills, pi extensions, prompt templates, the pi-side =AGENTS.md=, and the agent-related task graph live in [[https://github.com/cormacc/dotagents][github:cormacc/dotagents]]; dotfiles consumes the repo as a git submodule under =agents-src/= with =mkOutOfStoreSymlink=s pointing at the live working tree, so editable reload via pi's =/reload= still works without a Home Manager switch. User-local pi configuration stays in dotfiles at =agents-config/pi/settings.json=. ~nix flake check~ on dotagents evaluates on every supported system; the org-memory pi package builds identically from the local submodule and from =github:cormacc/dotagents=. Activation refuses with an actionable error when the submodule is uninitialised. Documentation in both repos covers bootstrap, update, editing, and release workflows. Two follow-up TODOs are captured in dotagents (clojure-development skill package; self- improvement routing rework for the two-tier dotfiles/dotagents split).
-
-Dotfiles commits landed: =a456268= (rewire) and =c25b10f= (activation guard). Dotagents commits: =802cb5f= (skeleton), =d65c3e7= (source import), =00b2915= (flake.lock), =2235b52= (task graph + design log import).
+Outcome content absorbed into top-level =* Summary= during the 2026-05-09 retrospective summary sweep; see that section for the condensed final state.
 
 ** Inventory of agent assets under =agents/=
 [2026-05-07 Thu 21:25] First-pass classification of every reusable source path under =agents/=. Disposition column values:
