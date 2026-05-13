@@ -90,6 +90,7 @@ in
 
         install_local_pi_extension_deps chromium "${piRoot}/extensions/chromium"
         install_local_pi_extension_deps pi-clojure "${piRoot}/extensions/pi-clojure"
+        install_local_pi_extension_deps dataspex "${piRoot}/extensions/dataspex"
       '';
 
     # npm's default global prefix points into the (read-only) Nix store when
