@@ -36,17 +36,9 @@
 ;; the package files package.el expects.
 (setenv "COPYFILE_DISABLE" "1")
 
-(defconst org-user--tasks-org-local-dir
-  (expand-file-name "local/tasks-org"
-                    (file-name-directory (or load-file-name buffer-file-name)))
-  "Directory containing the folded tasks-org local package modules.")
-
-(add-to-list 'load-path org-user--tasks-org-local-dir)
-
 (defconst org-user-packages
   '(
     (org-archive-subtree-hierarchical :location local)
-    (tasks-org :location local)
     treemacs
     org
     org-web-tools
@@ -98,7 +90,17 @@ Each entry is either:
 
 (defun org-user/post-init-org ()
   ;;Quick-and-dirty import of existing config from .spacemacs
-  (with-eval-after-load 'org (org-user/config))
+  (with-eval-after-load 'org
+    (org-user/config)
+    (let ((tasks-org-dir (expand-file-name "~/dotfiles/agents-src/emacs/tasks-org")))
+      (when (file-directory-p tasks-org-dir)
+        (add-to-list 'load-path tasks-org-dir)
+        (require 'tasks-org)
+        (tasks-org-register-capture-template)
+        (spacemacs/set-leader-keys-for-major-mode 'org-mode
+          "ga" #'tasks-org-toggle-task-and-plan
+          "gA" #'tasks-org-toggle-task-and-plan-other-window
+          "SPC" #'tasks-org-toggle-selected))))
   ;;TODO: Set path to mmdc?
   (spacemacs|use-package-add-hook org
     :post-config (add-to-list 'org-babel-load-languages '(mermaid . t))))
@@ -176,84 +178,6 @@ Each entry is either:
 
 (defun org-user/init-org-archive-subtree-hierarchical ()
   (use-package org-archive-subtree-hierarchical))
-
-(defun org-user/init-tasks-org ()
-  (use-package tasks-org
-    :commands (tasks-org-mode
-               tasks-org-toggle-selected
-               tasks-org-open-plan
-               tasks-org-open-plan-other-window
-               tasks-org-create-import-for-current-task
-               tasks-org-ui-show
-               tasks-org-ui-show-selected
-               tasks-org-cycle-status
-               tasks-org-cycle-status-back
-               tasks-org-jump-to-parent-task
-               tasks-org-publish-task
-               tasks-org-unpublish-task
-               tasks-org-archive-task
-               tasks-org-doctor-show
-               tasks-org-ui-show-details)
-    :init
-    ;; `tasks-org-ui.el' is part of the folded local tasks-org package, not a
-    ;; separate Spacemacs local package directory.  Install explicit autoloads so
-    ;; leader bindings are real commands before the UI module is loaded.
-    (autoload 'tasks-org-ui-show "tasks-org-ui"
-      "Open the org-memory task UI buffer." t)
-    (autoload 'tasks-org-ui-show-selected "tasks-org-ui"
-      "Open the compact selected-task UI buffer." t)
-    ;; `SPC a t' is already a Spacemacs prefix on this config (tab/session
-    ;; commands bind keys below it, e.g. `SPC a t s'), so use `SPC a T' for
-    ;; the global tasks UI launcher rather than turning `a t' into a command.
-    (spacemacs/set-leader-keys
-      "aT" 'tasks-org-ui-show)
-    (spacemacs/declare-prefix-for-mode 'org-mode "m;" "tasks-org")
-    (spacemacs/declare-prefix-for-mode 'org-mode "m;L" "local")
-    (spacemacs/set-leader-keys-for-major-mode 'org-mode
-      ";s" 'tasks-org-toggle-selected
-      ";p" 'tasks-org-open-plan
-      ";P" 'tasks-org-open-plan-other-window
-      ";c" 'tasks-org-create-import-for-current-task
-      ";n" 'tasks-org-cycle-status
-      ";N" 'tasks-org-cycle-status-back
-      ";t" 'tasks-org-jump-to-parent-task
-      ";Lp" 'tasks-org-publish-task
-      ";Lu" 'tasks-org-unpublish-task
-      ";T" 'tasks-org-ui-show)
-    :config
-    ;; Spacemacs evilified-state: motion keys remap to UI actions while
-    ;; SPC remains the global leader.  This runs after the UI module is loaded;
-    ;; some minimal Emacs sessions may not have evilified-state available.
-    (with-eval-after-load 'tasks-org-ui
-      (when (fboundp 'evilified-state-evilify-map)
-        (evilified-state-evilify-map tasks-org-ui-mode-map
-          :mode tasks-org-ui-mode
-          :bindings
-          "j" 'next-line
-          "k" 'previous-line
-          "RET" 'tasks-org-ui-toggle-expand
-          "TAB" 'tasks-org-ui-toggle-expand
-          ;; `S-<right>' / `S-<left>' are the primary status-cycling keys:
-          ;; they mirror `org-shiftright' / `org-shiftleft' and slip past
-          ;; Treemacs' own `h' / `l' / `<right>' / `<left>' bindings, which
-          ;; would otherwise shadow the minor-mode entries.
-          "S-<right>" 'tasks-org-ui-cycle-status
-          "S-<left>"  'tasks-org-ui-cycle-status-back
-          "l" 'tasks-org-ui-cycle-status
-          "h" 'tasks-org-ui-cycle-status-back
-          "s" 'tasks-org-ui-toggle-selected
-          "e" 'tasks-org-ui-visit-source
-          "p" 'tasks-org-ui-open-or-create-import
-          "P" 'tasks-org-ui-publish-task
-          "U" 'tasks-org-ui-unpublish-task
-          "A" 'tasks-org-ui-archive-task
-          "D" 'tasks-org-ui-doctor
-          "i" 'tasks-org-ui-show-details
-          "n" 'tasks-org-ui-create-task
-          "N" 'tasks-org-ui-create-subtask
-          "J" 'tasks-org-ui-open-linked-issues
-          "g" 'tasks-org-ui-refresh
-          "q" 'quit-window)))))
 
 (defun org-user/post-init-org-archive-subtree-hierarchical ()
   (setq org-archive-default-command 'org-archive-subtree-hierarchical))

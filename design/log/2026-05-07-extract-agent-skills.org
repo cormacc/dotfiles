@@ -1,8 +1,8 @@
 #+TITLE: Extract agent skills and extensions as new flake
 #+DATE: 2026-05-07 Thu
 #+PARENT: [[file:../../TASKS.archive.org::#9e134ad1-6a9c-4e7d-9fe9-82df2634224e][Extract agent skills and extensions as new flake]]
+#+SETUPFILE: ../../TASKS.setup.org
 #+STATUS: Complete
-#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
 
 * Summary
 Extracted the reusable agent surface (generic skills, pi extensions, prompts, the pi-side =AGENTS.md=, the org-memory task graph and design log) from =~/dotfiles/agents/= into [[https://github.com/cormacc/dotagents]] and consumed it back into dotfiles as a git submodule under =agents-src/=. Dotfiles keeps only the installation wiring (=agents.nix=) and user-local pi configuration (=agents-config/pi/settings.json=). The submodule is symlinked into =~/.agents= and =~/.pi/agent= via =mkOutOfStoreSymlink= so pi's =/reload= still picks up live edits without a Home Manager switch.
