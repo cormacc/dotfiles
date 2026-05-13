@@ -2,12 +2,8 @@
 #+AUTHOR: Cormac Cannon
 #+LANGUAGE: en
 #+DATE: 2026-04-25
-#+TODO: TODO(t) STARTED(s) WAITING(w) | DONE(d) CANCELLED(c)
-#+DEFAULT_PLAN_DIR: [[file:./design/log]]
-
-# Tracker linkage (consumed by the `tasks` extension for badge rendering
-# and `J` browser-open of bare keys in `:LINKED_ISSUES:`).
-#+ISSUE_URL_BASE: https://your-org.atlassian.net/browse/{ID}
+#+SETUPFILE: ./TASKS.setup.org
+#+ARCHIVE: TASKS.archive.org::* From %s
 
 # Jira-specific keywords (consumed by the `jira` extension only).
 #+JIRA_CLOUDID: 00000000-0000-4000-8000-000000000000
@@ -39,14 +35,3 @@
 - [[#improvements][Improvements]]
 
 * Improvements
-
-** TODO Implement emacs-based ui for org-memory extension
-:PROPERTIES:
-:ID: 9b5067ca-fec2-4e23-b647-981c31ee9a87
-:CREATED: [2026-05-06 Wed 21:56]
-:END:
-:LOGBOOK:
-- Created [2026-05-06 Wed 21:56]
-:END:
-#+IMPORT: [[file:design/log/2026-05-06-emacs-org-memory-ui.org]]
-- Consider replicating functionality of existing pi extension in =pi/extensions/tasks=.

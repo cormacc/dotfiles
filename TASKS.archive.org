@@ -1,3 +1,5 @@
+#+SETUPFILE: ./TASKS.setup.org
+
 * DONE [#A] Extract agent skills and extensions as new flake
 CLOSED: [2026-05-07 Thu 22:46]
 :PROPERTIES:
@@ -9,7 +11,7 @@ CLOSED: [2026-05-07 Thu 22:46]
 - State "DONE"      from "STARTED"   [2026-05-07 Thu 22:46]
 - State "STARTED"   from "TODO"      [2026-05-07 Thu 21:25]
 :END:
-#+IMPORT: [[file:design/log/2026-05-07-extract-agent-skills.org]]
+#+IMPORT: [[plan:2026-05-07-extract-agent-skills.org]]
 Most of the recent activity in this repo is iterating on agent skills. Dotfiles/system config should be relatively static. Let's extract these as follows:
 - Extract skills and extensions to a new git-repo / flake -- it'll be at github:cormacc/dotagents
 - The new repo will contain only the skills and extensions -- the actual agent installation will remain here in agents.nix
