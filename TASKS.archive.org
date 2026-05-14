@@ -1,5 +1,6 @@
 #+LINK: task file:TASKS.org::#%s
 #+LINK: archive file:TASKS.archive.org::#%s
+#+SETUPFILE: ./TASKS.local.org
 #+SETUPFILE: ./TASKS.setup.org
 
 * DONE [#A] Extract agent skills and extensions as new flake
