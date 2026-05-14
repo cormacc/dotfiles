@@ -4,17 +4,17 @@ let
   dotRoot = "${config.home.homeDirectory}/dotfiles";
 
   # The dotagents repo is registered as a git submodule of this checkout
-  # under `agents-src/`. Its working tree provides every reusable skill,
-  # extension, prompt, and the pi-side AGENTS.md. Whole-directory symlinks
-  # below point ~/.agents/skills, ~/.pi/agent/extensions, ~/.pi/agent/skills,
-  # and ~/.pi/agent/prompts at the live submodule path so edits reload in
-  # place via `/reload` without a Home Manager switch.
-  agentsRoot = "${dotRoot}/agents-src";
+  # under `agents/`. Its working tree provides every reusable skill,
+  # extension, prompt, the pi-side AGENTS.md, and the user-local
+  # pi/settings.json (package list, default provider/model, secrets toggles).
+  # Whole-directory symlinks below point ~/.agents/skills,
+  # ~/.pi/agent/extensions, ~/.pi/agent/skills, ~/.pi/agent/prompts,
+  # ~/.pi/agent/AGENTS.md, and ~/.pi/agent/settings.json at the live
+  # submodule path so edits reload in place via `/reload` without a
+  # Home Manager switch.
+  agentsRoot = "${dotRoot}/agents";
   piRoot = "${agentsRoot}/pi";
-
-  # User-local pi configuration (package list, default provider/model,
-  # secrets toggles) stays in dotfiles, *outside* the dotagents submodule.
-  piSettings = "${dotRoot}/agents-config/pi/settings.json";
+  piSettings = "${piRoot}/settings.json";
 
   # ───────────────────────────── Dest paths ───────────────────────────────
   agentsConfig = "${config.home.homeDirectory}/.agents";

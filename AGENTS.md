@@ -88,8 +88,7 @@ the `hms`/`nos`/`drs` shell aliases.
 | `wayland/` | Wayland compositor configs (sway, hyprland, foot, rofi) |
 | `nmd/` | Work-specific tooling (OneDrive etc.) |
 | `darwin-configuration.nix` | macOS system config (nix-darwin) |
-| `agents-src/` | Git submodule pointing at [`cormacc/dotagents`](https://github.com/cormacc/dotagents) — every reusable skill, pi extension, prompt template, the pi-side `AGENTS.md`, and the `agent-org-memory` pi package. Edited in place; `agents.nix` symlinks the working tree into `~/.agents/skills` and `~/.pi/agent/{extensions,skills,prompts,AGENTS.md}`. |
-| `agents-config/pi/settings.json` | User-local pi configuration (default provider/model, package list, secrets toggles). Stays in dotfiles, *outside* the dotagents submodule. Symlinked to `~/.pi/agent/settings.json`. |
+| `agents/` | Git submodule pointing at [`cormacc/dotagents`](https://github.com/cormacc/dotagents) — every reusable skill, pi extension, prompt template, the pi-side `AGENTS.md`, user-local pi settings (`pi/settings.json`), and the `agent-org-memory` pi package. Edited in place; `agents.nix` symlinks the working tree into `~/.agents/skills` and `~/.pi/agent/{extensions,skills,prompts,AGENTS.md,settings.json}`. |
 | `microchip/` | Microchip embedded dev tooling (see microchip/README.org) |
 | `legacy/` | Deprecated configs (ruby, matlab, cdrip) |
 
@@ -98,7 +97,7 @@ the `hms`/`nos`/`drs` shell aliases.
 - Uses nixpkgs unstable channel (`nixos-unstable`); darwin pins to `nixpkgs-darwin` (release-25.11) until [nixpkgs#507531](https://github.com/NixOS/nixpkgs/issues/507531) is fixed.
 - `allowUnfree = true` globally; `--impure` flag required on all builds (env var reads).
 - Overlays differ per platform: Linux `pkgs` applies nix-microchip, rust-overlay, NUR, llm-agents, claude-desktop; the darwin builder applies only llm-agents and claude-desktop.
-- `agents.nix` is a Home Manager module that symlinks the dotagents submodule working tree (`agents-src/`) into `~/.agents/skills` and `~/.pi/agent/{AGENTS.md,prompts,extensions,skills}`, plus `agents-config/pi/settings.json` into `~/.pi/agent/settings.json`. Edits in `agents-src/` reload in place via `/reload` without a Home Manager switch. The module fails fast with an actionable error if the submodule is uninitialised, and runs `npm install --omit=dev` for local-only pi extensions (`chromium`, `pi-clojure`) on activation when their `package.json` changes.
+- `agents.nix` is a Home Manager module that symlinks the dotagents submodule working tree (`agents/`) into `~/.agents/skills` and `~/.pi/agent/{AGENTS.md,prompts,extensions,skills,settings.json}`. Edits in `agents/` reload in place via `/reload` without a Home Manager switch. The module fails fast with an actionable error if the submodule is uninitialised, and runs `npm install --omit=dev` for local-only pi extensions (`chromium`, `pi-clojure`) on activation when their `package.json` changes.
 - Darwin config lives in the root flake — run `drs` alias or `darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure`.
 
 ## Per-clone bootstrap
@@ -117,10 +116,10 @@ Two durable steps after a fresh clone, both required:
 
    `home-manager switch` refuses to activate without it.
 
-2. **Register the pi-settings clean filter** so volatile fields (`defaultProvider`, `defaultModel`, `lastChangelogVersion`) in `agents-config/pi/settings.json` aren't staged on every `/model` swap:
+2. **Register the pi-settings clean filter** so volatile fields (`defaultProvider`, `defaultModel`, `lastChangelogVersion`) in `agents/pi/settings.json` aren't staged on every `/model` swap. The filter is registered against the *submodule's* git config, so run the script from inside the submodule:
 
    ```shell
-   ~/dotfiles/agents-config/install-git-filter.sh
+   ~/dotfiles/agents/install-git-filter.sh
    ```
 
-   Idempotent; requires `jq`. Bound to `agents-config/pi/settings.json` via `.gitattributes`. See README.org § *The pi-settings clean filter* for details.
+   Idempotent; requires `jq`. Bound to `pi/settings.json` via the submodule's `.gitattributes`. See README.org § *The pi-settings clean filter* for details.

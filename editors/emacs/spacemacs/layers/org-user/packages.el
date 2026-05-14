@@ -92,7 +92,7 @@ Each entry is either:
   ;;Quick-and-dirty import of existing config from .spacemacs
   (with-eval-after-load 'org
     (org-user/config)
-    (let ((tasks-org-dir (expand-file-name "~/dotfiles/agents-src/emacs/tasks-org")))
+    (let ((tasks-org-dir (expand-file-name "~/dotfiles/agents/emacs/tasks-org")))
       (when (file-directory-p tasks-org-dir)
         (add-to-list 'load-path tasks-org-dir)
         (require 'tasks-org)
