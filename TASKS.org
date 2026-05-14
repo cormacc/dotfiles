@@ -2,6 +2,8 @@
 #+AUTHOR: Cormac Cannon
 #+LANGUAGE: en
 #+DATE: 2026-04-25
+#+LINK: task file:TASKS.org::#%s
+#+LINK: archive file:TASKS.archive.org::#%s
 #+SETUPFILE: ./TASKS.setup.org
 #+ARCHIVE: TASKS.archive.org::* From %s
 
@@ -35,3 +37,14 @@
 - [[#improvements][Improvements]]
 
 * Improvements
+
+** TODO [#B] Evaluate vulpea for use within org-memory protocol         :org:
+:PROPERTIES:
+:CUSTOM_ID: e8ad59a8-6a46-47d3-b7db-376705409fa3
+:CREATED: [2026-05-14 Thu 11:48]
+:END:
+:LOGBOOK:
+- Created [2026-05-14 Thu 11:48]
+:END:
+A database layer on top of org-mode notes -- may be useful?
+See https://github.com/d12frosted/vulpea

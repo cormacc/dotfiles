@@ -1,6 +1,6 @@
 #+TITLE: Extract agent skills and extensions as new flake
 #+DATE: 2026-05-07 Thu
-#+PARENT: [[file:../../TASKS.archive.org::#9e134ad1-6a9c-4e7d-9fe9-82df2634224e][Extract agent skills and extensions as new flake]]
+#+PARENT: [[archive:9e134ad1-6a9c-4e7d-9fe9-82df2634224e][Extract agent skills and extensions as new flake]]
 #+SETUPFILE: ../../TASKS.setup.org
 #+STATUS: Complete
 
