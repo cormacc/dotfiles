@@ -157,8 +157,7 @@ The flake uses =builtins.getEnv= for identity and a couple of secrets, hence =--
 | =desktop/= | Desktop app modules (web, audio, office, entertainment) |
 | =wayland/= | Wayland compositor configs (sway, hyprland, foot, rofi) |
 | =nmd/= | Work-specific tooling (OneDrive etc.) |
-| =agents-src/= | Git submodule pointing at [[https://github.com/cormacc/dotagents][=cormacc/dotagents=]] — every reusable skill, pi extension, prompt template, the pi-side =AGENTS.md=, and the =agent-org-memory= pi package. [[./agents.nix]] symlinks the working tree into =~/.agents/skills= and =~/.pi/agent/{extensions,skills,prompts,AGENTS.md}= for live editing. |
-| =agents-config/= | User-local pi configuration (=pi/settings.json=). Stays in dotfiles, outside the dotagents submodule. |
+| =agents/= | Git submodule pointing at [[https://github.com/cormacc/dotagents][=cormacc/dotagents=]] — every reusable skill, pi extension, prompt template, the pi-side =AGENTS.md=, the user-local =pi/settings.json=, and the =agent-org-memory= pi package. [[./agents.nix]] symlinks the working tree into =~/.agents/skills= and =~/.pi/agent/{extensions,skills,prompts,AGENTS.md,settings.json}= for live editing. |
 | =microchip/= | Microchip embedded dev tooling (see [[./microchip/README.org]]) |
 | =legacy/= | Deprecated configs (ruby, matlab, cdrip) |
 | =darwin-configuration.nix= | macOS system config (nix-darwin) |
@@ -169,7 +168,7 @@ The flake uses =builtins.getEnv= for identity and a couple of secrets, hence =--
 Agent skills, pi extensions, prompt templates, the pi-side =AGENTS.md=,
 and the =agent-org-memory= pi package live in a sibling repo at
 [[https://github.com/cormacc/dotagents][github:cormacc/dotagents]].
-This repo registers it as a git submodule under [[file:./agents-src/][=agents-src/=]].
+This repo registers it as a git submodule under [[file:./agents/][=agents/=]].
 
 Why a submodule rather than a flake input? Editability. Home Manager
 points =mkOutOfStoreSymlink=s at the live submodule working tree, so
@@ -186,24 +185,24 @@ immutable Nix store path and lose that property.
   git -C ~/dotfiles submodule update --init --recursive
 #+end_src
 [[./agents.nix]] runs a fail-fast =home.activation= guard that refuses
-to activate when =agents-src/package.json= is missing, with the same
+to activate when =agents/package.json= is missing, with the same
 instruction in the error message.
 
 ** Update workflow
 #+begin_src shell
   # Pull the latest dotagents commit, leaving you on a detached HEAD
-  git -C ~/dotfiles/agents-src fetch origin
-  git -C ~/dotfiles/agents-src checkout origin/main
+  git -C ~/dotfiles/agents fetch origin
+  git -C ~/dotfiles/agents checkout origin/main
   # Or shorthand:
-  git -C ~/dotfiles submodule update --remote agents-src
+  git -C ~/dotfiles submodule update --remote agents
 
   # Commit the new submodule pointer in this dotfiles repo
-  git -C ~/dotfiles add agents-src
-  git -C ~/dotfiles commit -m "chore(agents-src): bump dotagents pointer"
+  git -C ~/dotfiles add agents
+  git -C ~/dotfiles commit -m "chore(agents): bump dotagents pointer"
 #+end_src
 
 ** Editing in place
-Work inside =agents-src/= directly. Stage and commit changes there, push
+Work inside =agents/= directly. Stage and commit changes there, push
 to the dotagents repo, then bump the dotfiles submodule pointer (above)
 so other checkouts pick up the new revision. Pi sessions running on the
 same machine see edits immediately because the install paths are
@@ -213,23 +212,22 @@ symlinks into the live working tree.
 After the 2026-05-07 extraction (see
 [[file:design/log/2026-05-07-extract-agent-skills.org]]):
 
-- *Stayed in dotfiles* :: =agents.nix= (Home Manager wiring),
-  =agents-config/pi/settings.json= (user-local pi configuration:
-  default provider/model, package list, secrets toggles), this README,
-  the dotfiles =flake.nix= and =flake.lock=, NixOS / Home Manager /
-  nix-darwin host configs.
+- *Stayed in dotfiles* :: =agents.nix= (Home Manager wiring), this
+  README, the dotfiles =flake.nix= and =flake.lock=, NixOS / Home
+  Manager / nix-darwin host configs.
 - *Moved to dotagents* :: every reusable skill (generic + pi-specific),
   every pi extension (active and disabled), shared helper modules
   (=pi/extensions/lib/=), prompt templates, the pi-side =AGENTS.md=,
-  =package.json=, =agent-org-memory.nix=, the agent-related
-  =TASKS.org= / =TASKS.archive.org= history, and 28 change-record
-  files under =design/log/=.
+  the user-local pi configuration (=pi/settings.json=, consolidated
+  here in a follow-up), =package.json=, =agent-org-memory.nix=, the
+  agent-related =TASKS.org= / =TASKS.archive.org= history, and 28
+  change-record files under =design/log/=.
 
 After you pull this dotfiles change, any =TASKS.local.org= =#+SELECTED:=
 UUID that referenced an extracted task (everything except
 =9e134ad1-...= which is the extraction parent itself) becomes stale.
 Re-select the task in dotagents' =TASKS.org= via the pi tasks overlay
-or by editing =~/dotfiles/agents-src/TASKS.local.org=.
+or by editing =~/dotfiles/agents/TASKS.local.org=.
 
 ** Releasing dotagents
 Dotagents tags are advisory; this dotfiles repo always tracks an exact
@@ -238,7 +236,7 @@ When a meaningful slice of dotagents work lands, tag it from inside the
 dotagents working tree:
 
 #+begin_src shell
-  cd ~/dotfiles/agents-src
+  cd ~/dotfiles/agents
   git tag -a v0.2.0 -m "agent-org-memory + foo extension"
   git push origin v0.2.0
 #+end_src
@@ -248,49 +246,55 @@ revision.
 
 * The pi-settings clean filter
 
-[[file:./agents-config/pi/settings.json]] is a single source of truth for two
-very different concerns: a stable list of installed pi packages
-(=packages= field) and volatile runtime preferences (=defaultProvider=,
-=defaultModel=, =lastChangelogVersion=) that pi rewrites on every
-=/model= swap or version bump. Without intervention the volatile fields
-show up as repo churn.
+[[file:./agents/pi/settings.json]] (inside the dotagents submodule) is a
+single source of truth for two very different concerns: a stable list
+of installed pi packages (=packages= field) and volatile runtime
+preferences (=defaultProvider=, =defaultModel=, =lastChangelogVersion=)
+that pi rewrites on every =/model= swap or version bump. Without
+intervention the volatile fields show up as repo churn.
 
 A git clean filter strips them when staging while leaving the working
 tree untouched. Pi keeps writing through unchanged; git only ever sees
 the durable subset.
 
+Because =pi/settings.json= lives inside the submodule, the filter must
+be registered against the *submodule's* =.git/config=, not the parent
+dotfiles repo's.
+
 ** First-time setup
-After cloning, register the filter once:
+After cloning, register the filter once from inside the submodule:
 #+begin_src shell
-  ~/dotfiles/agents-config/install-git-filter.sh
+  ~/dotfiles/agents/install-git-filter.sh
 #+end_src
-The script writes three entries into =.git/config= under
+The script writes three entries into =agents/.git/config= under
 =[filter "pi-settings"]= and is idempotent. If =jq= is missing it
 fails fast with a clear error.
 
-The [[file:./.gitattributes]] entry binds the filter to
-=agents-config/pi/settings.json= so subsequent =git add= /
-=git commit= invocations honour it automatically.
+The submodule's [[file:./agents/.gitattributes]] entry binds the filter
+to =pi/settings.json= so subsequent =git add= / =git commit=
+invocations inside =agents/= honour it automatically.
 
 ** Verifying it works
 #+begin_src shell
+  cd ~/dotfiles/agents
+
   # Edit a runtime field directly:
   jq '.defaultModel = "some-other-model"' \
-    agents-config/pi/settings.json > /tmp/settings.json && \
-    mv /tmp/settings.json agents-config/pi/settings.json
+    pi/settings.json > /tmp/settings.json && \
+    mv /tmp/settings.json pi/settings.json
 
   # git status should be clean (filter elides the change):
-  git status agents-config/pi/settings.json
+  git status pi/settings.json
 
   # Add a package to the persisted list — git status DOES report this:
   jq '.packages += ["npm:foo"]' \
-    agents-config/pi/settings.json > /tmp/settings.json && \
-    mv /tmp/settings.json agents-config/pi/settings.json
-  git diff agents-config/pi/settings.json
+    pi/settings.json > /tmp/settings.json && \
+    mv /tmp/settings.json pi/settings.json
+  git diff pi/settings.json
 #+end_src
 
 ** Adjusting the field list
-Edit the =clean= command in [[file:./agents-config/install-git-filter.sh]] and
+Edit the =clean= command in [[file:./agents/install-git-filter.sh]] and
 re-run the install script. The =jq 'del(...)'= expression takes
 comma-separated paths.
 
@@ -361,7 +365,7 @@ Then rebuild with =sudo nixos-rebuild switch=.
 *** Clone dotfiles repo
 #+begin_src shell
   # ALWAYS clone with --recurse-submodules so the dotagents submodule
-  # under agents-src/ is initialised in one step.
+  # under agents/ is initialised in one step.
   git clone --recurse-submodules https://github.com/cormacc/dotfiles ~/dotfiles
 #+end_src
 

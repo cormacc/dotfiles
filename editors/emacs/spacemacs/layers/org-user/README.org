@@ -19,7 +19,7 @@ setup.
   - Hierarchical archive (=org-archive-subtree-hierarchical=)
   - org-web-tools for web capture
   - org-roam (with custom capture templates)
-  - tasks-org helper from =agents-src/emacs/tasks-org= for org-tasks capture, selection, and plan navigation
+  - tasks-org helper from =agents/emacs/tasks-org= for org-tasks capture, selection, and plan navigation
 
 * Install
 Add =org-user= to =dotspacemacs-configuration-layers= in your

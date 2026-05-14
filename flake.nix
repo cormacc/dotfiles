@@ -191,9 +191,9 @@
 
       # Agent skills + pi extensions (incl. the `agent-org-memory` Nix
       # package) live in the github:cormacc/dotagents repo, registered
-      # here as a git submodule under `agents-src/`. To build the package
+      # here as a git submodule under `agents/`. To build the package
       # locally:
-      #     nix build ./agents-src#agent-org-memory
+      #     nix build ./agents#agent-org-memory
       # Or remotely:
       #     nix build github:cormacc/dotagents#agent-org-memory
 
