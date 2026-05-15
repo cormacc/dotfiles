@@ -109,6 +109,7 @@ in
       llm-agents.pi
       prettier
       typescript-language-server
+      fswatch
       # Claude Code + Codex
       llm-agents.claude-code
       llm-agents.codex
@@ -124,6 +125,10 @@ in
       # Generic harness-agnostic skills (Agent Skills spec location).
       "${agentsConfig}/skills".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
+
+      # Generic MCP config
+      "${config.xdg.configHome}/mcp/mcp.json".source =
+        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/mcp.json";
 
       # Pi-side discovery locations.
       "${piConfig}/AGENTS.md".source =
