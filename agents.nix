@@ -102,7 +102,14 @@ in
     # module works on home-manager release-25.11 (used by darwin per
     # flake.nix) where `programs.npm` doesn't yet exist, *and* on
     # home-manager master.
-    home.sessionPath = [ "${npmCache}/bin" ];
+    # Expose local npm globals plus the in-tree `ot` CLI shim. Third-party
+    # installs should prefer bbin (`bbin install io.github.cormacc/dotagents
+    # --as ot --latest-sha`), but this fallback keeps the pi extension and
+    # local shell workflows working immediately from the editable submodule.
+    home.sessionPath = [
+      "${npmCache}/bin"
+      "${agentsRoot}/skills/org-tasks/scripts"
+    ];
 
     home.packages = with pkgs; [
       # Pi + deps
