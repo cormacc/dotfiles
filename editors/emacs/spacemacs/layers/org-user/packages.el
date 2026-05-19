@@ -39,7 +39,6 @@
 (defconst org-user-packages
   '(
     (org-archive-subtree-hierarchical :location local)
-    treemacs
     org
     org-web-tools
     org-sidebar
