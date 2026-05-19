@@ -35,3 +35,25 @@ CLOSED: [2026-05-06 Wed 09:37]
 - State "CANCELLED" from "TODO" [2026-05-06 Wed 09:37]
 :END:
 Waiting on an upstream fix for an nvidia-open issue Cancelled - eliminated use of nixGL -- use targets.genericLinux.enable instead on non-NixOS installs. See https://nix-community.github.io/home-manager/index.xhtml#sec-usage-gpu-non-nixos
+
+** DONE [#B] Add flake profile for new framework desktop
+CLOSED: [2026-05-19 Tue 16:32]
+:PROPERTIES:
+:CUSTOM_ID: a2d48659-3143-46f7-a6b3-995f73292d7b
+:CREATED: [2026-05-19 Tue 13:46]
+:ARCHIVED: [2026-05-19 Tue 16:32]
+:END:
+:LOGBOOK:
+- Created [2026-05-19 Tue 13:46]
+- State "DONE" from "TODO" [2026-05-19 Tue 16:32]
+:END:
+#+IMPORT: [[plan:2026-05-19-add-flake-profile-for-new-framework-desk.org]]
+I have a framework desktop with a fresh install of NixOS from the live CD, with no post-install modifications.
+Add a new host profile in this flake for the desktop.
+It's the AMD Ryzen AI Max+ 395 configuration with 128GB RAM and 2x4TB SSDs for storage. The NixOS installation uses a single 4TB SSD.
+It should largely replicate the existing sway-based profile for xps15 but replace hardware specifics (nvidia etc.) with modules appropriate for the desktop hardware. The machine is intended as a local LLM server, so include the following:
+- Lemonade as a local AI server (via this repo: https://github.com/noamsto/nix-amd-ai)
+- Separate nixos and home-manager, as with the existing xps15 configuration -- retain the 'nos' and 'hms' shell aliases.
+- SSH access for my default cormacc user
+- Use 'strix' as the configuration id in nixosConfigurations
+- Provide a bootstrap shell script streamlining application of the new nixosConfiguration on top of a base NixOS install

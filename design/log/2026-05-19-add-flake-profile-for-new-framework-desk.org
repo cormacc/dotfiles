@@ -1,0 +1,147 @@
+#+TITLE: Add flake profile for new framework desktop
+#+DATE: 2026-05-19 Tue
+#+PARENT: [[archive:a2d48659-3143-46f7-a6b3-995f73292d7b][Add flake profile for new framework desktop]]
+#+SETUPFILE: ../../TASKS.setup.org
+
+* Summary
+
+Add a `strix` NixOS host profile for the Framework Desktop / AMD Ryzen AI Max+ 395 that follows the xps15 split model: NixOS is built as `.#strix`, Home Manager remains a separate `.#default` apply, and shell aliases continue to derive from `/etc/hostname` / `cfgName`. The host should reuse the workstation+sway stack, avoid NVIDIA modules, enable the AMD AI/Lemonade stack from `noamsto/nix-amd-ai`, and ship a bootstrap script for applying the profile on top of a fresh NixOS live-CD install. Because this work is being planned away from the new machine, generated hardware config must be deferred to bootstrap time rather than guessed locally.
+
+** Decisions
+- Keep `nix-amd-ai` pinned to its own nixpkgs input; upstream warns not to make it follow this flake's `nixpkgs` because that defeats its binary cache and triggers backend rebuilds.
+- Keep Home Manager separate from `nixosConfigurations.strix`; bootstrap should run both `nixos-rebuild` and `home-manager switch` rather than embedding Home Manager as a NixOS module.
+- Start with the existing workstation profile (`nixos-workstation.nix`) and remove only incompatible host-specific modules such as NVIDIA.
+- Expose Lemonade on the LAN for other devices and enable image generation from the initial profile.
+
+* Context
+
+`nix-amd-ai` provides the NixOS module for `hardware.amd-npu`, Lemonade, XRT/XDNA, FastFlowLM, ROCm, and Vulkan backends. The module requires kernel >= 6.14, an XDNA 2 NPU, and `video`/`render` user groups; this repo's workstation kernel and `nixos-base.nix` user groups already line up. Its Cachix cache (`https://nix-amd-ai.cachix.org`) should be added at both flake/nixConfig and system-level nix settings so the large inference packages do not rebuild locally.
+
+* Plan
+
+** DONE Add the `nix-amd-ai` flake input and cache wiring
+:PROPERTIES:
+:CUSTOM_ID: e4ed76d9-2f97-4557-8d9c-53e4054ab88f
+:CREATED: [2026-05-19 Tue 13:59]
+:END:
+Acceptance criteria:
+- `flake.nix` declares `inputs.nix-amd-ai.url = "github:noamsto/nix-amd-ai"` without an `inputs.nix-amd-ai.inputs.nixpkgs.follows` override.
+- `nixConfig.extra-substituters` / `nixConfig.extra-trusted-gpg-public-keys` include the nix-amd-ai Cachix values.
+- NixOS-level `nix.settings.substituters` / `trusted-public-keys` include the same cache for fresh installs after activation.
+
+** DONE Create host-specific `hosts/strix` NixOS files
+:PROPERTIES:
+:CUSTOM_ID: fd24f7e1-3a0e-4a15-a42d-72f3699e6a10
+:CREATED: [2026-05-19 Tue 13:59]
+:END:
+Acceptance criteria:
+- `hosts/strix/nixos-configuration.nix` contains host-specific boot/storage/hardware policy that can be authored without seeing the target machine.
+- `hosts/strix/hardware-configuration.nix` is treated as bootstrap-owned generated state: either checked in later from `/etc/nixos/hardware-configuration.nix` on the new machine, or represented initially by a clearly failing placeholder that the bootstrap script replaces before the first real rebuild.
+- No UUIDs, filesystem devices, swap devices, or generated kernel module lists are invented on the current machine.
+- No NVIDIA module or Intel CPU settings are inherited from xps15.
+
+** DONE Register `nixosConfigurations.strix`
+:PROPERTIES:
+:CUSTOM_ID: ad2a0706-a6da-43d8-9487-75290921f117
+:CREATED: [2026-05-19 Tue 13:59]
+:END:
+Acceptance criteria:
+- `flake.nix` exposes `nixosConfigurations.strix` with `hostName = "strix"` and `specialArgs` containing `inputs`.
+- The module list includes allowUnfree, `inputs.nix-amd-ai.nixosModules.default`, `hosts/strix/*`, `nixos-workstation.nix`, and any existing shared modules intentionally retained for the desktop.
+- The module list excludes `nixos-nvidia.nix` / `nixos-nvidia-legacy.nix`.
+
+** DONE Configure AMD AI / Lemonade for the Framework Desktop
+:PROPERTIES:
+:CUSTOM_ID: 5bcbfc9d-01c2-4af6-ab2a-9fc008537bb4
+:CREATED: [2026-05-19 Tue 13:59]
+:END:
+Acceptance criteria:
+- The strix host enables `hardware.amd-npu` with Lemonade, FastFlowLM/NPU, ROCm, and Vulkan backends appropriate for Strix Halo.
+- `hardware.amd-npu.lemonade.user = "cormacc"` or equivalent ownership is declared.
+- Lemonade is configured to listen on a LAN-reachable address, with the required firewall port(s) opened intentionally.
+- `hardware.amd-npu.enableImageGen = true` is set explicitly so sd-cpp backends are installed and wired.
+
+** DONE Preserve standalone Home Manager workflow
+:PROPERTIES:
+:CUSTOM_ID: f779a20c-2348-4f06-8572-375be5806d1f
+:CREATED: [2026-05-19 Tue 13:59]
+:END:
+Acceptance criteria:
+- The existing `homeConfigurations.default` remains the workstation Home Manager entrypoint for `cormacc`.
+- No strix-only Home Manager module is embedded into the NixOS configuration unless a host-specific need appears.
+- `nos` continues to resolve `.#strix` from `/etc/hostname`; `hms` continues to apply `.#default`.
+
+** DONE Add a fresh-install bootstrap script
+:PROPERTIES:
+:CUSTOM_ID: 5dd52000-af79-4501-9926-d6f593bce92e
+:CREATED: [2026-05-19 Tue 13:59]
+:END:
+Acceptance criteria:
+- A script documents and automates the post-live-CD path: clone/update dotfiles, copy or refresh `/etc/nixos/hardware-configuration.nix` into `hosts/strix/hardware-configuration.nix`, ensure required env vars, apply `sudo nixos-rebuild switch --flake .#strix --impure`, then apply Home Manager `.#default` with backup handling.
+- The script refuses to run the first real rebuild if the generated hardware file is absent or still a placeholder.
+- The script is safe to re-run and prints the exact commands before destructive steps.
+- The README or host-local notes point new-machine setup at the script.
+
+** DONE Validate the new profile without deploying blindly
+:PROPERTIES:
+:CUSTOM_ID: 7a92bdae-a0de-4cad-8b40-2ee2cb69729e
+:CREATED: [2026-05-19 Tue 13:59]
+:END:
+Acceptance criteria:
+- Pre-hardware validation on the current machine is limited to checks that do not require target-generated files, or uses an explicit temporary fixture with that limitation recorded.
+- After bootstrap copies the real generated hardware file, `nix flake check --impure` is run or any known unrelated blockers are recorded.
+- After bootstrap copies the real generated hardware file, `nixos-rebuild build --flake .#strix --impure` evaluates/builds far enough to catch module, option, and hardware-file errors.
+- `home-manager build --flake './dotfiles#default' --impure` remains valid for the separate user environment.
+- If Lemonade packages are too large for a full local build, the validation notes record whether the nix-amd-ai cache was used or which package forced a source build.
+
+* Implementation
+
+Tactical outcomes worth preserving beyond the plan-task acceptance criteria:
+
+- Kernel ≥ 6.14 (required by =amdxdna=) is satisfied automatically by =nixos-workstation.nix= pinning =linux_6_18=. No strix-specific kernel pin needed; this also means the assertion is unchecked locally and will only trip on the target if the workstation kernel pin ever regresses below 6.14.
+- =nix-amd-ai= Cachix is wired in two places: =flake.nix= =nixConfig= (flake-eval time, already-trusted users) **and** =hosts/strix/nixos-configuration.nix= =nix.settings= (post-activation, fresh-install path). Kept host-scoped rather than added to =nixos-base.nix= so unrelated hosts don't carry an unused substituter.
+- The placeholder =hosts/strix/hardware-configuration.nix= uses =throw= rather than a stub so any accidental rebuild fails loudly with the actionable bootstrap message. Side-effect: =nix flake check --impure= will fail for =nixosConfigurations.strix= on this machine until bootstrap runs on the target — acceptable per the plan's "pre-hardware validation" trade-off.
+- =bootstrap.sh= replaces a 2-line stub left over from the "all in on nix" refactor commit (=9538e5d=). The new script is generalised across hosts; future profiles can opt in by shipping a placeholder =hosts/<host>/hardware-configuration.nix= and running =./bootstrap.sh <host>=.
+
+* Validation
+
+Pre-hardware checks performed on the dev machine (xps15, no Strix Halo present):
+
+- =nix flake metadata --impure= resolves cleanly, including the new =nix-amd-ai= input (fetched =github:noamsto/nix-amd-ai/885d7e8...= against its own pinned nixpkgs as required).
+- =nix eval --impure --raw '.#nixosConfigurations.strix.config.system.build.toplevel.drvPath'= fails *exactly* at the placeholder =throw= with the actionable bootstrap message — confirming that the strix module wiring (=nix-amd-ai.nixosModules.default= + =hosts/strix/nixos-configuration.nix= + =nixos-workstation.nix= + =nixos-gaming.nix=) imports and only the generated hardware file remains.
+- =nix eval --impure --raw '.#nixosConfigurations.xps15.config.system.build.toplevel.drvPath'= still produces a derivation — unrelated hosts are unaffected.
+- =nix eval --impure --raw '.#homeConfigurations.default.activationPackage.drvPath'= still produces a derivation — standalone Home Manager workflow preserved.
+- =bash -n bootstrap.sh= passes; =./bootstrap.sh --help= prints usage; the script is marked executable.
+- =nix flake check --impure= is **not** run on this machine because the placeholder =throw= is designed to fail it for =nixosConfigurations.strix= until bootstrap runs on the target. This is the trade-off recorded in the plan ("pre-hardware validation … is limited to checks that do not require target-generated files"). =flake check= will be re-run on strix after bootstrap.
+
+Deferred to the strix box (no useful local proxy):
+
+- =sudo nixos-rebuild build --flake .#strix --impure= after =bootstrap.sh= replaces the hardware file.
+- =lemonade backends= post-activation, with =enableImageGen= sanity ensuring sd-cpp recipes resolve. Record whether the =nix-amd-ai= Cachix served the closure or any package forced a source build.
+- =home-manager build --flake .#default --impure= on the strix box.
+
+* Open questions
+
+** DECIDED Should Lemonade listen only on localhost or be reachable from the LAN?
+:PROPERTIES:
+:DECIDED: [2026-05-19 Tue 14:03]
+:END:
+Decision: Lemonade should be reachable from the LAN. Configure service binding and firewall rules explicitly rather than relying on localhost defaults.
+
+** DECIDED Should image generation be enabled initially?
+:PROPERTIES:
+:DECIDED: [2026-05-19 Tue 14:03]
+:END:
+Decision: enable image generation from the initial profile. Set `hardware.amd-npu.enableImageGen = true` explicitly, accepting the larger closure for sd-cpp backends.
+
+** DECIDED Should the bootstrap script be host-specific or generic, and where does it live?
+:PROPERTIES:
+:DECIDED: [2026-05-19 Tue]
+:END:
+Decision (raised by user during plan review): make =bootstrap.sh= generic and place it at the repo root. The script takes the profile name as its required CLI argument (=./bootstrap.sh strix=) and parameterises every step (host directory, hardware-file copy, =nixos-rebuild --flake .#<profile>=, Home Manager config). Detection of an unbootstrapped hardware file uses the literal =BOOTSTRAP_PLACEHOLDER= sentinel, which is also generic. Future hosts (=t580=, =t470p=, etc.) can adopt the same idiom by shipping a placeholder =hosts/<host>/hardware-configuration.nix= and running =./bootstrap.sh <host>= on a fresh install.
+
+** DECIDED Should =nixos-gaming.nix= be included on a server-purposed strix host?
+:PROPERTIES:
+:DECIDED: [2026-05-19 Tue]
+:END:
+Decision (raised by user during plan review): keep =./nixos-gaming.nix= in the strix module list. The box may double as a gaming machine and there's no strong reason to drop it from the initial profile.
