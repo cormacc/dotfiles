@@ -57,6 +57,15 @@
       url = "github:nix-community/NUR";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # AMD AI inference stack (XRT + XDNA + FastFlowLM + Lemonade + ROCm/Vulkan
+    # llama.cpp / whisper.cpp / stable-diffusion.cpp). Used by the strix host
+    # (Framework Desktop / AMD Ryzen AI Max+ 395, Strix Halo).
+    #
+    # IMPORTANT: do NOT add `inputs.nix-amd-ai.inputs.nixpkgs.follows`. The
+    # overlay is intentionally built against its own pinned nixpkgs so the
+    # closure hashes match nix-amd-ai's Cachix; overriding nixpkgs forces a
+    # full source rebuild of llama.cpp / whisper.cpp / sd-cpp.
+    nix-amd-ai.url = "github:noamsto/nix-amd-ai";
   };
 
   nixConfig = {
@@ -69,16 +78,21 @@
       "https://nix-community.cachix.org"
       "https://hyprland.cachix.org"
       "https://cache.numtide.com"
+      # Pre-built AMD AI packages (llama-cpp-rocm/vulkan, sd-cpp-rocm,
+      # whisper-cpp-vulkan, lemonade, fastflowlm, XRT). Used by the strix
+      # host; harmless on other hosts as the closure hashes won't match.
+      "https://nix-amd-ai.cachix.org"
     ];
     extra-trusted-gpg-public-keys = [
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
       "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
       "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
       "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+      "nix-amd-ai.cachix.org-1:F4OU4vw/lV2oiG6SBHZ+nqjl4EFJuqI4X9A7pvaBmhQ="
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, microchip, claude-desktop, rust-overlay, nur, llm-agents, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, microchip, claude-desktop, rust-overlay, nur, llm-agents, nix-amd-ai, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -147,6 +161,26 @@
             ./nixos-gaming.nix
             #Not currently doing anything with ollama, and it takes ages to build...
             #./nixos-llm.nix
+          ];
+        };
+        # Framework Desktop / AMD Ryzen AI Max+ 395 (Strix Halo) — local LLM
+        # server. Mirrors xps15's standalone-Home-Manager split: NixOS is
+        # built as `.#strix`, Home Manager remains `.#default`. NVIDIA is
+        # dropped (iGPU + NPU only). `inputs.nix-amd-ai.nixosModules.default`
+        # supplies `hardware.amd-npu` (XRT/XDNA/Lemonade/ROCm/Vulkan).
+        strix = nixpkgs.lib.nixosSystem {
+          system = "${system}";
+          specialArgs = {
+            inherit inputs;
+            hostName = "strix";
+          };
+          modules = [
+            { nixpkgs.config.allowUnfree = true; }
+            inputs.nix-amd-ai.nixosModules.default
+            ./hosts/strix/hardware-configuration.nix
+            ./hosts/strix/nixos-configuration.nix
+            ./nixos-workstation.nix
+            ./nixos-gaming.nix
           ];
         };
         t580 = nixpkgs.lib.nixosSystem {
