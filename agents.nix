@@ -15,6 +15,7 @@ let
   agentsRoot = "${dotRoot}/agents";
   piRoot = "${agentsRoot}/pi";
   piSettings = "${piRoot}/settings.json";
+  piModels = "${piRoot}/models.json";
 
   # ───────────────────────────── Dest paths ───────────────────────────────
   agentsConfig = "${config.home.homeDirectory}/.agents";

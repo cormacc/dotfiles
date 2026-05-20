@@ -261,12 +261,26 @@
       # and https://github.com/NixOS/nixpkgs/issues/507531.
       darwinConfigurations."Cormacs-MacBook-Air" =
         let
+          # Unstable nixpkgs side-channel for packages that need to
+          # outrun the release-25.11 pin. Currently used to source
+          # `babashka`: release-25.11 ships 1.12.209, but the `ot` CLI's
+          # transitive `bling` -> `fireworks` -> `lasertag 0.12.0` chain
+          # needs the `clojure.lang.IType` SCI binding added in bb
+          # 1.12.211 (unstable currently ships 1.12.218). Drop this
+          # overlay once `nixpkgs-darwin` advances past 1.12.211.
+          unstablePkgs = import nixpkgs {
+            system = "aarch64-darwin";
+            config.allowUnfree = true;
+          };
           darwinPkgs = import nixpkgs-darwin {
             system = "aarch64-darwin";
             config.allowUnfree = true;
             overlays = [
               llm-agents.overlays.default
               claude-desktop.overlays.default
+              (_final: _prev: {
+                inherit (unstablePkgs) babashka;
+              })
             ];
           };
         in
