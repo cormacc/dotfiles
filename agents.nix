@@ -134,6 +134,10 @@ in
       "${agentsConfig}/skills".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
 
+      # Add the org-tasks cli tool shim to the path
+      ".local/bin/ot".source =
+        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills/org-tasks/scripts/ot";
+
       # Generic MCP config
       "${config.xdg.configHome}/mcp/mcp.json".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/mcp.json";
@@ -149,6 +153,8 @@ in
       # rely on specific pi extensions.
       "${piConfig}/skills".source =
         config.lib.file.mkOutOfStoreSymlink "${piRoot}/skills";
+
+
 
       # User-local pi settings come from dotfiles, not from the dotagents
       # submodule.
