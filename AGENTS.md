@@ -1,125 +1,97 @@
 # Dotfiles / NixOS Configuration
 
-Nix flake managing NixOS system configurations, Home Manager user environments,
-and nix-darwin system configs across multiple hosts. Targets x86_64-linux and
-aarch64-darwin. Primary dev platform is Arch Linux + nix + home-manager, with
-NixOS used on some machines and nix-darwin on macOS.
+Nix flake managing NixOS, Home Manager, and nix-darwin configs across multiple
+hosts (x86_64-linux + aarch64-darwin). Primary dev platform is Arch Linux + nix
++ home-manager; NixOS on some machines; nix-darwin on macOS.
 
 ## Key Commands
 
 ```shell
-# NixOS rebuild for current host (requires sudo)
-sudo nixos-rebuild switch --flake .#<hostname> --impure
+# Aliases (defined in home-core.nix, available after first apply):
+hms   # home-manager switch --flake .#default --impure
+nos   # nixos-rebuild switch (auto-detects hostname, sudo)
+drs   # darwin-rebuild switch (macOS, sudo -E)
 
-# Home Manager switch (two configurations available)
+# Cold-start equivalents (before aliases exist):
 home-manager switch --flake './dotfiles#default' --impure -b backup   # full workstation
 home-manager switch --flake './dotfiles#minimal' --impure -b backup   # server/WSL
-
-# Update flake inputs
-nix flake update
-
-# Shell aliases defined after first apply (see home-core.nix):
-#   hms  - home-manager switch (default config)
-#   hmb  - home-manager build  (default config)
-#   nos  - nixos-rebuild switch (auto-detects hostname)
-#   nob  - nixos-rebuild build  (auto-detects hostname)
-#   drs  - darwin-rebuild switch (macOS, requires sudo)
-
-# Validate flake
-nix flake check --impure
+sudo nixos-rebuild switch --flake .#<hostname> --impure
 ```
+
+`--impure` is required everywhere because `home-core.nix` reads `NAME`,
+`EMAIL`, `USER`, `HOME`, `GITLAB` from the environment at apply time.
 
 ## Architecture
 
-The flake (`flake.nix`) defines three output types:
+`flake.nix` defines:
 
-- **`nixosConfigurations`**: Full system configs per host (xps15, t470p, t580, t470-nas, nas)
-- **`homeConfigurations`**: User environment configs (`default` = full workstation, `minimal` = server/WSL)
-- **`darwinConfigurations`**: macOS system configs via nix-darwin (`Cormacs-MacBook-Air`)
+- **`nixosConfigurations`**: `xps15`, `strix`, `t470p`, `t580`, `t470-nas`, `nas`
+- **`homeConfigurations`**: `default` (full workstation → `home.nix`) and `minimal` (server/WSL → `home-linux.nix`)
+- **`darwinConfigurations."Cormacs-MacBook-Air"`** → `home-darwin.nix`
 
-### NixOS module layering
-
-`nixos-workstation.nix` imports `nixos-base.nix` and adds workstation concerns (audio, display, sway, hyprland).
-Host-specific configs live in `hosts/<hostname>/`. Optional mixins:
-- `nixos-nvidia.nix` / `nixos-nvidia-legacy.nix` — GPU drivers
-- `nixos-gaming.nix` — Steam and gaming packages
-- `nixos-llm.nix` — ollama/LLM setup
-- `nixos-server.nix` — server-only config
-
-### Home Manager module layering
-
-```
-home-core.nix  →  shell/shell.nix
-      ↑
-home-linux.nix
-      ↑
-home.nix (full Linux workstation, adds:)
-      ├── editors/editors.nix    (emacs configs: corgi, doom, spacemacs)
-      ├── dev/dev.nix            (dev tooling, clojure)
-      ├── dev/dev-linux.nix
-      ├── desktop/{web,audio,office}.nix
-      ├── wayland/wayland.nix    (foot, rofi, fontconfig)
-      ├── wayland/sway/sway.nix
-      ├── wayland/hypr/hypr.nix
-      ├── nmd/nmd.nix            (OneDrive/work tooling)
-      └── agents.nix             (pi + claude-code)
-
-home-darwin.nix  →  home-core.nix  (macOS, adds: editors, dev, agents)
-```
-
-`home-core.nix` owns: shell config, direnv, git, ssh, vim, fonts, XDG, and defines
-the `hms`/`nos`/`drs` shell aliases.
-
-### Environment variables consumed at initial apply
-
-`NAME`, `EMAIL`, `USER`, `HOME` — identity and paths.
-`GITLAB` — self-hosted gitlab TLD for SSH config.
-`OPENAI_API_KEY`, `ANTHROPIC_API_KEY` — persisted to shell env after first apply.
-
-## Key Directories
-
-| Path | Purpose |
-|------|---------|
-| `hosts/` | Per-host hardware-configuration.nix and NixOS overrides |
-| `shell/` | Shell config (fish, zsh, bash), direnv, babashka scripts |
-| `editors/` | Editor configs (emacs: corgi/doom/spacemacs) |
-| `dev/` | Development tooling (clojure, linux-specific dev) |
-| `desktop/` | Desktop app modules (web, audio, office, entertainment) |
-| `wayland/` | Wayland compositor configs (sway, hyprland, foot, rofi) |
-| `nmd/` | Work-specific tooling (OneDrive etc.) |
-| `darwin-configuration.nix` | macOS system config (nix-darwin) |
-| `agents/` | Git submodule pointing at [`cormacc/dotagents`](https://github.com/cormacc/dotagents) — every reusable skill, pi extension, prompt template, the pi-side `AGENTS.md`, user-local pi settings (`pi/settings.json`), and the `agent-org-memory` pi package. Edited in place; `agents.nix` symlinks the working tree into `~/.agents/skills` and `~/.pi/agent/{extensions,skills,prompts,AGENTS.md,settings.json}`. |
-| `microchip/` | Microchip embedded dev tooling (see microchip/README.org) |
-| `legacy/` | Deprecated configs (ruby, matlab, cdrip) |
+`home.nix` is the entry point — read it to see which modules a full Linux
+workstation pulls in. NixOS host modules live in `hosts/<hostname>/`; the
+shared workstation/server profiles are `nixos-workstation.nix` and
+`nixos-server.nix` (both import `nixos-base.nix`), with optional mixins
+(`nixos-nvidia*.nix`, `nixos-gaming.nix`, `nixos-llm.nix`).
 
 ## Nix-Specific Notes
 
-- Uses nixpkgs unstable channel (`nixos-unstable`); darwin pins to `nixpkgs-darwin` (release-25.11) until [nixpkgs#507531](https://github.com/NixOS/nixpkgs/issues/507531) is fixed.
-- `allowUnfree = true` globally; `--impure` flag required on all builds (env var reads).
-- Overlays differ per platform: Linux `pkgs` applies nix-microchip, rust-overlay, NUR, llm-agents, claude-desktop; the darwin builder applies only llm-agents and claude-desktop.
-- `agents.nix` is a Home Manager module that symlinks the dotagents submodule working tree (`agents/`) into `~/.agents/skills` and `~/.pi/agent/{AGENTS.md,prompts,extensions,skills,settings.json}`. Edits in `agents/` reload in place via `/reload` without a Home Manager switch. The module fails fast with an actionable error if the submodule is uninitialised, and runs `npm install --omit=dev` for local-only pi extensions (`chromium`, `pi-clojure`) on activation when their `package.json` changes.
-- Darwin config lives in the root flake — run `drs` alias or `darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure`.
+- nixpkgs tracks **unstable** for Linux. Darwin is pinned to a specific
+  bisect-verified commit on `release-25.11` (see flake comment) to dodge
+  [nixpkgs#507531](https://github.com/NixOS/nixpkgs/issues/507531); bump
+  together with the `nix-darwin` + `home-manager-darwin` pins.
+- `allowUnfree = true` globally; `--impure` always.
+- **Overlays — Linux** (`pkgs`): nix-microchip, rust-overlay, NUR, llm-agents,
+  claude-desktop. **Darwin**: llm-agents, claude-desktop, + a tiny babashka
+  overlay sourcing unstable (drop once darwin pin advances past bb 1.12.211).
+- The `strix` host (Framework Desktop / AMD Ryzen AI Max+ 395) additionally
+  pulls in `inputs.nix-amd-ai.nixosModules.default` for XRT/XDNA/Lemonade/
+  ROCm/Vulkan. **Do not** add `nix-amd-ai.inputs.nixpkgs.follows` — closure
+  hashes must match nix-amd-ai's Cachix.
+- `darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure`
+  (or just `drs`).
+
+## `agents.nix` — the dotagents bridge
+
+`agents/` is a git submodule pointing at
+[`cormacc/dotagents`](https://github.com/cormacc/dotagents). It is the source
+of truth for every reusable skill, pi extension, prompt template, the pi-side
+`AGENTS.md`, and user-local `pi/settings.json`.
+
+`agents.nix` symlinks the live submodule tree into:
+
+- `~/.agents/skills` (generic Agent Skills spec)
+- `~/.pi/agent/{AGENTS.md, prompts, extensions, skills, settings.json}`
+- `~/.config/mcp/mcp.json`
+- `~/.local/bin/ot` → org-tasks CLI shim (also added to `home.sessionPath`)
+
+Because these are out-of-store symlinks, edits in `agents/` take effect
+immediately via `/reload`; no Home Manager switch needed.
+
+On activation, `agents.nix`:
+1. Fails fast with an actionable error if the submodule is uninitialised.
+2. Runs `npm install --omit=dev` for the local-only pi extensions
+   (`chromium`, `pi-clojure`, `dataspex`) when their `package.json` hash
+   changes.
 
 ## Per-clone bootstrap
 
-Two durable steps after a fresh clone, both required:
-
-1. **Initialise the dotagents submodule** (provides every skill, pi extension, prompt, and the pi-side `AGENTS.md`):
+1. **Initialise the dotagents submodule** — `home-manager switch` refuses
+   without it:
 
    ```shell
-   # Either clone with submodules in one step:
    git clone --recurse-submodules <dotfiles-url>
-
-   # Or, if already cloned without --recurse-submodules:
+   # or, post-clone:
    git -C ~/dotfiles submodule update --init --recursive
    ```
 
-   `home-manager switch` refuses to activate without it.
-
-2. **Register the pi-settings clean filter** so volatile fields (`defaultProvider`, `defaultModel`, `lastChangelogVersion`) in `agents/pi/settings.json` aren't staged on every `/model` swap. The filter is registered against the *submodule's* git config, so run the script from inside the submodule:
+2. **Register the pi-settings clean filter** so volatile fields in
+   `agents/pi/settings.json` aren't restaged on every `/model` swap. Run from
+   inside the submodule (filter binds to its git config):
 
    ```shell
    ~/dotfiles/agents/install-git-filter.sh
    ```
 
-   Idempotent; requires `jq`. Bound to `pi/settings.json` via the submodule's `.gitattributes`. See README.org § *The pi-settings clean filter* for details.
+   Idempotent; needs `jq`. See README.org § *The pi-settings clean filter*.
