@@ -66,6 +66,21 @@ in
       OPENAI_API_BASE_URL = "http://127.0.0.1:${toString lemonadePort}/v1";
       OPENAI_API_KEY = "sk-local-lemonade";
       ENABLE_OLLAMA_API = "False";
+
+      # Phase 2: use Lemonade's OpenAI-compatible image endpoint before
+      # introducing a separate ComfyUI service. Lemonade's own image-generation
+      # example uses SD-Turbo at 512x512 with 4 steps and low CFG; Open WebUI
+      # reads the extra OpenAI-compatible image params from IMAGES_OPENAI_PARAMS.
+      ENABLE_IMAGE_GENERATION = "True";
+      IMAGE_GENERATION_ENGINE = "openai";
+      IMAGE_GENERATION_MODEL = "SDXL-Turbo";
+      IMAGE_SIZE = "512x512";
+      IMAGES_OPENAI_API_BASE_URL = "http://127.0.0.1:${toString lemonadePort}/v1";
+      IMAGES_OPENAI_API_KEY = "sk-local-lemonade";
+      IMAGES_OPENAI_PARAMS = builtins.toJSON {
+        steps = 4;
+        cfg_scale = 1.0;
+      };
     };
   };
 

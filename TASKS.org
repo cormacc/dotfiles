@@ -34,8 +34,21 @@
 
 * Improvements
 
+** TODO [#B] Add local search server to strix-halo profile
+:PROPERTIES:
+:CUSTOM_ID: 00dd9702-3d6e-4cdb-ab06-de14e8022106
+:CREATED: [2026-05-21 Thu 20:47]
+:END:
+:LOGBOOK:
+- Created [2026-05-21 Thu 20:47]
+:END:
+We want to own our search.
+SearXNG seems to be the way forward.
+Or Vane, which wraps it: https://github.com/ItzCrazyKns/Vane
 
-** STARTED [#B] Add local AI chat server to strix-halo profile
+
+** DONE [#B] Add local AI chat server to strix-halo profile
+CLOSED: [2026-05-21 Thu 21:50]
 :PROPERTIES:
 :CUSTOM_ID: f5a874ac-f00d-48c0-a99e-211ef82bda82
 :CREATED: [2026-05-21 Thu 12:52]
@@ -44,6 +57,7 @@
 :LOGBOOK:
 - Created [2026-05-21 Thu 12:52]
 - State "STARTED" from "TODO" [2026-05-21 Thu 16:56]
+- State "DONE" from "STARTED" [2026-05-21 Thu 21:50]
 :END:
 #+IMPORT: [[plan:2026-05-21-add-local-ai-chat-server-to-strix-halo-p.org]]
 The strix halo setup currently includes the lemonade server, which handles downloading and running models locally, and provides an OpenAI compatible API interface to them.
