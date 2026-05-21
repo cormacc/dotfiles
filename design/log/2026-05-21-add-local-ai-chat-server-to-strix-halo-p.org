@@ -1,0 +1,154 @@
+#+TITLE: Add local AI chat server to strix-halo profile
+#+DATE: 2026-05-21 Thu
+#+PARENT: [[task:f5a874ac-f00d-48c0-a99e-211ef82bda82][Add local AI chat server to strix-halo profile]]
+#+SETUPFILE: ../../TASKS.setup.org
+
+* Summary
+Add Open WebUI to the =strix= NixOS profile as the LAN-facing chat UI for the co-hosted Lemonade OpenAI-compatible API. Phase 1 should keep the implementation small: enable the upstream =services.open-webui= NixOS module, keep persistent state under its default =/var/lib/open-webui= state directory, point OpenAI-compatible provider configuration at Lemonade, and expose a single LAN-facing Open WebUI port. Do not enable model serving in Open WebUI; Lemonade remains the only inference backend.
+
+** Decisions
+- Use Open WebUI for the initial implementation. It is the best fit for a lightweight local-LLM chat layer over Lemonade and is available as =nixpkgs#open-webui= with an upstream =services.open-webui= NixOS module.
+- Do not use LibreChat initially. It is viable but more platform-like and overbuilt for a domestic LAN chat layer.
+- Do not use LobeChat initially. It is viable and polished, but current deployment is Docker/full-stack oriented and no =nixpkgs= package or NixOS service was found.
+- Design toward the home-network direction in [[file:../home-network-infrastructure.org][home-network-infrastructure.org]] for browser access: eventually =LAN -> Caddy -> Open WebUI -> Lemonade=.
+- Keep the raw LAN Lemonade API reachable on =strix=. Coding harness clients on other machines use the OpenAI-compatible API directly, so Open WebUI is an additional chat frontend rather than the only LAN-facing access path.
+
+** Gotchas
+- =open-webui= is unfree in nixpkgs, but the repo already enables unfree packages for NixOS builds.
+- =services.open-webui= exists. Earlier evaluation missed it because evaluating =nixosConfigurations.strix.options= tripped over the bootstrap placeholder hardware configuration; the nixpkgs source module is at =nixos/modules/services/misc/open-webui.nix=.
+- The module exposes =host=, =port=, =stateDir=, =environment=, =environmentFile=, and =openFirewall=. It sets =StateDirectory = "open-webui"= and runs =open-webui serve --host ... --port ...=.
+- The module's =services.open-webui.environment= default (=SCARF_NO_ANALYTICS=, =DO_NOT_TRACK=, =ANONYMIZED_TELEMETRY=) is a default *value*, not a base that merges. Any =environment= we set must re-include those telemetry-off entries or they will be silently re-enabled.
+- Open WebUI persists configuration to its SQLite DB under =stateDir= after first start. =services.open-webui.environment= entries act as initial values only; later changes are ignored unless we change them via the admin UI or reset state. Plan declarative env around "first-run seed" semantics, not live config.
+- The module hard-codes =WEBUI_URL = "http://localhost:${cfg.port}"= in its environment but merges =cfg.environment= after, so we can override =WEBUI_URL= when we move behind Caddy (e.g. =ai.home.arpa=). Not required in phase 1, but expected at phase 2.
+- =open-webui= is not in the =nix-amd-ai= Cachix; first build on =strix= will fetch ~301 MiB and build the frontend (npm) and Python deps. Expect a long initial activation.
+
+* Plan
+** DONE Confirm Lemonade service endpoint and localhost feasibility
+CLOSED: [2026-05-21 Thu 16:59]
+:PROPERTIES:
+:CUSTOM_ID: a854c52c-deba-486f-b3ff-d0cbede12cec
+:CREATED: [2026-05-21 Thu 13:00]
+:STARTED: [2026-05-21 Thu 16:56]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-21 Thu 16:59]
+- State "STARTED" from "TODO" [2026-05-21 Thu 16:56]
+:END:
+Acceptance criteria:
+- Lemonade's OpenAI-compatible endpoint path and health/model-list behaviour are known, including whether Open WebUI should use =http://127.0.0.1:13305/v1=.
+- The NixOS option or generated systemd unit name for Lemonade is identified enough to order Open WebUI after it where practical.
+- The implementation decision is recorded: raw Lemonade LAN exposure is explicitly kept because coding harness clients on other LAN machines use it directly.
+
+** DONE Add declarative Open WebUI service to the strix profile
+CLOSED: [2026-05-21 Thu 16:59]
+:PROPERTIES:
+:CUSTOM_ID: fa50caf4-9b87-4180-90d5-ef1262a876e1
+:CREATED: [2026-05-21 Thu 13:00]
+:STARTED: [2026-05-21 Thu 16:58]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-21 Thu 16:59]
+- State "STARTED" from "TODO" [2026-05-21 Thu 16:58]
+:END:
+Acceptance criteria:
+- =hosts/strix/nixos-configuration.nix= enables and configures =services.open-webui= next to the existing =hardware.amd-npu= / Lemonade block (no new top-level module; the setup is strix-specific because it depends on the in-process Lemonade endpoint).
+- =services.open-webui.port= is set to =8080= (module default; no current consumer on strix); the chosen value is captured in a =let= binding or comment near the Lemonade port for symmetry.
+- Open WebUI state persists outside the Nix store under the module's =stateDir=, defaulting to =/var/lib/open-webui=.
+- The service runs without Docker and does not start Ollama or any model-serving backend.
+- The service configuration is easy to move behind Caddy later by changing =services.open-webui.host= / firewall policy rather than replacing the service.
+
+** DONE Configure Open WebUI to use Lemonade as its OpenAI-compatible provider
+CLOSED: [2026-05-21 Thu 16:59]
+:PROPERTIES:
+:CUSTOM_ID: 3d12b203-c88f-4837-bf6a-2658b5090214
+:CREATED: [2026-05-21 Thu 13:00]
+:STARTED: [2026-05-21 Thu 16:58]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-21 Thu 16:59]
+- State "STARTED" from "TODO" [2026-05-21 Thu 16:58]
+:END:
+Acceptance criteria:
+- =services.open-webui.environment= sets =ENABLE_OPENAI_API = "True"=, =OPENAI_API_BASE_URL= (or =OPENAI_API_BASE_URLS=) pointing at the local Lemonade =/v1= endpoint, and a harmless =OPENAI_API_KEY= placeholder if Lemonade ignores it.
+- =ENABLE_OLLAMA_API = "False"= so Open WebUI does not imply a second model backend.
+- The attribute set re-includes the module's telemetry-off defaults (=SCARF_NO_ANALYTICS=, =DO_NOT_TRACK=, =ANONYMIZED_TELEMETRY=) since the module default does not merge.
+- =WEBUI_URL= is left at the module default for phase 1; the change record references phase 2 for the Caddy override.
+
+** DONE Expose only the intended LAN surface
+CLOSED: [2026-05-21 Thu 16:59]
+:PROPERTIES:
+:CUSTOM_ID: 8d5ad57c-aad2-428c-8d6b-3695bbee3649
+:CREATED: [2026-05-21 Thu 13:00]
+:STARTED: [2026-05-21 Thu 16:58]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-21 Thu 16:59]
+- State "STARTED" from "TODO" [2026-05-21 Thu 16:58]
+:END:
+Acceptance criteria:
+- The firewall opens the Open WebUI port for LAN use.
+- Lemonade remains bound to =0.0.0.0= and its firewall hole remains open for raw OpenAI-compatible API clients on the LAN.
+- The chosen ports and URLs are documented in comments near the NixOS configuration.
+- The configuration leaves a clear future path for =ai.home.arpa -> Caddy -> Open WebUI=.
+
+** DONE Add first-run and admin notes
+CLOSED: [2026-05-21 Thu 16:59]
+:PROPERTIES:
+:CUSTOM_ID: d959ccc9-2005-4ab0-9bc0-9f61433d4ad8
+:CREATED: [2026-05-21 Thu 13:00]
+:STARTED: [2026-05-21 Thu 16:59]
+:END:
+:LOGBOOK:
+- State "DONE" from "STARTED" [2026-05-21 Thu 16:59]
+- State "STARTED" from "TODO" [2026-05-21 Thu 16:59]
+:END:
+Acceptance criteria:
+- The change record or nearby config comments describe the first-run admin flow: create the first admin account, then disable or restrict signup if Open WebUI persists signup settings in its database.
+- The notes identify where Open WebUI state lives and how to reset it if first-run configuration goes wrong.
+- Future SSO/Caddy integration is referenced through =design/home-network-infrastructure.org= rather than solved in this task.
+
+** TODO Validate from the strix build and LAN client path
+:PROPERTIES:
+:CUSTOM_ID: 552d5118-ede8-4025-a072-4e1f674e54c1
+:CREATED: [2026-05-21 Thu 13:00]
+:HANDOFF: Pre-bootstrap eval passed locally; post-bootstrap runtime checks remain for the strix machine.
+:END:
+:LOGBOOK:
+- State "TODO" from "WAITING" [2026-05-21 Thu 16:59]
+- State "WAITING" from "STARTED" [2026-05-21 Thu 16:59]
+- State "STARTED" from "TODO" [2026-05-21 Thu 16:59]
+:END:
+Acceptance criteria:
+- A pre-bootstrap syntax/module check passes: either =nix flake check --impure= for what it covers, or an explicit =nix eval --impure= of the new module fragment against a non-placeholder host as a syntax-only sanity check. Full =nixos-rebuild build --flake .#strix --impure= is not expected to pass while =hosts/strix/hardware-configuration.nix= is still the BOOTSTRAP_PLACEHOLDER.
+- After the strix machine is bootstrapped and rebuilt, =systemctl status open-webui= is healthy.
+- A LAN browser can load Open WebUI, list Lemonade-provided models, and complete a simple chat request.
+- If raw Lemonade LAN exposure is removed, direct LAN access to the Lemonade port fails while local Open WebUI access still works.
+
+* Implementation
+Relevant background was extracted to [[file:../home-network-infrastructure.org][design/home-network-infrastructure.org]]. Corrected the initial service approach after confirming =services.open-webui= exists in the NixOS module set; use the upstream module rather than hand-writing a local systemd unit.
+
+Implemented in =hosts/strix/nixos-configuration.nix=:
+- Added =openWebUIPort = 8080= next to =lemonadePort=.
+- Kept Lemonade bound to =0.0.0.0= and kept its firewall hole open because coding harness clients on other LAN machines use the raw OpenAI-compatible API directly.
+- Enabled =services.open-webui= with =host = "0.0.0.0"=, =port = openWebUIPort=, and =openFirewall = true=.
+- Seeded Open WebUI's OpenAI-compatible provider with =OPENAI_API_BASE_URL = "http://127.0.0.1:13305/v1"= and placeholder =OPENAI_API_KEY = "sk-local-lemonade"=.
+- Disabled Ollama integration with =ENABLE_OLLAMA_API = "False"= so Open WebUI remains a frontend, not a second model-serving path.
+- Repeated the module's telemetry-off defaults in =services.open-webui.environment= to avoid replacing them accidentally.
+- Added =systemd.services.open-webui.after/wants = [ "lemond.service" ]=; the nix-amd-ai module names the Lemonade unit =lemond=.
+
+First-run notes:
+- Open WebUI state lives under the module default =/var/lib/open-webui=, with data under =/var/lib/open-webui/data=.
+- The first browser sign-up becomes the admin account. After first-run, disable or restrict signup in the Open WebUI admin UI.
+- Open WebUI persists provider/auth settings in its SQLite DB after first start. If first-run config is wrong, fix via the admin UI or stop the service and reset =/var/lib/open-webui= before starting again.
+- Caddy/SSO remains a phase-2 concern tracked in [[file:../home-network-infrastructure.org][design/home-network-infrastructure.org]]; phase 1 intentionally exposes Open WebUI directly on port 8080.
+
+* Validation
+- Created the change-record scaffold with =ot record create f5a874ac-f00d-48c0-a99e-211ef82bda82=.
+- Verified the selected task and =ot doctor= returned no findings before drafting.
+- Checked current package/module availability: =nixpkgs#open-webui= exists at 0.9.2; =services.open-webui= exists with =host=, =port=, =stateDir=, =environment=, =environmentFile=, and =openFirewall= options; =lobechat=/=lobe-chat= packages and obvious NixOS service options were not found.
+- Confirmed nix-amd-ai's Lemonade unit name and options from =modules/amd-npu.nix=: the unit is =lemond= and =hardware.amd-npu.lemonade.host/port/user= feed =lemond --host ... --port ...=.
+- Confirmed Lemonade supports OpenAI-compatible =/v1= routes including =GET /v1/models= and =POST /v1/chat/completions=; =/api/v1= is also canonical in upstream docs, but =/v1= is supported for OpenAI-client compatibility.
+- Local Nix LSP diagnostics could not run because the nix LSP server failed to start (=spawn nil ENOENT=).
+- Pre-bootstrap NixOS eval harness passed after the raw-LAN-API correction: Lemonade host = =0.0.0.0=, Open WebUI enabled on =0.0.0.0:8080=, firewall ports = =[8080 13305]=, Open WebUI ordered after/wants =lemond.service=, and the expected OpenAI/Ollama/telemetry environment values are present.
+- =nix flake check --impure --no-build= still fails before reaching =strix= because the existing =t470p= configuration references an undefined =llm-agents= variable in =agents.nix=; this appears unrelated to the Open WebUI change.
+- Post-bootstrap runtime validation remains: rebuild on =strix=, check =systemctl status open-webui=, load Open WebUI from a LAN browser, list Lemonade models, complete a chat request, and confirm direct LAN access to port 13305 still works for coding harness clients.

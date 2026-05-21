@@ -2,6 +2,7 @@
 
 let
   lemonadePort = 13305;
+  openWebUIPort = 8080;
 in
 {
   # ---------------------------------------------------------------------------
@@ -31,16 +32,50 @@ in
 
     lemonade = {
       user = "cormacc";
-      # Bind to all interfaces so other devices on the LAN can hit the
-      # OpenAI-compatible API. Decided 2026-05-19: LAN-reachable. Pair
-      # this with the explicit firewall hole below.
+      # Bind to all interfaces so coding harness clients on other LAN machines
+      # can continue to use the raw OpenAI-compatible API directly. Open WebUI
+      # is an additional chat frontend, not the only LAN-facing Lemonade path.
       host = "0.0.0.0";
       port = lemonadePort;
     };
   };
 
-  # Open the Lemonade port explicitly rather than disabling the firewall.
+  # Keep the raw Lemonade API LAN-reachable for coding harness clients.
+  # services.open-webui.openFirewall below adds the chat UI port separately.
   networking.firewall.allowedTCPPorts = [ lemonadePort ];
+
+  # ---------------------------------------------------------------------------
+  # Open WebUI chat frontend for Lemonade
+  # ---------------------------------------------------------------------------
+  services.open-webui = {
+    enable = true;
+    host = "0.0.0.0"; # Phase 1: direct LAN access; later Caddy can proxy localhost.
+    port = openWebUIPort;
+    openFirewall = true;
+
+    # Open WebUI persists these settings to its DB under /var/lib/open-webui
+    # after first start; later declarative changes may need admin-UI updates or
+    # a state reset. Re-include the module's telemetry-off defaults here because
+    # setting this attr replaces the module default value rather than merging.
+    environment = {
+      SCARF_NO_ANALYTICS = "True";
+      DO_NOT_TRACK = "True";
+      ANONYMIZED_TELEMETRY = "False";
+
+      ENABLE_OPENAI_API = "True";
+      OPENAI_API_BASE_URL = "http://127.0.0.1:${toString lemonadePort}/v1";
+      OPENAI_API_KEY = "sk-local-lemonade";
+      ENABLE_OLLAMA_API = "False";
+    };
+  };
+
+  # Lemonade's systemd unit is named `lemond` by nix-amd-ai. Open WebUI can
+  # still start if Lemonade is down, but ordering it after the backend avoids a
+  # first-load race on normal boots.
+  systemd.services.open-webui = {
+    after = [ "lemond.service" ];
+    wants = [ "lemond.service" ];
+  };
 
   # ---------------------------------------------------------------------------
   # nix-amd-ai Cachix at the NixOS level
