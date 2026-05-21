@@ -6,6 +6,32 @@ let
 in
 {
   # ---------------------------------------------------------------------------
+  # Open WebUI: patch list-mode image-edit field name
+  # ---------------------------------------------------------------------------
+  # Open WebUI 0.9.5's chat-tool `edit_image` builds `EditImageForm(image=urls)`
+  # with a *list*, which makes routers/images.py send the file part(s) under
+  # the non-OpenAI field name `image[]`. Lemonade (and any strict OpenAI-compat
+  # backend) ignores `image[]`, returns HTTP 400 with body
+  # `{"error":{"message":"Missing 'image' field in request",...}}`, which Open
+  # WebUI then re-raises to the chat UI as `400: [ERROR: Bad Request]`.
+  #
+  # OpenAI's spec is to send multiple images as repeated `image` parts, not
+  # `image[]`. This overlay rewrites the single occurrence in routers/images.py
+  # so the field name is `image` for both the single-string and list branches.
+  # Drop this overlay once upstream Open WebUI ships an equivalent fix; track
+  # the change via `grep -n 'image\[\]' .../routers/images.py` after each bump.
+  nixpkgs.overlays = [
+    (final: prev: {
+      open-webui = prev.open-webui.overridePythonAttrs (old: {
+        postPatch = (old.postPatch or "") + ''
+          substituteInPlace backend/open_webui/routers/images.py \
+            --replace-fail "'image[]'" "'image'"
+        '';
+      });
+    })
+  ];
+
+  # ---------------------------------------------------------------------------
   # Bootloader
   # ---------------------------------------------------------------------------
   # Fresh NixOS install on a single 4TB SSD with no dual-boot, so systemd-boot
