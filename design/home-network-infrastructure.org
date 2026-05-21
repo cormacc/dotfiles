@@ -1,0 +1,89 @@
+#+TITLE: Home network infrastructure
+#+AUTHOR: Cormac Cannon
+#+DATE: 2026-05-21
+
+* Summary
+The home LAN should converge on a small ingress-and-identity pattern rather than exposing every service directly. Application backends should bind to localhost where practical, Caddy should become the LAN-facing reverse proxy, stable internal DNS names should be introduced early, and a later identity service should provide web SSO and, if feasible, central Linux SSH identity without removing local break-glass access.
+
+* Target shape
+#+BEGIN_EXAMPLE
+LAN client
+  -> Caddy / ingress layer
+    -> auth policy / SSO integration
+      -> home web services
+        -> localhost-only backends
+#+END_EXAMPLE
+
+For the local AI service specifically:
+
+#+BEGIN_EXAMPLE
+LAN browser
+  -> ai.home.arpa / Caddy
+    -> Open WebUI on localhost
+      -> Lemonade OpenAI-compatible API on localhost
+#+END_EXAMPLE
+
+* Decisions
+** Use Open WebUI first for the local AI chat layer
+Open WebUI is the preferred initial chat UI for =strix=: it is available in nixpkgs, directly supports OpenAI-compatible provider URLs, and fits the domestic LAN requirement without adding a larger collaboration platform.
+
+LibreChat remains a viable alternative if a broader ChatGPT-like multi-provider/team platform is needed later. LobeChat/LobeHub remains a viable alternative if UI polish, agents, plugins, or a richer AI workspace become more important, but it is less attractive for the first declarative NixOS pass because current self-hosting guidance is Docker/full-stack oriented and no nixpkgs package or NixOS service was found.
+
+** Use stable internal DNS names
+Prefer names under =home.arpa=, for example:
+
+- =ai.home.arpa= for the local AI chat UI.
+- =id.home.arpa= for the future identity provider.
+- Service-specific names such as =files.home.arpa= or =git.home.arpa= as services are added.
+
+This avoids baking hostnames and ports into user-facing URLs, OAuth redirect URIs, cookie scopes, TLS certificates, and bookmarks.
+
+** Introduce Caddy as the ingress layer, but not necessarily in phase one
+Direct service exposure is acceptable for the first Open WebUI pass if it keeps the implementation small. The configuration should still be compatible with moving behind Caddy later: Open WebUI and Lemonade should not require LAN-reachable backend ports once Caddy is present.
+
+** Prefer localhost-only backends
+When a service is fronted by Caddy, bind the backend to =127.0.0.1= and expose only the proxy port on the LAN unless another LAN-facing protocol is intentionally part of the service contract. For the =strix= AI server, raw Lemonade API access is intentionally LAN-facing because coding harness clients on other machines use the OpenAI-compatible API directly; Open WebUI is an additional browser chat frontend, not a replacement for that API.
+
+** Prefer native OIDC where applications support it
+Caddy forward-auth is useful for coarse access control or apps without auth, but applications with native OIDC/OAuth support should use it where practical. Native integration usually gives better account mapping, logout behaviour, audit trails, and app-level permissions.
+
+** Preserve local break-glass access
+Central identity must not become the only way to administer home machines. Keep local admin users, local SSH keys, and console access. SSH designs should tolerate identity-server, DNS, or TLS outages.
+
+* Caddy trade-offs
+** Benefits
+- Clean LAN URLs such as =http://ai.home.arpa= or =https://ai.home.arpa= instead of host-port URLs.
+- One LAN-facing web ingress rather than many independently exposed services.
+- Easier later HTTPS, header policy, logging, compression, IP allowlists, basic auth, forward-auth, and OIDC integration.
+- Backends can remain private and easier to replace.
+
+** Costs
+- More moving parts than direct service exposure.
+- LAN HTTPS requires either a real domain and ACME DNS challenge or trusting an internal/self-signed CA on client devices.
+- Nice names require local DNS through the router, Pi-hole/AdGuard, another resolver, mDNS, or hosts-file entries.
+- Proxy auth is not a full substitute for application auth.
+
+* Identity direction
+Candidate identity approaches need separate evaluation:
+
+- FreeIPA: strongest Linux domain / LDAP / Kerberos / SSH fit, but heavier.
+- Kanidm: modern lighter identity server, promising for home/lab use.
+- Authentik: strong web SSO/OIDC and proxy integration, with LDAP outposts; less native as the sole Linux login domain.
+- Keycloak: strong OIDC/SAML; less ideal alone for Linux SSH identity.
+- SSH certificates: attractive for SSH if a central CA can issue short-lived user certs while local emergency keys remain available.
+
+* Phased roadmap
+** Phase 1: Local AI chat
+Add Open WebUI on =strix= as the browser chat layer for Lemonade. Keep the raw Lemonade OpenAI-compatible API available on the LAN for coding harness clients. Prefer a configuration that can later move browser access behind Caddy without changing the raw API contract.
+
+** Phase 2: Caddy ingress and internal DNS
+Add a LAN-facing Caddy service and a stable name such as =ai.home.arpa=. Move Open WebUI behind Caddy and close direct backend ports where possible.
+
+** Phase 3: Local identity service
+Deploy =id.home.arpa= and choose the identity product after comparing web SSO and Linux SSH requirements.
+
+** Phase 4: Web SSO policy
+Integrate Caddy and web applications with OIDC or forward-auth. Prefer native OIDC where the app supports it.
+
+** Phase 5: Central SSH identity
+Add central SSH/Linux identity only after the identity server is stable and break-glass local access has been tested.
