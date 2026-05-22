@@ -7,6 +7,12 @@ let
   # Personal Info
   name = builtins.getEnv "NAME";
   email = builtins.getEnv "EMAIL";
+  # Personal / OSS git identity. Defaults to $EMAIL when unset so a
+  # single-identity setup needs no extra env var. Scoped to ~/dev/ via
+  # a git includeIf below.
+  emailOss =
+    let v = builtins.getEnv "EMAIL_OSS";
+    in if v == "" then email else v;
   username = builtins.getEnv "USER";
 
   # Paths
@@ -105,7 +111,11 @@ in
     # controlPath = "~/.ssh/master-%r@%h:%p";
     # serverAliveInterval = 15;
     enableDefaultConfig = false;
-    settings = {
+    # `matchBlocks` is the name HM release-25.11 (darwin pin) accepts;
+    # HM unstable (linux) has renamed it to `settings` and emits a
+    # deprecation warning here. Keep `matchBlocks` until the darwin pin
+    # advances past the rename, then switch in one go.
+    matchBlocks = {
       # Use personal rather than work key for OSS forges.
       "github.com" = {
         hostname = "github.com";
@@ -146,12 +156,24 @@ in
     settings = {
       user = {
         name = "${name}";
-        email = "${username}@gmail.com";
+        # Default identity is the work/global $EMAIL. Repos under ~/dev/
+        # (see includes below) swap in $EMAIL_OSS instead.
+        email = "${email}";
       };
       core = {
         autocrlf = "input";
       };
     };
+    # Scope a personal / OSS git identity to ~/dev/ repos. When
+    # $EMAIL_OSS is unset it falls back to $EMAIL (see let-binding
+    # above), making this a no-op rather than producing duplicate
+    # config.
+    includes = [
+      {
+        condition = "gitdir:~/dev/";
+        contents.user.email = "${emailOss}";
+      }
+    ];
   };
 
   # We can only enable one of delta, diff-so-fancy and difftastic

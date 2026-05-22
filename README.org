@@ -1,6 +1,5 @@
 #+TITLE: TRFKACD (The Repo Formerly Known As CormacC's Dotfiles)
 #+AUTHOR: Cormac Cannon
-#+EMAIL: cormacc@gmail.com
 #+LANGUAGE: en
 #+COPYRIGHT: Cormac Cannon, 2023-2026
 #+DATE: 2026-04-28
@@ -51,9 +50,19 @@ fresh machine.
 - [[#provisioning-a-new-accountinstallation][Provisioning a new account/installation]]
   - [[#non-nixos][Non-NixOS]]
   - [[#nixos][NixOS]]
+    - [[#install-nixos][Install NixOS]]
+    - [[#amend-nixos-config-to-allow-flakes-install-git-etc][Amend NixOS config to allow flakes, install git etc.]]
+    - [[#integrate-host-hardware-configuration-and-apply-nixos-config-from-flake][Integrate host hardware configuration and apply NixOS config from flake]]
   - [[#macos-nix-darwin][macOS (nix-darwin)]]
   - [[#setup-your-home-environment][Setup your home environment]]
+    - [[#set-git-name-and-e-mail][Set Git name and e-mail]]
+    - [[#ssh-keys--host-aliases][SSH keys / host aliases]]
+    - [[#apply-the-home-manager-flake][Apply the Home Manager flake]]
   - [[#post-installation-activities][Post-installation activities]]
+    - [[#generate-a-unique-ssh-key-for-this-installation][Generate a unique SSH key for this installation]]
+    - [[#hybridarch-linux-additional-setup-steps][Hybrid/arch linux additional setup steps]]
+      - [[#printing-cups-avahi-etc][Printing (CUPS, Avahi etc.)]]
+      - [[#microchip-mplab-x][Microchip MPLAB-X]]
 - [[#maintenance][Maintenance]]
   - [[#shell-aliases][Shell aliases]]
   - [[#updating-packages][Updating packages]]
@@ -119,7 +128,8 @@ home-darwin.nix  ->  home-core.nix  (macOS, adds: editors, dev, agents)
 
 ** Environment variables consumed on first apply
 The flake uses =builtins.getEnv= for identity and a couple of secrets, hence =--impure=. Persisted to the shell session after first apply, so you only need to set them once per installation:
-- =NAME=, =EMAIL=, =USER=, =HOME= -- identity and paths
+- =NAME=, =EMAIL=, =USER=, =HOME= -- identity and paths. =EMAIL= is the default git =user.email= (typically the work address).
+- =EMAIL_OSS= -- personal / OSS git =user.email=. Scoped to =~/dev/= repos via an =includeIf= so personal commits don't leak the work address. Optional: when unset it falls back to =$EMAIL=, making it a no-op for single-identity setups.
 - =GITLAB= -- self-hosted gitlab TLD for SSH config (optional)
 - =OPENAI_API_KEY=, =ANTHROPIC_API_KEY= -- propagated to the shell env (optional)
 
@@ -328,6 +338,9 @@ The flake reads identity from environment variables on initial application via =
 #+begin_src shell
   export NAME="<Your Name>"
   export EMAIL="<your.email>@<domain.com>"
+  # Optional -- personal / OSS git email, scoped to ~/dev/ repos via a
+  # git `includeIf`. Falls back to $EMAIL when unset.
+  export EMAIL_OSS="<personal.email>@<domain.com>"
   # Optional -- self-hosted gitlab TLD for SSH host alias
   export GITLAB="<gitlab.example.com>"
   # Optional -- propagated to your shell env after first apply

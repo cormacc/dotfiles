@@ -26,10 +26,20 @@ of a review session on 2026-05-22.
 - Defer ~programs.npm.npmrc~ migration until darwin moves off the
   release-25.11 pin; tracked as a follow-up on the existing
   ~nixpkgs#507531~ TODO in =flake.nix=.
-- =programs.ssh.matchBlocks= is deprecated on Home Manager 25.11; the
-  current name is =programs.ssh.settings= (same DAG-of-attrset shape).
-  Found while converting =home-core.nix=; the SSH change uses the new
-  name.
+- =programs.ssh.matchBlocks= is deprecated on Home Manager *unstable*
+  in favour of =programs.ssh.settings= (same DAG-of-attrset shape),
+  but darwin HM release-25.11 does **not** yet have =settings= and
+  fails with "option does not exist" when it's used. Keep
+  =matchBlocks= on home-core.nix until the darwin pin advances past
+  the rename; tracked with a comment alongside the existing
+  =nixpkgs#507531= follow-up.
+- =programs.git.settings.*= IS valid on both pinned HM versions; the
+  legacy =userName= / =userEmail= attrs still resolve there but trace
+  as obsolete. Use =settings= everywhere; no fallback needed.
+- Personal-vs-work git identity convention: default =user.email= =
+  =$EMAIL= (work / global), plus =includeIf "gitdir:~/dev/"= scoping
+  =$EMAIL_OSS=. =$EMAIL_OSS= falls back to =$EMAIL= when unset so the
+  single-identity case is a no-op rather than an empty-string write.
 
 ** Shipped
 
@@ -53,10 +63,18 @@ of a review session on 2026-05-22.
   =package= between open+beta (modern) and closed+latest (legacy).
   =nixos-nvidia-legacy.nix= deleted, README mention rewritten.
 - =home-core.nix= SSH config moved from string-blob =extraConfig= to
-  three named host entries under =programs.ssh.settings= (the HM 25.11
-  successor of =matchBlocks=). Latent missing =Host gitlab.com= header
-  is fixed; =ssh -G= against the rendered config resolves each host
-  to its intended =IdentityFile=.
+  three named host entries under =programs.ssh.matchBlocks= (kept on
+  the old option name to satisfy darwin HM release-25.11; HM unstable
+  has renamed it to =settings= and warns, but the cross-platform path
+  still parses correctly). Latent missing =Host gitlab.com= header is
+  fixed; =ssh -G= against the rendered config resolves each host to
+  its intended =IdentityFile=.
+- =programs.git.settings.*= confirmed valid on both linux HM unstable
+  and darwin HM release-25.11. Identity split into work + OSS scopes:
+  default =user.email= = =$EMAIL=, plus an =includeIf "gitdir:~/dev/"=
+  that swaps in =$EMAIL_OSS= (falls back to =$EMAIL= when unset). New
+  =EMAIL_OSS= env var prompted by =bootstrap.sh=; README + AGENTS.md
+  updated.
 
 ** Gotchas
 
@@ -223,10 +241,16 @@ resolve to =id_ed25519_personal=; =gitlab= resolves to
 =LightsailDefaultKey-eu-west-1.pem= on port 1022 as =ec2-user=.
 =nix flake check --no-build --impure= clean.
 
-** TODO [#B] Validate / fix `programs.git.settings.*` usage
+** DONE [#B] Validate / fix `programs.git.settings.*` usage
+CLOSED: [2026-05-22 Fri 11:23]
 :PROPERTIES:
 :CUSTOM_ID: b7820b66-81ff-4fb2-9b6d-22c4da26f902
 :CREATED: [2026-05-22 Fri]
+:STARTED: [2026-05-22 Fri 11:11]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-05-22 Fri 11:11]
+- State "DONE" from "STARTED" [2026-05-22 Fri 11:23]
 :END:
 
 Acceptance criteria:
@@ -237,6 +261,27 @@ Acceptance criteria:
 - Decide whether email should derive from =$EMAIL= (current intent on
   line 8) rather than the hard-coded =${username}@gmail.com= override.
 - =git config --get user.email= reports the chosen value post-switch.
+
+Shipped:
+- Confirmed =programs.git.settings.{user.name, user.email, core.autocrlf}=
+  works on both linux HM unstable and darwin HM release-25.11. The old
+  =userName= / =userEmail= attrs still resolve there but log
+  "Obsolete option ... renamed to programs.git.settings.user.*" traces;
+  the current =settings= shape is the future-safe one. No HM-version
+  fallback needed.
+- Split git identity into work (default) + personal (OSS) scopes:
+  default =user.email= now derives from =$EMAIL= (the work address),
+  and a new =includeIf "gitdir:~/dev/"= block swaps in =$EMAIL_OSS=
+  inside =~/dev/=. =$EMAIL_OSS= falls back to =$EMAIL= when unset so
+  single-identity setups behave unchanged.
+- =bootstrap.sh= prompts for =EMAIL_OSS= with =$EMAIL= as the default;
+  =--preserve-env= updated to forward it through the privileged
+  =nixos-rebuild=. README + AGENTS.md document the convention.
+- Validated by rendering both gitconfig fragments via
+  =nix build .#homeConfigurations.default.config.home.file."/home/cormacc/.config/git/config".source=
+  and running =git config --show-origin --get user.email= from a repo
+  outside =~/dev/= (→ =cormac.cannon@neuromoddevices.com=) and inside
+  =~/dev/= (→ =cormacc@gmail.com=). Darwin eval also passes.
 
 ** TODO [#C] Drop or thin `nixos-bootstrap.nix`
 :PROPERTIES:
