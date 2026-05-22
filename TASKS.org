@@ -84,3 +84,24 @@ The hermes agent instance should own the following:
 - Adding models, and applying the correct settings
 - Keeping the installation up to date
 - .... what else ...
+
+** STARTED [#C] Refactor flake
+:PROPERTIES:
+:CUSTOM_ID: 603a605b-6e98-4458-9cec-db2450e4cbf4
+:CREATED: [2026-05-22 Fri 01:56]
+:STARTED: [2026-05-22 Fri 01:57]
+:END:
+:LOGBOOK:
+- Created [2026-05-22 Fri 01:56]
+- State "STARTED" from "TODO" [2026-05-22 Fri 01:57]
+:END:
+#+IMPORT: [[plan:2026-05-22-refactor-flake.org]]
+Eliminate redundancy across the flake and lean harder on first-class
+NixOS / Home Manager / nix-darwin options instead of hand-rolled files and
+shell wrappers.
+
+Tracks the multi-step refactor scoped in the attached change-record. The
+record carries the full finding list (substituter duplication, NVIDIA
+modules, SSH `extraConfig`, dead `nixos-bootstrap.nix` / `nixos-llm.nix`,
+floating `fetchGit` calls, `programs.git.settings` validity, etc.) plus
+the decision to scrap `t470p` and add a top-level `nix` skill.
