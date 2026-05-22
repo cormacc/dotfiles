@@ -1,0 +1,224 @@
+#+TITLE: Refactor flake
+#+DATE: 2026-05-22 Fri
+#+PARENT: [[task:603a605b-6e98-4458-9cec-db2450e4cbf4][Refactor flake]]
+#+SETUPFILE: ../../TASKS.setup.org
+
+* Summary
+
+Sweep ~2.5k lines of nix configuration for redundancy and hand-rolled bits
+that have first-class NixOS / Home Manager / nix-darwin options. Spun out
+of a review session on 2026-05-22.
+
+** Decisions
+
+- Extract a single source of truth for nix substituters + trusted keys.
+  Today it is restated in =flake.nix= ~nixConfig~, ~nixos-base.nix~,
+  ~darwin-configuration.nix~, and partially in =hosts/strix=. The strix
+  host keeps only the =nix-amd-ai.cachix.org= extras.
+- Add a top-level =nix= skill to =dotagents/skills/nix= so every project
+  (not just this dotfiles repo) benefits. Pi currently has no nix skill
+  despite frequent friction with HM/NixOS option taxonomy, ~--impure~
+  rules, and per-project ~devShell~ workflows.
+- =t470p= host is dead hardware and gets deleted, including its
+  =hosts/t470p/= directory and the legacy single-config
+  ~nixosConfigurations.t470p~ branch in =flake.nix=. =t470-nas= goes
+  with it (same hardware).
+- Defer ~programs.npm.npmrc~ migration until darwin moves off the
+  release-25.11 pin; tracked as a follow-up on the existing
+  ~nixpkgs#507531~ TODO in =flake.nix=.
+
+** Shipped
+
+- =lib/nix-caches.nix= as single source of truth for the running-system
+  ~nix.settings.substituters~ / ~trusted-public-keys~. =nixos-base.nix=
+  and =darwin-configuration.nix= consume it; =hosts/strix= keeps only
+  its =nix-amd-ai.cachix.org= entry via the merging =extra-*= form.
+  =flake.nix= ~nixConfig~ stays as literal lists (flake-level parse
+  cannot resolve =let / import=) with a sync-warning comment.
+  Validated: =nix eval --impure --json .#nixosConfigurations.{xps15,strix}.config.nix.settings.substituters= and the darwin equivalent all resolve to the shared list; strix =extra-substituters= contains only =nix-amd-ai.cachix.org=.
+- =dotagents/skills/nix/SKILL.md= added. Frontmatter triggers on =.nix=
+  edits, =flake.nix= work, =devShell= mentions, =--impure=, and the
+  HM/NixOS/nix-darwin module words. Visible at
+  =~/.agents/skills/nix/SKILL.md= via the existing out-of-store symlink
+  managed by =agents.nix=.
+
+** Gotchas
+
+- =nix.settings.substituters= replaces, =nix.settings.extra-substituters=
+  merges. The current mix means an entry added only to ~flake.nix~
+  ~nixConfig~ is silently dropped on NixOS hosts.
+- =builtins.fetchGit= with no =rev= re-fetches on every evaluation; used
+  today for spacemacs, doom, corgi, and the practicalli astro nvim
+  config. Pinning a =rev= + =narHash= or moving to ~flake.nix~ inputs
+  both fix it.
+- =nixos-base.nix= mounts =/mnt/mfs= unconditionally; the =nas= host
+  (the moosefs cluster's likely server) inherits the mount.
+
+** Follow-ups
+
+- [[id:0d66fbea-ed86-416d-afd9-416f65f95d01][Validate / fix `programs.git.settings.*` usage]] (#3 below) may spin
+  out further work depending on what HM actually accepts.
+- Onedrive user-unit and Chrome `.app` plist generation are flagged in
+  the plan but left for a later pass; the current code works.
+
+* Plan
+
+** DONE [#A] Extract shared nix-caches lib
+CLOSED: [2026-05-22 Fri 02:07]
+:PROPERTIES:
+:CUSTOM_ID: 6f775b34-db00-424d-b74a-8e82d289e613
+:CREATED: [2026-05-22 Fri]
+:STARTED: [2026-05-22 Fri 01:57]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-05-22 Fri 01:57]
+- State "DONE" from "STARTED" [2026-05-22 Fri 02:07]
+:END:
+
+Acceptance criteria:
+- One file (=lib/nix-caches.nix= or similar) exports
+  ={ substituters, trustedPublicKeys }=.
+- =flake.nix= ~nixConfig.extra-substituters~ /
+  ~extra-trusted-gpg-public-keys~ derives from it.
+- =nixos-base.nix= ~nix.settings.substituters~ /
+  ~trusted-public-keys~ derives from it.
+- =darwin-configuration.nix= ~nix.settings.substituters~ /
+  ~trusted-public-keys~ derives from it.
+- =hosts/strix/nixos-configuration.nix= keeps only its
+  =nix-amd-ai.cachix.org= entry as ~extra-substituters~ /
+  ~extra-trusted-public-keys~ on top of the shared list.
+- =nix flake check= (or at minimum =nixos-rebuild build
+  --flake .#strix --impure --dry-run= equivalent) evaluates clean for
+  all surviving hosts.
+
+** DONE [#A] Add top-level `nix` skill to dotagents
+CLOSED: [2026-05-22 Fri 02:11]
+:PROPERTIES:
+:CUSTOM_ID: e39fc5e9-c027-47a0-a54b-4be88491c40a
+:CREATED: [2026-05-22 Fri]
+:STARTED: [2026-05-22 Fri 02:08]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-05-22 Fri 02:08]
+- State "DONE" from "STARTED" [2026-05-22 Fri 02:11]
+:END:
+
+Acceptance criteria:
+- =dotagents/skills/nix/SKILL.md= exists with a frontmatter description
+  whose triggers cover both =.nix= file edits and per-project
+  =flake.nix= ~devShell~ workflows.
+- Body covers: HM vs NixOS vs nix-darwin option boundaries, when
+  ~--impure~ is required (this flake reads env vars), ~home.file~ vs
+  ~xdg.configFile~ vs ~mkOutOfStoreSymlink~, ~home.activation~ DAG
+  hooks, validation commands (~nix repl~, ~nix eval~,
+  ~nixos-rebuild build~, ~home-manager build~,
+  ~darwin-rebuild build~), per-project ~devShells~ + direnv,
+  =fetchGit= pinning rule.
+- Visible to pi via the existing =~/.agents/skills= symlink chain
+  managed by =agents.nix=.
+- =find-skills= / SKILL discovery surfaces it on prompts like
+  "edit my home.nix" or "add a devShell" (smoke-tested by inspection
+  of SKILL.md description text, not benchmarked).
+
+** TODO [#B] Delete `t470p` host
+:PROPERTIES:
+:CUSTOM_ID: 0d66fbea-ed86-416d-afd9-416f65f95d01
+:CREATED: [2026-05-22 Fri]
+:END:
+
+Acceptance criteria:
+- =hosts/t470p/= deleted via =git rm=.
+- =flake.nix= ~nixosConfigurations.t470p~ branch removed.
+- =flake.nix= ~nixosConfigurations.t470-nas~ branch removed (same
+  hardware).
+- README + AGENTS.md mentions of t470p removed or rewritten.
+- Surviving hosts (=xps15=, =strix=, =t580=, =nas=, =Cormacs-MacBook-Air=)
+  still evaluate.
+
+** TODO [#B] Collapse `nixos-nvidia*.nix`
+:PROPERTIES:
+:CUSTOM_ID: 422944fb-3036-4962-8dbf-a16d55369f29
+:CREATED: [2026-05-22 Fri]
+:END:
+
+Acceptance criteria:
+- Single =nixos-nvidia.nix= that accepts a =legacy= flag (or splits
+  into two thin presets importing a shared base) — the only differing
+  attrs today are ~hardware.nvidia.open~ and ~hardware.nvidia.package~.
+- =nixos-nvidia-legacy.nix= deleted.
+- =xps15= still builds (current modern-driver consumer).
+
+** TODO [#B] Convert SSH `extraConfig` to `matchBlocks`
+:PROPERTIES:
+:CUSTOM_ID: 6668abb1-838d-4c0d-8c8d-ea7fcb3ad5c8
+:CREATED: [2026-05-22 Fri]
+:END:
+
+Acceptance criteria:
+- =home-core.nix= ~programs.ssh.extraConfig~ block replaced with named
+  entries under ~programs.ssh.matchBlocks~ (=github.com=, =gitlab.com=,
+  =gitlab=).
+- Latent missing =Host gitlab.com= directive is fixed in the process.
+- =ssh -G github.com= / =ssh -G gitlab.com= / =ssh -G gitlab= each
+  resolve to the intended ~IdentityFile~ after a switch.
+
+** TODO [#B] Validate / fix `programs.git.settings.*` usage
+:PROPERTIES:
+:CUSTOM_ID: b7820b66-81ff-4fb2-9b6d-22c4da26f902
+:CREATED: [2026-05-22 Fri]
+:END:
+
+Acceptance criteria:
+- Confirm whether HM actually applies ~programs.git.settings.user.name~
+  / ~settings.user.email~ / ~settings.core.autocrlf~ on the pinned HM
+  versions (linux unstable + darwin 25.11). If not, switch to
+  ~programs.git.userName~ / ~userEmail~ / ~extraConfig.core.autocrlf~.
+- Decide whether email should derive from =$EMAIL= (current intent on
+  line 8) rather than the hard-coded =${username}@gmail.com= override.
+- =git config --get user.email= reports the chosen value post-switch.
+
+** TODO [#C] Drop or thin `nixos-bootstrap.nix`
+:PROPERTIES:
+:CUSTOM_ID: 68b317bd-4201-484e-a84d-aa8df9c07990
+:CREATED: [2026-05-22 Fri]
+:END:
+
+Acceptance criteria:
+- Either deleted (preferred — README points fresh installs at
+  =bootstrap.sh=), or trimmed to the strict installer-ISO delta from
+  =nixos-base.nix=.
+- No remaining duplication of locale / user / openssh / package list
+  between =nixos-bootstrap.nix= and =nixos-base.nix=.
+
+** TODO [#C] Audit floating `builtins.fetchGit` calls
+:PROPERTIES:
+:CUSTOM_ID: 8a66fc15-93a1-4624-87bd-a43377a2afad
+:CREATED: [2026-05-22 Fri]
+:END:
+
+Acceptance criteria:
+- =editors/emacs/emacs.nix= spacemacs / doom / corgi fetches, and
+  =editors/editors.nix= practicalli astro fetch, either pin a ~rev~ +
+  ~narHash~ or become flake inputs.
+- =flake.lock= updates accordingly.
+- =home-manager build --flake .#default --impure= is byte-identical
+  across two consecutive runs.
+
+* Implementation
+
+** nix-caches lib placement
+
+First pass tried =nixConfig = let caches = import ./lib/nix-caches.nix; in { … };=. Nix rejects this with =expected a set but got a thunk= because =nixConfig= is parsed by the lock-file machinery before evaluation — it must be a literal attrset of literals. Reverted that one site to inline lists with a sync-warning comment; the lib still removes the duplication between =nixos-base.nix= and =darwin-configuration.nix=, which are the two paths that drive the running system.
+
+** Dirty-tree gotcha
+
+Nix copies only tracked files into the store when the working tree is dirty. The first =nix eval= attempt failed with =path '…/lib/nix-caches.nix' does not exist= until =git add lib/nix-caches.nix=. Captured as a rule in the new =nix= skill under *Validation*.
+
+* Validation
+
+- =nix eval --impure --json .#nixosConfigurations.strix.config.nix.settings.substituters= → shared list (cache.nixos.org, nix-community, hyprland, numtide) plus the upstream-default duplicate, as before.
+- =nix eval --impure --json .#nixosConfigurations.strix.config.nix.settings.extra-substituters= → =["https://nix-amd-ai.cachix.org"]=.
+- =nix eval --impure --json .#nixosConfigurations.xps15.config.nix.settings.substituters= → shared list, no extras.
+- =nix eval --impure --json .#darwinConfigurations."Cormacs-MacBook-Air".config.nix.settings.substituters= → shared list, no extras.
+- =nix flake check --impure --no-build= still fails on the legacy =t470p= NixOS+HM mix (pre-existing, scheduled for deletion in plan task =0d66fbea=). Not a regression.
+- =nix= skill file present at =~/.agents/skills/nix/SKILL.md= and resolves through the =mkOutOfStoreSymlink= chain set up by =agents.nix=.
