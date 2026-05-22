@@ -25,7 +25,8 @@
   # ... although nixpkgs hasn't caught up yet
   programs.firefox = {
     enable = true;
-    # package = pkgs.firefox-devedition; ;; No longer need to install dataspex extension from source -- revert to mainline
+    # This configPath is the new default once home.stateVersion >= 26.05 -- we can remove the line then
+    configPath = "${config.xdg.configHome}/mozilla/firefox";
   };
 
   home.packages = with pkgs; [

@@ -16,6 +16,10 @@ in {
     zsh-powerlevel10k
   ];
 
+  home.shell = {
+    enableShellIntegration = true;
+  };
+
   #Folder nav shell shortcuts
   home.file."${dir-nav-posix}".source = ./dir-nav.sh;
 
@@ -27,9 +31,6 @@ in {
 
   programs.starship = {
     enable = true;
-    enableBashIntegration = true;
-    enableFishIntegration = true;
-    enableZshIntegration = true;
   };
 
   programs.ranger.enable = true;
