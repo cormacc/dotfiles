@@ -75,6 +75,11 @@ of a review session on 2026-05-22.
   that swaps in =$EMAIL_OSS= (falls back to =$EMAIL= when unset). New
   =EMAIL_OSS= env var prompted by =bootstrap.sh=; README + AGENTS.md
   updated.
+- =nixos-bootstrap.nix= trimmed from 108 to 65 lines and reframed as
+  the strict installer-ISO delta vs =nixos-base.nix= (networkmanager
+  + openssh + git only, no locale / extra-groups / X11 keymap
+  duplication). README's stale "bootstrap.sh copies it" line
+  rewritten to describe the actual ISO -> first-switch flow.
 
 ** Gotchas
 
@@ -283,10 +288,16 @@ Shipped:
   outside =~/dev/= (→ =cormac.cannon@neuromoddevices.com=) and inside
   =~/dev/= (→ =cormacc@gmail.com=). Darwin eval also passes.
 
-** TODO [#C] Drop or thin `nixos-bootstrap.nix`
+** DONE [#C] Drop or thin `nixos-bootstrap.nix`
+CLOSED: [2026-05-22 Fri 11:33]
 :PROPERTIES:
 :CUSTOM_ID: 68b317bd-4201-484e-a84d-aa8df9c07990
 :CREATED: [2026-05-22 Fri]
+:STARTED: [2026-05-22 Fri 11:25]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-05-22 Fri 11:25]
+- State "DONE" from "STARTED" [2026-05-22 Fri 11:33]
 :END:
 
 Acceptance criteria:
@@ -295,6 +306,19 @@ Acceptance criteria:
   =nixos-base.nix=.
 - No remaining duplication of locale / user / openssh / package list
   between =nixos-bootstrap.nix= and =nixos-base.nix=.
+
+Shipped: trimmed (not deleted — the flake can't apply until
+=hosts/<host>/hardware-configuration.nix= exists on disk, so the
+ISO step still needs a self-contained =configuration.nix=). 108 →
+65 lines: dropped locale / extraLocaleSettings, the full extra-groups
+list, X11 keymap, console keyMap, =allowUnfree=-via-default vs the
+leaner =nixpkgs.config.allowUnfree=, and the full networking proxy
+comment wall. Kept only what's needed to bring the box up with
+networkmanager + openssh + git on first boot so the flake can be
+fetched and applied; =nixos-base.nix= owns everything else. README
+"=bootstrap.sh= copies it" line rewritten to describe the actual
+workflow (drop file before =nixos-install=, then post-reboot the
+flake takes over).
 
 ** TODO [#C] Audit floating `builtins.fetchGit` calls
 :PROPERTIES:
