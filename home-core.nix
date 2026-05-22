@@ -80,10 +80,7 @@ in
   # 3. run 'direnv allow' in the folder
   programs.direnv = {
     enable = true;
-    enableBashIntegration = true;
     # direnv implicitly enabled for fish -- trying to do so here results in error
-    # enableFishIntegration = true;
-    enableZshIntegration = true;
     #cache the direnv environment -- faster rebuild
     nix-direnv.enable = true;
     #Additional content for .config/direnv/direnvrc

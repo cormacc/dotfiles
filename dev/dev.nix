@@ -3,10 +3,6 @@
 {
   programs.kitty = {
     enable = true;
-    shellIntegration = {
-      enableFishIntegration = true;
-      enableZshIntegration = true;
-    };
     settings = {
       confirm_os_window_close = 0;
       allow_remote_control = "socket-only";
@@ -15,6 +11,16 @@
     } // lib.optionalAttrs pkgs.stdenv.isDarwin {
       # Make Option behave as Alt so chords like Alt+Esc reach TUIs (e.g. pi).
       macos_option_as_alt = "yes";
+    };
+  };
+
+  programs.ghostty = {
+    enable = true;
+    settings = {
+      keybind = [
+        # See https://pi.dev/docs/latest/terminal-setup
+        "alt+backspace=text:\x1b\x7f"
+      ];
     };
   };
 
