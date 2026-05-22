@@ -35,7 +35,6 @@ CLOSED: [2026-05-06 Wed 09:37]
 - State "CANCELLED" from "TODO" [2026-05-06 Wed 09:37]
 :END:
 Waiting on an upstream fix for an nvidia-open issue Cancelled - eliminated use of nixGL -- use targets.genericLinux.enable instead on non-NixOS installs. See https://nix-community.github.io/home-manager/index.xhtml#sec-usage-gpu-non-nixos
-
 ** DONE [#B] Add flake profile for new framework desktop
 CLOSED: [2026-05-19 Tue 16:32]
 :PROPERTIES:
@@ -57,3 +56,51 @@ It should largely replicate the existing sway-based profile for xps15 but replac
 - SSH access for my default cormacc user
 - Use 'strix' as the configuration id in nixosConfigurations
 - Provide a bootstrap shell script streamlining application of the new nixosConfiguration on top of a base NixOS install
+** DONE [#B] Add local AI chat server to strix-halo profile
+CLOSED: [2026-05-21 Thu 21:50]
+:PROPERTIES:
+:CUSTOM_ID: f5a874ac-f00d-48c0-a99e-211ef82bda82
+:CREATED: [2026-05-21 Thu 12:52]
+:STARTED: [2026-05-21 Thu 16:56]
+:ARCHIVED: [2026-05-21 Thu 21:50]
+:END:
+:LOGBOOK:
+- Created [2026-05-21 Thu 12:52]
+- State "STARTED" from "TODO" [2026-05-21 Thu 16:56]
+- State "DONE" from "STARTED" [2026-05-21 Thu 21:50]
+:END:
+#+IMPORT: [[plan:2026-05-21-add-local-ai-chat-server-to-strix-halo-p.org]]
+The strix halo setup currently includes the lemonade server, which handles downloading and running models locally, and provides an OpenAI compatible API interface to them.
+
+We want to add  a local chat server (e.g. Open WebUI) as a frontend.
+
+It should:
+- Connect to the cohosted Lemonade instance
+- Expose the models provided by lemonade
+
+It should not:
+- Run models directly itself
+
+** DONE [#C] Refactor flake
+CLOSED: [2026-05-22 Fri 11:38]
+:PROPERTIES:
+:CUSTOM_ID: 603a605b-6e98-4458-9cec-db2450e4cbf4
+:CREATED: [2026-05-22 Fri 01:56]
+:STARTED: [2026-05-22 Fri 01:57]
+:ARCHIVED: [2026-05-22 Fri 11:38]
+:END:
+:LOGBOOK:
+- Created [2026-05-22 Fri 01:56]
+- State "STARTED" from "TODO" [2026-05-22 Fri 01:57]
+- State "DONE" from "STARTED" [2026-05-22 Fri 11:38]
+:END:
+#+IMPORT: [[plan:2026-05-22-refactor-flake.org]]
+Eliminate redundancy across the flake and lean harder on first-class
+NixOS / Home Manager / nix-darwin options instead of hand-rolled files and
+shell wrappers.
+
+Tracks the multi-step refactor scoped in the attached change-record. The
+record carries the full finding list (substituter duplication, NVIDIA
+modules, SSH `extraConfig`, dead `nixos-bootstrap.nix` / `nixos-llm.nix`,
+floating `fetchGit` calls, `programs.git.settings` validity, etc.) plus
+the decision to scrap `t470p` and add a top-level `nix` skill.

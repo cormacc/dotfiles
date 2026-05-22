@@ -1,124 +1,77 @@
 #+TITLE: Refactor flake
 #+DATE: 2026-05-22 Fri
-#+PARENT: [[task:603a605b-6e98-4458-9cec-db2450e4cbf4][Refactor flake]]
+#+PARENT: [[archive:603a605b-6e98-4458-9cec-db2450e4cbf4][Refactor flake]]
 #+SETUPFILE: ../../TASKS.setup.org
 
 * Summary
 
-Sweep ~2.5k lines of nix configuration for redundancy and hand-rolled bits
-that have first-class NixOS / Home Manager / nix-darwin options. Spun out
-of a review session on 2026-05-22.
+Sweep of the dotfiles flake to remove dead hosts, reduce duplicated Nix / HM
+configuration, and capture current platform gotchas. All scoped plan tasks are
+closed; remaining work is intentionally deferred follow-up, not blocker work.
 
 ** Decisions
 
-- Extract a single source of truth for nix substituters + trusted keys.
-  Today it is restated in =flake.nix= ~nixConfig~, ~nixos-base.nix~,
-  ~darwin-configuration.nix~, and partially in =hosts/strix=. The strix
-  host keeps only the =nix-amd-ai.cachix.org= extras.
-- Add a top-level =nix= skill to =dotagents/skills/nix= so every project
-  (not just this dotfiles repo) benefits. Pi currently has no nix skill
-  despite frequent friction with HM/NixOS option taxonomy, ~--impure~
-  rules, and per-project ~devShell~ workflows.
-- =t470p= host is dead hardware and gets deleted, including its
-  =hosts/t470p/= directory and the legacy single-config
-  ~nixosConfigurations.t470p~ branch in =flake.nix=. =t470-nas= goes
-  with it (same hardware).
-- Defer ~programs.npm.npmrc~ migration until darwin moves off the
-  release-25.11 pin; tracked as a follow-up on the existing
-  ~nixpkgs#507531~ TODO in =flake.nix=.
-- =programs.ssh.matchBlocks= is deprecated on Home Manager *unstable*
-  in favour of =programs.ssh.settings= (same DAG-of-attrset shape),
-  but darwin HM release-25.11 does **not** yet have =settings= and
-  fails with "option does not exist" when it's used. Keep
-  =matchBlocks= on home-core.nix until the darwin pin advances past
-  the rename; tracked with a comment alongside the existing
-  =nixpkgs#507531= follow-up.
-- =programs.git.settings.*= IS valid on both pinned HM versions; the
-  legacy =userName= / =userEmail= attrs still resolve there but trace
-  as obsolete. Use =settings= everywhere; no fallback needed.
-- Personal-vs-work git identity convention: default =user.email= =
-  =$EMAIL= (work / global), plus =includeIf "gitdir:~/dev/"= scoping
-  =$EMAIL_OSS=. =$EMAIL_OSS= falls back to =$EMAIL= when unset so the
-  single-identity case is a no-op rather than an empty-string write.
+- Running-system cache config lives in =lib/nix-caches.nix= and is consumed by
+  =nixos-base.nix= / =darwin-configuration.nix=. =flake.nix= =nixConfig= stays
+  literal because Nix parses it before flake evaluation; keep it manually in
+  sync with the lib.
+- =strix= keeps only =nix-amd-ai.cachix.org= as host-local
+  =extra-substituters= / =extra-trusted-public-keys=. Do not make
+  =nix-amd-ai.inputs.nixpkgs= follow this flake's nixpkgs.
+- =t470p= and =t470-nas= were dead hardware and are removed.
+- =programs.ssh.matchBlocks= remains in =home-core.nix= despite HM unstable's
+  deprecation warning: darwin HM release-25.11 rejects the newer
+  =programs.ssh.settings= option.
+- =programs.git.settings.*= is valid on both current HM pins; legacy
+  =userName= / =userEmail= aliases trace as obsolete.
+- Git identity convention: =$EMAIL= is the default / work address; repos under
+  =~/dev/= use =$EMAIL_OSS= via =includeIf "gitdir:~/dev/"=. =EMAIL_OSS=
+  falls back to =$EMAIL= when unset.
+- Spacemacs and Practicalli AstroVim intentionally track upstream branch tips
+  on install/update. Do not pin their =builtins.fetchGit= calls unless the
+  desired behaviour changes to reproducible editor snapshots.
 
 ** Shipped
 
-- =lib/nix-caches.nix= as single source of truth for the running-system
-  ~nix.settings.substituters~ / ~trusted-public-keys~. =nixos-base.nix=
-  and =darwin-configuration.nix= consume it; =hosts/strix= keeps only
-  its =nix-amd-ai.cachix.org= entry via the merging =extra-*= form.
-  =flake.nix= ~nixConfig~ stays as literal lists (flake-level parse
-  cannot resolve =let / import=) with a sync-warning comment.
-  Validated: =nix eval --impure --json .#nixosConfigurations.{xps15,strix}.config.nix.settings.substituters= and the darwin equivalent all resolve to the shared list; strix =extra-substituters= contains only =nix-amd-ai.cachix.org=.
-- =dotagents/skills/nix/SKILL.md= added. Frontmatter triggers on =.nix=
-  edits, =flake.nix= work, =devShell= mentions, =--impure=, and the
-  HM/NixOS/nix-darwin module words. Visible at
-  =~/.agents/skills/nix/SKILL.md= via the existing out-of-store symlink
-  managed by =agents.nix=.
-- =hosts/t470p/= and the =t470p= / =t470-nas= =nixosConfigurations=
-  branches deleted (dead hardware). =bootstrap.sh= comment and README
-  host list updated. =nix flake check --no-build --impure= clean.
-- =nixos-nvidia.nix= collapsed: single module taking
-  =dotfiles.nvidia.legacy= (default =false=); switches =open= and
-  =package= between open+beta (modern) and closed+latest (legacy).
-  =nixos-nvidia-legacy.nix= deleted, README mention rewritten.
-- =home-core.nix= SSH config moved from string-blob =extraConfig= to
-  three named host entries under =programs.ssh.matchBlocks= (kept on
-  the old option name to satisfy darwin HM release-25.11; HM unstable
-  has renamed it to =settings= and warns, but the cross-platform path
-  still parses correctly). Latent missing =Host gitlab.com= header is
-  fixed; =ssh -G= against the rendered config resolves each host to
-  its intended =IdentityFile=.
-- =programs.git.settings.*= confirmed valid on both linux HM unstable
-  and darwin HM release-25.11. Identity split into work + OSS scopes:
-  default =user.email= = =$EMAIL=, plus an =includeIf "gitdir:~/dev/"=
-  that swaps in =$EMAIL_OSS= (falls back to =$EMAIL= when unset). New
-  =EMAIL_OSS= env var prompted by =bootstrap.sh=; README + AGENTS.md
-  updated.
-- =nixos-bootstrap.nix= trimmed from 108 to 65 lines and reframed as
-  the strict installer-ISO delta vs =nixos-base.nix= (networkmanager
-  + openssh + git only, no locale / extra-groups / X11 keymap
-  duplication). README's stale "bootstrap.sh copies it" line
-  rewritten to describe the actual ISO -> first-switch flow.
-- Two live =builtins.fetchGit= calls (spacemacs =develop= in
-  =editors/emacs/emacs.nix=, practicalli astro =main= in
-  =editors/editors.nix=) now pin ~rev~ for reproducibility. Two
-  consecutive home-manager builds resolve to the same store path.
-  Bump-procedure comment alongside each pin documents the
-  =nix-prefetch-git= incantation.
+- Added =lib/nix-caches.nix= and wired NixOS + darwin runtime
+  =nix.settings.{substituters,trusted-public-keys}= through it.
+- Added a reusable top-level =nix= skill under =dotagents/skills/nix=.
+- Deleted =hosts/t470p/= and removed =nixosConfigurations.t470p= /
+  =t470-nas=.
+- Collapsed =nixos-nvidia.nix= / =nixos-nvidia-legacy.nix= into one module with
+  =dotfiles.nvidia.legacy= selecting =hardware.nvidia.open= + driver package.
+- Replaced SSH string =extraConfig= with named =matchBlocks= for =github.com=,
+  =gitlab.com=, =gitlab=, plus the existing =*= defaults. This fixed the
+  missing =Host gitlab.com= header.
+- Confirmed =programs.git.settings.*= works on linux HM unstable and darwin HM
+  release-25.11; switched default git email from hard-coded gmail to =$EMAIL=
+  and added the =~/dev/= =$EMAIL_OSS= include.
+- Trimmed =nixos-bootstrap.nix= to the installer-ISO delta: flakes,
+  bootloader, NetworkManager, stub user, openssh, and git/curl/wget/vim.
+- Audited =builtins.fetchGit= calls. Doom is commented out, Corgi is a local
+  symlink, and the two live editor fetches now deliberately float on their
+  selected branches. Practicalli source URL updated to =practicalli/nvim-astro=.
 
 ** Gotchas
 
-- =nix.settings.substituters= replaces, =nix.settings.extra-substituters=
-  merges. An entry added only to =flake.nix= =nixConfig= is silently
-  dropped on NixOS hosts -- always cross-check against
-  =lib/nix-caches.nix= when adding a new cache.
-- =builtins.fetchGit= with no =rev= re-fetches on every evaluation and
-  produces non-deterministic builds. The =fetchGit= builtin does *not*
-  accept =narHash=; with modern nix, setting =rev= alone is enough to
-  lock the input. The two live calls in this repo are now pinned;
-  document the bump procedure inline rather than chasing reproducibility
-  bugs later.
-- =programs.ssh.settings= (HM unstable) and =programs.ssh.matchBlocks=
-  (HM release-25.11) co-exist with different acceptance rules: the
-  newer name is rejected on darwin's pinned HM, the older name traces
-  as deprecated on linux. Cross-platform home-core.nix sticks with
-  =matchBlocks= until the darwin pin advances.
-- =programs.git.userName= / =userEmail= are obsolete aliases for
-  =settings.user.name= / =settings.user.email= on both HM pins. They
-  still work but log obsolete-rename traces; the =settings= form is
-  the future-safe name on both.
-- =nixos-base.nix= mounts =/mnt/mfs= unconditionally; the =nas= host
-  (the moosefs cluster's likely server) inherits the mount.
+- =nix.settings.substituters= replaces; =extra-substituters= merges. Adding a
+  cache only to =flake.nix= =nixConfig= does not configure NixOS hosts.
+- Dirty flakes only copy tracked files into the Nix store. =git add= new files
+  before evaluating config that imports them.
+- HM SSH option names differ by pin: =settings= on linux unstable,
+  =matchBlocks= on darwin release-25.11.
+- =nixos-base.nix= still mounts =/mnt/mfs= unconditionally; =nas= inherits it.
 
 ** Follow-ups
 
-- Onedrive user-unit and Chrome =.app= plist generation are flagged in
-  the original review but not addressed here; the current code works.
-  Capture as separate tasks if/when they become friction.
-- =programs.npm.npmrc= migration still deferred behind
-  =nixpkgs#507531= (existing TODO comment in =flake.nix=); pick it up
-  when the darwin pin advances past release-25.11.
+- Persisting =EMAIL_OSS= in =home.sessionVariables= would make future impure
+  rebuilds from a fresh shell keep the OSS include active. Today bootstrap can
+  pass it for the first switch, but a later shell without =EMAIL_OSS= falls
+  back to =$EMAIL=.
+- =programs.npm.npmrc= migration remains deferred until the darwin pin moves
+  past the release-25.11 / =nixpkgs#507531= constraint.
+- Onedrive user-unit and Chrome =.app= plist generation were noted in the
+  review but left unchanged because the current code works.
 
 * Plan
 
@@ -134,21 +87,8 @@ CLOSED: [2026-05-22 Fri 02:07]
 - State "DONE" from "STARTED" [2026-05-22 Fri 02:07]
 :END:
 
-Acceptance criteria:
-- One file (=lib/nix-caches.nix= or similar) exports
-  ={ substituters, trustedPublicKeys }=.
-- =flake.nix= ~nixConfig.extra-substituters~ /
-  ~extra-trusted-gpg-public-keys~ derives from it.
-- =nixos-base.nix= ~nix.settings.substituters~ /
-  ~trusted-public-keys~ derives from it.
-- =darwin-configuration.nix= ~nix.settings.substituters~ /
-  ~trusted-public-keys~ derives from it.
-- =hosts/strix/nixos-configuration.nix= keeps only its
-  =nix-amd-ai.cachix.org= entry as ~extra-substituters~ /
-  ~extra-trusted-public-keys~ on top of the shared list.
-- =nix flake check= (or at minimum =nixos-rebuild build
-  --flake .#strix --impure --dry-run= equivalent) evaluates clean for
-  all surviving hosts.
+Outcome: =lib/nix-caches.nix= backs running-system cache config; =flake.nix=
+keeps literal =nixConfig= with a sync warning.
 
 ** DONE [#A] Add top-level `nix` skill to dotagents
 CLOSED: [2026-05-22 Fri 02:11]
@@ -162,22 +102,8 @@ CLOSED: [2026-05-22 Fri 02:11]
 - State "DONE" from "STARTED" [2026-05-22 Fri 02:11]
 :END:
 
-Acceptance criteria:
-- =dotagents/skills/nix/SKILL.md= exists with a frontmatter description
-  whose triggers cover both =.nix= file edits and per-project
-  =flake.nix= ~devShell~ workflows.
-- Body covers: HM vs NixOS vs nix-darwin option boundaries, when
-  ~--impure~ is required (this flake reads env vars), ~home.file~ vs
-  ~xdg.configFile~ vs ~mkOutOfStoreSymlink~, ~home.activation~ DAG
-  hooks, validation commands (~nix repl~, ~nix eval~,
-  ~nixos-rebuild build~, ~home-manager build~,
-  ~darwin-rebuild build~), per-project ~devShells~ + direnv,
-  =fetchGit= pinning rule.
-- Visible to pi via the existing =~/.agents/skills= symlink chain
-  managed by =agents.nix=.
-- =find-skills= / SKILL discovery surfaces it on prompts like
-  "edit my home.nix" or "add a devShell" (smoke-tested by inspection
-  of SKILL.md description text, not benchmarked).
+Outcome: reusable =nix= skill added and visible through the existing
+=~/.agents/skills= symlink chain.
 
 ** DONE [#B] Delete `t470p` host
 CLOSED: [2026-05-22 Fri 11:06]
@@ -191,20 +117,7 @@ CLOSED: [2026-05-22 Fri 11:06]
 - State "DONE" from "STARTED" [2026-05-22 Fri 11:06]
 :END:
 
-Acceptance criteria:
-- =hosts/t470p/= deleted via =git rm=.
-- =flake.nix= ~nixosConfigurations.t470p~ branch removed.
-- =flake.nix= ~nixosConfigurations.t470-nas~ branch removed (same
-  hardware).
-- README + AGENTS.md mentions of t470p removed or rewritten.
-- Surviving hosts (=xps15=, =strix=, =t580=, =nas=, =Cormacs-MacBook-Air=)
-  still evaluate.
-
-Shipped: =git rm -r hosts/t470p=, dropped both branches from
-=flake.nix=, rewrote README references (no =AGENTS.md= mentions to
-begin with), and trimmed a stale =t470p= example from =bootstrap.sh=.
-=nix flake check --no-build --impure= passes for the remaining
-nixos / home-manager / darwin configs.
+Outcome: removed =hosts/t470p/= and both =t470p= / =t470-nas= flake outputs.
 
 ** DONE [#B] Collapse `nixos-nvidia*.nix`
 CLOSED: [2026-05-22 Fri 11:08]
@@ -218,21 +131,8 @@ CLOSED: [2026-05-22 Fri 11:08]
 - State "DONE" from "STARTED" [2026-05-22 Fri 11:08]
 :END:
 
-Acceptance criteria:
-- Single =nixos-nvidia.nix= that accepts a =legacy= flag (or splits
-  into two thin presets importing a shared base) — the only differing
-  attrs today are ~hardware.nvidia.open~ and ~hardware.nvidia.package~.
-- =nixos-nvidia-legacy.nix= deleted.
-- =xps15= still builds (current modern-driver consumer).
-
-Shipped: =nixos-nvidia.nix= now exposes a single
-=dotfiles.nvidia.legacy= boolean option (default =false=) which
-switches =hardware.nvidia.open= and =hardware.nvidia.package= between
-open + beta (modern) and closed + latest (legacy).
-=nixos-nvidia-legacy.nix= deleted via =git rm=. =flake.nix= t580
-comment updated to point at the new option. =xps15= still resolves
-to =open = true= / =nvidia.package.version = "595.45.04"= (beta), and
-=nix flake check --no-build --impure= passes for every host.
+Outcome: one =nixos-nvidia.nix= module with =dotfiles.nvidia.legacy=; legacy
+file deleted.
 
 ** DONE [#B] Convert SSH `extraConfig` to `matchBlocks`
 CLOSED: [2026-05-22 Fri 11:10]
@@ -246,25 +146,7 @@ CLOSED: [2026-05-22 Fri 11:10]
 - State "DONE" from "STARTED" [2026-05-22 Fri 11:10]
 :END:
 
-Acceptance criteria:
-- =home-core.nix= ~programs.ssh.extraConfig~ block replaced with named
-  entries under ~programs.ssh.matchBlocks~ (=github.com=, =gitlab.com=,
-  =gitlab=).
-- Latent missing =Host gitlab.com= directive is fixed in the process.
-- =ssh -G github.com= / =ssh -G gitlab.com= / =ssh -G gitlab= each
-  resolve to the intended ~IdentityFile~ after a switch.
-
-Shipped: =programs.ssh.extraConfig= gone; three named entries under
-=programs.ssh.settings= (the HM 25.11 successor of =matchBlocks=,
-which now logs a deprecation warning) plus the surviving =*= block.
-Latent missing =Host gitlab.com= header is fixed by giving
-=gitlab.com= its own attribute key. Validated by rendering the
-generated =~/.ssh/config= via
-=nix build .#homeConfigurations.default.config.home.file.".ssh/config".source=
-and running =ssh -G= against it: =github.com= and =gitlab.com= both
-resolve to =id_ed25519_personal=; =gitlab= resolves to
-=LightsailDefaultKey-eu-west-1.pem= on port 1022 as =ec2-user=.
-=nix flake check --no-build --impure= clean.
+Outcome: named SSH host blocks; =gitlab.com= now has its own header.
 
 ** DONE [#B] Validate / fix `programs.git.settings.*` usage
 CLOSED: [2026-05-22 Fri 11:23]
@@ -278,35 +160,8 @@ CLOSED: [2026-05-22 Fri 11:23]
 - State "DONE" from "STARTED" [2026-05-22 Fri 11:23]
 :END:
 
-Acceptance criteria:
-- Confirm whether HM actually applies ~programs.git.settings.user.name~
-  / ~settings.user.email~ / ~settings.core.autocrlf~ on the pinned HM
-  versions (linux unstable + darwin 25.11). If not, switch to
-  ~programs.git.userName~ / ~userEmail~ / ~extraConfig.core.autocrlf~.
-- Decide whether email should derive from =$EMAIL= (current intent on
-  line 8) rather than the hard-coded =${username}@gmail.com= override.
-- =git config --get user.email= reports the chosen value post-switch.
-
-Shipped:
-- Confirmed =programs.git.settings.{user.name, user.email, core.autocrlf}=
-  works on both linux HM unstable and darwin HM release-25.11. The old
-  =userName= / =userEmail= attrs still resolve there but log
-  "Obsolete option ... renamed to programs.git.settings.user.*" traces;
-  the current =settings= shape is the future-safe one. No HM-version
-  fallback needed.
-- Split git identity into work (default) + personal (OSS) scopes:
-  default =user.email= now derives from =$EMAIL= (the work address),
-  and a new =includeIf "gitdir:~/dev/"= block swaps in =$EMAIL_OSS=
-  inside =~/dev/=. =$EMAIL_OSS= falls back to =$EMAIL= when unset so
-  single-identity setups behave unchanged.
-- =bootstrap.sh= prompts for =EMAIL_OSS= with =$EMAIL= as the default;
-  =--preserve-env= updated to forward it through the privileged
-  =nixos-rebuild=. README + AGENTS.md document the convention.
-- Validated by rendering both gitconfig fragments via
-  =nix build .#homeConfigurations.default.config.home.file."/home/cormacc/.config/git/config".source=
-  and running =git config --show-origin --get user.email= from a repo
-  outside =~/dev/= (→ =cormac.cannon@neuromoddevices.com=) and inside
-  =~/dev/= (→ =cormacc@gmail.com=). Darwin eval also passes.
+Outcome: =programs.git.settings= retained; default email is =$EMAIL= and
+=~/dev/= uses =$EMAIL_OSS= via includeIf.
 
 ** DONE [#C] Drop or thin `nixos-bootstrap.nix`
 CLOSED: [2026-05-22 Fri 11:33]
@@ -320,25 +175,8 @@ CLOSED: [2026-05-22 Fri 11:33]
 - State "DONE" from "STARTED" [2026-05-22 Fri 11:33]
 :END:
 
-Acceptance criteria:
-- Either deleted (preferred — README points fresh installs at
-  =bootstrap.sh=), or trimmed to the strict installer-ISO delta from
-  =nixos-base.nix=.
-- No remaining duplication of locale / user / openssh / package list
-  between =nixos-bootstrap.nix= and =nixos-base.nix=.
-
-Shipped: trimmed (not deleted — the flake can't apply until
-=hosts/<host>/hardware-configuration.nix= exists on disk, so the
-ISO step still needs a self-contained =configuration.nix=). 108 →
-65 lines: dropped locale / extraLocaleSettings, the full extra-groups
-list, X11 keymap, console keyMap, =allowUnfree=-via-default vs the
-leaner =nixpkgs.config.allowUnfree=, and the full networking proxy
-comment wall. Kept only what's needed to bring the box up with
-networkmanager + openssh + git on first boot so the flake can be
-fetched and applied; =nixos-base.nix= owns everything else. README
-"=bootstrap.sh= copies it" line rewritten to describe the actual
-workflow (drop file before =nixos-install=, then post-reboot the
-flake takes over).
+Outcome: kept but trimmed to first-boot bootstrap only; README corrected to
+match the actual ISO -> flake handoff.
 
 ** DONE [#C] Audit floating `builtins.fetchGit` calls
 CLOSED: [2026-05-22 Fri 11:35]
@@ -352,68 +190,35 @@ CLOSED: [2026-05-22 Fri 11:35]
 - State "DONE" from "STARTED" [2026-05-22 Fri 11:35]
 :END:
 
-Acceptance criteria:
-- =editors/emacs/emacs.nix= spacemacs / doom / corgi fetches, and
-  =editors/editors.nix= practicalli astro fetch, either pin a ~rev~ +
-  ~narHash~ or become flake inputs.
-- =flake.lock= updates accordingly.
-- =home-manager build --flake .#default --impure= is byte-identical
-  across two consecutive runs.
-
-Shipped: two live =builtins.fetchGit= calls now pin ~rev~. With
-modern nix, a fetchGit input is only treated as locked when ~rev~ is
-set, and that's sufficient by itself for reproducibility -- no
-separate ~narHash~ needed (and =fetchGit= doesn't accept it). The
-doom fetch was already commented out (manual clone). Corgi turned
-out not to be a fetchGit -- it's a =mkOutOfStoreSymlink= to a local
-checkout under =editors/emacs/corgi=, so nothing to pin there.
-=flake.lock= unchanged because these are not flake inputs (deliberate
--- they don't need to participate in =nix flake update= cadence).
-Validated: two consecutive
-=nix build .#homeConfigurations.default.activationPackage= runs
-resolve to the same store path, and both source fetches resolve to
-deterministic =/nix/store/...-source= paths.
+Outcome: audited all instances; editor configs intentionally float on branch
+heads, so byte-identical rebuilds across time are not a goal for those sources.
 
 * Implementation
 
-** nix-caches lib placement
-
-First pass tried =nixConfig = let caches = import ./lib/nix-caches.nix; in { … };=. Nix rejects this with =expected a set but got a thunk= because =nixConfig= is parsed by the lock-file machinery before evaluation — it must be a literal attrset of literals. Reverted that one site to inline lists with a sync-warning comment; the lib still removes the duplication between =nixos-base.nix= and =darwin-configuration.nix=, which are the two paths that drive the running system.
-
-** Dirty-tree gotcha
-
-Nix copies only tracked files into the store when the working tree is dirty. The first =nix eval= attempt failed with =path '…/lib/nix-caches.nix' does not exist= until =git add lib/nix-caches.nix=. Captured as a rule in the new =nix= skill under *Validation*.
+- =nixConfig= cannot import =lib/nix-caches.nix= because it is parsed before
+  flake evaluation. Runtime Nix settings use the lib; flake-level cache hints
+  stay literal with a sync warning.
+- New files imported by a dirty flake must be staged before =nix eval=, because
+  Nix evaluates the tracked-file snapshot.
+- =programs.ssh.settings= worked on linux HM unstable but failed on darwin HM
+  release-25.11, so the cross-platform config reverted to =matchBlocks=.
+- Editor config fetches were deliberately left floating after review: latest
+  upstream branch tip per install/update is preferred over reproducible editor
+  snapshots.
 
 * Validation
 
-- =nix eval --impure --json .#nixosConfigurations.strix.config.nix.settings.substituters= → shared list (cache.nixos.org, nix-community, hyprland, numtide) plus the upstream-default duplicate, as before.
-- =nix eval --impure --json .#nixosConfigurations.strix.config.nix.settings.extra-substituters= → =["https://nix-amd-ai.cachix.org"]=.
-- =nix eval --impure --json .#nixosConfigurations.xps15.config.nix.settings.substituters= → shared list, no extras.
-- =nix eval --impure --json .#darwinConfigurations."Cormacs-MacBook-Air".config.nix.settings.substituters= → shared list, no extras.
-- =nix flake check --no-build --impure= clean after =t470p= /
-  =t470-nas= removal. Surviving NixOS configurations evaluated:
-  =xps15=, =strix=, =t580=, =nas=. Home + darwin configurations also
-  evaluate.
-- =nix eval= on =xps15= post-NVIDIA-collapse: =hardware.nvidia.open
-  = true=, =hardware.nvidia.package.version = "595.45.04"= (matches
-  the pre-refactor beta driver).
-- SSH config rendered via =nix build
-  .#homeConfigurations.default.config.home.file.".ssh/config".source=
-  and queried with =ssh -G=: =github.com= → =id_ed25519_personal=,
-  =gitlab.com= → =id_ed25519_personal=, =gitlab= →
-  =LightsailDefaultKey-eu-west-1.pem= on port 1022 as =ec2-user=.
-- Git identity split tested with =git config --show-origin --get
-  user.email= against the rendered global gitconfig: repo outside
-  =~/dev/= → =$EMAIL= (work address); repo inside =~/dev/= →
-  =$EMAIL_OSS= (resolved from the includeIf path).
-- =programs.git.settings.*= confirmed valid on both =homeConfigurations.default=
-  (linux HM unstable) and =darwinConfigurations."Cormacs-MacBook-Air"=
-  (darwin HM release-25.11) via =nix eval=.
-- =builtins.fetchGit= reproducibility: two consecutive =nix build
-  .#homeConfigurations.default.activationPackage --impure --no-link=
-  runs return the same =/nix/store/...-home-manager-generation=
-  path; both pinned source fetches resolve to deterministic
-  =/nix/store/...-source= outputs.
-- =nix= skill file present at =~/.agents/skills/nix/SKILL.md= and
-  resolves through the =mkOutOfStoreSymlink= chain set up by
-  =agents.nix=.
+- =nix flake check --no-build --impure= passed after each structural change for
+  surviving NixOS hosts (=xps15=, =strix=, =t580=, =nas=), home-manager, and
+  darwin outputs.
+- Cache settings verified with =nix eval= for =xps15=, =strix=, and
+  =Cormacs-MacBook-Air=; =strix= keeps only nix-amd-ai as an extra cache.
+- NVIDIA refactor verified on =xps15=: =hardware.nvidia.open = true= and beta
+  driver package unchanged.
+- SSH config rendered and checked with =ssh -G= for =github.com=,
+  =gitlab.com=, and =gitlab=; each resolved to the intended identity / port.
+- Git identity split verified with rendered gitconfig: outside =~/dev/= uses
+  =$EMAIL=; inside =~/dev/= uses =$EMAIL_OSS= include when present.
+- =programs.git.settings.*= evaluated on both linux HM unstable and darwin HM
+  release-25.11.
+- =nix= skill presence verified at =~/.agents/skills/nix/SKILL.md=.

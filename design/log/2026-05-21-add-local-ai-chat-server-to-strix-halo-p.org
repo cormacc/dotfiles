@@ -1,6 +1,6 @@
 #+TITLE: Add local AI chat server to strix-halo profile
 #+DATE: 2026-05-21 Thu
-#+PARENT: [[task:f5a874ac-f00d-48c0-a99e-211ef82bda82][Add local AI chat server to strix-halo profile]]
+#+PARENT: [[archive:f5a874ac-f00d-48c0-a99e-211ef82bda82][Add local AI chat server to strix-halo profile]]
 #+SETUPFILE: ../../TASKS.setup.org
 
 * Summary
