@@ -123,33 +123,9 @@
       };
     in {
       nixosConfigurations = {
-        # This configuration consolidates system and home directory setup...
-        # TODO: Migrate to standalone home-manager (see xps15 for the preferred pattern).
-        t470p = nixpkgs.lib.nixosSystem {
-          system = "${system}";
-          specialArgs = { hostName = "t470p"; };
-          modules = [
-            { nixpkgs.config.allowUnfree = true; }
-            nur.modules.nixos.default
-            ./nixos-nvidia.nix
-            ./hosts/t470p/hardware-configuration.nix
-            ./nixos-boot-default.nix
-            ./nixos-workstation.nix
-            ./nixos-gaming.nix
-            home-manager.nixosModules.home-manager
-            {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.users.cormacc = import ./home.nix;
-              home-manager.extraSpecialArgs = { cfgName = "default"; };
-
-              # Optionally, use home-manager.extraSpecialArgs to pass
-              # arguments to home.nix
-            }
-          ];
-        };
-        #... this separate nixos and home-manager, arguably a better approach
-        #    as os-level tweaking should happen less often than local environment
+        # Standalone home-manager pattern (os config separate from user env)
+        # is the canonical approach -- os-level tweaking should happen less
+        # often than local environment changes.
         xps15 = nixpkgs.lib.nixosSystem {
           system = "${system}";
           specialArgs = {
@@ -198,19 +174,6 @@
             ./nixos-boot-default.nix
             ./nixos-workstation.nix
             ./nixos-gaming.nix
-          ];
-        };
-        # t470p hardware doubling as a NAS (succeeded the retired C2750D box).
-        t470-nas = nixpkgs.lib.nixosSystem {
-          system = "${system}";
-          specialArgs = { hostName = "t470-nas"; };
-          modules = [
-            ./hosts/t470p/hardware-configuration.nix
-            ./hosts/t470p/nixos-configuration.nix
-            #... server-only
-            ./nixos-server.nix
-            #... or if we want best of both worlds
-            # ./nixos-workstation.nix
           ];
         };
         # Current NAS: odroid-h4.
