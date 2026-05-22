@@ -305,7 +305,7 @@ Enable flakes and add =git= so that the repo can be cloned and the flake evaluat
 #+end_src
 Then rebuild with =sudo nixos-rebuild switch=.
 
-[[./nixos-bootstrap.nix]] is a checked-in minimal config that does roughly this. [[./bootstrap.sh]] copies it over =/etc/nixos/configuration.nix= and rebuilds.
+[[./nixos-bootstrap.nix]] is a checked-in minimal =configuration.nix= you can drop over =/etc/nixos/configuration.nix= (or merge with the generated one) before the first =nixos-install=, so the freshly built system already has flakes, git, and openssh. After reboot, clone the repo and run [[./bootstrap.sh]] -- that script copies =/etc/nixos/hardware-configuration.nix= into =hosts/<host>/= and runs =nixos-rebuild switch --flake .#<host>=, at which point =nixos-base.nix= takes over.
 
 *** Integrate host hardware configuration and apply NixOS config from flake
 For a brand new host:
