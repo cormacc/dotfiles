@@ -4,30 +4,19 @@
 
 { config, pkgs, specialArgs, ... }:
 
+let
+  caches = import ./lib/nix-caches.nix;
+in
 {
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
     trusted-users = ["root" "@wheel" "cormacc"];
-    # extra-substituters = [
-    #   "https://nix-community.cachix.org"
-    # ];
-    # extra-trusted-gpg-public-keys = [
-    #   "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
-    # ];
 
-    substituters = [
-      "https://cache.nixos.org"
-      "https://nix-community.cachix.org"
-      "https://hyprland.cachix.org"
-      "https://cache.numtide.com"
-    ];
-    trusted-public-keys = [
-      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-      "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
-      "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
-      "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
-    ];
-
+    # Shared substituters / keys come from lib/nix-caches.nix.
+    # Host-local additions (e.g. nix-amd-ai for strix) belong in the host
+    # module via `extra-substituters` / `extra-trusted-public-keys`.
+    substituters = caches.substituters;
+    trusted-public-keys = caches.trustedPublicKeys;
   };
 
   # Allow unfree packages
