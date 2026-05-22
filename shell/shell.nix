@@ -133,6 +133,7 @@ complete -f -F _bb_tasks bb'';
       set -s extended-keys on
       set -s extended-keys-format csi-u
       set -as terminal-features 'xterm*:extkeys'
+      set-option -g status-position top
     '';
     plugins = with pkgs.tmuxPlugins; [
         sensible
@@ -140,11 +141,11 @@ complete -f -F _bb_tasks bb'';
         {
             plugin = dracula;
             extraConfig = ''
+                set -g @dracula-plugins "weather location"
                 set -g @dracula-show-fahrenheit false
-                set -g @dracula-show-weather false
-                set -g @dracula-show-battery false
+                set -g @dracula-fixed-location "Salthill"
                 set -g @dracula-show-powerline true
-                set -g @dracula-show-left-icon smiley
+                set -g @dracula-show-left-icon "#h | #S"
             '';
         }
      ];

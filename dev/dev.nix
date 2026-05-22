@@ -3,6 +3,10 @@
 {
   programs.kitty = {
     enable = true;
+    keybindings = {
+      # For pi within tmux
+      "shift+enter" = "send_text all \\x1b[13;2u";
+    };
     settings = {
       confirm_os_window_close = 0;
       allow_remote_control = "socket-only";

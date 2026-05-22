@@ -119,11 +119,15 @@ in
       typescript-language-server
       fswatch
       # Claude Code + Codex
-      llm-agents.claude-code
-      llm-agents.codex
+      # llm-agents.claude-code
+      # llm-agents.codex
       # Support
       # lmstudio
     ];
+
+    home.shellAliases = {
+      pit = "tmux new -s \"$(realpath --relative-to=\"$HOME\" \"$PWD\")\" -n \"$(realpath --relative-to=\"$HOME\" \"$PWD\")\" pi";
+    };
 
     home.file = {
       ".npmrc".text = ''
