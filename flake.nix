@@ -68,6 +68,11 @@
     nix-amd-ai.url = "github:noamsto/nix-amd-ai";
   };
 
+  # NOTE: nixConfig must be a literal attrset of literals — nix parses it
+  # before evaluating the flake, so it cannot reference `let`-bound
+  # imports. Keep this list in sync with lib/nix-caches.nix, which is the
+  # source of truth for the running-system equivalents in nixos-base.nix
+  # and darwin-configuration.nix.
   nixConfig = {
     # NOTE: trusted-users here only applies when the flake is evaluated by an
     # already-trusted user. For a fresh NixOS install, also set trusted-users

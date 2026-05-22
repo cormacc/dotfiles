@@ -2,6 +2,9 @@
 # Applied via: sudo darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure
 # See https://nixcademy.com/posts/nix-on-macos/
 { self, pkgs, ... }:
+let
+  caches = import ./lib/nix-caches.nix;
+in
 {
   environment.systemPackages = [ pkgs.vim ];
 
@@ -17,19 +20,9 @@
   # Declare substituters and their signing keys at the system level so they
   # are written into /etc/nix/nix.conf and honoured unconditionally, rather
   # than relying on flake nixConfig (which requires the user to already be
-  # trusted at evaluation time).
-  nix.settings.substituters = [
-    "https://cache.nixos.org"
-    "https://nix-community.cachix.org"
-    "https://hyprland.cachix.org"
-    "https://cache.numtide.com"
-  ];
-  nix.settings.trusted-public-keys = [
-    "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-    "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
-    "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
-    "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
-  ];
+  # trusted at evaluation time). Shared list lives in lib/nix-caches.nix.
+  nix.settings.substituters = caches.substituters;
+  nix.settings.trusted-public-keys = caches.trustedPublicKeys;
 
   # Enable alternative shell support in nix-darwin.
   programs.zsh.enable = true;
