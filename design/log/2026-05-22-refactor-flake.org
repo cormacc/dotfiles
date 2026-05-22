@@ -90,21 +90,35 @@ of a review session on 2026-05-22.
 ** Gotchas
 
 - =nix.settings.substituters= replaces, =nix.settings.extra-substituters=
-  merges. The current mix means an entry added only to ~flake.nix~
-  ~nixConfig~ is silently dropped on NixOS hosts.
-- =builtins.fetchGit= with no =rev= re-fetches on every evaluation; used
-  today for spacemacs, doom, corgi, and the practicalli astro nvim
-  config. Pinning a =rev= + =narHash= or moving to ~flake.nix~ inputs
-  both fix it.
+  merges. An entry added only to =flake.nix= =nixConfig= is silently
+  dropped on NixOS hosts -- always cross-check against
+  =lib/nix-caches.nix= when adding a new cache.
+- =builtins.fetchGit= with no =rev= re-fetches on every evaluation and
+  produces non-deterministic builds. The =fetchGit= builtin does *not*
+  accept =narHash=; with modern nix, setting =rev= alone is enough to
+  lock the input. The two live calls in this repo are now pinned;
+  document the bump procedure inline rather than chasing reproducibility
+  bugs later.
+- =programs.ssh.settings= (HM unstable) and =programs.ssh.matchBlocks=
+  (HM release-25.11) co-exist with different acceptance rules: the
+  newer name is rejected on darwin's pinned HM, the older name traces
+  as deprecated on linux. Cross-platform home-core.nix sticks with
+  =matchBlocks= until the darwin pin advances.
+- =programs.git.userName= / =userEmail= are obsolete aliases for
+  =settings.user.name= / =settings.user.email= on both HM pins. They
+  still work but log obsolete-rename traces; the =settings= form is
+  the future-safe name on both.
 - =nixos-base.nix= mounts =/mnt/mfs= unconditionally; the =nas= host
   (the moosefs cluster's likely server) inherits the mount.
 
 ** Follow-ups
 
-- [[id:0d66fbea-ed86-416d-afd9-416f65f95d01][Validate / fix `programs.git.settings.*` usage]] (#3 below) may spin
-  out further work depending on what HM actually accepts.
-- Onedrive user-unit and Chrome `.app` plist generation are flagged in
-  the plan but left for a later pass; the current code works.
+- Onedrive user-unit and Chrome =.app= plist generation are flagged in
+  the original review but not addressed here; the current code works.
+  Capture as separate tasks if/when they become friction.
+- =programs.npm.npmrc= migration still deferred behind
+  =nixpkgs#507531= (existing TODO comment in =flake.nix=); pick it up
+  when the darwin pin advances past release-25.11.
 
 * Plan
 
@@ -376,5 +390,30 @@ Nix copies only tracked files into the store when the working tree is dirty. The
 - =nix eval --impure --json .#nixosConfigurations.strix.config.nix.settings.extra-substituters= → =["https://nix-amd-ai.cachix.org"]=.
 - =nix eval --impure --json .#nixosConfigurations.xps15.config.nix.settings.substituters= → shared list, no extras.
 - =nix eval --impure --json .#darwinConfigurations."Cormacs-MacBook-Air".config.nix.settings.substituters= → shared list, no extras.
-- =nix flake check --impure --no-build= still fails on the legacy =t470p= NixOS+HM mix (pre-existing, scheduled for deletion in plan task =0d66fbea=). Not a regression.
-- =nix= skill file present at =~/.agents/skills/nix/SKILL.md= and resolves through the =mkOutOfStoreSymlink= chain set up by =agents.nix=.
+- =nix flake check --no-build --impure= clean after =t470p= /
+  =t470-nas= removal. Surviving NixOS configurations evaluated:
+  =xps15=, =strix=, =t580=, =nas=. Home + darwin configurations also
+  evaluate.
+- =nix eval= on =xps15= post-NVIDIA-collapse: =hardware.nvidia.open
+  = true=, =hardware.nvidia.package.version = "595.45.04"= (matches
+  the pre-refactor beta driver).
+- SSH config rendered via =nix build
+  .#homeConfigurations.default.config.home.file.".ssh/config".source=
+  and queried with =ssh -G=: =github.com= → =id_ed25519_personal=,
+  =gitlab.com= → =id_ed25519_personal=, =gitlab= →
+  =LightsailDefaultKey-eu-west-1.pem= on port 1022 as =ec2-user=.
+- Git identity split tested with =git config --show-origin --get
+  user.email= against the rendered global gitconfig: repo outside
+  =~/dev/= → =$EMAIL= (work address); repo inside =~/dev/= →
+  =$EMAIL_OSS= (resolved from the includeIf path).
+- =programs.git.settings.*= confirmed valid on both =homeConfigurations.default=
+  (linux HM unstable) and =darwinConfigurations."Cormacs-MacBook-Air"=
+  (darwin HM release-25.11) via =nix eval=.
+- =builtins.fetchGit= reproducibility: two consecutive =nix build
+  .#homeConfigurations.default.activationPackage --impure --no-link=
+  runs return the same =/nix/store/...-home-manager-generation=
+  path; both pinned source fetches resolve to deterministic
+  =/nix/store/...-source= outputs.
+- =nix= skill file present at =~/.agents/skills/nix/SKILL.md= and
+  resolves through the =mkOutOfStoreSymlink= chain set up by
+  =agents.nix=.
