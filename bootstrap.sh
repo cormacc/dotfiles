@@ -160,9 +160,25 @@ echo "    ok: $host_dir present"
 # -----------------------------------------------------------------------------
 # 2. Ensure identity env vars (consumed by home-core.nix via builtins.getEnv)
 # -----------------------------------------------------------------------------
-say "Ensuring identity env vars (NAME, EMAIL, GITLAB)"
+say "Ensuring identity env vars (NAME, EMAIL, EMAIL_OSS, GITLAB)"
 ensure_var NAME   "Your name (used in git config)"                  required
-ensure_var EMAIL  "Your email (used in git config)"                 required
+ensure_var EMAIL  "Your global / work email (used in git config)"   required
+# EMAIL_OSS scopes a personal email to ~/dev/ repos via a git includeIf.
+# Defaulting to $EMAIL keeps single-identity setups simple: hit Enter and
+# nothing changes vs the EMAIL-only case.
+if [ -z "${EMAIL_OSS-}" ]; then
+    if [ -t 0 ]; then
+        read -r -p "    Personal/OSS email for ~/dev/ repos [default: \$EMAIL = $EMAIL]: " EMAIL_OSS_ANS
+        EMAIL_OSS="${EMAIL_OSS_ANS:-$EMAIL}"
+    else
+        read -r EMAIL_OSS_ANS || EMAIL_OSS_ANS=""
+        EMAIL_OSS="${EMAIL_OSS_ANS:-$EMAIL}"
+    fi
+    export EMAIL_OSS
+    echo "    ok: \$EMAIL_OSS = $EMAIL_OSS"
+else
+    echo "    ok: \$EMAIL_OSS already set"
+fi
 ensure_var GITLAB "Self-hosted GitLab host (blank if none)"         optional
 
 # -----------------------------------------------------------------------------
@@ -214,7 +230,7 @@ echo "    ok: $hw_target is a real hardware-configuration"
 say "Applying NixOS configuration: .#$profile"
 confirm "Run: sudo nixos-rebuild switch --flake .#$profile --impure ?" \
     || { echo "aborted by user"; exit 1; }
-run sudo --preserve-env=NAME,EMAIL,GITLAB nixos-rebuild switch --flake ".#$profile" --impure
+run sudo --preserve-env=NAME,EMAIL,EMAIL_OSS,GITLAB nixos-rebuild switch --flake ".#$profile" --impure
 
 # -----------------------------------------------------------------------------
 # 6. Home Manager

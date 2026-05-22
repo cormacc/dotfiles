@@ -8,7 +8,10 @@ aliases, provisioning, and the dotagents submodule bootstrap.
 ## Build conventions
 
 - `--impure` is required on every build: `home-core.nix` reads `NAME`,
-  `EMAIL`, `USER`, `HOME`, `GITLAB` from the environment at apply time.
+  `EMAIL`, `EMAIL_OSS`, `USER`, `HOME`, `GITLAB` from the environment at
+  apply time. `EMAIL` is the default git identity; `EMAIL_OSS` overrides
+  it inside `~/dev/` via an `includeIf` and falls back to `$EMAIL` when
+  unset.
 - `allowUnfree = true` globally.
 - `home.nix` is the full-Linux-workstation entry point — read it to see which
   modules a workstation pulls in. NixOS host modules live in
