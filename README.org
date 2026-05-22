@@ -88,7 +88,7 @@ Progress on the Microchip side lives under [[./microchip/]] and the [[https://gi
 
 ** NixOS module layering
 [[./nixos-workstation.nix]] imports [[./nixos-base.nix]] and adds workstation concerns (audio, display, sway, hyprland). Host-specific configs live in =hosts/<hostname>/=. Optional mixins:
-- [[./nixos-nvidia.nix]] / [[./nixos-nvidia-legacy.nix]] -- GPU drivers
+- [[./nixos-nvidia.nix]] -- GPU drivers (set =dotfiles.nvidia.legacy = true= for pre-Turing cards)
 - [[./nixos-gaming.nix]] -- Steam and gaming packages
 - [[./nixos-llm.nix]] -- ollama / LLM setup
 - [[./nixos-server.nix]] -- server-only config
