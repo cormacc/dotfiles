@@ -80,6 +80,12 @@ of a review session on 2026-05-22.
   + openssh + git only, no locale / extra-groups / X11 keymap
   duplication). README's stale "bootstrap.sh copies it" line
   rewritten to describe the actual ISO -> first-switch flow.
+- Two live =builtins.fetchGit= calls (spacemacs =develop= in
+  =editors/emacs/emacs.nix=, practicalli astro =main= in
+  =editors/editors.nix=) now pin ~rev~ for reproducibility. Two
+  consecutive home-manager builds resolve to the same store path.
+  Bump-procedure comment alongside each pin documents the
+  =nix-prefetch-git= incantation.
 
 ** Gotchas
 
@@ -320,10 +326,16 @@ fetched and applied; =nixos-base.nix= owns everything else. README
 workflow (drop file before =nixos-install=, then post-reboot the
 flake takes over).
 
-** TODO [#C] Audit floating `builtins.fetchGit` calls
+** DONE [#C] Audit floating `builtins.fetchGit` calls
+CLOSED: [2026-05-22 Fri 11:35]
 :PROPERTIES:
 :CUSTOM_ID: 8a66fc15-93a1-4624-87bd-a43377a2afad
 :CREATED: [2026-05-22 Fri]
+:STARTED: [2026-05-22 Fri 11:34]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-05-22 Fri 11:34]
+- State "DONE" from "STARTED" [2026-05-22 Fri 11:35]
 :END:
 
 Acceptance criteria:
@@ -333,6 +345,20 @@ Acceptance criteria:
 - =flake.lock= updates accordingly.
 - =home-manager build --flake .#default --impure= is byte-identical
   across two consecutive runs.
+
+Shipped: two live =builtins.fetchGit= calls now pin ~rev~. With
+modern nix, a fetchGit input is only treated as locked when ~rev~ is
+set, and that's sufficient by itself for reproducibility -- no
+separate ~narHash~ needed (and =fetchGit= doesn't accept it). The
+doom fetch was already commented out (manual clone). Corgi turned
+out not to be a fetchGit -- it's a =mkOutOfStoreSymlink= to a local
+checkout under =editors/emacs/corgi=, so nothing to pin there.
+=flake.lock= unchanged because these are not flake inputs (deliberate
+-- they don't need to participate in =nix flake update= cadence).
+Validated: two consecutive
+=nix build .#homeConfigurations.default.activationPackage= runs
+resolve to the same store path, and both source fetches resolve to
+deterministic =/nix/store/...-source= paths.
 
 * Implementation
 

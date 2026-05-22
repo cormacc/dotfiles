@@ -95,10 +95,17 @@ in {
     #   #N.B. If updating rev above, new sha256 will be reported when trying to swap this flake in, and can be pasted here
     #   sha256 = "OdZuOmxDYvvsCnu9TcogCeB0agCq8o20/YPCmUSwYPw=";
     # };
-    #... or this variant to track a branch
+    #... or this variant to track a branch. `rev` is pinned to make the
+    # fetch reproducible -- without it, `builtins.fetchGit` would refetch
+    # the upstream tip on every evaluation. Bump by running
+    #   nix shell nixpkgs#nix-prefetch-git --command \
+    #     nix-prefetch-git --no-deepClone --quiet \
+    #       https://github.com/syl20bnr/spacemacs --rev refs/heads/develop
+    # and pasting the reported `rev` here.
     source = builtins.fetchGit {
       url = "https://github.com/syl20bnr/spacemacs";
       ref = "develop";
+      rev = "3aca11ca0dfd76850a34857021e8c87051c4a6d1";
     };
   };
   # Do this to have a symlinked read-only version
