@@ -169,7 +169,9 @@
           specialArgs = { hostName = "t580"; };
           modules = [
             { nixpkgs.config.allowUnfree = true; }
-            # ./nixos-nvidia-legacy.nix
+            # If re-enabling nvidia on t580, import ./nixos-nvidia.nix and
+            # set `dotfiles.nvidia.legacy = true;` -- it has a pre-Turing
+            # Quadro.
             ./hosts/t580/hardware-configuration.nix
             ./nixos-boot-default.nix
             ./nixos-workstation.nix

@@ -44,6 +44,10 @@ of a review session on 2026-05-22.
 - =hosts/t470p/= and the =t470p= / =t470-nas= =nixosConfigurations=
   branches deleted (dead hardware). =bootstrap.sh= comment and README
   host list updated. =nix flake check --no-build --impure= clean.
+- =nixos-nvidia.nix= collapsed: single module taking
+  =dotfiles.nvidia.legacy= (default =false=); switches =open= and
+  =package= between open+beta (modern) and closed+latest (legacy).
+  =nixos-nvidia-legacy.nix= deleted, README mention rewritten.
 
 ** Gotchas
 
@@ -150,10 +154,16 @@ begin with), and trimmed a stale =t470p= example from =bootstrap.sh=.
 =nix flake check --no-build --impure= passes for the remaining
 nixos / home-manager / darwin configs.
 
-** TODO [#B] Collapse `nixos-nvidia*.nix`
+** DONE [#B] Collapse `nixos-nvidia*.nix`
+CLOSED: [2026-05-22 Fri 11:08]
 :PROPERTIES:
 :CUSTOM_ID: 422944fb-3036-4962-8dbf-a16d55369f29
 :CREATED: [2026-05-22 Fri]
+:STARTED: [2026-05-22 Fri 11:07]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-05-22 Fri 11:07]
+- State "DONE" from "STARTED" [2026-05-22 Fri 11:08]
 :END:
 
 Acceptance criteria:
@@ -162,6 +172,15 @@ Acceptance criteria:
   attrs today are ~hardware.nvidia.open~ and ~hardware.nvidia.package~.
 - =nixos-nvidia-legacy.nix= deleted.
 - =xps15= still builds (current modern-driver consumer).
+
+Shipped: =nixos-nvidia.nix= now exposes a single
+=dotfiles.nvidia.legacy= boolean option (default =false=) which
+switches =hardware.nvidia.open= and =hardware.nvidia.package= between
+open + beta (modern) and closed + latest (legacy).
+=nixos-nvidia-legacy.nix= deleted via =git rm=. =flake.nix= t580
+comment updated to point at the new option. =xps15= still resolves
+to =open = true= / =nvidia.package.version = "595.45.04"= (beta), and
+=nix flake check --no-build --impure= passes for every host.
 
 ** TODO [#B] Convert SSH `extraConfig` to `matchBlocks`
 :PROPERTIES:
