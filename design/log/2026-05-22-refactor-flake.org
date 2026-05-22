@@ -26,6 +26,10 @@ of a review session on 2026-05-22.
 - Defer ~programs.npm.npmrc~ migration until darwin moves off the
   release-25.11 pin; tracked as a follow-up on the existing
   ~nixpkgs#507531~ TODO in =flake.nix=.
+- =programs.ssh.matchBlocks= is deprecated on Home Manager 25.11; the
+  current name is =programs.ssh.settings= (same DAG-of-attrset shape).
+  Found while converting =home-core.nix=; the SSH change uses the new
+  name.
 
 ** Shipped
 
@@ -48,6 +52,11 @@ of a review session on 2026-05-22.
   =dotfiles.nvidia.legacy= (default =false=); switches =open= and
   =package= between open+beta (modern) and closed+latest (legacy).
   =nixos-nvidia-legacy.nix= deleted, README mention rewritten.
+- =home-core.nix= SSH config moved from string-blob =extraConfig= to
+  three named host entries under =programs.ssh.settings= (the HM 25.11
+  successor of =matchBlocks=). Latent missing =Host gitlab.com= header
+  is fixed; =ssh -G= against the rendered config resolves each host
+  to its intended =IdentityFile=.
 
 ** Gotchas
 
@@ -182,10 +191,16 @@ comment updated to point at the new option. =xps15= still resolves
 to =open = true= / =nvidia.package.version = "595.45.04"= (beta), and
 =nix flake check --no-build --impure= passes for every host.
 
-** TODO [#B] Convert SSH `extraConfig` to `matchBlocks`
+** DONE [#B] Convert SSH `extraConfig` to `matchBlocks`
+CLOSED: [2026-05-22 Fri 11:10]
 :PROPERTIES:
 :CUSTOM_ID: 6668abb1-838d-4c0d-8c8d-ea7fcb3ad5c8
 :CREATED: [2026-05-22 Fri]
+:STARTED: [2026-05-22 Fri 11:08]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-05-22 Fri 11:08]
+- State "DONE" from "STARTED" [2026-05-22 Fri 11:10]
 :END:
 
 Acceptance criteria:
@@ -195,6 +210,18 @@ Acceptance criteria:
 - Latent missing =Host gitlab.com= directive is fixed in the process.
 - =ssh -G github.com= / =ssh -G gitlab.com= / =ssh -G gitlab= each
   resolve to the intended ~IdentityFile~ after a switch.
+
+Shipped: =programs.ssh.extraConfig= gone; three named entries under
+=programs.ssh.settings= (the HM 25.11 successor of =matchBlocks=,
+which now logs a deprecation warning) plus the surviving =*= block.
+Latent missing =Host gitlab.com= header is fixed by giving
+=gitlab.com= its own attribute key. Validated by rendering the
+generated =~/.ssh/config= via
+=nix build .#homeConfigurations.default.config.home.file.".ssh/config".source=
+and running =ssh -G= against it: =github.com= and =gitlab.com= both
+resolve to =id_ed25519_personal=; =gitlab= resolves to
+=LightsailDefaultKey-eu-west-1.pem= on port 1022 as =ec2-user=.
+=nix flake check --no-build --impure= clean.
 
 ** TODO [#B] Validate / fix `programs.git.settings.*` usage
 :PROPERTIES:
