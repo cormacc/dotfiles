@@ -41,6 +41,9 @@ of a review session on 2026-05-22.
   HM/NixOS/nix-darwin module words. Visible at
   =~/.agents/skills/nix/SKILL.md= via the existing out-of-store symlink
   managed by =agents.nix=.
+- =hosts/t470p/= and the =t470p= / =t470-nas= =nixosConfigurations=
+  branches deleted (dead hardware). =bootstrap.sh= comment and README
+  host list updated. =nix flake check --no-build --impure= clean.
 
 ** Gotchas
 
@@ -120,10 +123,16 @@ Acceptance criteria:
   "edit my home.nix" or "add a devShell" (smoke-tested by inspection
   of SKILL.md description text, not benchmarked).
 
-** TODO [#B] Delete `t470p` host
+** DONE [#B] Delete `t470p` host
+CLOSED: [2026-05-22 Fri 11:06]
 :PROPERTIES:
 :CUSTOM_ID: 0d66fbea-ed86-416d-afd9-416f65f95d01
 :CREATED: [2026-05-22 Fri]
+:STARTED: [2026-05-22 Fri 11:00]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-05-22 Fri 11:00]
+- State "DONE" from "STARTED" [2026-05-22 Fri 11:06]
 :END:
 
 Acceptance criteria:
@@ -134,6 +143,12 @@ Acceptance criteria:
 - README + AGENTS.md mentions of t470p removed or rewritten.
 - Surviving hosts (=xps15=, =strix=, =t580=, =nas=, =Cormacs-MacBook-Air=)
   still evaluate.
+
+Shipped: =git rm -r hosts/t470p=, dropped both branches from
+=flake.nix=, rewrote README references (no =AGENTS.md= mentions to
+begin with), and trimmed a stale =t470p= example from =bootstrap.sh=.
+=nix flake check --no-build --impure= passes for the remaining
+nixos / home-manager / darwin configs.
 
 ** TODO [#B] Collapse `nixos-nvidia*.nix`
 :PROPERTIES:

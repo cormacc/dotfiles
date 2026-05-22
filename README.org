@@ -67,7 +67,7 @@ Formerly managed using the [[https://github.com/cormacc/dotmodule][dotmodule]] g
 
 The flake covers three deployment shapes:
 - *Home Manager* (standalone) on Arch / hybrid Linux installs and on macOS via nix-darwin -- this is the primary daily-driver path.
-- *NixOS* system configurations for several hosts (=xps15=, =t470p=, =t580=, =t470-nas=, =nas=). =xps15= is the canonical pattern (system config + standalone home-manager applied separately); the others mostly predate that split.
+- *NixOS* system configurations for several hosts (=xps15=, =strix=, =t580=, =nas=). =xps15= is the canonical pattern (system config + standalone home-manager applied separately).
 - *nix-darwin* system configuration for =Cormacs-MacBook-Air= (with home-manager included as a darwin module).
 
 The golden path for development machines is currently Arch Linux + nix + home-manager rather than full NixOS, due to difficulties packaging some toolchains required for embedded development, specifically:
@@ -80,7 +80,7 @@ Progress on the Microchip side lives under [[./microchip/]] and the [[https://gi
 
 ** Flake outputs
 [[./flake.nix]] defines three output groups:
-- =nixosConfigurations= -- one per host: =xps15=, =t470p=, =t580=, =t470-nas=, =nas= (currently the odroid-h4).
+- =nixosConfigurations= -- one per host: =xps15=, =strix=, =t580=, =nas= (currently the odroid-h4).
 - =homeConfigurations= -- =default= (full Linux workstation, imports [[./home.nix]]) and =minimal= (server / WSL, imports [[./home-linux.nix]]).
 - =darwinConfigurations."Cormacs-MacBook-Air"= -- macOS system config with home-manager bundled as a darwin module.
 
@@ -282,8 +282,7 @@ Then install Home Manager per the [[https://nix-community.github.io/home-manager
 NixOS allows home-manager to be bundled as a system module, but the
 preferred pattern (demonstrated by =xps15=) is to keep the NixOS config
 minimal and apply home-manager standalone, since user-level config
-churns much faster than the OS-level. The =t470p= configuration takes
-the bundled approach (legacy).
+churns much faster than the OS-level.
 
 *** Install NixOS
 Use the official ISO installer. After install, =/etc/nixos/configuration.nix= and =hardware-configuration.nix= are generated for the host.

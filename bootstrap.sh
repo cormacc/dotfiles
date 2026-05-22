@@ -209,8 +209,8 @@ echo "    ok: $hw_target is a real hardware-configuration"
 # -----------------------------------------------------------------------------
 # `--impure` makes nixos-rebuild read NAME/EMAIL/GITLAB from the env. `sudo`
 # strips the env by default, so explicitly preserve the identity vars (host
-# configs that bake in home-manager.nixosModules — e.g. t470p — evaluate
-# home-core.nix during this step and would otherwise see empty strings).
+# configs that bake in home-manager.nixosModules evaluate home-core.nix
+# during this step and would otherwise see empty strings).
 say "Applying NixOS configuration: .#$profile"
 confirm "Run: sudo nixos-rebuild switch --flake .#$profile --impure ?" \
     || { echo "aborted by user"; exit 1; }
