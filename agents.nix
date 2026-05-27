@@ -8,10 +8,10 @@ let
   # extension, prompt, the pi-side AGENTS.md, and the user-local
   # pi/settings.json (package list, default provider/model, secrets toggles).
   # Whole-directory symlinks below point ~/.agents/skills,
-  # ~/.pi/agent/extensions, ~/.pi/agent/skills, ~/.pi/agent/prompts,
-  # ~/.pi/agent/AGENTS.md, and ~/.pi/agent/settings.json at the live
-  # submodule path so edits reload in place via `/reload` without a
-  # Home Manager switch.
+  # ~/.pi/agent/extensions, ~/.pi/agent/skills, ~/.pi/agent/agents,
+  # ~/.pi/agent/prompts, ~/.pi/agent/AGENTS.md, and ~/.pi/agent/settings.json
+  # at the live submodule path so edits reload in place via `/reload` without
+  # a Home Manager switch.
   agentsRoot = "${dotRoot}/agents";
   piRoot = "${agentsRoot}/pi";
   piSettings = "${piRoot}/settings.json";
@@ -159,7 +159,13 @@ in
       "${piConfig}/skills".source =
         config.lib.file.mkOutOfStoreSymlink "${piRoot}/skills";
 
-
+      # Subagent definitions (pi-interactive-subagents). Overrides the
+      # extension's bundled defaults: pi reads ~/.pi/agent/agents/<name>.md
+      # ahead of any project-local .pi/agents/. Keeping our copies in the
+      # dotagents submodule lets us tweak model/tool/skill defaults per agent
+      # without re-publishing the upstream package.
+      "${piConfig}/agents".source =
+        config.lib.file.mkOutOfStoreSymlink "${piRoot}/agents";
 
       # User-local pi settings come from dotfiles, not from the dotagents
       # submodule.

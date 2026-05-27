@@ -43,9 +43,12 @@ for every reusable skill, pi extension, prompt template, the pi-side
 live submodule tree into:
 
 - `~/.agents/skills`
-- `~/.pi/agent/{AGENTS.md, prompts, extensions, skills, settings.json}`
+- `~/.pi/agent/{AGENTS.md, prompts, extensions, skills, agents, settings.json}`
 - `~/.config/mcp/mcp.json`
 - `~/.local/bin/ot` → org-tasks CLI shim
+
+The `agents/` slot under `~/.pi/agent/` overrides `pi-interactive-subagents`'
+bundled subagent definitions.
 
 Out-of-store symlinks, so edits in `agents/` take effect immediately via
 `/reload` — no Home Manager switch needed.
