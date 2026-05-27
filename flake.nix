@@ -40,8 +40,9 @@
       url = "github:nix-darwin/nix-darwin/nix-darwin-25.11";
       inputs.nixpkgs.follows = "nixpkgs-darwin";
     };
-    llm-agents = {
-      url = "github:numtide/llm-agents.nix";
+    # pi coding agent
+    pi = {
+      url = "github:lukasl-dev/pi.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     claude-desktop = {
@@ -83,6 +84,7 @@
       "https://nix-community.cachix.org"
       "https://hyprland.cachix.org"
       "https://cache.numtide.com"
+      "https://pi.cachix.org"
       # Pre-built AMD AI packages (llama-cpp-rocm/vulkan, sd-cpp-rocm,
       # whisper-cpp-vulkan, lemonade, fastflowlm, XRT). Used by the strix
       # host; harmless on other hosts as the closure hashes won't match.
@@ -93,11 +95,12 @@
       "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
       "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
       "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+      "pi.cachix.org-1:lGeoGJaZ5ZDabuRzkcD5EBTNnDM4HJ1vqeOxlWk1Flk="
       "nix-amd-ai.cachix.org-1:F4OU4vw/lV2oiG6SBHZ+nqjl4EFJuqI4X9A7pvaBmhQ="
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, microchip, claude-desktop, rust-overlay, nur, llm-agents, nix-amd-ai, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, microchip, claude-desktop, rust-overlay, nur, pi, nix-amd-ai, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -117,7 +120,7 @@
           microchip.overlays.default
           rust-overlay.overlays.default
           nur.overlays.default
-          llm-agents.overlays.default
+          pi.overlays.default
           claude-desktop.overlays.default
         ];
       };
@@ -246,7 +249,7 @@
             system = "aarch64-darwin";
             config.allowUnfree = true;
             overlays = [
-              llm-agents.overlays.default
+              pi.overlays.default
               claude-desktop.overlays.default
               (_final: _prev: {
                 inherit (unstablePkgs) babashka;
