@@ -113,14 +113,15 @@ in
     ];
 
     home.packages = with pkgs; [
-      # Pi + deps
-      llm-agents.pi
+      # Pi coding-agent. Provided by `pi.overlays.default` from the
+      # `lukasl-dev/pi.nix` flake input (replaces the older
+      # numtide/llm-agents.nix path which exposed `llm-agents.pi`).
+      # N.B. We're intentionally not using the agents home-manager based config module
+      #      for compatibility with our symlinking / live editable strategy for agent config
+      pi-coding-agent
       prettier
       typescript-language-server
       fswatch
-      # Claude Code + Codex
-      # llm-agents.claude-code
-      # llm-agents.codex
       # Support
       # lmstudio
     ];

@@ -20,6 +20,8 @@
     "https://nix-community.cachix.org"
     "https://hyprland.cachix.org"
     "https://cache.numtide.com"
+    # Pi coding-agent binary cache (see flake input `pi`).
+    "https://pi.cachix.org"
   ];
 
   trustedPublicKeys = [
@@ -27,5 +29,6 @@
     "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
     "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
     "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+    "pi.cachix.org-1:lGeoGJaZ5ZDabuRzkcD5EBTNnDM4HJ1vqeOxlWk1Flk="
   ];
 }
