@@ -5,6 +5,51 @@ let
   openWebUIPort = 8080;
   searxngPort = 8888;
   vanePort = 3001;
+  openWebUIWebSearchBootstrap = pkgs.writeShellScript "open-webui-web-search-bootstrap" ''
+    set -euo pipefail
+
+    db=/var/lib/open-webui/data/webui.db
+    if [ ! -e "$db" ]; then
+      exit 0
+    fi
+
+    ${pkgs.python3}/bin/python3 - <<'PY'
+import json
+import sqlite3
+from datetime import datetime
+from pathlib import Path
+
+DB = Path('/var/lib/open-webui/data/webui.db')
+if not DB.exists():
+    raise SystemExit(0)
+
+with sqlite3.connect(DB) as conn:
+    table = conn.execute(
+        "select name from sqlite_master where type = 'table' and name = 'config'"
+    ).fetchone()
+    if table is None:
+        raise SystemExit(0)
+
+    row = conn.execute('select id, data from config order by id desc limit 1').fetchone()
+    if row is None:
+        raise SystemExit(0)
+
+    config_id, raw_data = row
+    data = json.loads(raw_data) if isinstance(raw_data, str) else (raw_data or {})
+    search = data.setdefault('rag', {}).setdefault('web', {}).setdefault('search', {})
+    search.update({
+        'enable': True,
+        'engine': 'searxng',
+        'searxng_query_url': 'http://127.0.0.1:${toString searxngPort}/search?q=<query>',
+    })
+
+    conn.execute(
+        'update config set data = ?, updated_at = ? where id = ?',
+        (json.dumps(data), datetime.now().isoformat(sep=' '), config_id),
+    )
+    conn.commit()
+PY
+  '';
 in
 {
   # ---------------------------------------------------------------------------
@@ -136,9 +181,11 @@ in
     openFirewall = true;
 
     # Open WebUI persists these settings to its DB under /var/lib/open-webui
-    # after first start; later declarative changes may need admin-UI updates or
-    # a state reset. Re-include the module's telemetry-off defaults here because
-    # setting this attr replaces the module default value rather than merging.
+    # after first start. The systemd ExecStartPre below reapplies web-search
+    # settings to the persisted config so rebuilds stay declarative without
+    # requiring admin-UI clicks. Re-include the module's telemetry-off defaults
+    # here because setting this attr replaces the module default value rather
+    # than merging.
     environment = {
       SCARF_NO_ANALYTICS = "True";
       DO_NOT_TRACK = "True";
@@ -149,8 +196,8 @@ in
       OPENAI_API_KEY = "sk-local-lemonade";
       ENABLE_OLLAMA_API = "False";
 
-      ENABLE_RAG_WEB_SEARCH = "True";
-      RAG_WEB_SEARCH_ENGINE = "searxng";
+      ENABLE_WEB_SEARCH = "True";
+      WEB_SEARCH_ENGINE = "searxng";
       SEARXNG_QUERY_URL = "http://127.0.0.1:${toString searxngPort}/search?q=<query>";
 
       # Phase 2: use Lemonade's OpenAI-compatible image endpoint before
@@ -176,6 +223,7 @@ in
   systemd.services.open-webui = {
     after = [ "lemond.service" ];
     wants = [ "lemond.service" ];
+    serviceConfig.ExecStartPre = openWebUIWebSearchBootstrap;
   };
 
   # ---------------------------------------------------------------------------
