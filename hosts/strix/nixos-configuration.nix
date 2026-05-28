@@ -3,6 +3,7 @@
 let
   lemonadePort = 13305;
   openWebUIPort = 8080;
+  searxngPort = 8888;
 in
 {
   # ---------------------------------------------------------------------------
@@ -69,6 +70,45 @@ in
   # Keep the raw Lemonade API LAN-reachable for coding harness clients.
   # services.open-webui.openFirewall below adds the chat UI port separately.
   networking.firewall.allowedTCPPorts = [ lemonadePort ];
+
+  # ---------------------------------------------------------------------------
+  # Shared SearXNG search backend
+  # ---------------------------------------------------------------------------
+  # The current nixpkgs module is still named `services.searx`, even though the
+  # package and settings are SearXNG. Keep the engine set intentionally small so
+  # Open WebUI, Vane, and MCP clients get predictable JSON-capable results.
+  services.searx = {
+    enable = true;
+    openFirewall = true;
+
+    settings = {
+      use_default_settings.engines.keep_only = [
+        "duckduckgo"
+        "brave"
+        "mojeek"
+        "google"
+        "wikipedia"
+        "github"
+        "wolframalpha"
+      ];
+
+      server = {
+        bind_address = "0.0.0.0";
+        port = searxngPort;
+      };
+
+      search.formats = [ "html" "json" ];
+
+      engines = [
+        {
+          name = "wolframalpha";
+          engine = "wolframalpha_noapi";
+          shortcut = "wa";
+          disabled = false;
+        }
+      ];
+    };
+  };
 
   # ---------------------------------------------------------------------------
   # Open WebUI chat frontend for Lemonade
