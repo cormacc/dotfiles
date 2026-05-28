@@ -69,8 +69,21 @@ in
   };
 
   # Keep the raw Lemonade API LAN-reachable for coding harness clients.
-  # services.open-webui.openFirewall below adds the chat UI port separately.
+  # services.searx.openFirewall and services.open-webui.openFirewall add the
+  # search API and chat UI ports separately.
   networking.firewall.allowedTCPPorts = [ lemonadePort vanePort ];
+
+  # SearXNG refuses to start with its default "ultrasecretkey". Keep the actual
+  # generated key out of git/the store while making first activation automatic.
+  system.activationScripts.searx-secret-key = ''
+    install -d -m 0750 -o searx -g searx /var/lib/searx
+    if [ ! -s /var/lib/searx/searx.env ]; then
+      umask 077
+      printf 'SEARX_SECRET_KEY=%s\n' "$(${pkgs.openssl}/bin/openssl rand -hex 32)" > /var/lib/searx/searx.env
+      chown searx:searx /var/lib/searx/searx.env
+      chmod 0640 /var/lib/searx/searx.env
+    fi
+  '';
 
   # ---------------------------------------------------------------------------
   # Shared SearXNG search backend
@@ -81,6 +94,7 @@ in
   services.searx = {
     enable = true;
     openFirewall = true;
+    environmentFile = "/var/lib/searx/searx.env";
 
     settings = {
       use_default_settings.engines.keep_only = [
@@ -96,6 +110,7 @@ in
       server = {
         bind_address = "0.0.0.0";
         port = searxngPort;
+        secret_key = "$SEARX_SECRET_KEY";
       };
 
       search.formats = [ "html" "json" ];
