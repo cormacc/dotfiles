@@ -28,6 +28,8 @@
     };
   };
 
+  programs.wezterm.enable = true;
+
   home.packages = with pkgs; [
     nerd-fonts.roboto-mono
     nerd-fonts.jetbrains-mono
