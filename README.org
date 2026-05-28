@@ -90,7 +90,7 @@ Progress on the Microchip side lives under [[./microchip/]] and the [[https://gi
 ** Flake outputs
 [[./flake.nix]] defines three output groups:
 - =nixosConfigurations= -- one per host: =xps15=, =strix=, =t580=, =nas= (currently the odroid-h4).
-- =homeConfigurations= -- =default= (full Linux workstation, imports [[./home.nix]]) and =minimal= (server / WSL, imports [[./home-linux.nix]]).
+- =homeConfigurations= -- =default= (full Linux workstation, imports [[./home.nix]]) and =minimal= (server / WSL, imports [[./home-core-linux.nix]]).
 - =darwinConfigurations."Cormacs-MacBook-Air"= -- macOS system config with home-manager bundled as a darwin module.
 
  =allowUnfree = true= is set globally; =--impure= is required on all builds (the flake reads identity env vars).
@@ -108,7 +108,7 @@ Progress on the Microchip side lives under [[./microchip/]] and the [[https://gi
 #+begin_example
 home-core.nix  ->  shell/shell.nix
       ^
-home-linux.nix
+home-core-linux.nix
       ^
 home.nix (full Linux workstation, adds:)
       |-- editors/editors.nix    (emacs configs: corgi, doom, spacemacs)

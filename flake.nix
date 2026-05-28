@@ -218,7 +218,7 @@
         minimal = home-manager.lib.homeManagerConfiguration {
           inherit pkgs;
           modules = [
-            ./home-linux.nix
+            ./home-core-linux.nix
           ];
           extraSpecialArgs = {
             cfgName = "minimal";

@@ -18,16 +18,6 @@
     };
   };
 
-  programs.ghostty = {
-    enable = true;
-    settings = {
-      keybind = [
-        # See https://pi.dev/docs/latest/terminal-setup
-        "alt+backspace=text:\x1b\x7f"
-      ];
-    };
-  };
-
   programs.wezterm.enable = true;
 
   home.packages = with pkgs; [

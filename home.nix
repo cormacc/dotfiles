@@ -2,7 +2,7 @@
 
 {
   imports = [
-    ./home-linux.nix
+    ./home-core-linux.nix
     ./nmd/nmd.nix
     ./wayland/wayland.nix
     ./wayland/sway/sway.nix
@@ -17,15 +17,8 @@
     # ./desktop/entertainment.nix
   ];
 
+  # This is duplicated here and in home-darwin - should these be consolidated?
   services.syncthing = {
     enable = true;
-    # tray = {
-    #   enable = true;
-    # };
   };
-  # TODO: Add some configuration here?
-
-
-  #TODO: Done in home-core.nix, but maybe shouldn't be...
-  #xdg.enable = true;
 }
