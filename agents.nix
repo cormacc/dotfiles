@@ -127,7 +127,9 @@ in
     ];
 
     home.shellAliases = {
-      pit = "tmux new -s \"$(realpath --relative-to=\"$HOME\" \"$PWD\")\" -n \"$(realpath --relative-to=\"$HOME\" \"$PWD\")\" pi";
+      # Portable: avoid GNU-only `realpath --relative-to` (BSD realpath on macOS lacks it).
+      # ${PWD#$HOME/} strips the $HOME/ prefix; tmux session names can't contain `.` or `:`.
+      pit = ''tmux new -s "$(echo "''${PWD#$HOME/}" | tr ':.' '__')" -n "''${PWD#$HOME/}" pi'';
     };
 
     home.file = {
