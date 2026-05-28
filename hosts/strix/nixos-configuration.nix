@@ -133,6 +133,10 @@ in
       OPENAI_API_KEY = "sk-local-lemonade";
       ENABLE_OLLAMA_API = "False";
 
+      ENABLE_RAG_WEB_SEARCH = "True";
+      RAG_WEB_SEARCH_ENGINE = "searxng";
+      SEARXNG_QUERY_URL = "http://127.0.0.1:${toString searxngPort}/search?q=<query>";
+
       # Phase 2: use Lemonade's OpenAI-compatible image endpoint before
       # introducing a separate ComfyUI service. Lemonade's own image-generation
       # example uses SD-Turbo at 512x512 with 4 steps and low CFG; Open WebUI
