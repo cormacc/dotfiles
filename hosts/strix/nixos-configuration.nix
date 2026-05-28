@@ -4,6 +4,7 @@ let
   lemonadePort = 13305;
   openWebUIPort = 8080;
   searxngPort = 8888;
+  vanePort = 3001;
 in
 {
   # ---------------------------------------------------------------------------
@@ -69,7 +70,7 @@ in
 
   # Keep the raw Lemonade API LAN-reachable for coding harness clients.
   # services.open-webui.openFirewall below adds the chat UI port separately.
-  networking.firewall.allowedTCPPorts = [ lemonadePort ];
+  networking.firewall.allowedTCPPorts = [ lemonadePort vanePort ];
 
   # ---------------------------------------------------------------------------
   # Shared SearXNG search backend
@@ -160,6 +161,32 @@ in
   systemd.services.open-webui = {
     after = [ "lemond.service" ];
     wants = [ "lemond.service" ];
+  };
+
+  # ---------------------------------------------------------------------------
+  # Vane answer engine frontend
+  # ---------------------------------------------------------------------------
+  # Upstream ships Docker images only. Use the slim image so this instance shares
+  # strix's declarative SearXNG service instead of running a bundled copy.
+  virtualisation.oci-containers = {
+    backend = "docker";
+
+    containers.vane = {
+      image = "itzcrazykns1337/vane:slim-v1.12.2";
+      ports = [ "0.0.0.0:${toString vanePort}:3000" ];
+      environment = {
+        SEARXNG_API_URL = "http://host.docker.internal:${toString searxngPort}";
+        LEMONADE_BASE_URL = "http://host.docker.internal:${toString lemonadePort}/v1";
+        LEMONADE_API_KEY = "sk-local-lemonade";
+      };
+      volumes = [ "/var/lib/vane:/home/vane/data" ];
+      extraOptions = [ "--add-host=host.docker.internal:host-gateway" ];
+    };
+  };
+
+  systemd.services.docker-vane = {
+    after = [ "lemond.service" "searx.service" ];
+    wants = [ "lemond.service" "searx.service" ];
   };
 
   # ---------------------------------------------------------------------------
