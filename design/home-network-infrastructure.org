@@ -14,13 +14,16 @@ LAN client
         -> localhost-only backends
 #+END_EXAMPLE
 
-For the local AI service specifically:
+For the local AI search stack specifically:
 
 #+BEGIN_EXAMPLE
-LAN browser
-  -> ai.home.arpa / Caddy
-    -> Open WebUI on localhost
-      -> Lemonade OpenAI-compatible API on localhost
+LAN client (browser or pi)
+  -> Caddy ingress (Phase 2; direct ports today)
+    -> chat.home.arpa     -> Open WebUI ┐
+    -> search.home.arpa   -> Vane       ├-> Lemonade (chat) + SearXNG (search)
+    -> lemonade.home.arpa -> Lemonade   ┘
+  pi (CLI agent) bypasses chat UIs:
+    -> mcp-searxng -> SearXNG (raw JSON, no LLM hop)
 #+END_EXAMPLE
 
 * Decisions
@@ -50,6 +53,35 @@ Caddy forward-auth is useful for coarse access control or apps without auth, but
 ** Preserve local break-glass access
 Central identity must not become the only way to administer home machines. Keep local admin users, local SSH keys, and console access. SSH designs should tolerate identity-server, DNS, or TLS outages.
 
+** The local AI service is now a stack, not a single chat UI
+Phase 1 has materialised as a three-front-end stack sharing a search backend, with raw API access for agents:
+
+- =SearXNG= :: shared backend, JSON + curated engines + Wolfram. Internal-only.
+- =Open WebUI= :: browser chat UI; web search via SearXNG, chat via Lemonade.
+- =Vane= (formerly Perplexica) :: Perplexity-style answer engine for humans; also fronts SearXNG + Lemonade.
+- =pi MCP= (=mcp-searxng=) :: agent-side search; hits SearXNG directly (raw results, no LLM double-hop).
+- =Lemonade= :: unchanged; consumed by both UIs + external coding-harness clients.
+
+Rationale and tradeoffs in [[file:../agents/design/log/2026-05-28-explore-and-adopt-web-search-tooling.org][the web-search-tooling change-record]].
+
+** Per-service exposure model
+Each service has a distinct exposure ceiling. This matrix pre-empts accidental public exposure of unauthenticated services:
+
+| Service    | LAN | Tailscale (off-LAN private) | Public (Caddy + UniFi forward) |
+|------------+-----+-----------------------------+--------------------------------|
+| Open WebUI | yes | yes                         | yes (has auth)                 |
+| Vane       | yes | yes                         | no (no auth by design)         |
+| SearXNG    | yes | yes                         | no (internal backend)          |
+| Lemonade   | yes | yes                         | no (compute-abuse risk)        |
+
+Trust boundaries: LAN trusted (home firewall); tailnet trusted (Tailscale device auth + ACLs); public exposure requires per-service auth review /and/ explicit UniFi port-forward, not enabled by default.
+
+** Tailscale provides the private off-LAN transport
+Fills the slot for services that should /not/ be publicly exposed (Vane, SearXNG, Lemonade, internal admin UIs). Public exposure via Caddy + UniFi is reserved for services with explicit auth (initially Open WebUI). Both paths coexist.
+
+** UniFi is the LAN gateway
+Public exposure terminates on UniFi: a port-forward from WAN :443 to strix Caddy, plus a public DNS record. No services exposed there today.
+
 * Caddy trade-offs
 ** Benefits
 - Clean LAN URLs such as =http://ai.home.arpa= or =https://ai.home.arpa= instead of host-port URLs.
@@ -73,8 +105,8 @@ Candidate identity approaches need separate evaluation:
 - SSH certificates: attractive for SSH if a central CA can issue short-lived user certs while local emergency keys remain available.
 
 * Phased roadmap
-** Phase 1: Local AI chat
-Add Open WebUI on =strix= as the browser chat layer for Lemonade. Keep the raw Lemonade OpenAI-compatible API available on the LAN for coding harness clients. Prefer a configuration that can later move browser access behind Caddy without changing the raw API contract.
+** Phase 1: Local AI chat stack (done 2026-05-28)
+Deployed on =strix=: SearXNG (=services.searx=), Open WebUI (=services.open-webui=), Vane (=oci-containers=), all reading from local SearXNG and Lemonade. Pi consumes SearXNG directly via =mcp-searxng=. Phase 1 deliberately exposes service ports directly on the LAN; Caddy is Phase 2. Reference: [[file:../agents/design/log/2026-05-28-explore-and-adopt-web-search-tooling.org][web-search-tooling change-record]].
 
 ** Phase 2: Caddy ingress and internal DNS
 Add a LAN-facing Caddy service and a stable name such as =ai.home.arpa=. Move Open WebUI behind Caddy and close direct backend ports where possible.
