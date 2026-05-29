@@ -5,6 +5,7 @@ let
   openWebUIPort = 8080;
   searxngPort = 8888;
   vanePort = 3001;
+  vaneSearxngApiUrl = "http://host.docker.internal:${toString searxngPort}";
   openWebUIWebSearchBootstrap = pkgs.writeShellScript "open-webui-web-search-bootstrap" ''
     set -euo pipefail
 
@@ -49,6 +50,28 @@ with sqlite3.connect(DB) as conn:
     )
     conn.commit()
 PY
+  '';
+  vaneSearxngBootstrap = pkgs.writeShellScript "vane-searxng-bootstrap" ''
+    set -euo pipefail
+
+    config=/var/lib/vane/config.json
+    if [ ! -e "$config" ]; then
+      exit 0
+    fi
+
+    tmp=$(mktemp "$(dirname "$config")/.config.json.XXXXXX")
+    trap 'rm -f "$tmp"' EXIT
+
+    current=$(${pkgs.jq}/bin/jq -r '.search.searxngURL // ""' "$config")
+    if [ "$current" = "$SEARXNG_API_URL" ]; then
+      exit 0
+    fi
+
+    ${pkgs.jq}/bin/jq --arg url "$SEARXNG_API_URL" \
+      '.search = (.search // {}) | .search.searxngURL = $url' \
+      "$config" > "$tmp"
+    cp "$tmp" "$config"
+    echo "Updated Vane search.searxngURL to $SEARXNG_API_URL"
   '';
 in
 {
@@ -117,6 +140,9 @@ in
   # services.searx.openFirewall and services.open-webui.openFirewall add the
   # search API and chat UI ports separately.
   networking.firewall.allowedTCPPorts = [ lemonadePort vanePort ];
+
+  # jq is used by the Vane systemd bootstrap to patch persisted JSON safely.
+  environment.systemPackages = [ pkgs.jq ];
 
   # SearXNG refuses to start with its default "ultrasecretkey". Keep the actual
   # generated key out of git/the store while making first activation automatic.
@@ -238,7 +264,7 @@ in
       image = "itzcrazykns1337/vane:slim-v1.12.2";
       ports = [ "0.0.0.0:${toString vanePort}:3000" ];
       environment = {
-        SEARXNG_API_URL = "http://host.docker.internal:${toString searxngPort}";
+        SEARXNG_API_URL = vaneSearxngApiUrl;
         LEMONADE_BASE_URL = "http://host.docker.internal:${toString lemonadePort}/v1";
         LEMONADE_API_KEY = "sk-local-lemonade";
       };
@@ -250,6 +276,10 @@ in
   systemd.services.docker-vane = {
     after = [ "lemond.service" "searx.service" ];
     wants = [ "lemond.service" "searx.service" ];
+    environment.SEARXNG_API_URL = vaneSearxngApiUrl;
+    preStart = ''
+      ${vaneSearxngBootstrap}
+    '';
   };
 
   # ---------------------------------------------------------------------------
