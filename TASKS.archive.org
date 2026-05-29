@@ -104,3 +104,23 @@ record carries the full finding list (substituter duplication, NVIDIA
 modules, SSH `extraConfig`, dead `nixos-bootstrap.nix` / `nixos-llm.nix`,
 floating `fetchGit` calls, `programs.git.settings` validity, etc.) plus
 the decision to scrap `t470p` and add a top-level `nix` skill.
+
+** DONE [#D] Explore and adopt web search tooling :pi:search:
+CLOSED: [2026-05-29 Fri 01:47]
+:PROPERTIES:
+:CUSTOM_ID: c354bc27-af23-494c-a1ce-7abfa832d7cf
+:STARTED: [2026-05-28 Thu 23:47]
+:ARCHIVED: [2026-05-29 Fri 01:47]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-05-28 Thu 23:47]
+- State "DONE" from "STARTED" [2026-05-29 Fri 01:47]
+:END:
+#+IMPORT: [[plan:2026-05-28-explore-and-adopt-web-search-tooling.org]]
+Add consistent search tooling to my setup:
+- A principal instance to be shared on the home network on the strix server
+  - This should use an appropriate local model via lemonade OpenAI API
+  - Weigh up using searxng via open-webui, or via vane (formerly perplexica) -- see https://github.com/ItzCrazyKns/Vane
+- (Maybe) per-workstation instances to be hosted locally on my dev machines for use when off the home network
+  - Either using an appropriate small local model, or my openai or anthropic subs via oauth?
+  - This should probably use Vane, as these machines won't be running open-webui locally -- though consider other options
