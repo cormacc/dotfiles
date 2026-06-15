@@ -49,6 +49,10 @@
       url = "github:aaddrick/claude-desktop-debian";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    hermes-agent = {
+      url = "github:NousResearch/hermes-agent";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -100,7 +104,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, microchip, claude-desktop, rust-overlay, nur, pi, nix-amd-ai, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, microchip, claude-desktop, hermes-agent, rust-overlay, nur, pi, nix-amd-ai, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -137,6 +141,7 @@
           };
           modules = [
             { nixpkgs.config.allowUnfree = true; }
+            hermes-agent.nixosModules.default
             # envfs.nixosModules.envfs
             ./nixos-nvidia.nix
             ./hosts/xps15/hardware-configuration.nix
