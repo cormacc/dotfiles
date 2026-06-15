@@ -6,6 +6,9 @@
 
     # Tools to help with nixpkg development...
     bubblewrap
+
+    # Local package (pkgs/limux/default.nix)
+    limux
   ];
 
   #This isn't available in nixpkgs for darwin for some reason...
