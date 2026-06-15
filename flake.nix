@@ -126,6 +126,8 @@
           nur.overlays.default
           pi.overlays.default
           claude-desktop.overlays.default
+          # Local packages: pkgs/<name>/default.nix -> pkgs.<name>
+          (import ./pkgs/overlay.nix)
         ];
       };
     in {
