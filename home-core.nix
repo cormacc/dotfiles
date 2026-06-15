@@ -173,6 +173,18 @@ in
     ];
   };
 
+
+  programs.jujutsu = {
+    enable = true;
+    settings = {
+      user = {
+        name = "${name}";
+        # TODO: Replicate the work / personal email split from git above if I find myself using this
+        email = "${emailOss}";
+      };
+    };
+  };
+
   # We can only enable one of delta, diff-so-fancy and difftastic
   # programs.delta.enable = true;
   # Colorised diff output
