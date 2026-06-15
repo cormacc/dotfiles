@@ -12,6 +12,9 @@
       allow_remote_control = "socket-only";
       listen_on = "unix:/tmp/kitty-{kitty_pid}";
       enabled_layouts = "splits";
+      # See https://github.com/kovidgoyal/kitty/issues/10102
+      # Should be retired shortly -- upstream fix waiting for merge
+      auto_reload_config = -1;
     } // lib.optionalAttrs pkgs.stdenv.isDarwin {
       # Make Option behave as Alt so chords like Alt+Esc reach TUIs (e.g. pi).
       macos_option_as_alt = "yes";
