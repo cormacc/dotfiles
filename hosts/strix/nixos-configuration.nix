@@ -126,6 +126,16 @@ in
     enableImageGen = true;     # Decided 2026-05-19: accept ~1.5GB closure
                                # for sd-cpp image generation from day one.
 
+    # iGPU-addressable memory (GTT) for large omni models. Strix Halo's iGPU
+    # reaches unified RAM via GTT, not the tiny BIOS VRAM carveout (~512 MiB).
+    # The TTM default caps GTT at ~half of RAM (~62.5 GiB on this 128 GB box),
+    # too small to hold the LMX-Omni-52B-Halo planner (Qwen, 23.8 GB) AND the
+    # image model (Flux-2-Klein-9B, 19 GB) at once with KV cache + sd-cpp
+    # buffers, so image requests evicted the other components and failed.
+    # 110 GiB leaves ~15 GiB for the CPU/system. The module emits this as the
+    # `ttm pages_limit` modprobe option (ttm is a loadable module here).
+    gpuMemory.ttmSizeGiB = 110;
+
     lemonade = {
       user = "cormacc";
       # Bind to all interfaces so coding harness clients on other LAN machines
@@ -135,6 +145,59 @@ in
       port = lemonadePort;
     };
   };
+
+  # ---------------------------------------------------------------------------
+  # sd-cpp (image generation) shared-library fix
+  # ---------------------------------------------------------------------------
+  # nix-amd-ai's `stable-diffusion-cpp-rocm` ships an `sd-server` binary with no
+  # RUNPATH, and the amd-npu module's lemond `LD_LIBRARY_PATH` carries only
+  # xrt + clr. So the ROCm image backend dies at launch with exit 127:
+  #   sd-server: error while loading shared libraries: libatomic.so.1
+  # (llama.cpp/whisper are unaffected: they resolve libs via their own RPATH.)
+  # We re-assert the module's library path (xrt core + xdna driver plugin +
+  # clr, mirroring its internal xrt-combined) and append gcc-libs
+  # (libatomic.so.1, libstdc++, libgomp); lemond forwards this to the
+  # sd-server child. Rebuilt from `pkgs` rather than the sibling env key to
+  # avoid module-system infinite recursion. Drop once nix-amd-ai rpaths
+  # sd-server or adds gcc-libs to its ldLibraryPath.
+  systemd.services.lemond.environment.LD_LIBRARY_PATH = lib.mkForce (
+    lib.concatStringsSep ":" [
+      "${pkgs.xrt}/opt/xilinx/xrt/lib"
+      "${pkgs.xrt-plugin-amdxdna}/opt/xilinx/xrt/lib"
+      "${pkgs.rocmPackages.clr}/lib"
+      "${pkgs.stdenv.cc.cc.lib}/lib"
+    ]
+  );
+
+  # ---------------------------------------------------------------------------
+  # WhisperServer (ASR) writable runtime directory
+  # ---------------------------------------------------------------------------
+  # lemonade's WhisperServer backend resolves a writable runtime dir from
+  # XDG_RUNTIME_DIR or systemd's RUNTIME_DIRECTORY. The amd-npu module's lemond
+  # unit sets neither, so loading Whisper-Large-v3-Turbo (the omni model's ASR
+  # component) fails with "Unable to resolve writable runtime directory".
+  # RuntimeDirectory= makes systemd create /run/lemond (owned by the service
+  # user) and export RUNTIME_DIRECTORY. Drop once nix-amd-ai sets this.
+  systemd.services.lemond.serviceConfig.RuntimeDirectory = "lemond";
+
+  # ---------------------------------------------------------------------------
+  # Foreign prebuilt backends (kokoro TTS) via nix-ld
+  # ---------------------------------------------------------------------------
+  # lemonade downloads the kokoro TTS engine (`koko`) as a generic prebuilt
+  # Linux ELF at runtime into ~/.cache/lemonade/bin/kokoro. It requests the
+  # stock loader /lib64/ld-linux-x86-64.so.2, which on NixOS is only a stub
+  # that aborts with "Could not start dynamically linked executable" (exit
+  # 127) -> the omni router then evicts all models. (sd-cpp/llama/whisper are
+  # Nix-built with real RPATHs and are unaffected.) nix-ld swaps the stub for
+  # a real loader; its default `libraries` already include openssl + gcc-libs,
+  # which is exactly what `koko` needs (libssl/libcrypto/libstdc++/libgcc_s).
+  programs.nix-ld.enable = true;
+
+  # nix-ld only exports NIX_LD / NIX_LD_LIBRARY_PATH as login-session vars, so
+  # the lemond *system service* (and the koko child it spawns) never sees them.
+  # Set them explicitly to the same generation-stable paths nix-ld publishes.
+  systemd.services.lemond.environment.NIX_LD = "/run/current-system/sw/share/nix-ld/lib/ld.so";
+  systemd.services.lemond.environment.NIX_LD_LIBRARY_PATH = "/run/current-system/sw/share/nix-ld/lib";
 
   # Keep the raw Lemonade API LAN-reachable for coding harness clients.
   # services.searx.openFirewall and services.open-webui.openFirewall add the
