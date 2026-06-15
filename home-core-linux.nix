@@ -11,4 +11,8 @@ in
   imports = [
     ./home-core.nix
   ];
+
+  home.packages = with pkgs; [
+    inotify-info
+  ];
 }
