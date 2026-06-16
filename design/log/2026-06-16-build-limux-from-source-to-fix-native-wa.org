@@ -298,6 +298,28 @@ Per-release update procedure:
 
 Native-Wayland outcome: source =pkgs.limux= works on this host without =GDK_BACKEND=x11=; keep the workaround only in =pkgs.limux-bin= because it remains the known-working prebuilt fallback for binary/libwayland/EGL mismatch regressions.
 
+** POST-HOC CORRECTION (orchestrator) — native Wayland is NO-GO; core bet did not hold
+The Task 6 "native Wayland GO" conclusion was *wrong*. Its verification only
+proved (a) the surface realized (=surface-health=) and (b) the *control socket*
+could inject text (=limux send=) — neither exercises real keyboard events
+routing through the compositor to the embedded GLArea. On interactive use the
+user confirmed the source =pkgs.limux= window renders but *takes no keyboard
+input* under native Wayland, and =GDK_BACKEND=x11= restores input — identical to
+the prebuilt. So the from-source closure did NOT fix the NVIDIA/Sway native-
+Wayland issue; the planner's "core bet may not hold" risk materialised.
+
+Consequence: the bug is *not* a Nix packaging / libwayland-EGL-mismatch seam —
+an upstream-coherent, fully source-built libghostty fails identically. It is a
+genuine NVIDIA + GTK4-embedded-GLArea + Wayland input/render issue independent
+of how limux is packaged. Re-added =--set-default GDK_BACKEND x11= to the source
+derivation (now =pkgs/limux-src=) to match the prebuilt.
+
+*** Final decision: keep both, prebuilt is the default
+- =pkgs.limux= = the prebuilt derivation (=git mv= back from =pkgs/limux-bin/= to =pkgs/limux/=, =pname = "limux"=). Default; what =dev/dev-linux.nix= installs; 1-hash maintenance; carries the GL closure fix + =GDK_BACKEND=x11=.
+- =pkgs.limux-src= = the from-source Rust build (=git mv= from =pkgs/limux/= to =pkgs/limux-src/=, =pname = "limux-src"=). Opt-in (=nix build .#limux-src=); consumes =pkgs.limux-ghostty=; also carries =GDK_BACKEND=x11=; 4-hash maintenance.
+- =pkgs.limux-ghostty= = unchanged; dependency of =limux-src=.
+- Net assessment: from-source did not achieve its goal (drop the X11 workaround). Retained in-tree only for source provenance + as a record of the negative result; the prebuilt is strictly cheaper for identical runtime behaviour. The Task 7 maintenance steps below now read =pkgs/limux-src= where they said =pkgs/limux=, and =pkgs.limux= where they said =pkgs.limux-bin=.
+
 * Validation
 
 - Task 1: =git ls-tree 9ffc9341de2ad649f99a85df7c05b7eafb4a6236 ghostty= returned =160000 commit 81ab8ffa90185221782baf785e85387321e16f8d ghostty=.
@@ -311,3 +333,5 @@ Native-Wayland outcome: source =pkgs.limux= works on this host without =GDK_BACK
 - Task 5: =nix build .#limux --impure --print-out-paths= succeeded at =/nix/store/4xjb2rnsh29al8rqa9mbq6970aamlcvb-limux-0.1.19=; verified =lib/libghostty.so=, =share/limux/terminfo/x/xterm-ghostty=, and =share/limux/ghostty= exist. =comm -3 <(cd $limux_bin && find . -type f | sort) <(cd $limux && find . -type f | sort)= produced no file-list differences.
 - Task 6: =readelf -d $out/lib/libghostty.so= and =readelf -d $out/libexec/limux/.limux-host-wrapped= showed Nix store =NEEDED=/=RUNPATH= entries and no =/usr/local/lib/limux= references.
 - Task 6: =GDK_BACKEND=wayland $out/bin/limux= launched under Sway; =swaymsg -t get_tree= found visible focused =app_id= =dev.limux.linux=; =grim= screenshot showed the embedded terminal surface rendered; =limux --json surface-health= reported =healthy=true= for the selected terminal surface; =limux send 'echo LIMUX_INPUT_OK'= returned =OK= and the text appeared in =limux read-screen=.
+- Task 6 CORRECTION: the above is insufficient — =limux send= is control-socket injection and =surface-health= is realization state; neither tests compositor keyboard routing. Interactive use confirmed native Wayland takes NO keyboard input on this host; =GDK_BACKEND=x11= is required and was re-added to =pkgs/limux-src=. See POST-HOC CORRECTION above.
+- Final: =nix build .#limux .#limux-src .#limux-ghostty --impure= all succeed; =pkgs.limux= (prebuilt) and =pkgs.limux-src= both bake =GDK_BACKEND=x11=; =dev/dev-linux.nix='s =limux= now resolves to the prebuilt default.
