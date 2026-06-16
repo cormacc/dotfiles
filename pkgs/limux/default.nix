@@ -1,128 +1,70 @@
+# Credit to whazor (https://github.com/whazor) for original implementation
+# from https://github.com/am-will/limux/issues/75
 {
   lib,
   stdenv,
-  rustPlatform,
-  fetchFromGitHub,
+  fetchurl,
+  autoPatchelfHook,
   makeWrapper,
   wrapGAppsHook4,
   addDriverRunpath,
   libglvnd,
-  limux-ghostty,
-  fontconfig,
   gtk4,
   libadwaita,
-  libepoxy,
   webkitgtk_6_0,
   glib,
   pango,
-  pkg-config,
+  fontconfig,
+  gcc,
 }:
 
-rustPlatform.buildRustPackage rec {
+stdenv.mkDerivation rec {
   pname = "limux";
   version = "0.1.19";
 
-  src = fetchFromGitHub {
-    owner = "am-will";
-    repo = "limux";
-    tag = "v${version}";
-    hash = "sha256-JIVwhVv49HllSYrUxmPkg/DNUn0lnDpuC/gw/pUBJwE=";
+  src = fetchurl {
+    url = "https://github.com/am-will/limux/releases/download/v${version}/limux-${version}-linux-x86_64.tar.gz";
+    hash = "sha256-94/s5Iugdf3vbiwwVviGhVe5tSBnDi4Cbsib3yzeNNg=";
   };
 
-  cargoHash = "sha256-CdGjtN3NYqVP3FBTSlpGOMaHOgzgpoSPusFh14n+HWc=";
-
   nativeBuildInputs = [
+    autoPatchelfHook
     makeWrapper
-    pkg-config
     wrapGAppsHook4
   ];
 
   buildInputs = [
     fontconfig
+    gcc.cc.lib
     glib
     gtk4
     libadwaita
-    libepoxy
     libglvnd
     pango
     webkitgtk_6_0
   ];
 
-  postPatch = ''
-    rm -f .cargo/config.toml
-
-    cat > rust/limux-ghostty-sys/build.rs <<'EOF'
-use std::path::PathBuf;
-
-fn main() {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let ghostty_root = manifest_dir.join("../../ghostty");
-    let ghostty_lib = ghostty_root
-        .join("zig-out/lib")
-        .canonicalize()
-        .expect("libghostty not found");
-
-    let glad_src = ghostty_root.join("vendor/glad/src/gl.c");
-    let glad_include = ghostty_root.join("vendor/glad/include");
-    if glad_src.exists() {
-        cc::Build::new()
-            .file(&glad_src)
-            .include(&glad_include)
-            .compile("glad");
-    }
-
-    println!("cargo:rustc-link-search=native={}", ghostty_lib.display());
-    println!("cargo:rustc-link-lib=dylib=ghostty");
-    println!("cargo:rustc-link-lib=dylib=epoxy");
-    println!("cargo:rustc-link-lib=static=glad");
-    println!("cargo:rerun-if-changed={}", ghostty_lib.join("libghostty.so").display());
-}
-EOF
-
-    mkdir -p ghostty/zig-out/lib ghostty/vendor
-    ln -s ${limux-ghostty}/lib/libghostty.so ghostty/zig-out/lib/libghostty.so
-    ln -s ${limux-ghostty}/src/vendor/glad ghostty/vendor/glad
-  '';
-
-  preBuild = ''
-    export RUSTFLAGS="''${RUSTFLAGS:-} -C link-arg=$PWD/ghostty/vendor/glad/src/gl.c -C link-arg=-I$PWD/ghostty/vendor/glad/include"
-  '';
-
-  # Upstream tests expect GTK/WebKit/ghostty runtime resources and a graphical session.
-  doCheck = false;
+  dontBuild = true;
 
   installPhase = ''
     runHook preInstall
 
-    install -Dm755 target/${stdenv.hostPlatform.rust.cargoShortTarget}/release/limux-cli "$out/bin/limux"
-    install -Dm755 target/${stdenv.hostPlatform.rust.cargoShortTarget}/release/limux "$out/libexec/limux/limux-host"
-    install -Dm755 ${limux-ghostty}/lib/libghostty.so "$out/lib/libghostty.so"
-
-    mkdir -p "$out/share/limux/ghostty" "$out/share/limux/terminfo"
-    cp -r ${limux-ghostty}/share/ghostty/. "$out/share/limux/ghostty/"
-    if [ -d ${limux-ghostty}/share/terminfo/g ]; then
-      mkdir -p "$out/share/limux/terminfo/g"
-      cp ${limux-ghostty}/share/terminfo/g/ghostty "$out/share/limux/terminfo/g/ghostty"
-    fi
-    if [ -d ${limux-ghostty}/share/terminfo/x ]; then
-      mkdir -p "$out/share/limux/terminfo/x"
-      cp ${limux-ghostty}/share/terminfo/x/xterm-ghostty "$out/share/limux/terminfo/x/xterm-ghostty"
-    fi
-
-    install -Dm644 rust/limux-host-linux/dev.limux.linux.desktop "$out/share/applications/dev.limux.linux.desktop"
-    install -Dm644 rust/limux-host-linux/dev.limux.linux.metainfo.xml "$out/share/metainfo/dev.limux.linux.metainfo.xml"
-    for size in 16 32 128 256 512; do
-      install -Dm644 "rust/limux-host-linux/icons/app/$size.png" "$out/share/icons/hicolor/''${size}x''${size}/apps/limux.png"
-    done
-    install -Dm644 rust/limux-host-linux/icons/limux-globe-symbolic.svg "$out/share/icons/hicolor/scalable/actions/limux-globe-symbolic.svg"
-    install -Dm644 rust/limux-host-linux/icons/limux-split-horizontal-symbolic.svg "$out/share/icons/hicolor/scalable/actions/limux-split-horizontal-symbolic.svg"
-    install -Dm644 rust/limux-host-linux/icons/limux-split-vertical-symbolic.svg "$out/share/icons/hicolor/scalable/actions/limux-split-vertical-symbolic.svg"
+    install -Dm755 limux "$out/bin/limux"
+    install -Dm755 libexec/limux/limux-host "$out/libexec/limux/limux-host"
+    install -Dm755 lib/libghostty.so "$out/lib/libghostty.so"
+    cp -r share "$out/share"
 
     runHook postInstall
   '';
 
   preFixup = ''
     gappsWrapperArgs+=(
+      # Force XWayland/GLX. limux is a prebuilt binary spliced into the Nix
+      # closure (nixpkgs GTK4/libwayland/Mesa) on top of the system NVIDIA
+      # driver; the native-Wayland EGL path mismatches and renders the
+      # embedded ghostty surfaces blank. GLX via XWayland sidesteps libwayland.
+      # --set-default so users on non-NVIDIA / Wayland-clean setups can override.
+      --set-default GDK_BACKEND x11
       --prefix LD_LIBRARY_PATH : "$out/lib"
       --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath [ libglvnd ]}"
       --prefix LD_LIBRARY_PATH : "${addDriverRunpath.driverLink}/lib"
@@ -137,5 +79,6 @@ EOF
     license = lib.licenses.mit;
     mainProgram = "limux";
     platforms = [ "x86_64-linux" ];
+    sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
   };
 }
