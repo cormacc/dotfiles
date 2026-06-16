@@ -131,6 +131,13 @@
         ];
       };
     in {
+      # Local packages (pkgs/<name>/default.nix) exposed as flake outputs so
+      # they can be built directly, e.g. `nix build .#limux --impure`. This is
+      # the exact same attrset the overlay injects into the home/nixos `pkgs`
+      # set above (callPackage-wired against the fully-overlaid pkgs), so there
+      # is no duplication and new pkgs/<name>/ dirs appear automatically.
+      packages.${system} = (import ./pkgs/overlay.nix) pkgs pkgs;
+
       nixosConfigurations = {
         # Standalone home-manager pattern (os config separate from user env)
         # is the canonical approach -- os-level tweaking should happen less
