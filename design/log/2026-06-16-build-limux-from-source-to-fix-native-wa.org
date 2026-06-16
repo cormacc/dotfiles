@@ -60,6 +60,11 @@ first, before any Rust work.
 - =.cargo/config.toml= hardcodes =-Wl,-rpath,/usr/local/lib/limux=; override/remove it (the wrapper uses =$out/lib=).
 - =scripts/package.sh= produces ghostty resources via a *second* =zig build= invocation and copies =share/ghostty= + terminfo separately from the libghostty build — the resources are not a by-product of the =-Dapp-runtime=none= lib build.
 
+** Shipped
+- ADDED =pkgs/limux-ghostty=: pinned sandboxed =am-will/ghostty= fork build producing =libghostty.so=, Ghostty resources, terminfo, and =vendor/glad= for Rust FFI.
+- MODIFIED =pkgs/limux=: source Rust workspace build is now the default =limux= package, with native Wayland enabled (no =GDK_BACKEND=x11= override).
+- ADDED =pkgs/limux-bin=: prebuilt fallback preserving the prior XWayland/GLX workaround and GL wiring.
+
 ** Risks
 - Core bet may not hold :: one coherent closure might still not fix native-Wayland EGL on NVIDIA. Bounded: ISC-9 permits documented retention of =GDK_BACKEND=x11=; the work still ships a source build with =limux-bin= fallback.
 - Maintenance burden :: per-release updates jump from 1 hash to ~4 (limux src, ghostty submodule rev, Zig-deps FOD, =cargoHash=), and the fork can drift. Accepted; mitigated by a maintenance-notes task and the indefinite =limux-bin= fallback.
@@ -229,13 +234,17 @@ This is the ISC-8/ISC-9 verification gate. Compare against the =limux-bin=
 =preFixup= block (the =gappsWrapperArgs+=(…)= list) for the exact wiring to
 carry over.
 
-** TODO [#C] Record per-release maintenance / update-hash notes :docs:
+** DONE [#C] Record per-release maintenance / update-hash notes :docs:
+CLOSED: [2026-06-16 Tue 11:46]
 :PROPERTIES:
 :CUSTOM_ID: 86e062f5-82b4-4d3f-9cfe-60c90f3249b8
 :CREATED: [2026-06-16 Tue 10:32]
+:STARTED: [2026-06-16 Tue 11:45]
 :END:
 :LOGBOOK:
 - Created [2026-06-16 Tue 10:32]
+- State "STARTED" from "TODO" [2026-06-16 Tue 11:45]
+- State "DONE" from "STARTED" [2026-06-16 Tue 11:46]
 :END:
 :BLOCKED-BY: c5258870-e7bb-4a7a-8d5e-08911d4f66ef
 Acceptance criteria:
@@ -278,6 +287,16 @@ Acceptance criteria:
 - The source package wrapper keeps =$out/lib=, =libglvnd=, and =${addDriverRunpath.driverLink}/lib= on =LD_LIBRARY_PATH=, plus =$out/share= in =XDG_DATA_DIRS= and =$out/share/limux/terminfo= in =TERMINFO_DIRS=.
 - Native Wayland is GO on this host: launched with no =GDK_BACKEND=x11= override under Sway; Sway reported a focused visible =dev.limux.linux= window, screenshot showed the embedded Ghostty terminal surface rendered, and =limux --json surface-health= reported the selected terminal surface =healthy=true=, =realized=true=, =in_window=true= at =1084x1124=. =limux send 'echo LIMUX_INPUT_OK'= inserted text into the terminal, confirming control-path input reaches the embedded surface.
 - Dropped the =GDK_BACKEND=x11= workaround for source =pkgs.limux=. It remains only on =pkgs.limux-bin=, the prebuilt fallback.
+
+** Task 7 — maintenance notes
+Per-release update procedure:
+1. Bump =pkgs/limux/default.nix= =version= and refresh the limux =src.hash= for the new tag.
+2. Resolve the new limux tag's =ghostty= gitlink with =git ls-tree <limux-tag-or-commit> ghostty=; update =pkgs/limux-ghostty/default.nix= =version= suffix, =src.rev=, and =src.hash= for that exact fork commit.
+3. Check the pinned fork's =build.zig.zon= =minimum_zig_version= at that commit; update the Zig attr only if the declared minimum moves beyond =zig_0_15=.
+4. Regenerate =pkgs/limux-ghostty/deps.nix= from the pinned fork checkout with =zon2nix= and verify =nix build .#limux-ghostty --impure=.
+5. Refresh =pkgs/limux/default.nix= =cargoHash= with the usual fake-hash rebuild, then verify =nix build .#limux --impure= and =nix build .#limux-bin --impure=.
+
+Native-Wayland outcome: source =pkgs.limux= works on this host without =GDK_BACKEND=x11=; keep the workaround only in =pkgs.limux-bin= because it remains the known-working prebuilt fallback for binary/libwayland/EGL mismatch regressions.
 
 * Validation
 
