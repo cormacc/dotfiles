@@ -49,6 +49,9 @@ no flake edits to add one.
   XWayland fixes it. A coherent from-source closure did **not** help — it's an
   NVIDIA/GTK4-GLArea/Wayland bug, not a Nix seam. See
   `design/log/2026-06-16-build-limux-from-source-*.org`.
+- **WebKitGTK apps need `glib-networking` in `buildInputs`** or the embedded
+  browser fails TLS ("TLS support is not available") — the prebuilt tarball
+  leans on a system-wide copy the Nix closure lacks.
 - **Verifying GUI fixes:** control-socket injection (`limux send`) and health
   probes (`surface-health`) bypass the compositor and report success when input
   is dead. Verify render+input through the compositor (real keystrokes, an
