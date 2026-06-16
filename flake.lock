@@ -149,6 +149,26 @@
         "type": "github"
       }
     },
+    "herdr": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1781624300,
+        "narHash": "sha256-dXxA4XWAU7vOtQ5kPa6l3hSLvAYLyTENAkDjhYAK+Rc=",
+        "owner": "ogulcancelik",
+        "repo": "herdr",
+        "rev": "d998753efe506a04c80306795efc72bff60bb0ec",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ogulcancelik",
+        "repo": "herdr",
+        "type": "github"
+      }
+    },
     "hermes-agent": {
       "inputs": {
         "flake-parts": "flake-parts_2",
@@ -161,11 +181,11 @@
         "uv2nix": "uv2nix_2"
       },
       "locked": {
-        "lastModified": 1781538902,
-        "narHash": "sha256-DhHZQBdARvU438lK65CQtCnu/Hs7RD6n/KxwwSlBEX4=",
+        "lastModified": 1781621757,
+        "narHash": "sha256-EisWO+Mj5RhdxqCS/xD91cOA2ZrsvEX2sBmXrTlSYNc=",
         "owner": "NousResearch",
         "repo": "hermes-agent",
-        "rev": "45e2f4fdcd760b0072eecb32b7b9c00b62c17b98",
+        "rev": "c6e99ab375d51585ed0324961e72e1597365f3a2",
         "type": "github"
       },
       "original": {
@@ -181,11 +201,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1781533608,
-        "narHash": "sha256-Mgsu/x5cs8EqlhIQ7bMBo14LpkAYtgzDbG/S/eattJA=",
+        "lastModified": 1781615165,
+        "narHash": "sha256-CFF4fNNfr2GZSx1xJhBNBi7VMj8OtOqZGOV+fiBSbzw=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "8aec76cc1e045f37b55d82ca3cee4910ae04d3db",
+        "rev": "34dd288e65012954cf7170658e0e6a61255b0327",
         "type": "github"
       },
       "original": {
@@ -404,11 +424,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1781538964,
-        "narHash": "sha256-T2OT1mir/KTmAowS5edC7lvVkj0jRCTGatKUUDCgRDE=",
+        "lastModified": 1781623481,
+        "narHash": "sha256-/mWgFiK9iVKDY3At14fzXN4uOzgtotjDqsxZa1PXfS4=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "172400dbbc25b6ea8330d88873e633a7bb316de4",
+        "rev": "980db9358737bc6519a9d7fb5291a8ac019b8c05",
         "type": "github"
       },
       "original": {
@@ -426,11 +446,11 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1781519763,
-        "narHash": "sha256-rBy5SUXzi5gGK2uPcLKsHRHlDVxX2hP6HjBBk9nE1p8=",
+        "lastModified": 1781602789,
+        "narHash": "sha256-zkyB/u9S0qYfdOAo8MtBJZ3VramfSd1V5j/7FqJZ/28=",
         "owner": "lukasl-dev",
         "repo": "pi.nix",
-        "rev": "e39c3e9cf907c171e6c3d4ecde4a89c3dc03c4bc",
+        "rev": "0721c9d240c2d810b26d4077f11cee85af335ee6",
         "type": "github"
       },
       "original": {
@@ -530,6 +550,7 @@
     "root": {
       "inputs": {
         "claude-desktop": "claude-desktop",
+        "herdr": "herdr",
         "hermes-agent": "hermes-agent",
         "home-manager": "home-manager",
         "home-manager-darwin": "home-manager-darwin",
@@ -550,11 +571,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1781493707,
-        "narHash": "sha256-lzf7qdQWuiY0T9VEbfH2CmP1LZQAYooU/sZuSgEJEBk=",
+        "lastModified": 1781580018,
+        "narHash": "sha256-BlTedbM77FmesD2ZqR73vhFy+y77UrhefV7IYw1pDsk=",
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "06f25b8e40805beb2121a4dae4cc37d6f981800f",
+        "rev": "8bceba21a1ebea535c27c4dc723a0d5a4db9e386",
         "type": "github"
       },
       "original": {

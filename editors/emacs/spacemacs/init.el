@@ -290,11 +290,6 @@ This function should only modify configuration layer settings."
      eca
      alabaster-themes
      doom-themes
-     ;; FIXME: Claude-code-ide installation failing on darwin 09/01/2026
-     ;; (claude-code-ide :location (recipe
-     ;;                             :fetcher github
-     ;;                             :repo "manzaltu/claude-code-ide.el"))
-
      ;;
      )
 
