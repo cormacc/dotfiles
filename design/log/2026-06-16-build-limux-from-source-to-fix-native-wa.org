@@ -124,13 +124,17 @@ vendors C libs under =pkg/=; verify whether those are submodules (need
 =fetchSubmodules=) or =deps.files.ghostty.org= tarballs (already in =deps.nix=).
 Reference: =pkgs/by-name/gh/ghostty/package.nix=.
 
-** TODO [#B] Move prebuilt derivation to pkgs/limux-bin :nix:
+** DONE [#B] Move prebuilt derivation to pkgs/limux-bin :nix:
+CLOSED: [2026-06-16 Tue 11:30]
 :PROPERTIES:
 :CUSTOM_ID: 41545fac-5c4e-4fc0-873a-608771ea4427
 :CREATED: [2026-06-16 Tue 10:32]
+:STARTED: [2026-06-16 Tue 11:29]
 :END:
 :LOGBOOK:
 - Created [2026-06-16 Tue 10:32]
+- State "STARTED" from "TODO" [2026-06-16 Tue 11:29]
+- State "DONE" from "STARTED" [2026-06-16 Tue 11:30]
 :END:
 Acceptance criteria:
 - =pkgs/limux-bin/default.nix= is the current prebuilt derivation, moved with =git mv pkgs/limux/default.nix pkgs/limux-bin/default.nix= (preserves history).
@@ -245,6 +249,9 @@ Acceptance criteria:
 ** Task 2 — GATE DECISION: GO
 - =nix build .#limux-ghostty --impure= now succeeds. =$out/lib/libghostty.so= ELF magic =7f 45 4c 46= (valid ELF); =$out/share/ghostty=, =$out/share/terminfo/x/xterm-ghostty=, =$out/src/vendor/glad/src/gl.c= all present; no fetch/source refs in runtime closure. Downstream tasks (3–7) proceed.
 
+** Task 3 — prebuilt fallback moved
+- Moved the prebuilt derivation from =pkgs/limux/default.nix= to =pkgs/limux-bin/default.nix= with =git mv= and changed only =pname = "limux-bin"=. The =GDK_BACKEND=x11= workaround and GL wrapper wiring remain unchanged.
+
 * Validation
 
 - Task 1: =git ls-tree 9ffc9341de2ad649f99a85df7c05b7eafb4a6236 ghostty= returned =160000 commit 81ab8ffa90185221782baf785e85387321e16f8d ghostty=.
@@ -253,3 +260,4 @@ Acceptance criteria:
 - Task 2: =nix build --impure --print-out-paths --expr 'let flake = builtins.getFlake (toString ./.); pkgs = import flake.inputs.nixpkgs { system = "x86_64-linux"; config.allowUnfree = true; overlays = [ (import ./pkgs/overlay.nix) ]; }; in pkgs.limux-ghostty'= succeeded at =/nix/store/znwi91dpxvkh6rw97ziklm4md4gyz52i-limux-ghostty-0.1.19-ghostty-81ab8ffa90185221782baf785e85387321e16f8d=.
 - Task 2: =readelf -h $out/lib/libghostty.so= reported =Class: ELF64=; =$out/share/ghostty= exists; =$out/share/terminfo/x/xterm-ghostty= exists; =$out/src/vendor/glad/src/gl.c= exists.
 - Task 2 blocker: =nix build .#limux-ghostty --impure --no-link= failed with =flake 'git+file:///home/cormacc/dotfiles' does not provide attribute 'packages.x86_64-linux.limux-ghostty', 'legacyPackages.x86_64-linux.limux-ghostty' or 'limux-ghostty'=.
+- Task 3: =nix build .#limux-bin --impure --no-link= succeeded.

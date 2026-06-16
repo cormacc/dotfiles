@@ -19,7 +19,7 @@
 }:
 
 stdenv.mkDerivation rec {
-  pname = "limux";
+  pname = "limux-bin";
   version = "0.1.19";
 
   src = fetchurl {
