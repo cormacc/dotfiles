@@ -178,13 +178,17 @@ relative to =limux-ghostty-sys=. A custom =installPhase= maps the built bin
 crates; this task gets the workspace compiling + binaries produced, layout is
 the next task.
 
-** TODO [#A] Replicate package.sh install layout (share, terminfo, libghostty) :nix:
+** DONE [#A] Replicate package.sh install layout (share, terminfo, libghostty) :nix:
+CLOSED: [2026-06-16 Tue 11:43]
 :PROPERTIES:
 :CUSTOM_ID: e2ae770b-b28c-4dc0-996c-5d18bcef9fe5
 :CREATED: [2026-06-16 Tue 10:32]
+:STARTED: [2026-06-16 Tue 11:41]
 :END:
 :LOGBOOK:
 - Created [2026-06-16 Tue 10:32]
+- State "STARTED" from "TODO" [2026-06-16 Tue 11:41]
+- State "DONE" from "STARTED" [2026-06-16 Tue 11:43]
 :END:
 :BLOCKED-BY: e2142983-1660-4944-b5b4-ef2f179f68f1
 Acceptance criteria:
@@ -263,6 +267,9 @@ Acceptance criteria:
 - Patched =build.rs= in =postPatch= and set =RUSTFLAGS= to link =vendor/glad/src/gl.c= explicitly; otherwise =libghostty.so= leaves =gladLoader*= unresolved at final link.
 - Set =doCheck = false= because upstream checks need GTK/WebKit/ghostty runtime resources and a graphical session.
 
+** Task 5 — package layout replicated
+- Extended =pkgs/limux/default.nix= install layout to include =lib/libghostty.so=, Ghostty resources under =share/limux/ghostty=, terminfo under =share/limux/terminfo=, desktop/metainfo files, app icons, and symbolic action icons. The file list now matches =limux-bin= modulo wrapper implementation details and libghostty provenance.
+
 * Validation
 
 - Task 1: =git ls-tree 9ffc9341de2ad649f99a85df7c05b7eafb4a6236 ghostty= returned =160000 commit 81ab8ffa90185221782baf785e85387321e16f8d ghostty=.
@@ -273,3 +280,4 @@ Acceptance criteria:
 - Task 2 blocker: =nix build .#limux-ghostty --impure --no-link= failed with =flake 'git+file:///home/cormacc/dotfiles' does not provide attribute 'packages.x86_64-linux.limux-ghostty', 'legacyPackages.x86_64-linux.limux-ghostty' or 'limux-ghostty'=.
 - Task 3: =nix build .#limux-bin --impure --no-link= succeeded.
 - Task 4: =nix build .#limux --impure --print-out-paths= succeeded at =/nix/store/3h7al04ikpm7a31a9glkxnbf3k8h236d-limux-0.1.19=; =$out/bin/limux= and =$out/libexec/limux/limux-host= are executable.
+- Task 5: =nix build .#limux --impure --print-out-paths= succeeded at =/nix/store/4xjb2rnsh29al8rqa9mbq6970aamlcvb-limux-0.1.19=; verified =lib/libghostty.so=, =share/limux/terminfo/x/xterm-ghostty=, and =share/limux/ghostty= exist. =comm -3 <(cd $limux_bin && find . -type f | sort) <(cd $limux && find . -type f | sort)= produced no file-list differences.

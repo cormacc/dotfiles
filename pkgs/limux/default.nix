@@ -96,6 +96,27 @@ EOF
 
     install -Dm755 target/${stdenv.hostPlatform.rust.cargoShortTarget}/release/limux-cli "$out/bin/limux"
     install -Dm755 target/${stdenv.hostPlatform.rust.cargoShortTarget}/release/limux "$out/libexec/limux/limux-host"
+    install -Dm755 ${limux-ghostty}/lib/libghostty.so "$out/lib/libghostty.so"
+
+    mkdir -p "$out/share/limux/ghostty" "$out/share/limux/terminfo"
+    cp -r ${limux-ghostty}/share/ghostty/. "$out/share/limux/ghostty/"
+    if [ -d ${limux-ghostty}/share/terminfo/g ]; then
+      mkdir -p "$out/share/limux/terminfo/g"
+      cp ${limux-ghostty}/share/terminfo/g/ghostty "$out/share/limux/terminfo/g/ghostty"
+    fi
+    if [ -d ${limux-ghostty}/share/terminfo/x ]; then
+      mkdir -p "$out/share/limux/terminfo/x"
+      cp ${limux-ghostty}/share/terminfo/x/xterm-ghostty "$out/share/limux/terminfo/x/xterm-ghostty"
+    fi
+
+    install -Dm644 rust/limux-host-linux/dev.limux.linux.desktop "$out/share/applications/dev.limux.linux.desktop"
+    install -Dm644 rust/limux-host-linux/dev.limux.linux.metainfo.xml "$out/share/metainfo/dev.limux.linux.metainfo.xml"
+    for size in 16 32 128 256 512; do
+      install -Dm644 "rust/limux-host-linux/icons/app/$size.png" "$out/share/icons/hicolor/''${size}x''${size}/apps/limux.png"
+    done
+    install -Dm644 rust/limux-host-linux/icons/limux-globe-symbolic.svg "$out/share/icons/hicolor/scalable/actions/limux-globe-symbolic.svg"
+    install -Dm644 rust/limux-host-linux/icons/limux-split-horizontal-symbolic.svg "$out/share/icons/hicolor/scalable/actions/limux-split-horizontal-symbolic.svg"
+    install -Dm644 rust/limux-host-linux/icons/limux-split-vertical-symbolic.svg "$out/share/icons/hicolor/scalable/actions/limux-split-vertical-symbolic.svg"
 
     runHook postInstall
   '';
