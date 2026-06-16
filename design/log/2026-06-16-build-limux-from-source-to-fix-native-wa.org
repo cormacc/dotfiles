@@ -146,13 +146,17 @@ Do this before the =pkgs/limux/default.nix= rewrite so the working fallback
 survives in-tree throughout. The overlay (=pkgs/overlay.nix=) auto-exposes the
 new dir as =pkgs.limux-bin= with no flake edits.
 
-** TODO [#A] Build Rust workspace as pkgs/limux consuming limux-ghostty :nix:
+** DONE [#A] Build Rust workspace as pkgs/limux consuming limux-ghostty :nix:
+CLOSED: [2026-06-16 Tue 11:41]
 :PROPERTIES:
 :CUSTOM_ID: e2142983-1660-4944-b5b4-ef2f179f68f1
 :CREATED: [2026-06-16 Tue 10:32]
+:STARTED: [2026-06-16 Tue 11:30]
 :END:
 :LOGBOOK:
 - Created [2026-06-16 Tue 10:32]
+- State "STARTED" from "TODO" [2026-06-16 Tue 11:30]
+- State "DONE" from "STARTED" [2026-06-16 Tue 11:41]
 :END:
 :BLOCKED-BY: 59549557-7b82-43bf-b055-bec6dae76fd4
 :BLOCKED-BY+: 41545fac-5c4e-4fc0-873a-608771ea4427
@@ -252,6 +256,13 @@ Acceptance criteria:
 ** Task 3 — prebuilt fallback moved
 - Moved the prebuilt derivation from =pkgs/limux/default.nix= to =pkgs/limux-bin/default.nix= with =git mv= and changed only =pname = "limux-bin"=. The =GDK_BACKEND=x11= workaround and GL wrapper wiring remain unchanged.
 
+** Task 4 — Rust workspace builds
+- Recreated =pkgs/limux/default.nix= as a =rustPlatform.buildRustPackage= for limux =v0.1.19= with pinned =cargoHash=.
+- Satisfied =limux-ghostty-sys= by staging =limux-ghostty='s =libghostty.so= at =ghostty/zig-out/lib/libghostty.so= and =vendor/glad= at =ghostty/vendor/glad= during =postPatch=.
+- Removed upstream =.cargo/config.toml= so the =/usr/local/lib/limux= rpath is not used.
+- Patched =build.rs= in =postPatch= and set =RUSTFLAGS= to link =vendor/glad/src/gl.c= explicitly; otherwise =libghostty.so= leaves =gladLoader*= unresolved at final link.
+- Set =doCheck = false= because upstream checks need GTK/WebKit/ghostty runtime resources and a graphical session.
+
 * Validation
 
 - Task 1: =git ls-tree 9ffc9341de2ad649f99a85df7c05b7eafb4a6236 ghostty= returned =160000 commit 81ab8ffa90185221782baf785e85387321e16f8d ghostty=.
@@ -261,3 +272,4 @@ Acceptance criteria:
 - Task 2: =readelf -h $out/lib/libghostty.so= reported =Class: ELF64=; =$out/share/ghostty= exists; =$out/share/terminfo/x/xterm-ghostty= exists; =$out/src/vendor/glad/src/gl.c= exists.
 - Task 2 blocker: =nix build .#limux-ghostty --impure --no-link= failed with =flake 'git+file:///home/cormacc/dotfiles' does not provide attribute 'packages.x86_64-linux.limux-ghostty', 'legacyPackages.x86_64-linux.limux-ghostty' or 'limux-ghostty'=.
 - Task 3: =nix build .#limux-bin --impure --no-link= succeeded.
+- Task 4: =nix build .#limux --impure --print-out-paths= succeeded at =/nix/store/3h7al04ikpm7a31a9glkxnbf3k8h236d-limux-0.1.19=; =$out/bin/limux= and =$out/libexec/limux/limux-host= are executable.
