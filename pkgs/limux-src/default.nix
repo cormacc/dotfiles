@@ -14,6 +14,7 @@
   libepoxy,
   webkitgtk_6_0,
   glib,
+  glib-networking,
   pango,
   pkg-config,
 }:
@@ -40,6 +41,7 @@ rustPlatform.buildRustPackage rec {
   buildInputs = [
     fontconfig
     glib
+    glib-networking
     gtk4
     libadwaita
     libepoxy
