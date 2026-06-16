@@ -204,13 +204,17 @@ for which files land where and where terminfo/ghostty resources come from
 (Zig build output vs repo tree). Prior layout to match: =pkgs/limux-bin/default.nix=
 =installPhase= (=install -Dm755 …=, =cp -r share …=).
 
-** TODO [#A] Wire GL/runtime and verify native Wayland on this host :nix:
+** DONE [#A] Wire GL/runtime and verify native Wayland on this host :nix:
+CLOSED: [2026-06-16 Tue 11:45]
 :PROPERTIES:
 :CUSTOM_ID: c5258870-e7bb-4a7a-8d5e-08911d4f66ef
 :CREATED: [2026-06-16 Tue 10:32]
+:STARTED: [2026-06-16 Tue 11:43]
 :END:
 :LOGBOOK:
 - Created [2026-06-16 Tue 10:32]
+- State "STARTED" from "TODO" [2026-06-16 Tue 11:43]
+- State "DONE" from "STARTED" [2026-06-16 Tue 11:45]
 :END:
 :BLOCKED-BY: e2ae770b-b28c-4dc0-996c-5d18bcef9fe5
 Acceptance criteria:
@@ -270,6 +274,11 @@ Acceptance criteria:
 ** Task 5 — package layout replicated
 - Extended =pkgs/limux/default.nix= install layout to include =lib/libghostty.so=, Ghostty resources under =share/limux/ghostty=, terminfo under =share/limux/terminfo=, desktop/metainfo files, app icons, and symbolic action icons. The file list now matches =limux-bin= modulo wrapper implementation details and libghostty provenance.
 
+** Task 6 — runtime and native Wayland
+- The source package wrapper keeps =$out/lib=, =libglvnd=, and =${addDriverRunpath.driverLink}/lib= on =LD_LIBRARY_PATH=, plus =$out/share= in =XDG_DATA_DIRS= and =$out/share/limux/terminfo= in =TERMINFO_DIRS=.
+- Native Wayland is GO on this host: launched with no =GDK_BACKEND=x11= override under Sway; Sway reported a focused visible =dev.limux.linux= window, screenshot showed the embedded Ghostty terminal surface rendered, and =limux --json surface-health= reported the selected terminal surface =healthy=true=, =realized=true=, =in_window=true= at =1084x1124=. =limux send 'echo LIMUX_INPUT_OK'= inserted text into the terminal, confirming control-path input reaches the embedded surface.
+- Dropped the =GDK_BACKEND=x11= workaround for source =pkgs.limux=. It remains only on =pkgs.limux-bin=, the prebuilt fallback.
+
 * Validation
 
 - Task 1: =git ls-tree 9ffc9341de2ad649f99a85df7c05b7eafb4a6236 ghostty= returned =160000 commit 81ab8ffa90185221782baf785e85387321e16f8d ghostty=.
@@ -281,3 +290,5 @@ Acceptance criteria:
 - Task 3: =nix build .#limux-bin --impure --no-link= succeeded.
 - Task 4: =nix build .#limux --impure --print-out-paths= succeeded at =/nix/store/3h7al04ikpm7a31a9glkxnbf3k8h236d-limux-0.1.19=; =$out/bin/limux= and =$out/libexec/limux/limux-host= are executable.
 - Task 5: =nix build .#limux --impure --print-out-paths= succeeded at =/nix/store/4xjb2rnsh29al8rqa9mbq6970aamlcvb-limux-0.1.19=; verified =lib/libghostty.so=, =share/limux/terminfo/x/xterm-ghostty=, and =share/limux/ghostty= exist. =comm -3 <(cd $limux_bin && find . -type f | sort) <(cd $limux && find . -type f | sort)= produced no file-list differences.
+- Task 6: =readelf -d $out/lib/libghostty.so= and =readelf -d $out/libexec/limux/.limux-host-wrapped= showed Nix store =NEEDED=/=RUNPATH= entries and no =/usr/local/lib/limux= references.
+- Task 6: =GDK_BACKEND=wayland $out/bin/limux= launched under Sway; =swaymsg -t get_tree= found visible focused =app_id= =dev.limux.linux=; =grim= screenshot showed the embedded terminal surface rendered; =limux --json surface-health= reported =healthy=true= for the selected terminal surface; =limux send 'echo LIMUX_INPUT_OK'= returned =OK= and the text appeared in =limux read-screen=.
