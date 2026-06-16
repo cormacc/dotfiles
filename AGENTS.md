@@ -36,30 +36,23 @@ aliases, provisioning, and the dotagents submodule bootstrap.
 
 ## Local packages (`pkgs/`)
 
-`pkgs/overlay.nix` auto-exposes every `pkgs/<name>/default.nix` as `pkgs.<name>`
-**and** as a flake output `packages.x86_64-linux.<name>` (so `nix build .#<name>
---impure` works) — drop a new dir in, no flake edits needed.
+`pkgs/overlay.nix` auto-exposes each `pkgs/<name>/default.nix` as `pkgs.<name>`
+and flake output `packages.x86_64-linux.<name>` (`nix build .#<name> --impure`) —
+no flake edits to add one.
 
-- **limux** (terminal multiplexer, embeds Ghostty's OpenGL renderer):
-  - `pkgs.limux` is the **prebuilt** release tarball — the default, what
-    `dev/dev-linux.nix` installs, cheap to bump (1 hash). `pkgs.limux-src`
-    is an opt-in from-source Rust+Zig build (`.#limux-src`, depends on
-    `pkgs.limux-ghostty`); kept only for provenance, ~4 hashes per bump.
-  - Both bake `--set-default GDK_BACKEND x11` plus `libglvnd` +
-    `addDriverRunpath.driverLink` on `LD_LIBRARY_PATH`. On NVIDIA + Wayland
-    (this host: Sway, RTX 4070) the embedded Ghostty GLArea renders but
-    **takes no keyboard input** on the native-Wayland EGL path; XWayland/GLX
-    fixes it. Building from a coherent nixpkgs closure did **not** fix it —
-    it's a genuine NVIDIA/GTK4-embedded-GLArea/Wayland bug, not a Nix
-    library-mismatch seam. Don't retry the "build it coherently and it'll
-    work" theory. See `design/log/2026-06-16-build-limux-from-source-*.org`.
-
-- **Verifying GUI fixes:** a window that *launches* and reports a *realized*
-  surface is not a working app. Control-socket / IPC text injection (e.g.
-  `limux send`) and health-probe state (`surface-health`) bypass the
-  compositor and will report success even when real input is dead. Verify
-  GUI render+input via the **compositor** (actual keystrokes, a screenshot
-  you inspect) — not via the app's own control plane.
+- **limux** (terminal multiplexer embedding Ghostty's GL renderer): `pkgs.limux`
+  = prebuilt tarball (default, installed by `dev/dev-linux.nix`, 1-hash bumps);
+  `pkgs.limux-src` = opt-in from-source build (needs `pkgs.limux-ghostty`,
+  ~4-hash bumps, kept for provenance). Both bake `GDK_BACKEND=x11` +
+  `libglvnd`/`addDriverRunpath.driverLink` on `LD_LIBRARY_PATH`: on NVIDIA+Wayland
+  the embedded GLArea renders but takes no keyboard input on native Wayland;
+  XWayland fixes it. A coherent from-source closure did **not** help — it's an
+  NVIDIA/GTK4-GLArea/Wayland bug, not a Nix seam. See
+  `design/log/2026-06-16-build-limux-from-source-*.org`.
+- **Verifying GUI fixes:** control-socket injection (`limux send`) and health
+  probes (`surface-health`) bypass the compositor and report success when input
+  is dead. Verify render+input through the compositor (real keystrokes, an
+  inspected screenshot), not the app's control plane.
 
 ## `agents.nix` — the dotagents bridge
 
