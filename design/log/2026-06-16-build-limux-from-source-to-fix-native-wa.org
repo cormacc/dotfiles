@@ -1,0 +1,239 @@
+#+TITLE: Build limux from source to fix native-Wayland rendering
+#+DATE: 2026-06-16 Tue
+#+PARENT: [[task:38bfcb27-efeb-4d35-9369-b359792489f0][Build limux from source to fix native-Wayland rendering]]
+#+SETUPFILE: ../../TASKS.setup.org
+#+NO_SPEC_IMPACT: true
+
+* Intent
+
+Replace the prebuilt-binary =limux= derivation with a from-source Nix build —
+Rust workspace plus the =am-will/ghostty= fork's =libghostty.so= built from one
+coherent nixpkgs closure — so the native-Wayland EGL path renders embedded
+ghostty surfaces correctly and the =GDK_BACKEND=x11= workaround can be dropped.
+Keep the prebuilt derivation as =limux-bin= until native Wayland is verified on
+this host.
+
+* Summary
+
+*Level:* production · *Tests:* smoke (=nix build= succeeds + native-Wayland renders on this host) · *Docs:* inline (maintenance/update-hash notes in this record)
+
+The bet: the prebuilt =libghostty.so= =dlopen='s =libEGL/libGL/libwayland= by
+bare name with no =DT_NEEDED=; spliced against nixpkgs GTK4/libwayland/Mesa +
+the system NVIDIA EGL, the native-Wayland path renders blank. Building
+libghostty + GTK4 + libwayland + Mesa from one nixpkgs closure should make the
+stack coherent (Ghostty's own packaging docs recommend building from source
+against system packages only). The make-or-break step is building the fork's
+=libghostty.so= inside the Nix sandbox via a hash-pinned Zig-deps FOD — gated
+first, before any Rust work.
+
+** Scope
+*** In scope
+- New =pkgs/limux-ghostty/default.nix= building =libghostty.so= from the pinned fork via =zig_0_15= + a =zon2nix=-generated =deps.nix= FOD (=-Dapp-runtime=none=).
+- Rewrite =pkgs/limux/default.nix= as a =rustPlatform.buildRustPackage= consuming =limux-ghostty=, replicating the =scripts/package.sh= install layout.
+- Move the current prebuilt derivation to =pkgs/limux-bin/default.nix= (auto-exposed as =pkgs.limux-bin=).
+- Preserve install layout: =bin/limux=, =libexec/limux/limux-host=, CLI, terminfo at =$out/share/limux/terminfo=, ghostty resources at =$out/share/limux/ghostty=.
+- Preserve GL closure wiring (=libglvnd= + =addDriverRunpath.driverLink= on =LD_LIBRARY_PATH=).
+- Verify native Wayland on this host (Sway, NVIDIA RTX 4070, driver 595); drop =GDK_BACKEND=x11= if it works.
+- Inline maintenance notes: the per-release hash set (src, ghostty submodule rev, Zig-deps FOD, =cargoHash=).
+
+*** Out of scope
+- Upstreaming the derivation to nixpkgs.
+- Substituting nixpkgs' =ghostty= 1.3.1 for the fork (ABI-incompatible with =limux-ghostty-sys=).
+- Editing anything outside =pkgs/= and =TASKS.org=/this record.
+- Deleting =pkgs/limux-bin= (the prebuilt fallback) — kept indefinitely as an escape hatch.
+
+** Decisions
+- Chose Approach A (two derivations: =limux-ghostty= Zig build + =limux= Rust build, with a committed =zon2nix=-generated =deps.nix=) ::
+  only option giving a clean go/no-go spike gate (=nix build .#limux-ghostty=)
+  before any Rust work; reuses the nixpkgs =ghostty= FOD pattern almost verbatim;
+  keeps =cargoHash= and the Zig-deps hash in separate derivations.
+  Rejected:
+  - Approach B (single =stdenv.mkDerivation= doing Zig then Cargo): no clean spike gate; mixing the Zig FOD and Cargo vendoring in one derivation is fiddly; loses =rustPlatform= cargoHash/vendoring machinery.
+  - Approach C (fetch a pre-generated =build.zig.zon.nix= from the fork like upstream's =update.nu=): the fork likely doesn't publish that file at its pinned rev, so =zon2nix= must run anyway — collapses into A.
+- =limux-ghostty= is its own auto-exposed package file (not a private =let= binding) specifically so the spike gate is an independent =nix build= target.
+- =limux= (source) becomes the default =pkgs.limux=; the prebuilt moves to =pkgs.limux-bin=. Both keep =mainProgram = "limux"=.
+- nixpkgs prior-art = =pkgs/by-name/gh/ghostty/{package.nix,deps.nix,update.nu}=: =zig_0_15=, =dontSetZigDefaultFlags = true=, =zigBuildFlags = ["--system" "${deps}" "-Dcpu=baseline" "-Doptimize=ReleaseFast"]=, =deps = callPackage ./deps.nix=.
+
+** Gotchas
+- =rust/limux-ghostty-sys/build.rs= hardcodes =CARGO_MANIFEST_DIR/../../ghostty/zig-out/lib= and =.canonicalize().expect(...)= — it *panics* if =libghostty.so= is not at that exact relative path. The Rust derivation must stage the built lib there (or patch =build.rs= to read an env var in =postPatch=).
+- =build.rs= also links =-lepoxy= and compiles =ghostty/vendor/glad/src/gl.c= from the ghostty *source* tree — so the Rust build needs both the =limux-ghostty= libghostty.so output *and* the ghostty source (=vendor/glad=), plus =libepoxy= as a build input.
+- =.cargo/config.toml= hardcodes =-Wl,-rpath,/usr/local/lib/limux=; override/remove it (the wrapper uses =$out/lib=).
+- =scripts/package.sh= produces ghostty resources via a *second* =zig build= invocation and copies =share/ghostty= + terminfo separately from the libghostty build — the resources are not a by-product of the =-Dapp-runtime=none= lib build.
+
+** Risks
+- Core bet may not hold :: one coherent closure might still not fix native-Wayland EGL on NVIDIA. Bounded: ISC-9 permits documented retention of =GDK_BACKEND=x11=; the work still ships a source build with =limux-bin= fallback.
+- Maintenance burden :: per-release updates jump from 1 hash to ~4 (limux src, ghostty submodule rev, Zig-deps FOD, =cargoHash=), and the fork can drift. Accepted; mitigated by a maintenance-notes task and the indefinite =limux-bin= fallback.
+- Spike may hard-block :: if the fork needs network codegen, vendored blobs, or a patched Zig the sandbox can't supply, Task 2 is a no-go. Explicit branch: keep =limux-bin= as default, record the no-go outcome — not a silent stall.
+- Pinned-rev drift :: scout read the fork's =build.zig.zon= on =main=, not the exact rev limux v0.1.19's gitlink pins; the Zig version and deps set could differ. Task 1 resolves both from the pinned rev.
+
+* Plan
+
+** DONE [#A] Resolve and pin fork rev, Zig version, and generate deps.nix :nix:
+CLOSED: [2026-06-16 Tue 11:10]
+:PROPERTIES:
+:CUSTOM_ID: dec20c0b-fa2f-4529-b070-482b8b63ee0c
+:CREATED: [2026-06-16 Tue 10:32]
+:STARTED: [2026-06-16 Tue 11:06]
+:END:
+:LOGBOOK:
+- Created [2026-06-16 Tue 10:32]
+- State "STARTED" from "TODO" [2026-06-16 Tue 11:06]
+- State "DONE" from "STARTED" [2026-06-16 Tue 11:10]
+:END:
+Acceptance criteria:
+- The exact =am-will/ghostty= submodule SHA pinned by limux tag =v0.1.19= is recorded (resolved from the gitlink, not =main=).
+- The =minimum_zig_version= from =build.zig.zon= *at that pinned SHA* is recorded, and the matching nixpkgs Zig attr identified (expected =zig_0_15= for =0.15.x=).
+- A =deps.nix= is generated from the pinned =build.zig.zon= via =zon2nix= and saved to =pkgs/limux-ghostty/deps.nix=.
+- Must not: build the limux or ghostty *packages* yet; this is fact-finding + the generated FOD file only (running =zon2nix= itself is fine).
+
+Resolve the gitlink SHA with =git ls-tree v0.1.19 ghostty= against =github.com/am-will/limux= (or read the tree via the API). Use =nix run github:jcollie/zon2nix -- build.zig.zon= against a checkout of the fork at the pinned SHA. Prior-art for the generated file shape: nixpkgs =pkgs/by-name/gh/ghostty/deps.nix= (generated by the same tool).
+
+** TODO [#A] Spike gate: build pkgs/limux-ghostty libghostty.so sandboxed :nix:
+:PROPERTIES:
+:CUSTOM_ID: 59549557-7b82-43bf-b055-bec6dae76fd4
+:CREATED: [2026-06-16 Tue 10:32]
+:END:
+:LOGBOOK:
+- Created [2026-06-16 Tue 10:32]
+:END:
+:BLOCKED-BY: dec20c0b-fa2f-4529-b070-482b8b63ee0c
+*GO/NO-GO GATE — all downstream tasks depend on this.*
+
+Acceptance criteria:
+- =nix build .#limux-ghostty --impure= succeeds with no network access in the build phase.
+- =$out/lib/libghostty.so= exists and is a valid ELF shared object.
+- The Zig-deps FOD (=callPackage ./deps.nix=) is consumed via =--system ${deps}= and is hash-pinned.
+- ghostty resources and terminfo are emitted (=$out/share/ghostty=, terminfo dir) — read =scripts/package.sh= for the second =zig build= invocation that produces them; they are NOT a by-product of the =-Dapp-runtime=none= lib build.
+- The ghostty *source* tree (specifically =vendor/glad=) is exposed for the Rust build to consume (=passthru.src= or a =dev=/=src= output) — =limux-ghostty-sys/build.rs= compiles =vendor/glad/src/gl.c=.
+- Must not: substitute nixpkgs' =ghostty= 1.3.1 for the fork.
+- Must not: disable the sandbox or add network to make it pass.
+
+NO-GO branch: if the fork needs network codegen, vendored blobs, or a Zig the
+sandbox can't supply, stop here — keep =limux-bin= as the default, record the
+no-go under =* Implementation=, and mark the remaining tasks CANCELLED.
+
+Mirror nixpkgs ghostty: =dontSetZigDefaultFlags = true=; =zigBuildFlags =
+["--system" "${deps}" "-Dapp-runtime=none" "-Dcpu=baseline"
+"-Doptimize=ReleaseFast"]=. =src = fetchFromGitHub { owner = "am-will"; repo =
+"ghostty"; rev = <pinned SHA>; fetchSubmodules = true; hash = …; }= — the fork
+vendors C libs under =pkg/=; verify whether those are submodules (need
+=fetchSubmodules=) or =deps.files.ghostty.org= tarballs (already in =deps.nix=).
+Reference: =pkgs/by-name/gh/ghostty/package.nix=.
+
+** TODO [#B] Move prebuilt derivation to pkgs/limux-bin :nix:
+:PROPERTIES:
+:CUSTOM_ID: 41545fac-5c4e-4fc0-873a-608771ea4427
+:CREATED: [2026-06-16 Tue 10:32]
+:END:
+:LOGBOOK:
+- Created [2026-06-16 Tue 10:32]
+:END:
+Acceptance criteria:
+- =pkgs/limux-bin/default.nix= is the current prebuilt derivation, moved with =git mv pkgs/limux/default.nix pkgs/limux-bin/default.nix= (preserves history).
+- =pname= is updated to =limux-bin=; =mainProgram= stays ="limux"=.
+- =nix build .#limux-bin --impure= still succeeds (the prebuilt path is unchanged otherwise).
+- Must not: change the =GDK_BACKEND=x11= workaround or GL wiring on =limux-bin= — it is the known-working fallback.
+
+Do this before the =pkgs/limux/default.nix= rewrite so the working fallback
+survives in-tree throughout. The overlay (=pkgs/overlay.nix=) auto-exposes the
+new dir as =pkgs.limux-bin= with no flake edits.
+
+** TODO [#A] Build Rust workspace as pkgs/limux consuming limux-ghostty :nix:
+:PROPERTIES:
+:CUSTOM_ID: e2142983-1660-4944-b5b4-ef2f179f68f1
+:CREATED: [2026-06-16 Tue 10:32]
+:END:
+:LOGBOOK:
+- Created [2026-06-16 Tue 10:32]
+:END:
+:BLOCKED-BY: 59549557-7b82-43bf-b055-bec6dae76fd4
+:BLOCKED-BY+: 41545fac-5c4e-4fc0-873a-608771ea4427
+Acceptance criteria:
+- =pkgs/limux/default.nix= is a =rustPlatform.buildRustPackage= building the limux v0.1.19 workspace (resolver 2, crates: =limux-protocol/core/control/cli/ghostty-sys/host-linux=).
+- =cargoHash= is pinned.
+- =limux-ghostty-sys/build.rs='s hardcoded path is satisfied: either stage =limux-ghostty='s =libghostty.so= at =$NIX_BUILD_TOP/<src>/ghostty/zig-out/lib/libghostty.so= AND the ghostty source =vendor/glad= at =ghostty/vendor/glad=, OR =postPatch= =build.rs= to read an explicit env var (=GHOSTTY_ROOT=) and point it at the =limux-ghostty= outputs.
+- =libepoxy= is in =buildInputs= (=build.rs= links =-lepoxy=).
+- The =/usr/local/lib/limux= rpath from =.cargo/config.toml= is removed/overridden (=postPatch= or =CARGO_BUILD_RUSTFLAGS=).
+- =doCheck = false= (or check env wired) — set explicitly with a one-line rationale; GTK/WebKit/ghostty tests need runtime resources.
+- =nix build .#limux --impure= produces =$out/bin/limux= and =$out/libexec/limux/limux-host= (map the workspace bin crates — verify which crate emits which binary; CLI → =bin/limux=, host → =libexec/limux/limux-host=).
+- Must not: rebuild libghostty inside this derivation — consume the =limux-ghostty= output.
+- Must not: leave =build.rs='s =.canonicalize().expect(...)= to panic on a missing =zig-out/lib=.
+
+=src = fetchFromGitHub { owner = "am-will"; repo = "limux"; tag = "v0.1.19"; }=.
+The FFI linkage is the crux — see =** Gotchas=: =build.rs= panics unless
+=../../ghostty/zig-out/lib/libghostty.so= and =../../ghostty/vendor/glad= exist
+relative to =limux-ghostty-sys=. A custom =installPhase= maps the built bin
+crates; this task gets the workspace compiling + binaries produced, layout is
+the next task.
+
+** TODO [#A] Replicate package.sh install layout (share, terminfo, libghostty) :nix:
+:PROPERTIES:
+:CUSTOM_ID: e2ae770b-b28c-4dc0-996c-5d18bcef9fe5
+:CREATED: [2026-06-16 Tue 10:32]
+:END:
+:LOGBOOK:
+- Created [2026-06-16 Tue 10:32]
+:END:
+:BLOCKED-BY: e2142983-1660-4944-b5b4-ef2f179f68f1
+Acceptance criteria:
+- =$out/lib/libghostty.so= is bundled (copied from =limux-ghostty=).
+- terminfo present at =$out/share/limux/terminfo= (copied from =limux-ghostty='s resources output — see Task 2).
+- ghostty resources present at =$out/share/limux/ghostty= (copied from =limux-ghostty='s resources output).
+- Icons and any =share/= assets =scripts/package.sh= installs are present.
+- Layout matches the prebuilt =limux-bin= tree (diff =find $out -type f= against the =limux-bin= output, modulo libghostty provenance).
+- Must not: hardcode an absolute store path that =limux-bin= would also need (keep each derivation self-contained).
+
+Read =scripts/package.sh= in the limux repo first — it is the source of truth
+for which files land where and where terminfo/ghostty resources come from
+(Zig build output vs repo tree). Prior layout to match: =pkgs/limux-bin/default.nix=
+=installPhase= (=install -Dm755 …=, =cp -r share …=).
+
+** TODO [#A] Wire GL/runtime and verify native Wayland on this host :nix:
+:PROPERTIES:
+:CUSTOM_ID: c5258870-e7bb-4a7a-8d5e-08911d4f66ef
+:CREATED: [2026-06-16 Tue 10:32]
+:END:
+:LOGBOOK:
+- Created [2026-06-16 Tue 10:32]
+:END:
+:BLOCKED-BY: e2ae770b-b28c-4dc0-996c-5d18bcef9fe5
+Acceptance criteria:
+- =preFixup= keeps the GL closure wiring: =libglvnd= via =lib.makeLibraryPath= and =${addDriverRunpath.driverLink}/lib= on =LD_LIBRARY_PATH=, plus =$out/lib=.
+- =readelf -d $out/lib/libghostty.so= and =$out/libexec/limux/limux-host= audited — no references to non-Nix paths (=/usr/local/lib/limux=) and GL/driver paths resolve as intended.
+- =XDG_DATA_DIRS= includes =$out/share=; =TERMINFO_DIRS= includes =$out/share/limux/terminfo=.
+- limux launches on this host (Sway/Wayland, NVIDIA RTX 4070, driver 595) and renders an embedded ghostty surface with working keyboard input.
+- Native Wayland tested with =GDK_BACKEND=x11= removed: if surfaces render with input, the workaround is dropped; otherwise it is retained with a one-line note explaining why.
+- Must not: drop =GDK_BACKEND=x11= without confirming native Wayland renders + accepts input first.
+
+This is the ISC-8/ISC-9 verification gate. Compare against the =limux-bin=
+=preFixup= block (the =gappsWrapperArgs+=(…)= list) for the exact wiring to
+carry over.
+
+** TODO [#C] Record per-release maintenance / update-hash notes :docs:
+:PROPERTIES:
+:CUSTOM_ID: 86e062f5-82b4-4d3f-9cfe-60c90f3249b8
+:CREATED: [2026-06-16 Tue 10:32]
+:END:
+:LOGBOOK:
+- Created [2026-06-16 Tue 10:32]
+:END:
+:BLOCKED-BY: c5258870-e7bb-4a7a-8d5e-08911d4f66ef
+Acceptance criteria:
+- =* Implementation= documents the 4-hash update procedure: bump limux =version=/src hash, re-resolve the ghostty submodule SHA + its hash, regenerate =deps.nix= via =zon2nix=, refresh =cargoHash=.
+- The native-Wayland outcome is recorded (workaround dropped, or retained + why).
+- A one-line pointer notes =limux-bin= is the prebuilt fallback and why it is kept.
+- Must not: leave the maintenance procedure only in commit messages — it lives in this record.
+
+* Implementation
+
+** Task 1 — pinned ghostty facts
+- limux tag =v0.1.19= resolves to commit =9ffc9341de2ad649f99a85df7c05b7eafb4a6236=; its =ghostty= gitlink pins =am-will/ghostty= commit =81ab8ffa90185221782baf785e85387321e16f8d=.
+- The pinned fork's =build.zig.zon= declares =.minimum_zig_version = "0.15.2"=, matching nixpkgs attr =zig_0_15= in this flake's nixpkgs.
+- Generated =pkgs/limux-ghostty/deps.nix= with =zon2nix= from that pinned checkout. =zon2nix= warned that =vaxis-0.5.1-BWNV_LosCQAGmCCNOLljCIw6j6-yt53tji6n6rwJ2BhS= is reachable via both =deps.files.ghostty.org= and GitHub; the generated FOD selects one hash-pinned URL set.
+- Prefetched the fork tarball hash for Task 2: =sha256-JLUXIlOXQOTkDW449m0jGROMn2NmFXdMwt90LsgM64A== for =fetchFromGitHub= without submodules. Task 2 still needs to verify whether =fetchSubmodules = true= changes the hash/closure.
+
+* Validation
+
+- Task 1: =git ls-tree 9ffc9341de2ad649f99a85df7c05b7eafb4a6236 ghostty= returned =160000 commit 81ab8ffa90185221782baf785e85387321e16f8d ghostty=.
+- Task 1: =rg 'minimum_zig_version' build.zig.zon build.zig= in the pinned fork checkout returned =.minimum_zig_version = "0.15.2"=.
+- Task 1: =nix shell --impure github:jcollie/zon2nix#zon2nix nixpkgs#zig_0_15 -c sh -c 'zon2nix build.zig.zon'= generated =build.zig.zon.nix=, copied to =pkgs/limux-ghostty/deps.nix=.
