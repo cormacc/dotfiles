@@ -178,3 +178,15 @@ Origin:
 - Blocked by `0e5c627e-1297-4609-8d11-5081c6dae485` (LAN Caddy).
 - timestamp: [2026-05-29 Fri]
 - sender: agent
+
+** STARTED Build limux from source to fix native-Wayland rendering
+:PROPERTIES:
+:CUSTOM_ID: 38bfcb27-efeb-4d35-9369-b359792489f0
+:CREATED: [2026-06-16 Tue 09:16]
+:STARTED: [2026-06-16 Tue 11:06]
+:END:
+:LOGBOOK:
+- Created [2026-06-16 Tue 09:16]
+- State "STARTED" from "TODO" [2026-06-16 Tue 11:06]
+:END:
+#+IMPORT: [[plan:2026-06-16-build-limux-from-source-to-fix-native-wa.org]]
