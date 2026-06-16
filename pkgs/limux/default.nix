@@ -13,6 +13,7 @@
   libadwaita,
   webkitgtk_6_0,
   glib,
+  glib-networking,
   pango,
   fontconfig,
   gcc,
@@ -37,6 +38,7 @@ stdenv.mkDerivation rec {
     fontconfig
     gcc.cc.lib
     glib
+    glib-networking
     gtk4
     libadwaita
     libglvnd
