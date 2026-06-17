@@ -4,17 +4,18 @@
   fetchFromGitHub,
   cmake,
   mold,
+  nix-update-script,
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "dirge";
-  version = "0.7.5";
+  version = "0.7.6";
 
   src = fetchFromGitHub {
     owner = "dirge-code";
     repo = "dirge";
     rev = "v${version}";
-    hash = "sha256-qRaqcyh7OTX8xGi4YAjR1axTPcjG45m6bv1jIluUk+E=";
+    hash = "sha256-7gA7Gqhc44/ntqQi9demL7dI/e6/cfXAAacpnrKsEVk=";
   };
 
   cargoLock.lockFile = "${src}/Cargo.lock";
@@ -29,6 +30,10 @@ rustPlatform.buildRustPackage rec {
 
   # Tests reach network/LLM providers.
   doCheck = false;
+
+  # Bump to the latest upstream release with `nix-update --flake dirge`
+  # (rewrites version + src hash in place; cargoLock follows the new src).
+  passthru.updateScript = nix-update-script { };
 
   meta = {
     description = "Minimal, fast pure-Rust coding agent with persistent memory";
