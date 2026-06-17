@@ -40,22 +40,10 @@ aliases, provisioning, and the dotagents submodule bootstrap.
 and flake output `packages.x86_64-linux.<name>` (`nix build .#<name> --impure`) —
 no flake edits to add one.
 
-- **limux** (terminal multiplexer embedding Ghostty's GL renderer): `pkgs.limux`
-  = prebuilt tarball (default, installed by `dev/dev-linux.nix`, 1-hash bumps);
-  `pkgs.limux-src` = opt-in from-source build (needs `pkgs.limux-ghostty`,
-  ~4-hash bumps, kept for provenance). Both bake `GDK_BACKEND=x11` +
-  `libglvnd`/`addDriverRunpath.driverLink` on `LD_LIBRARY_PATH`: on NVIDIA+Wayland
-  the embedded GLArea renders but takes no keyboard input on native Wayland;
-  XWayland fixes it. A coherent from-source closure did **not** help — it's an
-  NVIDIA/GTK4-GLArea/Wayland bug, not a Nix seam. See
-  `design/log/2026-06-16-build-limux-from-source-*.org`.
-- **WebKitGTK apps need `glib-networking` in `buildInputs`** or the embedded
-  browser fails TLS ("TLS support is not available") — the prebuilt tarball
-  leans on a system-wide copy the Nix closure lacks.
-- **Verifying GUI fixes:** control-socket injection (`limux send`) and health
-  probes (`surface-health`) bypass the compositor and report success when input
-  is dead. Verify render+input through the compositor (real keystrokes, an
-  inspected screenshot), not the app's control plane.
+- **dirge** (pure-Rust coding agent): `pkgs.dirge` = from-source build
+  (`buildRustPackage`, default, installed by `dev/dev-linux.nix`); `pkgs.dirge-bin`
+  = prebuilt release tarball fallback. See
+  `design/log/2026-06-17-package-dirge-coding-agent-as-a-local-ni.org`.
 
 ## `agents.nix` — the dotagents bridge
 
