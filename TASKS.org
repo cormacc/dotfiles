@@ -192,3 +192,15 @@ CLOSED: [2026-06-16 Tue 11:46]
 - State "DONE" from "STARTED" [2026-06-16 Tue 11:46]
 :END:
 #+IMPORT: [[plan:2026-06-16-build-limux-from-source-to-fix-native-wa.org]]
+
+** DONE Package dirge coding agent as a local nix package
+CLOSED: [2026-06-17 Wed]
+:PROPERTIES:
+:CUSTOM_ID: 6f245995-342b-4581-8f5b-58f95f9367d2
+:CREATED: [2026-06-17 Wed 18:06]
+:END:
+:LOGBOOK:
+- Created [2026-06-17 Wed 18:06]
+- Done [2026-06-17 Wed] all 4 plan tasks complete; commits 4f4f54e, e648581, 7460408.
+:END:
+#+IMPORT: [[plan:2026-06-17-package-dirge-coding-agent-as-a-local-ni.org]]
