@@ -156,7 +156,7 @@ CLOSED: [2026-06-17 Wed]
 :END:
 :LOGBOOK:
 - Created [2026-06-17 Wed 18:06]
-- Done [2026-06-17 Wed] commit 113f716; build verified, =dirge 0.7.5=. Added
+- Done [2026-06-17 Wed] commit e648581; build verified, =dirge 0.7.5=. Added
   Linux =stdenv.cc.cc.lib= runtime input for =libgcc_s.so.1= autopatchelf dependency.
 :END:
 Acceptance criteria:
