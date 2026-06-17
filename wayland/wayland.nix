@@ -3,10 +3,8 @@
 let
   wayland-dotfiles-root = "${config.home.homeDirectory}/dotfiles/wayland";
   commonSessionVariables = {
-    #Use fish as default shell, but NOT login shell as not posix compliant
-    # FIXME: Bypassing for now, as nix profile not getting sourced under fish...
-    #TERMINAL = "kitty -e /usr/bin/env fish";
-    TERM = "xterm-kitty";
+    #This should be set automatically by the terminal itself...
+    #TERM = "xterm-ghostty";
 
     #Prevents java UIs showing up as a gray window on i3 and sway...
     _JAVA_AWT_WM_NONREPARENTING = 1;
