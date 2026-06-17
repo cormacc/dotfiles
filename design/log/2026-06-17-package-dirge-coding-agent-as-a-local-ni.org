@@ -1,0 +1,263 @@
+#+TITLE: Package dirge coding agent as a local nix package
+#+DATE: 2026-06-17 Wed
+#+PARENT: [[task:6f245995-342b-4581-8f5b-58f95f9367d2][Package dirge coding agent as a local nix package]]
+#+SETUPFILE: ../../TASKS.setup.org
+#+STATUS: Accepted
+#+NO_SPEC_IMPACT: true
+
+* Intent
+
+Add =dirge= (upstream =dirge-code/dirge=, a fast pure-Rust coding agent) as a
+local nix package in this flake. Ship a from-source build as the default and
+installed package, plus a parallel prebuilt-binary package, both cross-platform
+(x86_64-linux + aarch64-darwin), following the existing =limux= / =limux-src=
+dual-package precedent.
+
+* Summary
+
+*Level:* production · *Tests:* smoke · *Docs:* inline
+
+Two new auto-exposed local packages:
+- =pkgs/dirge/= — =rustPlatform.buildRustPackage= from the tagged GitHub source,
+  batteries-included default features, pinned via the vendored =Cargo.lock=.
+  This is the default and the one installed on Linux workstations.
+- =pkgs/dirge-bin/= — prebuilt release tarball per platform (=fetchurl= +
+  =autoPatchelfHook=), mirroring the =pkgs/limux/= pattern.
+
+No =flake.nix= / =pkgs/overlay.nix= edits — the overlay auto-exposes any
+=pkgs/<name>/default.nix= as =pkgs.<name>= and =packages.<system>.<name>=.
+
+** Scope
+*** In scope
+- =pkgs/dirge/default.nix= source build (crate =dirge-agent= v0.7.5, binary =dirge=).
+- =pkgs/dirge-bin/default.nix= prebuilt binary build.
+- Both declare =meta.platforms= = x86_64-linux + aarch64-darwin.
+- Install =pkgs.dirge= via =home.packages= in =dev/dev-linux.nix=.
+- Build + runtime-smoke verification of both packages.
+*** Out of scope
+- Upstreaming to nixpkgs.
+- aarch64-linux / x86_64-darwin / Windows targets (no current host needs them).
+- macOS install wiring (no =dev-darwin= module exists yet; =dirge-bin= / source
+  build remain buildable on demand there).
+- Trimmed Cargo feature sets, dirge runtime config, shell-plugin integration.
+
+** Acceptance
+*** Core functionality
+- =nix build .#dirge --impure= succeeds on x86_64-linux.
+- The built binary runs and =dirge --version= reports version 0.7.5
+  (substring match — output is e.g. =dirge 0.7.5=, do not exact-match).
+- =pkgs/dirge= uses =rustPlatform.buildRustPackage= with =cargoLock.lockFile=
+  pinned from the upstream =Cargo.lock=.
+- Source build uses the batteries-included default feature set (no =--no-default-features=).
+- Build uses a Rust >=1.85 toolchain (edition 2024 / MSRV satisfied).
+- =nix build .#dirge-bin --impure= succeeds on x86_64-linux.
+- =dirge-bin= selects the correct release artifact per platform via =stdenv.hostPlatform=.
+- =dirge-bin= Linux binary is patched via =autoPatchelfHook= and runs.
+- =pkgs.dirge= is present in =home.packages= in =dev/dev-linux.nix=.
+*** Edge cases
+- Both derivations declare =meta.platforms= covering x86_64-linux + aarch64-darwin.
+- Both carry =meta= with =description=, =homepage=, =license = lib.licenses.gpl3Only=,
+  =mainProgram = "dirge"=.
+*** Anti-criteria
+- Must not edit =flake.nix= or =pkgs/overlay.nix=.
+- Must not add OpenSSL / system-TLS build inputs (TLS is rustls, no system
+  OpenSSL is linked). NB: =cmake= *is* required (see Decisions) — it is a
+  legitimate =nativeBuildInput=, not an anti-criterion.
+- Must not install a binary other than =dirge= (the crate may build extra bins
+  such as =dirge-microvm-runner=, gated behind a non-default feature).
+
+** Decisions
+- Chose source-build (=rustPlatform.buildRustPackage=) as the default :: no
+  *system* library dependency to splice in — TLS is rustls (no system OpenSSL),
+  so the build is self-contained and cleanly cross-platform from one
+  expression, avoiding the foreign-glibc-binary closure problem behind
+  =limux='s NVIDIA/Wayland breakage. =cargoLock.lockFile= pins from the
+  vendored lock, so no separate =cargoHash= to chase.
+  Build-tool caveat (corrected post-review): the vendored =Cargo.lock= resolves
+  =rustls 0.23= to its default =aws-lc-rs= backend, so =aws-lc-sys= compiles via
+  =cmake= + =cc=, and default features pull =janetrs=/=evil_janet= plus ~12
+  tree-sitter grammars that compile C via =cc=. =cmake= is therefore a required
+  =nativeBuildInput=; =cc=/stdenv covers the rest. This is a build-time
+  toolchain need, not a runtime/system-library dep — the cross-platform and
+  closure-cleanliness rationale stands.
+  Rejected:
+  - Prebuilt-only (=fetchurl= + =autoPatchelfHook=): faster build, but needs a
+    per-platform src/hash matrix and re-points a foreign binary at the closure.
+    Kept as the secondary =dirge-bin= package, not the default.
+  - Trimmed Cargo feature set: leaner closure but a feature list to maintain;
+    deferred. Batteries-included matches upstream =cargo install dirge-agent=.
+- Provide both packages :: mirrors the =limux= / =limux-src= precedent; gives a
+  fast fallback if a future source build breaks or compile time becomes painful.
+
+** Risks
+- *cargoHash / rebuild churn on version bumps* — accepted; vendored
+  =Cargo.lock= keeps it to a source-hash + rebuild rather than a vendor-hash hunt.
+- *Heavy dep tree → multi-minute cold compile* — accepted as the cost of a
+  reproducible closure; =dirge-bin= exists for the fast path.
+
+* Plan
+
+** TODO [#A] Add pkgs/dirge source-build package :nix:rust:
+:PROPERTIES:
+:CUSTOM_ID: 0096c285-a599-4348-9a7c-7d1c8d7292ac
+:CREATED: [2026-06-17 Wed 18:06]
+:END:
+:LOGBOOK:
+- Created [2026-06-17 Wed 18:06]
+:END:
+Acceptance criteria:
+- =nix build .#dirge --impure= succeeds on x86_64-linux.
+- =result/bin/dirge --version= reports version 0.7.5 (substring match, not exact).
+- Derivation uses =rustPlatform.buildRustPackage= + =cargoLock.lockFile=.
+- =cmake= present in =nativeBuildInputs= (aws-lc-sys via rustls 0.23's aws-lc-rs backend).
+- =meta= sets =description=, =homepage=, =license = lib.licenses.gpl3Only=,
+  =mainProgram = "dirge"=, =platforms = [ "x86_64-linux" "aarch64-darwin" ]=.
+- Must not add OpenSSL / system-TLS build inputs (no system OpenSSL is linked).
+- Must not edit =flake.nix= or =pkgs/overlay.nix=.
+
+Verified upstream facts: crate =dirge-agent= v0.7.5, binary =dirge=, edition
+2024, MSRV 1.85. TLS is rustls (no system OpenSSL), but rustls 0.23 resolves to
+the =aws-lc-rs= backend → =aws-lc-sys= needs =cmake= + =cc= at build time; default
+features also compile C (janet + tree-sitter grammars) via =cc=. =Cargo.lock= is
+committed with no git deps. Skeleton:
+#+begin_src nix
+{ lib, rustPlatform, fetchFromGitHub, cmake }:
+rustPlatform.buildRustPackage rec {
+  pname = "dirge";
+  version = "0.7.5";
+  src = fetchFromGitHub {
+    owner = "dirge-code"; repo = "dirge";
+    rev = "v${version}";
+    hash = lib.fakeHash;   # replace from the build error
+  };
+  cargoLock.lockFile = "${src}/Cargo.lock";
+  nativeBuildInputs = [ cmake ];  # aws-lc-sys (rustls 0.23 aws-lc-rs backend)
+  doCheck = false;         # tests reach network/LLM providers
+  meta = {
+    description = "Minimal, fast pure-Rust coding agent with persistent memory";
+    homepage = "https://github.com/dirge-code/dirge";
+    license = lib.licenses.gpl3Only;
+    mainProgram = "dirge";
+    platforms = [ "x86_64-linux" "aarch64-darwin" ];
+  };
+}
+#+end_src
+Note: =Cargo.lock= was confirmed to contain no git deps at v0.7.5, so
+=cargoLock.outputHashes= is not needed (re-check on version bumps). If stock
+rustc < 1.85, pin a toolchain via the already-present =rust-overlay=
+(=makeRustPlatform { cargo = rust-bin...; rustc = ...; }=). Pattern reference for
+a from-source Rust build in this repo: =pkgs/limux-src/default.nix=.
+
+** TODO [#B] Add pkgs/dirge-bin prebuilt package :nix:
+:PROPERTIES:
+:CUSTOM_ID: a476d329-ea79-4f87-8c59-5a50ee92aa51
+:CREATED: [2026-06-17 Wed 18:06]
+:END:
+:LOGBOOK:
+- Created [2026-06-17 Wed 18:06]
+:END:
+Acceptance criteria:
+- =nix build .#dirge-bin --impure= succeeds on x86_64-linux.
+- =result/bin/dirge --version= reports version 0.7.5 (substring match, not exact).
+- Per-platform artifact selected via =stdenv.hostPlatform.system=.
+- =autoPatchelfHook= applied on Linux only.
+- =meta= matches the source package (=gpl3Only=, =mainProgram = "dirge"=,
+  =platforms = [ "x86_64-linux" "aarch64-darwin" ]=).
+- Must not install any binary other than =dirge=.
+
+Confirmed release assets at
+=https://github.com/dirge-code/dirge/releases/download/v0.7.5/dirge-<triple>.tar.gz=
+with =.sha256= companions. Triples: =x86_64-unknown-linux-gnu=,
+=aarch64-apple-darwin=. Follow =pkgs/limux/default.nix= for the
+=fetchurl= + =autoPatchelfHook= + =dontBuild= + =installPhase= shape. Skeleton:
+#+begin_src nix
+{ lib, stdenv, fetchurl, autoPatchelfHook }:
+let
+  version = "0.7.5";
+  sel = {
+    "x86_64-linux"   = { triple = "x86_64-unknown-linux-gnu"; hash = lib.fakeHash; };
+    "aarch64-darwin" = { triple = "aarch64-apple-darwin";     hash = lib.fakeHash; };
+  }.${stdenv.hostPlatform.system};
+in stdenv.mkDerivation {
+  pname = "dirge-bin";
+  inherit version;
+  src = fetchurl {
+    url = "https://github.com/dirge-code/dirge/releases/download/v${version}/dirge-${sel.triple}.tar.gz";
+    inherit (sel) hash;
+  };
+  nativeBuildInputs = lib.optionals stdenv.isLinux [ autoPatchelfHook ];
+  dontBuild = true;
+  sourceRoot = ".";
+  installPhase = ''
+    runHook preInstall
+    install -Dm755 dirge "$out/bin/dirge"   # verify path via `tar tzf` first
+    runHook postInstall
+  '';
+  meta = { /* same as pkgs/dirge */ };
+}
+#+end_src
+First: download the linux tarball and run =tar tzf= to confirm the binary's
+path/layout (flat =dirge= vs nested dir) before finalising =installPhase= /
+=sourceRoot=. Obtain hashes from the =.sha256= asset (convert to SRI with
+=nix hash to-sri --type sha256 <hex>=) or from the build error.
+
+** TODO [#B] Install dirge in dev-linux.nix :nix:
+:PROPERTIES:
+:CUSTOM_ID: 545a9c46-02e5-429f-936b-1b1f0dce7856
+:CREATED: [2026-06-17 Wed 18:06]
+:BLOCKED-BY: 0096c285-a599-4348-9a7c-7d1c8d7292ac
+:END:
+:LOGBOOK:
+- Created [2026-06-17 Wed 18:06]
+:END:
+Acceptance criteria:
+- =dirge= appears in =home.packages= in =dev/dev-linux.nix=.
+- A home-manager build/eval of the Linux workstation profile succeeds with =--impure=.
+- Must not move =dirge= into the cross-platform =dev/dev.nix= (Linux install only).
+
+Add =dirge= to the existing =home.packages = with pkgs; [ ... ]= list in
+=dev/dev-linux.nix= (alongside =zeal= / =bubblewrap=; note =bubblewrap=, dirge's
+optional =--sandbox= dep, is already present). =dev-linux.nix:4=.
+
+** TODO [#A] Verify both builds + runtime smoke :nix:
+:PROPERTIES:
+:CUSTOM_ID: a1b60fe1-8f0d-49b9-a9e4-66d90d8fcc04
+:CREATED: [2026-06-17 Wed 18:06]
+:BLOCKED-BY: 0096c285-a599-4348-9a7c-7d1c8d7292ac
+:BLOCKED-BY+: a476d329-ea79-4f87-8c59-5a50ee92aa51
+:END:
+:LOGBOOK:
+- Created [2026-06-17 Wed 18:06]
+:END:
+Acceptance criteria:
+- =nix build .#dirge --impure= and =nix build .#dirge-bin --impure= both succeed.
+- =./result/bin/dirge --version= reports version 0.7.5 for each (substring match).
+- =nix eval .#packages.aarch64-darwin.dirge.name --impure= evaluates (cross-platform sanity; no build).
+- Record actual commands + outputs under =* Validation=.
+
+Run from repo root. Record results in =* Validation= below.
+
+* Implementation
+
+* Validation
+
+** pkgs/dirge source build
+
+Command:
+#+begin_src sh
+nix build .#dirge --impure && ./result/bin/dirge --version
+#+end_src
+
+Output:
+#+begin_example
+warning: Git tree '/home/cormacc/dotfiles' is dirty
+Using saved setting for 'extra-substituters = https://cache.nixos.org https://nix-community.cachix.org https://hyprland.cachix.org https://cache.numtide.com https://pi.cachix.org https://nix-amd-ai.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-gpg-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc= niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g= pi.cachix.org-1:lGeoGJaZ5ZDabuRzkcD5EBTNnDM4HJ1vqeOxlWk1Flk= nix-amd-ai.cachix.org-1:F4OU4vw/lV2oiG6SBHZ+nqjl4EFJuqI4X9A7pvaBmhQ=' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'trusted-users = root @wheel cormacc' from ~/.local/share/nix/trusted-settings.json.
+dirge 0.7.5
+#+end_example
+
+Notes:
+- Source hash resolved to =sha256-qRaqcyh7OTX8xGi4YAjR1axTPcjG45m6bv1jIluUk+E=.
+- Added =rustPlatform.bindgenHook= because =evil-janet= runs bindgen during the build and needs libclang.
+- Added =mold= because upstream release builds pass =-fuse-ld=mold=.
