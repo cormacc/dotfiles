@@ -148,13 +148,16 @@ rustc < 1.85, pin a toolchain via the already-present =rust-overlay=
 (=makeRustPlatform { cargo = rust-bin...; rustc = ...; }=). Pattern reference for
 a from-source Rust build in this repo: =pkgs/limux-src/default.nix=.
 
-** TODO [#B] Add pkgs/dirge-bin prebuilt package :nix:
+** DONE [#B] Add pkgs/dirge-bin prebuilt package :nix:
+CLOSED: [2026-06-17 Wed]
 :PROPERTIES:
 :CUSTOM_ID: a476d329-ea79-4f87-8c59-5a50ee92aa51
 :CREATED: [2026-06-17 Wed 18:06]
 :END:
 :LOGBOOK:
 - Created [2026-06-17 Wed 18:06]
+- Done [2026-06-17 Wed] commit 113f716; build verified, =dirge 0.7.5=. Added
+  Linux =stdenv.cc.cc.lib= runtime input for =libgcc_s.so.1= autopatchelf dependency.
 :END:
 Acceptance criteria:
 - =nix build .#dirge-bin --impure= succeeds on x86_64-linux.
@@ -261,3 +264,50 @@ Notes:
 - Source hash resolved to =sha256-qRaqcyh7OTX8xGi4YAjR1axTPcjG45m6bv1jIluUk+E=.
 - Added =rustPlatform.bindgenHook= because =evil-janet= runs bindgen during the build and needs libclang.
 - Added =mold= because upstream release builds pass =-fuse-ld=mold=.
+
+** pkgs/dirge-bin prebuilt package
+
+Layout check:
+#+begin_src sh
+mkdir -p .agents/tmp/dirge-bin && cd .agents/tmp/dirge-bin
+curl -L -o dirge-linux.tar.gz https://github.com/dirge-code/dirge/releases/download/v0.7.5/dirge-x86_64-unknown-linux-gnu.tar.gz
+tar tzf dirge-linux.tar.gz
+#+end_src
+
+Output:
+#+begin_example
+dirge
+#+end_example
+
+Hash conversion:
+#+begin_src sh
+nix hash to-sri --type sha256 17deec5fcf8bd15bf124923a36f326d8a7d24136a95be70601c43987f733ab30
+nix hash to-sri --type sha256 f1b603ea72046fc7b3a795e2ec5ce7224b0c1790c49b133f1d698cb45501c3dd
+#+end_src
+
+Output:
+#+begin_example
+sha256-F97sX8+L0VvxJJI6NvMm2KfSQTapW+cGAcQ5h/czqzA=
+sha256-8bYD6nIEb8ezp5Xi7FznIksMF5DEmxM/HWmMtFUBw90=
+#+end_example
+
+Command:
+#+begin_src sh
+nix build .#dirge-bin --impure && ./result/bin/dirge --version
+#+end_src
+
+Output:
+#+begin_example
+warning: Git tree '/home/cormacc/dotfiles' is dirty
+Using saved setting for 'extra-substituters = https://cache.nixos.org https://nix-community.cachix.org https://hyprland.cachix.org https://cache.numtide.com https://pi.cachix.org https://nix-amd-ai.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-gpg-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc= niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g= pi.cachix.org-1:lGeoGJaZ5ZDabuRzkcD5EBTNnDM4HJ1vqeOxlWk1Flk= nix-amd-ai.cachix.org-1:F4OU4vw/lV2oiG6SBHZ+nqjl4EFJuqI4X9A7pvaBmhQ=' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'trusted-users = root @wheel cormacc' from ~/.local/share/nix/trusted-settings.json.
+this derivation will be built:
+  /nix/store/jwr6kln15bx0rnana936g413lkn3mhpq-dirge-bin-0.7.5.drv
+building '/nix/store/jwr6kln15bx0rnana936g413lkn3mhpq-dirge-bin-0.7.5.drv'...
+dirge 0.7.5
+#+end_example
+
+Notes:
+- Added Linux-only =stdenv.cc.cc.lib= in =buildInputs= because =autoPatchelfHook=
+  required =libgcc_s.so.1= for the upstream binary.
