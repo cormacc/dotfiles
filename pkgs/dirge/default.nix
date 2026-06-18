@@ -9,13 +9,13 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "dirge";
-  version = "0.7.6";
+  version = "0.7.7";
 
   src = fetchFromGitHub {
     owner = "dirge-code";
     repo = "dirge";
     rev = "v${version}";
-    hash = "sha256-7gA7Gqhc44/ntqQi9demL7dI/e6/cfXAAacpnrKsEVk=";
+    hash = "sha256-H82uiruToka8Itu99d1Pc1srcLYgO0TNLA52gIcWWbA=";
   };
 
   cargoLock.lockFile = "${src}/Cargo.lock";
