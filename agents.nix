@@ -119,6 +119,8 @@ in
       # N.B. We're intentionally not using the agents home-manager based config module
       #      for compatibility with our symlinking / live editable strategy for agent config
       pi-coding-agent
+      claude-code
+      codex
       herdr
       prettier
       typescript-language-server
