@@ -5,18 +5,31 @@
   cmake,
   mold,
   nix-update-script,
+  # Build an arbitrary source instead of the pinned release. The `dirge-dev`
+  # package sets these to track the latest commit on `main`. When left at
+  # their defaults this is the ordinary release build.
+  srcOverride ? null,
+  versionOverride ? null,
 }:
 
-rustPlatform.buildRustPackage rec {
-  pname = "dirge";
+let
+  # nix-update bumps `version` + the src `hash` below on `nix-update --flake dirge`.
   version = "0.7.7";
 
-  src = fetchFromGitHub {
+  releaseSrc = fetchFromGitHub {
     owner = "dirge-code";
     repo = "dirge";
     rev = "v${version}";
     hash = "sha256-H82uiruToka8Itu99d1Pc1srcLYgO0TNLA52gIcWWbA=";
   };
+
+  src = if srcOverride != null then srcOverride else releaseSrc;
+in
+rustPlatform.buildRustPackage {
+  pname = "dirge";
+  version = if versionOverride != null then versionOverride else version;
+
+  inherit src;
 
   cargoLock.lockFile = "${src}/Cargo.lock";
 
@@ -31,9 +44,13 @@ rustPlatform.buildRustPackage rec {
   # Tests reach network/LLM providers.
   doCheck = false;
 
-  # Bump to the latest upstream release with `nix-update --flake dirge`
-  # (rewrites version + src hash in place; cargoLock follows the new src).
-  passthru.updateScript = nix-update-script { };
+  # Release builds carry a nix-update updateScript; the main-tracking
+  # `dirge-dev` build (srcOverride set) needs no version bumping.
+  passthru = lib.optionalAttrs (srcOverride == null) {
+    # Bump to the latest upstream release with `nix-update --flake dirge`
+    # (rewrites version + src hash in place; cargoLock follows the new src).
+    updateScript = nix-update-script { };
+  };
 
   meta = {
     description = "Minimal, fast pure-Rust coding agent with persistent memory";
