@@ -57,6 +57,11 @@
       url = "github:NousResearch/hermes-agent";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    dirge = {
+      #Latest combines commits from all my open upstream PRs
+      url = "github:cormacc/dirge/latest";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -108,7 +113,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, microchip, claude-desktop, hermes-agent, rust-overlay, nur, pi, herdr, nix-amd-ai, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, microchip, claude-desktop, hermes-agent, rust-overlay, nur, pi, dirge, herdr, nix-amd-ai, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -129,6 +134,7 @@
           rust-overlay.overlays.default
           nur.overlays.default
           pi.overlays.default
+          dirge.overlays.default
           herdr.overlays.default
           claude-desktop.overlays.default
           # Local packages: pkgs/<name>/default.nix -> pkgs.<name>
@@ -269,6 +275,7 @@
             config.allowUnfree = true;
             overlays = [
               pi.overlays.default
+              dirge.overlays.default
               claude-desktop.overlays.default
               herdr.overlays.default
               (_final: _prev: {
