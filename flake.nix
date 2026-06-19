@@ -40,10 +40,14 @@
       url = "github:nix-darwin/nix-darwin/nix-darwin-25.11";
       inputs.nixpkgs.follows = "nixpkgs-darwin";
     };
-    # pi coding agent
+    # pi coding agent.
+    #
+    # IMPORTANT: do NOT add `inputs.nixpkgs.follows`. pi ships prebuilt
+    # binaries on pi.cachix.org built against its own pinned nixpkgs;
+    # following our nixpkgs changes the derivation hashes and forces a full
+    # source rebuild, bypassing the cache. Same rationale as nix-amd-ai below.
     pi = {
       url = "github:lukasl-dev/pi.nix";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
     herdr = {
       url = "github:ogulcancelik/herdr";
