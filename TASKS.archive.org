@@ -80,7 +80,6 @@ It should:
 
 It should not:
 - Run models directly itself
-
 ** DONE [#C] Refactor flake
 CLOSED: [2026-05-22 Fri 11:38]
 :PROPERTIES:
@@ -104,7 +103,6 @@ record carries the full finding list (substituter duplication, NVIDIA
 modules, SSH `extraConfig`, dead `nixos-bootstrap.nix` / `nixos-llm.nix`,
 floating `fetchGit` calls, `programs.git.settings` validity, etc.) plus
 the decision to scrap `t470p` and add a top-level `nix` skill.
-
 ** DONE [#D] Explore and adopt web search tooling :pi:search:
 CLOSED: [2026-05-29 Fri 01:47]
 :PROPERTIES:
@@ -124,3 +122,16 @@ Add consistent search tooling to my setup:
 - (Maybe) per-workstation instances to be hosted locally on my dev machines for use when off the home network
   - Either using an appropriate small local model, or my openai or anthropic subs via oauth?
   - This should probably use Vane, as these machines won't be running open-webui locally -- though consider other options
+
+** DONE Package dirge coding agent as a local nix package
+CLOSED: [2026-06-17 Wed]
+:PROPERTIES:
+:CUSTOM_ID: 6f245995-342b-4581-8f5b-58f95f9367d2
+:CREATED: [2026-06-17 Wed 18:06]
+:ARCHIVED: [2026-06-17 Wed]
+:END:
+:LOGBOOK:
+- Created [2026-06-17 Wed 18:06]
+- Done [2026-06-17 Wed] all 4 plan tasks complete; commits 4f4f54e, e648581, 7460408.
+:END:
+#+IMPORT: [[plan:2026-06-17-package-dirge-coding-agent-as-a-local-ni.org]]

@@ -265,8 +265,8 @@ This function should only modify configuration layer settings."
            ;; ruby-version-manager 'rbenv
            ;; ruby-enable-enh-ruby-mode t
            )
-     ;; (rust :variables
-     ;;       rust-format-on-save t)
+     (rust :variables
+           rust-format-on-save t)
      ;; scheme
      shell-scripts
      sql
@@ -275,8 +275,7 @@ This function should only modify configuration layer settings."
      ;; systemd
      (typescript :variables typescript-backend 'tide)
 
-     windows-scripts
-     )
+     windows-scripts)
 
 
    ;; List of additional packages that will be installed without being

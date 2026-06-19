@@ -1,6 +1,6 @@
 #+TITLE: Package dirge coding agent as a local nix package
 #+DATE: 2026-06-17 Wed
-#+PARENT: [[task:6f245995-342b-4581-8f5b-58f95f9367d2][Package dirge coding agent as a local nix package]]
+#+PARENT: [[archive:6f245995-342b-4581-8f5b-58f95f9367d2][Package dirge coding agent as a local nix package]]
 #+SETUPFILE: ../../TASKS.setup.org
 #+STATUS: Accepted
 #+NO_SPEC_IMPACT: true
