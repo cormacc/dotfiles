@@ -63,7 +63,9 @@
     };
     dirge = {
       #Latest combines commits from all my open upstream PRs
-      url = "github:cormacc/dirge/latest";
+      #url = "github:cormacc/dirge/latest";
+      #Upstream
+      url = "github:dirge-code/dirge";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     rust-overlay = {
