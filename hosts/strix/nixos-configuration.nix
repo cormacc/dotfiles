@@ -158,8 +158,10 @@ in
   # clr, mirroring its internal xrt-combined) and append gcc-libs
   # (libatomic.so.1, libstdc++, libgomp); lemond forwards this to the
   # sd-server child. Rebuilt from `pkgs` rather than the sibling env key to
-  # avoid module-system infinite recursion. Drop once nix-amd-ai rpaths
-  # sd-server or adds gcc-libs to its ldLibraryPath.
+  # avoid module-system infinite recursion. nix-ld does NOT help here: sd-server
+  # is Nix-built and uses the Nix loader, not the /lib64 stub nix-ld intercepts.
+  # Drop once nix-amd-ai rpaths sd-server or adds gcc-libs to its ldLibraryPath
+  # (as of b304a013 its ldLibraryPath is still only xrt-combined + clr).
   systemd.services.lemond.environment.LD_LIBRARY_PATH = lib.mkForce (
     lib.concatStringsSep ":" [
       "${pkgs.xrt}/opt/xilinx/xrt/lib"
@@ -170,34 +172,15 @@ in
   );
 
   # ---------------------------------------------------------------------------
-  # WhisperServer (ASR) writable runtime directory
+  # WhisperServer runtime dir + kokoro nix-ld loader: now handled upstream.
   # ---------------------------------------------------------------------------
-  # lemonade's WhisperServer backend resolves a writable runtime dir from
-  # XDG_RUNTIME_DIR or systemd's RUNTIME_DIRECTORY. The amd-npu module's lemond
-  # unit sets neither, so loading Whisper-Large-v3-Turbo (the omni model's ASR
-  # component) fails with "Unable to resolve writable runtime directory".
-  # RuntimeDirectory= makes systemd create /run/lemond (owned by the service
-  # user) and export RUNTIME_DIRECTORY. Drop once nix-amd-ai sets this.
-  systemd.services.lemond.serviceConfig.RuntimeDirectory = "lemond";
-
-  # ---------------------------------------------------------------------------
-  # Foreign prebuilt backends (kokoro TTS) via nix-ld
-  # ---------------------------------------------------------------------------
-  # lemonade downloads the kokoro TTS engine (`koko`) as a generic prebuilt
-  # Linux ELF at runtime into ~/.cache/lemonade/bin/kokoro. It requests the
-  # stock loader /lib64/ld-linux-x86-64.so.2, which on NixOS is only a stub
-  # that aborts with "Could not start dynamically linked executable" (exit
-  # 127) -> the omni router then evicts all models. (sd-cpp/llama/whisper are
-  # Nix-built with real RPATHs and are unaffected.) nix-ld swaps the stub for
-  # a real loader; its default `libraries` already include openssl + gcc-libs,
-  # which is exactly what `koko` needs (libssl/libcrypto/libstdc++/libgcc_s).
-  programs.nix-ld.enable = true;
-
-  # nix-ld only exports NIX_LD / NIX_LD_LIBRARY_PATH as login-session vars, so
-  # the lemond *system service* (and the koko child it spawns) never sees them.
-  # Set them explicitly to the same generation-stable paths nix-ld publishes.
-  systemd.services.lemond.environment.NIX_LD = "/run/current-system/sw/share/nix-ld/lib/ld.so";
-  systemd.services.lemond.environment.NIX_LD_LIBRARY_PATH = "/run/current-system/sw/share/nix-ld/lib";
+  # The lemond `RuntimeDirectory = "lemond"` (WhisperServer writable runtime
+  # dir), `programs.nix-ld.enable`, and the lemond `NIX_LD`/`NIX_LD_LIBRARY_PATH`
+  # env (so the kokoro TTS prebuilt ELF finds a real loader) were all merged
+  # into nix-amd-ai by PR #38 ("lemond runtime dir + nix-ld loader for omni
+  # backends") and are present from our pinned rev b304a013 onward, so the
+  # local workarounds were removed here. The sd-server LD_LIBRARY_PATH gcc-libs
+  # fix above is NOT yet upstream and is kept.
 
   # Keep the raw Lemonade API LAN-reachable for coding harness clients.
   # services.searx.openFirewall and services.open-webui.openFirewall add the
