@@ -170,14 +170,6 @@ in
       "${piConfig}/skills".source =
         config.lib.file.mkOutOfStoreSymlink "${piRoot}/skills";
 
-      # Subagent definitions (pi-interactive-subagents). Overrides the
-      # extension's bundled defaults: pi reads ~/.pi/agent/agents/<name>.md
-      # ahead of any project-local .pi/agents/. Keeping our copies in the
-      # dotagents submodule lets us tweak model/tool/skill defaults per agent
-      # without re-publishing the upstream package.
-      "${piConfig}/agents".source =
-        config.lib.file.mkOutOfStoreSymlink "${piRoot}/agents";
-
       # User-local pi settings come from dotfiles, not from the dotagents
       # submodule.
       "${piConfig}/settings.json".source =
