@@ -54,12 +54,16 @@ for every reusable skill, pi extension, prompt template, the pi-side
 live submodule tree into:
 
 - `~/.agents/skills`
+- `~/.agents/subagents` → global subagent roster (`agents/subagents/`) for the
+  `herdr-subagents` delegation skill; project rosters at
+  `<git-root>/.agents/subagents/` take precedence
 - `~/.pi/agent/{AGENTS.md, prompts, extensions, skills, agents, settings.json}`
 - `~/.config/mcp/mcp.json`
 - `~/.local/bin/ot` → org-tasks CLI shim
 
-The `agents/` slot under `~/.pi/agent/` overrides `pi-interactive-subagents`'
-bundled subagent definitions.
+The `agents/` slot under `~/.pi/agent/` is a temporary legacy compatibility
+path for the pi-subagents extension (it resolves through `agents/pi/agents →
+../subagents`); it is removed at the herdr-subagents cutover.
 
 Out-of-store symlinks, so edits in `agents/` take effect immediately via
 `/reload` — no Home Manager switch needed.

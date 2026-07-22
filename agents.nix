@@ -144,6 +144,12 @@ in
       "${agentsConfig}/skills".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
 
+      # Global subagent roster for the herdr-subagents skill: reusable
+      # persona definitions discovered at ~/.agents/subagents/ (project
+      # rosters at <git-root>/.agents/subagents/ take precedence).
+      "${agentsConfig}/subagents".source =
+        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/subagents";
+
       # Add the org-tasks cli tool shim to the path
       ".local/bin/ot".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills/org-tasks/scripts/ot";
