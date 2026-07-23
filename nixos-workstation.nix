@@ -118,7 +118,11 @@
     # ... this keeps home-manager config compatible with Arch linux package management
     python3
     pipenv
-    poetry
+    # Temporary workaround for https://github.com/NixOS/nixpkgs/issues/544083 - July 2026
+    (poetry.overridePythonAttrs (old: {
+      doCheck = false;
+    }))
+    # poetry
     # Virtual machines etc.
     qemu SDL2
 
