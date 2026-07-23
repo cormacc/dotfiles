@@ -57,6 +57,10 @@
       url = "github:aaddrick/claude-desktop-debian";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    claude-code = {
+      url = "github:sadjow/claude-code-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     hermes-agent = {
       url = "github:NousResearch/hermes-agent";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -104,6 +108,7 @@
       "https://hyprland.cachix.org"
       "https://cache.numtide.com"
       "https://pi.cachix.org"
+      "https://claude-code.cachix.org"
       # Pre-built AMD AI packages (llama-cpp-rocm/vulkan, sd-cpp-rocm,
       # whisper-cpp-vulkan, lemonade, fastflowlm, XRT). Used by the strix
       # host; harmless on other hosts as the closure hashes won't match.
@@ -115,11 +120,12 @@
       "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
       "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
       "pi.cachix.org-1:lGeoGJaZ5ZDabuRzkcD5EBTNnDM4HJ1vqeOxlWk1Flk="
+      "claude-code.cachix.org-1:YeXf2aNu7UTX8Vwrze0za1WEDS+4DuI2kVeWEE4fsRk="
       "nix-amd-ai.cachix.org-1:F4OU4vw/lV2oiG6SBHZ+nqjl4EFJuqI4X9A7pvaBmhQ="
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, microchip, claude-desktop, hermes-agent, rust-overlay, nur, pi, dirge, herdr, nix-amd-ai, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, microchip, claude-code, claude-desktop, hermes-agent, rust-overlay, nur, pi, dirge, herdr, nix-amd-ai, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -143,6 +149,7 @@
           dirge.overlays.default
           herdr.overlays.default
           claude-desktop.overlays.default
+          claude-code.overlays.default
           # Local packages: pkgs/<name>/default.nix -> pkgs.<name>
           (import ./pkgs/overlay.nix)
         ];
@@ -283,6 +290,7 @@
               pi.overlays.default
               dirge.overlays.default
               claude-desktop.overlays.default
+              claude-code.overlays.default
               herdr.overlays.default
               (_final: _prev: {
                 inherit (unstablePkgs) babashka;
