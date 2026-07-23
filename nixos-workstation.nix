@@ -105,6 +105,9 @@
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
+  environment.variables.EDITOR = pkgs.lib.mkForce "emacsclient -nw";
+  environment.variables.VISUAL = "emacsclient -n -c";
+
   environment.systemPackages = with pkgs; [
     waybar
     # Install GPU accelerated terminals at os level
