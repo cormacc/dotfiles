@@ -145,7 +145,7 @@ See [[#set-git-name-and-e-mail][Set Git name and e-mail]] for the actual =export
 | =desktop/= | Desktop app modules (web, audio, office, entertainment) |
 | =wayland/= | Wayland compositor configs (sway, hyprland, foot, rofi) |
 | =nmd/= | Work-specific tooling (OneDrive etc.) |
-| =agents/= | Git submodule pointing at [[https://github.com/cormacc/dotagents][=cormacc/dotagents=]] — every reusable skill, pi extension, prompt template, the pi-side =AGENTS.md=, the user-local =pi/settings.json=, and the =agent-org-memory= pi package. [[./agents.nix]] symlinks the working tree into =~/.agents/skills= and =~/.pi/agent/{extensions,skills,prompts,AGENTS.md,settings.json}= for live editing. |
+| =agents/= | Git submodule pointing at [[https://github.com/cormacc/dotagents][=cormacc/dotagents=]] — every reusable skill, pi extension, prompt template, the pi-side =AGENTS.md=, the user-local =pi/settings.json=, and the =agent-org-memory= pi package. [[./agents.nix]] symlinks the working tree into =~/.agents/skills= (including packaged Herdr personas at =skills/herdr-subagents/subagents/=) and =~/.pi/agent/{extensions,skills,prompts,AGENTS.md,settings.json}= for live editing. =~/.agents/subagents/= remains unmanaged for genuine home overrides. |
 | =microchip/= | Microchip embedded dev tooling (see [[./microchip/README.org]]) |
 | =legacy/= | Deprecated configs (ruby, matlab, cdrip) |
 | =darwin-configuration.nix= | macOS system config (nix-darwin) |
@@ -162,8 +162,11 @@ skills and configuration. This repo registers it as a git submodule under
 Why a submodule rather than a flake input? Editability. Home Manager
 points =mkOutOfStoreSymlink=s at the live submodule working tree, so
 editable changes (skills, extensions, prompts) reload via pi's =/reload=
-without a Home Manager switch. A flake input would resolve to an
-immutable Nix store path and lose that property.
+without a Home Manager switch. The Herdr packaged persona defaults travel
+inside the =skills/= link; =agents.nix= deliberately does not project them
+into =~/.agents/subagents/=, leaving that path for true home overrides. A
+flake input would resolve to an immutable Nix store path and lose that
+property.
 
 ** Bootstrap
 #+begin_src shell

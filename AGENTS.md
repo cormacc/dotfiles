@@ -53,10 +53,12 @@ for every reusable skill, pi extension, prompt template, the pi-side
 `AGENTS.md`, and user-local `pi/settings.json`. `agents.nix` symlinks the
 live submodule tree into:
 
-- `~/.agents/skills`
-- `~/.agents/subagents` → global subagent roster (`agents/subagents/`) for the
-  `herdr-subagents` delegation skill; project rosters at
-  `<git-root>/.agents/subagents/` take precedence
+- `~/.agents/skills` (including packaged Herdr personas at
+  `skills/herdr-subagents/subagents/`)
+- `~/.agents/subagents` is deliberately unmanaged for genuine home overrides;
+  Herdr definitions resolve project (`<git-root>/.agents/subagents/`) > home
+  (`~/.agents/subagents/`) > packaged, while `roster.edn` replaces complete
+  model-ID rows in the same precedence order without selecting kind
 - `~/.pi/agent/{AGENTS.md, prompts, extensions, skills, settings.json}`
 - `~/.config/mcp/mcp.json`
 - `~/.local/bin/ot` → org-tasks CLI shim
