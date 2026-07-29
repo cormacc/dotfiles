@@ -144,11 +144,9 @@ in
       "${agentsConfig}/skills".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
 
-      # Global subagent roster for the herdr-subagents skill: reusable
-      # persona definitions discovered at ~/.agents/subagents/ (project
-      # rosters at <git-root>/.agents/subagents/ take precedence).
-      "${agentsConfig}/subagents".source =
-        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/subagents";
+      # ~/.agents/subagents is intentionally unmanaged: it is the user's
+      # genuine home-override directory. Packaged Herdr personas are found
+      # below the linked skills tree at herdr-subagents/subagents/.
 
       # Add the org-tasks cli tool shim to the path
       ".local/bin/ot".source =
