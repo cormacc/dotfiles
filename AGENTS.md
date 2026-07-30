@@ -57,8 +57,9 @@ live submodule tree into:
   `skills/herdr-subagents/subagents/`)
 - `~/.agents/subagents` is deliberately unmanaged for genuine home overrides;
   Herdr definitions resolve project (`<git-root>/.agents/subagents/`) > home
-  (`~/.agents/subagents/`) > packaged, while `roster.edn` replaces complete
-  model-ID rows in the same precedence order without selecting kind
+  (`~/.agents/subagents/`) > packaged, while `config.edn` replaces complete
+  model-ID rows and merges `:defaults` per key in the same precedence order,
+  without selecting kind
 - `~/.pi/agent/{AGENTS.md, prompts, extensions, skills, settings.json}`
 - `~/.config/mcp/mcp.json`
 - `~/.local/bin/ot` → org-tasks CLI shim
