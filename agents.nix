@@ -121,6 +121,8 @@ in
       pi-coding-agent
       claude-code
       codex
+      # This is installed for linux only -- installed via homebrew on darwin
+      # hermes-agent
       herdr
       prettier
       typescript-language-server

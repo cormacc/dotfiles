@@ -3,62 +3,59 @@
   # See here for a well commented nixos + home-manager modular config: # https://github.com/TLATER/dotfiles
 
   inputs = {
-    # nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
+
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    # Darwin-specific nixpkgs pin.
-    #
-    # nixos-unstable / release-25.11 are currently broken on darwin: the
-    # libarchive 3.8.4 -> 3.8.6 backport (PR #501903, merge commit
-    # 32e655fe5c81a476c2c2d6fca6b41284f1d5196e) causes direnv's checkPhase
-    # (test-fish) to be killed, and the same bump is downstream of many
-    # darwin builds. See https://github.com/NixOS/nixpkgs/issues/507531.
-    #
-    # Pin to the last bisect-verified-good commit on release-25.11 (the
-    # siyuan 3.6.2 backport, immediately before the libarchive merge) until
-    # upstream lands a fix. Bump or remove this once the issue is closed.
-    nixpkgs-darwin.url = "github:nixos/nixpkgs/e6505dfb286ba3c2fd9226397c029f589e3ea713";
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # home-manager release-25.11 to match nixpkgs-darwin / nix-darwin pins.
-    # Used only by darwinConfigurations. Bump together with nixpkgs-darwin
-    # once https://github.com/NixOS/nixpkgs/issues/507531 is fixed.
+
+    #Occasionally need to pin a different version of nixpkgs for darwin, to work around upstream issues
+    nixpkgs-darwin.url = "github:nixos/nixpkgs/nixos-unstable";
     home-manager-darwin = {
-      url = "github:nix-community/home-manager/release-25.11";
+      url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs-darwin";
     };
+    nix-darwin = {
+      url = "github:nix-darwin/nix-darwin/master";
+      inputs.nixpkgs.follows = "nixpkgs-darwin";
+    };
+    nix-homebrew = {
+      url = "github:zhaofengli/nix-homebrew";
+      inputs.nixpkgs.follows = "nixpkgs-darwin";
+    };
+    # Optional: Declarative tap management
+    homebrew-core = {
+      url = "github:homebrew/homebrew-core";
+      flake = false;
+    };
+    homebrew-cask = {
+      url = "github:homebrew/homebrew-cask";
+      flake = false;
+    };
+
+
     microchip = {
       url = "github:cormacc/nix-microchip";
       # url = "/home/cormacc/dev/nix-microchip";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    nix-darwin = {
-      # Pinned to release-25.11 to match nixpkgs-darwin (also release-25.11).
-      # nix-darwin enforces matching nixpkgs/nix-darwin release branches; bump
-      # this together with nixpkgs-darwin once #507531 is fixed upstream.
-      url = "github:nix-darwin/nix-darwin/nix-darwin-25.11";
-      inputs.nixpkgs.follows = "nixpkgs-darwin";
-    };
-    # pi coding agent.
-    #
-    # IMPORTANT: do NOT add `inputs.nixpkgs.follows`. pi ships prebuilt
-    # binaries on pi.cachix.org built against its own pinned nixpkgs;
-    # following our nixpkgs changes the derivation hashes and forces a full
-    # source rebuild, bypassing the cache. Same rationale as nix-amd-ai below.
-    pi = {
-      url = "github:lukasl-dev/pi.nix";
-    };
+
+    # IMPORTANT: do NOT add `inputs.nixpkgs.follows` for inputs with cachix caches
+    # Doing so bypasses the cache, triggering full source rebuilds.
+
+    nur.url  = "github:nix-community/NUR";
+    nix-amd-ai.url = "github:noamsto/nix-amd-ai";
+    pi.url = "github:lukasl-dev/pi.nix";
+    claude-code.url = "github:sadjow/claude-code-nix";
+
     herdr = {
       url = "github:ogulcancelik/herdr";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     claude-desktop = {
-      url = "github:aaddrick/claude-desktop-debian";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    claude-code = {
-      url = "github:sadjow/claude-code-nix";
+      # url = "github:aaddrick/claude-desktop-debian";
+      url = "github:tomsch/claude-desktop-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     hermes-agent = {
@@ -76,20 +73,6 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # Nix User Repository
-    nur = {
-      url = "github:nix-community/NUR";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    # AMD AI inference stack (XRT + XDNA + FastFlowLM + Lemonade + ROCm/Vulkan
-    # llama.cpp / whisper.cpp / stable-diffusion.cpp). Used by the strix host
-    # (Framework Desktop / AMD Ryzen AI Max+ 395, Strix Halo).
-    #
-    # IMPORTANT: do NOT add `inputs.nix-amd-ai.inputs.nixpkgs.follows`. The
-    # overlay is intentionally built against its own pinned nixpkgs so the
-    # closure hashes match nix-amd-ai's Cachix; overriding nixpkgs forces a
-    # full source rebuild of llama.cpp / whisper.cpp / sd-cpp.
-    nix-amd-ai.url = "github:noamsto/nix-amd-ai";
   };
 
   # NOTE: nixConfig must be a literal attrset of literals — nix parses it
@@ -105,14 +88,12 @@
     extra-substituters = [
       "https://cache.nixos.org"
       "https://nix-community.cachix.org"
-      "https://hyprland.cachix.org"
-      "https://cache.numtide.com"
       "https://pi.cachix.org"
       "https://claude-code.cachix.org"
-      # Pre-built AMD AI packages (llama-cpp-rocm/vulkan, sd-cpp-rocm,
-      # whisper-cpp-vulkan, lemonade, fastflowlm, XRT). Used by the strix
-      # host; harmless on other hosts as the closure hashes won't match.
       "https://nix-amd-ai.cachix.org"
+      #Not sure whether these last two are in use...
+      "https://hyprland.cachix.org"
+      "https://cache.numtide.com"
     ];
     extra-trusted-gpg-public-keys = [
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
@@ -125,7 +106,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, microchip, claude-code, claude-desktop, hermes-agent, rust-overlay, nur, pi, dirge, herdr, nix-amd-ai, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-code, claude-desktop, hermes-agent, rust-overlay, nur, pi, dirge, herdr, nix-amd-ai, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -142,14 +123,15 @@
           segger-jlink.acceptLicense = true;
         };
         overlays = [
-          microchip.overlays.default
-          rust-overlay.overlays.default
-          nur.overlays.default
-          pi.overlays.default
+          claude-code.overlays.default
+          claude-desktop.overlays.default
           dirge.overlays.default
           herdr.overlays.default
-          claude-desktop.overlays.default
-          claude-code.overlays.default
+          hermes-agent.overlays.default
+          microchip.overlays.default
+          nur.overlays.default
+          pi.overlays.default
+          rust-overlay.overlays.default
           # Local packages: pkgs/<name>/default.nix -> pkgs.<name>
           (import ./pkgs/overlay.nix)
         ];
@@ -287,11 +269,11 @@
             system = "aarch64-darwin";
             config.allowUnfree = true;
             overlays = [
-              pi.overlays.default
-              dirge.overlays.default
-              claude-desktop.overlays.default
               claude-code.overlays.default
+              dirge.overlays.default
               herdr.overlays.default
+              hermes-agent.overlays.default
+              pi.overlays.default
               (_final: _prev: {
                 inherit (unstablePkgs) babashka;
               })
@@ -313,6 +295,46 @@
                 inherit inputs;
               };
             }
+            nix-homebrew.darwinModules.nix-homebrew
+            {
+              nix-homebrew = {
+                # Install Homebrew under the default prefix
+                enable = true;
+                autoMigrate = true;
+
+                # Apple Silicon Only: Also install Homebrew under the default Intel prefix for Rosetta 2
+                enableRosetta = true;
+
+                # User owning the Homebrew prefix
+                user = "cormacc";
+
+                # Optional: Declarative tap management
+                taps = {
+                  "homebrew/homebrew-core" = homebrew-core;
+                  "homebrew/homebrew-cask" = homebrew-cask;
+                };
+
+                # Optional: Enable fully-declarative tap management
+                #
+                # With mutableTaps disabled, taps can no longer be added imperatively with `brew tap`.
+                mutableTaps = false;
+
+                # Optional: Declarative Homebrew tap trust entries.
+                #
+                # Note: The trust entries are _not_ removed if you remove them from those lists!
+                # Use the `brew untrust` command to remove a trust entry.
+                trust = {
+                  formulae = [ ];
+                  casks = [ ];
+                  commands = [ ];
+                  taps = [ ];
+                };
+              };
+            }
+            # Optional: Align homebrew taps config with nix-homebrew
+            ({config, ...}: {
+              homebrew.taps = builtins.attrNames config.nix-homebrew.taps;
+            })
           ];
         };
     };

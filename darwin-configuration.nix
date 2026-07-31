@@ -63,6 +63,8 @@ in
     brews = [
       "libtool"
       "libvterm"
+      # This doesn't work, and is included in hermes-desktop anyway...
+      # "hermes-agent"
     ];
     casks = [
       "emacs-app"
@@ -73,8 +75,9 @@ in
       "reaper"
       "claude"
       "dash"
-      "gimp"
-      "libreoffice"
+      "hermes-desktop"
+      # "gimp"
+      # "libreoffice"
     ];
   };
 }
