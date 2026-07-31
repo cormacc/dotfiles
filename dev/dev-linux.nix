@@ -5,6 +5,8 @@
     zeal
     dirge-bin
 
+    hermes-agent
+
     # Tools to help with nixpkg development...
     bubblewrap
   ];
