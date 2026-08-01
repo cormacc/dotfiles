@@ -146,7 +146,7 @@ in
 
       # ~/.agents/subagents is intentionally unmanaged: it is the user's
       # genuine home-override directory. Packaged Herdr personas are found
-      # below the linked skills tree at herdr-subagents/subagents/.
+      # below the linked skills tree at herdr-orch/subagents/.
 
       # Add the org-tasks cli tool shim to the path
       ".local/bin/ot".source =
