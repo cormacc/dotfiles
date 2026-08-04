@@ -54,15 +54,18 @@ for every reusable skill, pi extension, prompt template, the pi-side
 live submodule tree into:
 
 - `~/.agents/skills` (including packaged Herdr personas at
-  `skills/herdr-subagents/subagents/`)
+  `skills/herdr-orch/subagents/`)
 - `~/.agents/subagents` (the home override layer, from the submodule's own
   `subagents/`, which carries the claude/codex approval-relaxing override);
   Herdr definitions resolve project (`<git-root>/.agents/subagents/`) > home
   (`~/.agents/subagents/`) > packaged, while `config.edn` replaces complete
-  model-ID rows and `:harnesses` entries, and merges `:defaults` per key, in the
-  same precedence order, without selecting kind. Because a `:harnesses` entry is
-  replaced wholesale, an override adding `:extra-args` must restate
-  `:model-flag`
+  canonical-model `:models` rows and `:harnesses` entries, and merges
+  `:aliases` and `:defaults` per key, in the same precedence order, without
+  selecting kind. Because a `:harnesses` entry is replaced wholesale, an
+  override adding `:extra-args` must restate `:model-flag`. Because `:aliases`
+  merges per key, retargeting a weight such as `heavy` is a one-line override
+  that restates no harness spelling -- and a weight name belongs in `:aliases`,
+  never in `:models`, where the same key in both now fails loudly at spawn
 - `~/.pi/agent/{AGENTS.md, prompts, extensions, skills, settings.json}`
 - `~/.config/mcp/mcp.json`
 - `~/.local/bin/ot` → org-tasks CLI shim
