@@ -144,9 +144,14 @@ in
       "${agentsConfig}/skills".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
 
-      # ~/.agents/subagents is intentionally unmanaged: it is the user's
-      # genuine home-override directory. Packaged Herdr personas are found
-      # below the linked skills tree at herdr-orch/subagents/.
+      # Home-layer Herdr subagent overrides. Packaged personas and their default
+      # config.edn still live below the linked skills tree at
+      # herdr-orch/subagents/; this is the middle link of the resolution chain
+      # (packaged < home < project), and is now managed rather than hand-authored
+      # so the harness permission overrides in dotagents apply on every host.
+      # Out-of-store, so edits in the submodule take effect without a switch.
+      "${agentsConfig}/subagents".source =
+        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/subagents";
 
       # Add the org-tasks cli tool shim to the path
       ".local/bin/ot".source =

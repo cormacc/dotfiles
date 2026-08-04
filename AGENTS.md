@@ -55,11 +55,14 @@ live submodule tree into:
 
 - `~/.agents/skills` (including packaged Herdr personas at
   `skills/herdr-subagents/subagents/`)
-- `~/.agents/subagents` is deliberately unmanaged for genuine home overrides;
+- `~/.agents/subagents` (the home override layer, from the submodule's own
+  `subagents/`, which carries the claude/codex permission-bypass override);
   Herdr definitions resolve project (`<git-root>/.agents/subagents/`) > home
   (`~/.agents/subagents/`) > packaged, while `config.edn` replaces complete
-  model-ID rows and merges `:defaults` per key in the same precedence order,
-  without selecting kind
+  model-ID rows and `:harnesses` entries, and merges `:defaults` per key, in the
+  same precedence order, without selecting kind. Because a `:harnesses` entry is
+  replaced wholesale, an override adding `:extra-args` must restate
+  `:model-flag`
 - `~/.pi/agent/{AGENTS.md, prompts, extensions, skills, settings.json}`
 - `~/.config/mcp/mcp.json`
 - `~/.local/bin/ot` → org-tasks CLI shim
