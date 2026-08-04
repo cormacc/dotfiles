@@ -56,7 +56,7 @@ live submodule tree into:
 - `~/.agents/skills` (including packaged Herdr personas at
   `skills/herdr-subagents/subagents/`)
 - `~/.agents/subagents` (the home override layer, from the submodule's own
-  `subagents/`, which carries the claude/codex permission-bypass override);
+  `subagents/`, which carries the claude/codex approval-relaxing override);
   Herdr definitions resolve project (`<git-root>/.agents/subagents/`) > home
   (`~/.agents/subagents/`) > packaged, while `config.edn` replaces complete
   model-ID rows and `:harnesses` entries, and merges `:defaults` per key, in the
