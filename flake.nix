@@ -211,7 +211,9 @@
           system = "${system}";
           specialArgs = { hostName = "nas"; };
           modules = [
+            hermes-agent.nixosModules.default
             ./hosts/odroid-h4/hardware-configuration.nix
+            ./hosts/odroid-h4/homelab-agent.nix
             ./nixos-boot-default.nix
             #... server-only
             ./nixos-server.nix
