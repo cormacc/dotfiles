@@ -3,7 +3,7 @@
 Nix flake managing NixOS, Home Manager, and nix-darwin configs across multiple
 hosts (x86_64-linux + aarch64-darwin). Primary dev platform is Arch Linux + nix
 + home-manager. See [README.org](README.org) for end-user setup, shell
-aliases, provisioning, and the dotagents submodule bootstrap.
+aliases, provisioning, and required submodule bootstraps.
 
 ## Build conventions
 
