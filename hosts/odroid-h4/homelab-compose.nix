@@ -242,6 +242,9 @@ let
     '';
   };
 in {
+  # The OS root is ext4; never force-import an unrelated ZFS pool as root.
+  boot.zfs.forceImportRoot = false;
+
   # The slow three-disk mirror is a backup tier. Pool import and initial
   # dataset/repository creation are supervised one-time maintenance steps.
   # Do not put the all-numeric GUID in boot.zfs.extraPools: the upstream import
