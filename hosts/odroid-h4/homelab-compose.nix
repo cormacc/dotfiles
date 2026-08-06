@@ -243,7 +243,105 @@ let
 in {
   # The slow three-disk mirror is a backup tier. Pool import and initial
   # dataset/repository creation are supervised one-time maintenance steps.
-  boot.zfs.extraPools = [ backupPoolGuid ];
+  # Do not put the all-numeric GUID in boot.zfs.extraPools: the upstream import
+  # helper passes pool identifiers to `zpool list`, where an all-numeric value
+  # is parsed as an interval and hangs indefinitely. This custom unit preserves
+  # GUID-pinned identity without relying on that unsafe code path.
+  systemd.services.homelab-backup-pool-import = {
+    description = "Import the GUID-pinned homelab backup ZFS pool";
+    requiredBy = [ "zfs-import.target" ];
+    before = [
+      "shutdown.target"
+      "zfs-import.target"
+    ];
+    after = [
+      "systemd-modules-load.service"
+      "systemd-ask-password-console.service"
+    ];
+    conflicts = [ "shutdown.target" ];
+    unitConfig.DefaultDependencies = "no";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      TimeoutStartSec = "90s";
+    };
+    path = with pkgs; [
+      coreutils
+      gawk
+      zfs
+    ];
+    script = ''
+      set -euo pipefail
+
+      readonly expected_name=backup
+      readonly expected_guid=${lib.escapeShellArg backupPoolGuid}
+      readonly dev_nodes=/dev/disk/by-id
+      deadline=$((SECONDS + 60))
+      readonly deadline
+
+      name_guid="$(zpool get -H -o value guid "$expected_name" 2>/dev/null || true)"
+      if [[ -n "$name_guid" && "$name_guid" != "$expected_guid" ]]; then
+        echo "pool $expected_name has unexpected GUID $name_guid" >&2
+        exit 1
+      fi
+
+      guid_name="$(zpool list -H -o name,guid | awk -v guid="$expected_guid" '("x" $2) == ("x" guid) { print $1 }')"
+      if [[ -n "$guid_name" && "$guid_name" != "$expected_name" ]]; then
+        echo "expected backup GUID is imported as unexpected pool $guid_name" >&2
+        exit 1
+      fi
+
+      if [[ "$name_guid" == "$expected_guid" ]]; then
+        test "$(zpool list -H -o health "$expected_name")" = ONLINE
+        exit 0
+      fi
+
+      while (( SECONDS < deadline )); do
+        scan_output="$(timeout --kill-after=1s 5s zpool import -d "$dev_nodes" 2>/dev/null || true)"
+        discovery="$(
+          awk -v guid="$expected_guid" '
+              /^[[:space:]]*pool:/ { pool = $2; id = ""; state = "" }
+              /^[[:space:]]*id:/ { id = $2 }
+              /^[[:space:]]*state:/ {
+                state = $2
+                if (("x" id) == ("x" guid)) {
+                  print pool "\t" state
+                  exit
+                }
+              }
+            ' <<<"$scan_output"
+        )"
+        if [[ -n "$discovery" ]]; then
+          IFS=$'\t' read -r discovered_name discovered_state <<<"$discovery"
+          if [[ "$discovered_name" != "$expected_name" ]]; then
+            echo "expected backup GUID belongs to unexpected pool $discovered_name" >&2
+            exit 1
+          fi
+          if [[ "$discovered_state" == ONLINE ]]; then
+            zpool import -d "$dev_nodes" -N "$expected_guid"
+            post_name="$(zpool list -H -o name,guid | awk -v guid="$expected_guid" '("x" $2) == ("x" guid) { print $1 }')"
+            post_guid="$(zpool get -H -o value guid "$post_name" 2>/dev/null || true)"
+            post_health="$(zpool list -H -o health "$post_name" 2>/dev/null || true)"
+            if [[ "$post_name" != "$expected_name" || "$post_guid" != "$expected_guid" || "$post_health" != ONLINE ]]; then
+              echo "post-import backup pool identity or health verification failed" >&2
+              if [[ -n "$post_name" ]]; then
+                zpool export "$post_name" || echo "failed to export rejected pool $post_name" >&2
+              fi
+              exit 1
+            fi
+            exit 0
+          fi
+          echo "backup pool is $discovered_state; waiting for all devices" >&2
+        fi
+        if (( SECONDS < deadline )); then
+          sleep 1
+        fi
+      done
+
+      echo "backup pool with expected GUID did not become ready" >&2
+      exit 1
+    '';
+  };
 
   environment.systemPackages = with pkgs; [
     docker-compose
