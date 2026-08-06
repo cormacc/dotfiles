@@ -10,7 +10,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    #Occasionally need to pin a different version of nixpkgs for darwin, to work around upstream issues
+    # Keep Darwin on its own input so it can be pinned independently when an
+    # upstream macOS regression requires it.
     nixpkgs-darwin.url = "github:nixos/nixpkgs/nixos-unstable";
     home-manager-darwin = {
       url = "github:nix-community/home-manager";
@@ -20,10 +21,7 @@
       url = "github:nix-darwin/nix-darwin/master";
       inputs.nixpkgs.follows = "nixpkgs-darwin";
     };
-    nix-homebrew = {
-      url = "github:zhaofengli/nix-homebrew";
-      inputs.nixpkgs.follows = "nixpkgs-darwin";
-    };
+    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
     # Optional: Declarative tap management
     homebrew-core = {
       url = "github:homebrew/homebrew-core";
@@ -110,6 +108,25 @@
     let
       inherit (self) outputs;
       system = "x86_64-linux";
+      linuxOverlays = [
+        claude-code.overlays.default
+        claude-desktop.overlays.default
+        dirge.overlays.default
+        herdr.overlays.default
+        hermes-agent.overlays.default
+        microchip.overlays.default
+        nur.overlays.default
+        pi.overlays.default
+        rust-overlay.overlays.default
+        # Local packages: pkgs/<name>/default.nix -> pkgs.<name>
+        (import ./pkgs/overlay.nix)
+      ];
+      darwinOverlays = [
+        claude-code.overlays.default
+        dirge.overlays.default
+        herdr.overlays.default
+        pi.overlays.default
+      ];
       # pkgs = nixpkgs.legacyPackages.${system};
       pkgs = import nixpkgs {
         system = "${system}";
@@ -122,19 +139,7 @@
           ];
           segger-jlink.acceptLicense = true;
         };
-        overlays = [
-          claude-code.overlays.default
-          claude-desktop.overlays.default
-          dirge.overlays.default
-          herdr.overlays.default
-          hermes-agent.overlays.default
-          microchip.overlays.default
-          nur.overlays.default
-          pi.overlays.default
-          rust-overlay.overlays.default
-          # Local packages: pkgs/<name>/default.nix -> pkgs.<name>
-          (import ./pkgs/overlay.nix)
-        ];
+        overlays = linuxOverlays;
       };
     in {
       # Local packages (pkgs/<name>/default.nix) exposed as flake outputs so
@@ -249,35 +254,14 @@
       # Build darwin config using:
       # $ darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure
       #
-      # Uses nixpkgs-darwin / home-manager-darwin (pinned to release-25.11
-      # last-known-good) instead of nixos-unstable. See input comment above
-      # and https://github.com/NixOS/nixpkgs/issues/507531.
+      # Darwin has an independent nixpkgs input so a macOS-specific pin never
+      # changes the package set used by Linux hosts and Home Manager profiles.
       darwinConfigurations."Cormacs-MacBook-Air" =
         let
-          # Unstable nixpkgs side-channel for packages that need to
-          # outrun the release-25.11 pin. Currently used to source
-          # `babashka`: release-25.11 ships 1.12.209, but the `ot` CLI's
-          # transitive `bling` -> `fireworks` -> `lasertag 0.12.0` chain
-          # needs the `clojure.lang.IType` SCI binding added in bb
-          # 1.12.211 (unstable currently ships 1.12.218). Drop this
-          # overlay once `nixpkgs-darwin` advances past 1.12.211.
-          unstablePkgs = import nixpkgs {
-            system = "aarch64-darwin";
-            config.allowUnfree = true;
-          };
           darwinPkgs = import nixpkgs-darwin {
             system = "aarch64-darwin";
             config.allowUnfree = true;
-            overlays = [
-              claude-code.overlays.default
-              dirge.overlays.default
-              herdr.overlays.default
-              hermes-agent.overlays.default
-              pi.overlays.default
-              (_final: _prev: {
-                inherit (unstablePkgs) babashka;
-              })
-            ];
+            overlays = darwinOverlays;
           };
         in
         nix-darwin.lib.darwinSystem {
