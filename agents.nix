@@ -7,7 +7,7 @@ let
   # under `agents/`. Its working tree provides every reusable skill,
   # extension, prompt, the pi-side AGENTS.md, and the user-local
   # pi/settings.json (package list, default provider/model, secrets toggles).
-  # Whole-directory symlinks below point ~/.agents/skills,
+  # Whole-directory symlinks below point ~/.agents/skills, ~/.claude/skills,
   # ~/.pi/agent/extensions, ~/.pi/agent/skills, ~/.pi/agent/agents,
   # ~/.pi/agent/prompts, ~/.pi/agent/AGENTS.md, and ~/.pi/agent/settings.json
   # at the live submodule path so edits reload in place via `/reload` without
@@ -19,6 +19,7 @@ let
 
   # ───────────────────────────── Dest paths ───────────────────────────────
   agentsConfig = "${config.home.homeDirectory}/.agents";
+  claudeConfig = "${config.home.homeDirectory}/.claude";
   piConfig = "${config.home.homeDirectory}/.pi/agent";
   # The xdg.configHome stuff causes pain / erratic detection...
   # piConfig = "${config.xdg.configHome}/pi";
@@ -154,6 +155,17 @@ in
       # Out-of-store, so edits in the submodule take effect without a switch.
       "${agentsConfig}/subagents".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/subagents";
+
+      # Claude Code discovery location for the same generic skills tree.
+      # Claude Code hardcodes ~/.claude/skills (user scope) and
+      # <project>/.claude/skills (project scope); there is no setting to point
+      # it at ~/.agents/skills, so the tree needs its own link. Discovery is
+      # depth-1 only (<root>/<name>/SKILL.md), which is what keeps
+      # gitlab-cli-skills resident as a single entry while its 30+ glab-*
+      # sub-skills stay on-demand -- the gradual-discovery behaviour the
+      # sub-skill layout assumes. Out-of-store, matching ~/.agents/skills.
+      "${claudeConfig}/skills".source =
+        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
 
       # Add the org-tasks cli tool shim to the path
       ".local/bin/ot".source =
