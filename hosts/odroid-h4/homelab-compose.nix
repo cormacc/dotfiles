@@ -185,9 +185,12 @@ let
 
       for dataset in "''${datasets[@]}"; do
         ${pkgs.zfs}/bin/zfs list -H "$dataset" >/dev/null
+        expected_mountpoint="/data/services/''${dataset##*/}"
         dataset_mountpoint="$(${pkgs.zfs}/bin/zfs get -H -o value mountpoint "$dataset")"
-        ${pkgs.util-linux}/bin/mountpoint -q "$dataset_mountpoint"
-        test "$(${pkgs.util-linux}/bin/findmnt -n -o SOURCE --target "$dataset_mountpoint")" = "$dataset"
+        test "$dataset_mountpoint" = "$expected_mountpoint"
+        ${pkgs.util-linux}/bin/mountpoint -q "$expected_mountpoint"
+        test "$(${pkgs.util-linux}/bin/findmnt -n -o SOURCE --target "$expected_mountpoint")" = "$dataset"
+        test "$(${pkgs.util-linux}/bin/findmnt -n -o FSTYPE --target "$expected_mountpoint")" = zfs
       done
 
       export RESTIC_PASSWORD_FILE="$password_file"
@@ -215,8 +218,8 @@ let
         snapshot_name="$dataset@$snapshot"
         ${pkgs.zfs}/bin/zfs snapshot "$snapshot_name"
         created_snapshots+=("$snapshot_name")
-        mountpoint="$(${pkgs.zfs}/bin/zfs get -H -o value mountpoint "$dataset")"
-        sources+=("$mountpoint/.zfs/snapshot/$snapshot")
+        expected_mountpoint="/data/services/''${dataset##*/}"
+        sources+=("$expected_mountpoint/.zfs/snapshot/$snapshot")
       done
 
       ${pkgs.restic}/bin/restic -r "$local_repo" backup \
