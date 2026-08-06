@@ -105,6 +105,7 @@ let
     requires ? [ ],
     environmentFile ? null,
     verify ? null,
+    autoStart ? false,
   }:
     let
       mountVerificationCommands = map (check:
@@ -113,7 +114,10 @@ let
       postStartCommands = mountVerificationCommands ++ lib.optional (verify != null) verify;
     in {
       description = "Homelab Compose project: ${project}";
-      wantedBy = [ "multi-user.target" ];
+      # Remain installed but disabled until this project's supervised state
+      # migration and rollback verification have completed. Set autoStart=true
+      # declaratively for each project only after its cutover is accepted.
+      wantedBy = lib.optionals autoStart [ "multi-user.target" ];
       after = [
         "docker.service"
         "network-online.target"
