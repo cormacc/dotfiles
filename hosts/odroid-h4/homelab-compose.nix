@@ -226,10 +226,11 @@ let
         sources+=("$expected_mountpoint/.zfs/snapshot/$snapshot")
       done
 
+      # Each source enters a ZFS snapshot filesystem. Restic's
+      # --one-file-system would record these roots but skip their contents.
       ${pkgs.restic}/bin/restic -r "$local_repo" backup \
         --host nas \
         --tag homelab-service-state \
-        --one-file-system \
         "''${sources[@]}"
 
       ${pkgs.restic}/bin/restic -r "$mfs_repo" copy \
