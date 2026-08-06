@@ -1,8 +1,10 @@
 { config, lib, pkgs, ... }:
 
 let
-  repoRoot = "/home/cormacc/homelab-agent";
+  homelabAgentRepo = ../../sources/homelab-agent;
+  repoRoot = homelabAgentRepo;
   stateRoot = "/data/services";
+  monitoringEnvironmentFile = "/var/lib/homelab-monitoring/grafana.env";
   backupPoolGuid = "18052638822605016933";
   moosefsSource = "mfs#mfsmaster:9421";
   compose = "${pkgs.docker-compose}/bin/docker-compose";
@@ -434,11 +436,14 @@ in {
     composeFile = "${repoRoot}/monitoring/docker-compose.yml";
     mounts = [ ];
     mountChecks = [ ];
-    environmentFile = "${repoRoot}/monitoring/.env";
+    # Secret values remain mutable host state and never enter the locked source
+    # or Nix store.  Provision this file before a supervised monitoring start.
+    environmentFile = monitoringEnvironmentFile;
     verify = "${verifyMonitoring}/bin/verify-homelab-monitoring";
   };
 
   systemd.tmpfiles.rules = [
+    "d /var/lib/homelab-monitoring 0700 cormacc users - -"
     "d /var/lib/homelab-service-backup 0700 root root - -"
   ];
 

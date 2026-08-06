@@ -3,6 +3,9 @@
   # See here for a well commented nixos + home-manager modular config: # https://github.com/TLATER/dotfiles
 
   inputs = {
+    # Include initialized Git submodules in the flake source.  In particular,
+    # sources/homelab-agent is the exact operations revision deployed to NAS.
+    self.submodules = true;
 
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     home-manager = {
@@ -60,6 +63,7 @@
       url = "github:NousResearch/hermes-agent";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
     dirge = {
       #Latest combines commits from all my open upstream PRs
       #url = "github:cormacc/dirge/latest";

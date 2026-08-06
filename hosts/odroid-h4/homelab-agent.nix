@@ -1,12 +1,13 @@
 { pkgs, ... }:
 
 let
+  homelabAgentRepo = ../../sources/homelab-agent;
   healthCollector = pkgs.runCommand "homelab-health-collector" {
     nativeBuildInputs = [ pkgs.python3 ];
   } ''
-    install -Dm0555 ${./homelab-health/health_snapshot.py} \
+    install -Dm0555 ${homelabAgentRepo}/scripts/health_snapshot.py \
       $out/libexec/homelab-health/health_snapshot.py
-    install -Dm0555 ${./homelab-health/watch_health.py} \
+    install -Dm0555 ${homelabAgentRepo}/scripts/watch_health.py \
       $out/libexec/homelab-health/watch_health.py
     ${pkgs.python3}/bin/python3 -m py_compile \
       $out/libexec/homelab-health/health_snapshot.py \
@@ -21,14 +22,15 @@ in {
     addToSystemPackages = true;
 
     # The managed container gives the operations agent a mutable tool runtime
-    # while NixOS remains declarative. The host workspace is mounted read-only
-    # for the initial observation phase.
+    # while NixOS remains declarative.  The reviewed homelab Gitlink revision is
+    # materialized by Nix and mounted read-only from the Nix store;
+    # SSH development checkouts are never production inputs.
     container = {
       enable = true;
       backend = "docker";
       hostUsers = [ "cormacc" ];
       extraVolumes = [
-        "/home/cormacc/homelab-agent:/opt/homelab-agent:ro"
+        "${homelabAgentRepo}:/opt/homelab-agent:ro"
       ];
     };
 

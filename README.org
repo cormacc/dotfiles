@@ -36,6 +36,9 @@ fresh machine.
   - [[#home-manager-module-layering][Home Manager module layering]]
   - [[#environment-variables-consumed-on-first-apply][Environment variables consumed on first apply]]
   - [[#key-directories][Key directories]]
+- [[#the-homelab-agent-deployment-submodule][The homelab-agent deployment submodule]]
+  - [[#deployment-direction-and-boundaries][Deployment direction and boundaries]]
+  - [[#update-and-validation-workflow][Update and validation workflow]]
 - [[#the-dotagents-submodule][The dotagents submodule]]
   - [[#what-it-is][What it is]]
   - [[#bootstrap][Bootstrap]]
@@ -146,9 +149,57 @@ See [[#set-git-name-and-e-mail][Set Git name and e-mail]] for the actual =export
 | =wayland/= | Wayland compositor configs (sway, hyprland, foot, rofi) |
 | =nmd/= | Work-specific tooling (OneDrive etc.) |
 | =agents/= | Git submodule pointing at [[https://github.com/cormacc/dotagents][=cormacc/dotagents=]] — every reusable skill, pi extension, prompt template, the pi-side =AGENTS.md=, the user-local =pi/settings.json=, and the =agent-org-memory= pi package. [[./agents.nix]] symlinks the working tree into =~/.agents/skills= (including packaged Herdr personas at =skills/herdr-subagents/subagents/=) and =~/.pi/agent/{extensions,skills,prompts,AGENTS.md,settings.json}= for live editing. =~/.agents/subagents/= remains unmanaged for genuine home overrides. |
+| =sources/homelab-agent/= | Git submodule pinning the exact private =homelab-agent= revision deployed on =nas=.  Nix materializes this source immutably; it is not an editable production checkout. |
 | =microchip/= | Microchip embedded dev tooling (see [[./microchip/README.org]]) |
 | =legacy/= | Deprecated configs (ruby, matlab, cdrip) |
 | =darwin-configuration.nix= | macOS system config (nix-darwin) |
+
+* The homelab-agent deployment submodule
+
+** Deployment direction and boundaries
+
+The =dotfiles= repository deploys the operations repository, so it owns the
+[[file:./sources/homelab-agent/][=sources/homelab-agent/=]] Gitlink.  Do not put
+=dotfiles= inside =homelab-agent=: that would invert the dependency and couple
+the application repository to unrelated laptop, Darwin, and Home Manager
+profiles.
+
+The NAS modules consume the submodule as a Nix path.  The flake includes
+initialized submodules and therefore copies the pinned revision into the Nix
+store.  Hermes mounts that store path read-only at =/opt/homelab-agent=;
+Compose units read their reviewed definitions from the same immutable source.
+Mutable state, inventory, and credentials remain outside the submodule and Nix
+store.  In particular, Grafana's environment file belongs at
+=/var/lib/homelab-monitoring/grafana.env=.
+
+Laptop-local or SSH development uses a separate clone/worktree.  It is never
+the systemd or container production input.
+
+** Update and validation workflow
+
+Initialize all required sources on a fresh or existing checkout:
+
+#+begin_src shell
+  git clone --recurse-submodules git@github.com:cormacc/dotfiles ~/dotfiles
+  # Or, for an existing clone:
+  git -C ~/dotfiles submodule update --init --recursive
+#+end_src
+
+Advance the deployment only after the child commit is reviewed, tested, and
+pushed so that another checkout can fetch the Gitlink:
+
+#+begin_src shell
+  git -C ~/dotfiles/sources/homelab-agent fetch origin
+  git -C ~/dotfiles/sources/homelab-agent checkout <reviewed-commit>
+  git -C ~/dotfiles add sources/homelab-agent
+
+  python3 -m unittest discover -s ~/dotfiles/tests -v
+  nix flake check --no-build --impure --all-systems ~/dotfiles
+#+end_src
+
+Commit the child revision before the parent pointer.  Never record an unpushed
+child commit: recursive clone and target-host builds would fail closed because
+the referenced object is unavailable.
 
 * The dotagents submodule
 
