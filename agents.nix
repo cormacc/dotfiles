@@ -56,6 +56,35 @@ in
         fi
       '';
 
+    # ─────────────── pi/settings.json git clean filter ────────────────
+    # The tracked `agents/pi/settings.json` is live-linked into ~/.pi/agent,
+    # and pi writes runtime state (lastChangelogVersion, defaultProvider,
+    # defaultModel) back into it on every /model swap or upgrade. dotagents
+    # marks the file `filter=pi-settings` in .gitattributes and ships
+    # install-git-filter.sh to register that filter, which strips the volatile
+    # keys at stage time (smudge = cat, so the working tree is untouched).
+    #
+    # The filter *definition* lives in the submodule's .git/config, which is
+    # not version-controlled, so every fresh clone needs it registered once --
+    # easy to forget, and forgetting it means dirty-tree noise every session.
+    # Register it here, short-circuiting when already configured. Non-fatal:
+    # a failure warns rather than aborting activation.
+    home.activation.installPiSettingsGitFilter =
+      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        if [ -f "${agentsRoot}/install-git-filter.sh" ] && \
+           [ -z "$(${pkgs.git}/bin/git -C "${agentsRoot}" config --get filter.pi-settings.clean || true)" ]; then
+          echo "Registering pi-settings git clean filter in ${agentsRoot}"
+          # cd into the submodule: the script resolves its target from
+          # `git rev-parse --show-toplevel`, and activation's cwd is $HOME.
+          if ! (cd "${agentsRoot}" && \
+                PATH="${pkgs.git}/bin:${pkgs.jq}/bin:$PATH" \
+                ${pkgs.bash}/bin/bash ./install-git-filter.sh); then
+            echo "WARNING: could not register the pi-settings clean filter." >&2
+            echo "         Run ${agentsRoot}/install-git-filter.sh manually." >&2
+          fi
+        fi
+      '';
+
     # home.sessionVariables.PI_CODING_AGENT_DIR = "$piConfig";
 
     # Local-only pi extensions such as chromium and pi-clojure live in the
@@ -127,6 +156,10 @@ in
       herdr
       prettier
       typescript-language-server
+      # Required on PATH at stage time by the `pi-settings` git clean filter
+      # registered above (the filter command is `jq 'del(...)'`), which is
+      # declared `required = true` and so fails the stage without it.
+      jq
       fswatch
       # Support
       # lmstudio
