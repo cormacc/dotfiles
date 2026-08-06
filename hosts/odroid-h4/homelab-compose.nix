@@ -376,6 +376,7 @@ in {
   systemd.services.homelab-compose-traefik = mkComposeService {
     project = "traefik";
     verify = "${verifyComposeContainer}/bin/verify-homelab-compose-container traefik-traefik-1 ${stateRoot}/traefik/acme.json /acme.json 8080";
+    autoStart = true;
   };
 
   systemd.services.homelab-compose-sabnzbd = mkComposeService {
@@ -383,6 +384,7 @@ in {
     verify = "${verifyComposeContainer}/bin/verify-homelab-compose-container sabnzbd-sabnzbd-1 ${stateRoot}/sabnzbd/config /config 8080";
     after = [ "homelab-compose-traefik.service" ];
     wants = [ "homelab-compose-traefik.service" ];
+    autoStart = true;
   };
 
   systemd.services.homelab-compose-sonarr = mkComposeService {
@@ -401,6 +403,7 @@ in {
       "homelab-compose-traefik.service"
       "homelab-compose-sabnzbd.service"
     ];
+    autoStart = true;
   };
 
   systemd.services.homelab-compose-radarr = mkComposeService {
@@ -419,6 +422,7 @@ in {
       "homelab-compose-traefik.service"
       "homelab-compose-sabnzbd.service"
     ];
+    autoStart = true;
   };
 
   systemd.services.homelab-compose-syncthing = mkComposeService {
@@ -428,6 +432,7 @@ in {
       { path = "${stateRoot}/syncthing"; source = "data/services"; fstype = "zfs"; }
     ];
     verify = "${verifyComposeContainer}/bin/verify-homelab-compose-container syncthing ${stateRoot}/syncthing/config /config 8384";
+    autoStart = true;
   };
 
   systemd.services.homelab-compose-monitoring = mkComposeService {
@@ -440,6 +445,7 @@ in {
     # or Nix store.  Provision this file before a supervised monitoring start.
     environmentFile = monitoringEnvironmentFile;
     verify = "${verifyMonitoring}/bin/verify-homelab-monitoring";
+    autoStart = true;
   };
 
   systemd.tmpfiles.rules = [

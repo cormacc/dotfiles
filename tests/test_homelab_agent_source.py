@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import re
 import subprocess
 import unittest
@@ -11,7 +12,7 @@ AGENT_MODULE = ROOT / "hosts" / "odroid-h4" / "homelab-agent.nix"
 COMPOSE_MODULE = ROOT / "hosts" / "odroid-h4" / "homelab-compose.nix"
 HEALTH_DIR = ROOT / "hosts" / "odroid-h4" / "homelab-health"
 HOMELAB_SOURCE = ROOT / "sources" / "homelab-agent"
-EXPECTED_HOMELAB_REVISION = "0553cc9d648cf44311ba95a88fddcf0466becfa4"
+EXPECTED_HOMELAB_REVISION = "b5fe97d7ac100389a01862e339b1b87ae829e7bb"
 
 
 class HomelabAgentSourceTests(unittest.TestCase):
@@ -60,6 +61,42 @@ class HomelabAgentSourceTests(unittest.TestCase):
                 )
                 self.assertTrue(restart_policies, path)
                 self.assertEqual({'"no"'}, set(restart_policies), path)
+
+    def test_accepted_compose_projects_autostart_declaratively(self):
+        flake_url = json.dumps(f"path:{ROOT}")
+        expression = f"""
+          let
+            flake = builtins.getFlake {flake_url};
+            services = flake.nixosConfigurations.nas.config.systemd.services;
+            names = builtins.filter (
+              name:
+                builtins.match "homelab-compose-.*" name != null
+                && name != "homelab-compose-network"
+            ) (builtins.attrNames services);
+          in
+            builtins.listToAttrs (builtins.map (name: {{
+              inherit name;
+              value = services.${{name}}.wantedBy;
+            }}) names)
+        """
+        actual = json.loads(
+            subprocess.run(
+                ["nix", "eval", "--json", "--impure", "--expr", expression],
+                check=True,
+                capture_output=True,
+                text=True,
+                cwd=ROOT,
+            ).stdout
+        )
+        expected = {
+            "homelab-compose-traefik": ["multi-user.target"],
+            "homelab-compose-sabnzbd": ["multi-user.target"],
+            "homelab-compose-sonarr": ["multi-user.target"],
+            "homelab-compose-radarr": ["multi-user.target"],
+            "homelab-compose-syncthing": ["multi-user.target"],
+            "homelab-compose-monitoring": ["multi-user.target"],
+        }
+        self.assertEqual(expected, actual)
 
     def test_nas_uses_immutable_homelab_source_not_a_home_checkout(self):
         agent = AGENT_MODULE.read_text(encoding="utf-8")
