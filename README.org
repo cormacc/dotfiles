@@ -228,7 +228,15 @@ be registered against the *submodule's* =.git/config=, not the parent
 dotfiles repo's.
 
 ** First-time setup
-After cloning, register the filter once from inside the submodule:
+Home Manager activation registers the filter for you: the
+=installPiSettingsGitFilter= hook in [[file:./agents.nix]] runs
+=agents/install-git-filter.sh= when =filter.pi-settings.clean= is not
+already set in the submodule, and warns (without failing activation) if
+that fails. =jq= is on =home.packages= for the same reason -- the filter
+is declared =required = true=, so staging fails without it.
+
+On a clone that has not been through a switch yet (or a non-Nix
+checkout), register the filter manually from inside the submodule:
 #+begin_src shell
   ~/dotfiles/agents/install-git-filter.sh
 #+end_src

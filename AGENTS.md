@@ -78,3 +78,11 @@ On activation, `agents.nix`:
 2. Runs `npm install --omit=dev` for local-only pi extensions
    (`chromium`, `pi-clojure`, `dataspex`) when their `package.json` hash
    changes.
+3. Registers the submodule-local `pi-settings` git clean filter by running
+   `agents/install-git-filter.sh` when `filter.pi-settings.clean` is unset
+   (the filter definition lives in `.git/config`, so it cannot be tracked).
+   The filter strips pi's volatile runtime keys (`lastChangelogVersion`,
+   `defaultProvider`, `defaultModel`) from `agents/pi/settings.json` at stage
+   time; `jq` is in `home.packages` because the filter is `required = true`.
+   Failure warns instead of aborting activation. See README.org § The
+   pi-settings clean filter.
