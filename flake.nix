@@ -219,6 +219,7 @@
             ./hosts/odroid-h4/hardware-configuration.nix
             ./hosts/odroid-h4/homelab-agent.nix
             ./hosts/odroid-h4/homelab-compose.nix
+            ./hosts/odroid-h4/sudo-authorization.nix
             ./nixos-boot-default.nix
             #... server-only
             ./nixos-server.nix
