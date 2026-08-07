@@ -78,6 +78,10 @@ in {
     '';
   };
 
+  # Keep NixOS activation from restarting Hermes alongside application units.
+  # Restart and verify it as its own supervised maintenance step.
+  systemd.services.hermes-agent.restartIfChanged = false;
+
   # Deterministic checks run independently of the LLM. A degraded snapshot is
   # recorded and reported to the journal but does not make the oneshot unit
   # fail; collector/configuration errors do fail the unit.

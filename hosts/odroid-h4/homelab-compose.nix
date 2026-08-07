@@ -116,6 +116,11 @@ let
       postStartCommands = mountVerificationCommands ++ lib.optional (verify != null) verify;
     in {
       description = "Homelab Compose project: ${project}";
+      # NixOS activation may update every unit's immutable source paths at once.
+      # Never let that implicitly restart multiple applications; maintenance
+      # restarts each reviewed project explicitly and verifies it before moving
+      # to the next one.
+      restartIfChanged = false;
       # Remain installed but disabled until this project's supervised state
       # migration and rollback verification have completed. Set autoStart=true
       # declaratively for each project only after its cutover is accepted.

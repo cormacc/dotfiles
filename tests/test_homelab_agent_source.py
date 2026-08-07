@@ -12,7 +12,7 @@ AGENT_MODULE = ROOT / "hosts" / "odroid-h4" / "homelab-agent.nix"
 COMPOSE_MODULE = ROOT / "hosts" / "odroid-h4" / "homelab-compose.nix"
 HEALTH_DIR = ROOT / "hosts" / "odroid-h4" / "homelab-health"
 HOMELAB_SOURCE = ROOT / "sources" / "homelab-agent"
-EXPECTED_HOMELAB_REVISION = "3c02886acb16d2ef669ec72d01c94cd10b9096d4"
+EXPECTED_HOMELAB_REVISION = "953fd6be7e5218be0bbbea87b88be29cda4ed7c8"
 
 
 class HomelabAgentSourceTests(unittest.TestCase):
@@ -70,8 +70,9 @@ class HomelabAgentSourceTests(unittest.TestCase):
             services = flake.nixosConfigurations.nas.config.systemd.services;
             names = builtins.filter (
               name:
-                builtins.match "homelab-compose-.*" name != null
-                && name != "homelab-compose-network"
+                builtins.match
+                  "Homelab Compose project: .*"
+                  (services.${{name}}.description or "") != null
             ) (builtins.attrNames services);
           in
             builtins.listToAttrs (builtins.map (name: {{
@@ -97,6 +98,60 @@ class HomelabAgentSourceTests(unittest.TestCase):
             "homelab-compose-monitoring": ["multi-user.target"],
         }
         self.assertEqual(expected, actual)
+
+    def test_managed_applications_require_explicit_one_service_restarts(self):
+        flake_url = json.dumps(f"path:{ROOT}")
+        expression = f"""
+          let
+            flake = builtins.getFlake {flake_url};
+            services = flake.nixosConfigurations.nas.config.systemd.services;
+            composeNames = builtins.filter (
+              name:
+                builtins.match
+                  "Homelab Compose project: .*"
+                  (services.${{name}}.description or "") != null
+            ) (builtins.attrNames services);
+            names = [ "hermes-agent" ] ++ composeNames;
+          in
+            builtins.listToAttrs (builtins.map (name: {{
+              inherit name;
+              value = {{
+                inherit (services.${{name}})
+                  restartIfChanged
+                  stopIfChanged
+                  wantedBy;
+              }};
+            }}) names)
+        """
+        actual = json.loads(
+            subprocess.run(
+                ["nix", "eval", "--json", "--impure", "--expr", expression],
+                check=True,
+                capture_output=True,
+                text=True,
+                cwd=ROOT,
+            ).stdout
+        )
+
+        self.assertEqual(
+            {
+                name: {
+                    "restartIfChanged": False,
+                    "stopIfChanged": True,
+                    "wantedBy": ["multi-user.target"],
+                }
+                for name in (
+                    "hermes-agent",
+                    "homelab-compose-traefik",
+                    "homelab-compose-sabnzbd",
+                    "homelab-compose-sonarr",
+                    "homelab-compose-radarr",
+                    "homelab-compose-syncthing",
+                    "homelab-compose-monitoring",
+                )
+            },
+            actual,
+        )
 
     def test_nas_uses_immutable_homelab_source_not_a_home_checkout(self):
         agent = AGENT_MODULE.read_text(encoding="utf-8")
