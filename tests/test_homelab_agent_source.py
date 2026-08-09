@@ -12,7 +12,7 @@ AGENT_MODULE = ROOT / "hosts" / "odroid-h4" / "homelab-agent.nix"
 COMPOSE_MODULE = ROOT / "hosts" / "odroid-h4" / "homelab-compose.nix"
 HEALTH_DIR = ROOT / "hosts" / "odroid-h4" / "homelab-health"
 HOMELAB_SOURCE = ROOT / "sources" / "homelab-agent"
-EXPECTED_HOMELAB_REVISION = "953fd6be7e5218be0bbbea87b88be29cda4ed7c8"
+EXPECTED_HOMELAB_REVISION = "05210ea8b99d3930a712ddc35ba6d04c2ad275b9"
 
 
 class HomelabAgentSourceTests(unittest.TestCase):
@@ -171,6 +171,89 @@ class HomelabAgentSourceTests(unittest.TestCase):
         self.assertIn("${homelabAgentRepo}/scripts/watch_health.py", agent)
         self.assertFalse((HEALTH_DIR / "health_snapshot.py").exists())
         self.assertFalse((HEALTH_DIR / "watch_health.py").exists())
+
+    def test_unifi_collectors_come_from_locked_homelab_source(self):
+        agent = AGENT_MODULE.read_text(encoding="utf-8")
+
+        self.assertIn("${homelabAgentRepo}/scripts/unifi_snapshot.py", agent)
+        self.assertIn("${homelabAgentRepo}/scripts/watch_unifi.py", agent)
+        self.assertIn(
+            'LoadCredential = [ "unifi-api-key:/var/lib/homelab-unifi/api-key" ];',
+            agent,
+        )
+        self.assertIn('"$CREDENTIALS_DIRECTORY/unifi-api-key"', agent)
+        self.assertIn("--config /var/lib/homelab-unifi/config.json", agent)
+        self.assertIn("--state /var/lib/homelab-unifi-state/health.json", agent)
+        self.assertIn(
+            '"C /var/lib/homelab-unifi/config.json 0440 root homelab-health - ${disabledUnifiConfig}"',
+            agent,
+        )
+
+    def test_unifi_service_is_hardened_and_declaratively_disabled(self):
+        flake_url = json.dumps(f"path:{ROOT}")
+        expression = f"""
+          let
+            flake = builtins.getFlake {flake_url};
+            services = flake.nixosConfigurations.nas.config.systemd.services;
+            timers = flake.nixosConfigurations.nas.config.systemd.timers;
+            service = services.homelab-unifi-watch or null;
+            timer = timers.homelab-unifi-watch or null;
+          in
+            if service == null || timer == null then null else {{
+              service = {{
+                inherit (service) wantedBy restartIfChanged stopIfChanged;
+                serviceConfig = {{
+                  inherit (service.serviceConfig)
+                    Group
+                    LoadCredential
+                    NoNewPrivileges
+                    ProtectSystem
+                    StateDirectory
+                    StateDirectoryMode
+                    User;
+                }};
+              }};
+              timer = {{
+                inherit (timer) wantedBy;
+                inherit (timer.timerConfig) Unit;
+              }};
+            }}
+        """
+        actual = json.loads(
+            subprocess.run(
+                ["nix", "eval", "--json", "--impure", "--expr", expression],
+                check=True,
+                capture_output=True,
+                text=True,
+                cwd=ROOT,
+            ).stdout
+        )
+
+        self.assertEqual(
+            {
+                "service": {
+                    "wantedBy": [],
+                    "restartIfChanged": False,
+                    "stopIfChanged": True,
+                    "serviceConfig": {
+                        "Group": "homelab-health",
+                        "LoadCredential": [
+                            "unifi-api-key:/var/lib/homelab-unifi/api-key"
+                        ],
+                        "NoNewPrivileges": True,
+                        "ProtectSystem": "strict",
+                        "StateDirectory": "homelab-unifi-state",
+                        "StateDirectoryMode": "0700",
+                        "User": "homelab-health",
+                    },
+                },
+                "timer": {
+                    "wantedBy": [],
+                    "Unit": "homelab-unifi-watch.service",
+                },
+            },
+            actual,
+        )
 
     def test_monitoring_secret_stays_outside_immutable_source(self):
         compose = COMPOSE_MODULE.read_text(encoding="utf-8")
