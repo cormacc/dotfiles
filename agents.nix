@@ -189,6 +189,17 @@ in
       "${agentsConfig}/subagents".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/subagents";
 
+      # Home layer of the trait-fragment store, the middle link of the same
+      # project < home < packaged chain the subagents link above serves. The
+      # packaged layer lives beside the personas at herdr-orch/traits/ (a
+      # relative symlink into the submodule's top-level traits/), so only the
+      # home layer needs projecting here. Consumed by `oh` when composing a
+      # persona's inline %tokens, and by the pi trait-expansion extension when
+      # that is built. Out-of-store, so edits in the submodule take effect
+      # without a switch, matching skills and subagents.
+      "${agentsConfig}/traits".source =
+        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/traits";
+
       # Claude Code discovery location for the same generic skills tree.
       # Claude Code hardcodes ~/.claude/skills (user scope) and
       # <project>/.claude/skills (project scope); there is no setting to point
