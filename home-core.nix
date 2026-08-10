@@ -108,41 +108,40 @@ in
     # controlPath = "~/.ssh/master-%r@%h:%p";
     # serverAliveInterval = 15;
     enableDefaultConfig = false;
-    # `matchBlocks` is the name HM release-25.11 (darwin pin) accepts;
-    # HM unstable (linux) has renamed it to `settings` and emits a
-    # deprecation warning here. Keep `matchBlocks` until the darwin pin
-    # advances past the rename, then switch in one go.
-    matchBlocks = {
+    # `settings` replaced the deprecated `matchBlocks` alias in HM. Attribute
+    # names are `Host` patterns and keys are upstream ssh_config(5) directive
+    # names rather than the old camelCase HM aliases.
+    settings = {
       # Use personal rather than work key for OSS forges.
       "github.com" = {
-        hostname = "github.com";
-        addKeysToAgent = "yes";
-        identityFile = "~/.ssh/id_ed25519_personal";
+        HostName = "github.com";
+        AddKeysToAgent = "yes";
+        IdentityFile = "~/.ssh/id_ed25519_personal";
       };
       "gitlab.com" = {
-        hostname = "gitlab.com";
-        addKeysToAgent = "yes";
-        identityFile = "~/.ssh/id_ed25519_personal";
+        HostName = "gitlab.com";
+        AddKeysToAgent = "yes";
+        IdentityFile = "~/.ssh/id_ed25519_personal";
       };
       # Personal Lightsail box hosting a self-hosted GitLab instance.
       gitlab = {
-        hostname = "${gitlabHost}";
-        port = 1022;
-        user = "ec2-user";
-        identityFile = "~/.ssh/LightsailDefaultKey-eu-west-1.pem";
+        HostName = "${gitlabHost}";
+        Port = 1022;
+        User = "ec2-user";
+        IdentityFile = "~/.ssh/LightsailDefaultKey-eu-west-1.pem";
       };
       # Old SSH default config.... TODO: RTFM and see what I should keep
       "*" = {
-        forwardAgent = false;
-        addKeysToAgent = "no";
-        compression = false;
-        serverAliveInterval = 0;
-        serverAliveCountMax = 3;
-        hashKnownHosts = false;
-        userKnownHostsFile = "~/.ssh/known_hosts";
-        controlMaster = "no";
-        controlPath = "~/.ssh/master-%r@%n:%p";
-        controlPersist = "no";
+        ForwardAgent = false;
+        AddKeysToAgent = "no";
+        Compression = false;
+        ServerAliveInterval = 0;
+        ServerAliveCountMax = 3;
+        HashKnownHosts = false;
+        UserKnownHostsFile = "~/.ssh/known_hosts";
+        ControlMaster = "no";
+        ControlPath = "~/.ssh/master-%r@%n:%p";
+        ControlPersist = "no";
       };
     };
   };
