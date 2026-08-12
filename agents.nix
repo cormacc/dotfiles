@@ -211,6 +211,17 @@ in
       "${claudeConfig}/skills".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
 
+      # Claude Code's user-scope memory, giving claude the same portable rules
+      # pi gets via ~/.pi/agent/AGENTS.md. It is a one-line `@` import rather
+      # than a link straight to home/AGENTS.md so the file stays recognisably
+      # CLAUDE.md at both ends. The import is written absolute (`~/dotfiles/...`)
+      # deliberately: this file is reached through a symlink, and a relative
+      # `@AGENTS.md` would resolve differently depending on whether Claude
+      # resolves the link before taking the dirname. An absolute path is correct
+      # either way, and assumes only the `dotRoot` this module already assumes.
+      "${claudeConfig}/CLAUDE.md".source =
+        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/home/CLAUDE.md";
+
       # Add the org-tasks cli tool shim to the path
       ".local/bin/ot".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills/org-tasks/scripts/ot";
@@ -219,9 +230,13 @@ in
       "${config.xdg.configHome}/mcp/mcp.json".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/mcp.json";
 
-      # Pi-side discovery locations.
+      # Pi-side discovery locations. AGENTS.md comes from the submodule's
+      # `home/` layer -- the portable, project-agnostic rules. The submodule's
+      # *root* AGENTS.md is the dotagents project file (maintenance specifics
+      # for that repo) and is deliberately not projected here; it is picked up
+      # by ordinary cwd discovery when working inside the submodule.
       "${piConfig}/AGENTS.md".source =
-        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/AGENTS.md";
+        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/home/AGENTS.md";
       "${piConfig}/prompts".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/prompts";
       "${piConfig}/extensions".source =
