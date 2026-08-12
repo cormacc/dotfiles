@@ -191,12 +191,12 @@ in
 
       # Home layer of the trait-fragment store, the middle link of the same
       # project < home < packaged chain the subagents link above serves. The
-      # packaged layer lives beside the personas at herdr-orch/traits/ (a
-      # relative symlink into the submodule's top-level traits/), so only the
-      # home layer needs projecting here. Consumed by `oh` when composing a
-      # persona's inline %tokens, and by the pi trait-expansion extension when
-      # that is built. Out-of-store, so edits in the submodule take effect
-      # without a switch, matching skills and subagents.
+      # packaged layer is a real directory beside the personas at
+      # herdr-orch/traits/, so only the home layer needs projecting here.
+      # Consumed by `oh` when composing a persona's inline %tokens, and by the
+      # pi trait-expansion extension when that is built. Out-of-store, so edits
+      # in the submodule take effect without a switch, matching skills and
+      # subagents.
       "${agentsConfig}/traits".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/traits";
 
