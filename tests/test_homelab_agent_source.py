@@ -12,7 +12,7 @@ AGENT_MODULE = ROOT / "hosts" / "odroid-h4" / "homelab-agent.nix"
 COMPOSE_MODULE = ROOT / "hosts" / "odroid-h4" / "homelab-compose.nix"
 HEALTH_DIR = ROOT / "hosts" / "odroid-h4" / "homelab-health"
 HOMELAB_SOURCE = ROOT / "sources" / "homelab-agent"
-EXPECTED_HOMELAB_REVISION = "05210ea8b99d3930a712ddc35ba6d04c2ad275b9"
+EXPECTED_HOMELAB_REVISION = "d5c47ce9f6c28a5b772fd48a42319d0d8e88bc5b"
 
 
 class HomelabAgentSourceTests(unittest.TestCase):
