@@ -178,7 +178,11 @@ in {
       PrivateTmp = true;
       ProtectSystem = "strict";
       ProtectHome = "read-only";
-      InaccessiblePaths = [ "-/var/lib/hermes" ];
+      InaccessiblePaths = [
+        "-/var/lib/hermes"
+        "/run/nscd/socket"
+      ];
+      BindReadOnlyPaths = [ "/var/lib/homelab-unifi/hosts:/etc/hosts" ];
       ReadWritePaths = [ "/var/lib/homelab-unifi-state" ];
     };
     script = ''

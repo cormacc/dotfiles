@@ -204,7 +204,9 @@ class HomelabAgentSourceTests(unittest.TestCase):
                 inherit (service) wantedBy restartIfChanged stopIfChanged;
                 serviceConfig = {{
                   inherit (service.serviceConfig)
+                    BindReadOnlyPaths
                     Group
+                    InaccessiblePaths
                     LoadCredential
                     NoNewPrivileges
                     ProtectSystem
@@ -236,7 +238,14 @@ class HomelabAgentSourceTests(unittest.TestCase):
                     "restartIfChanged": False,
                     "stopIfChanged": True,
                     "serviceConfig": {
+                        "BindReadOnlyPaths": [
+                            "/var/lib/homelab-unifi/hosts:/etc/hosts"
+                        ],
                         "Group": "homelab-health",
+                        "InaccessiblePaths": [
+                            "-/var/lib/hermes",
+                            "/run/nscd/socket",
+                        ],
                         "LoadCredential": [
                             "unifi-api-key:/var/lib/homelab-unifi/api-key"
                         ],
@@ -254,6 +263,13 @@ class HomelabAgentSourceTests(unittest.TestCase):
             },
             actual,
         )
+
+        agent = AGENT_MODULE.read_text(encoding="utf-8")
+        self.assertIn(
+            '"/var/lib/homelab-unifi/hosts:/etc/hosts"',
+            agent,
+        )
+        self.assertIsNone(re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", agent))
 
     def test_monitoring_secret_stays_outside_immutable_source(self):
         compose = COMPOSE_MODULE.read_text(encoding="utf-8")
