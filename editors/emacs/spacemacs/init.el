@@ -117,22 +117,6 @@ This function should only modify configuration layer settings."
 
 
      ;; ================================================================
-     ;; AI/llm layers
-     ;; ----------------------------------------------------------------
-     ;; The llm-client layer supports multiple LLM backends
-     ;; ... gptel provides a very simple/flexible/powerful interface
-     ;; ... ellama provides a more granular interface with a range of useful discrete functions
-     (llm-client :variables
-                 llm-client-enable-gptel t
-                 llm-client-enable-ellama t)
-     ;; ... the openai layer provides functionality similar to llm-client/ellama, but for openai only
-     ;; openai
-     ;; ----------------------------------------------------------------
-     ;; AI/llm layers
-     ;; ================================================================
-
-
-     ;; ================================================================
      ;; Notes / GTD layers
      ;; ----------------------------------------------------------------
      ;; deft
@@ -868,6 +852,12 @@ before packages are loaded."
     (setq html-to-hiccup-use-shorthand-p t))
 
 
+  (with-eval-after-load 'lsp-mode
+    (dolist (directory '("[/\\\\]\\.gitlab-ci-local\\'"
+                         "[/\\\\]\\.tmp\\'"
+                         "[/\\\\]\\.cache\\'"))
+      (add-to-list 'lsp-file-watch-ignored-directories directory)))
+
   ;; AI and LLM...
 
   ;; Emacs ECA (Editor Code Assistant)
@@ -881,44 +871,6 @@ before packages are loaded."
   ;;   (claude-code-ide-emacs-tools-setup)
   ;;   (global-set-key (kbd "C-c C-'") 'claude-code-ide-menu))
 
-  ;; ... llm-client layer -- gptel backends
-  ;; See https://github.com/karthink/gptel
-  ;; This config assumes api keys are stored in ~/.authinfo.gpg, as illustrated below...
-  ;;  machine api.openai.com login apikey password ****
-  ;;  machine api.anthropic.com login apikey password ****
-  (with-eval-after-load 'gptel
-    (gptel-make-anthropic "Claude"
-      :stream t
-      :key (auth-source-pick-first-password :host "api.anthropic.com"))
-    (setq
-     ;; Backend defaults to ChatGPT/gpt-3.5-turbo. Overridding...
-     gptel-backend (gptel-make-openai "ChatGPT" :stream t :key (auth-source-pick-first-password :host "api.openai.com"))
-     gptel-model "gpt-4o"
-
-     ;; gptel-backend (gptel-make-anthropic "Claude" :stream t :key (authinfo/get-password "api.anthropic.com"))
-
-     ;; Use org mode syntax by default for buffers
-     gptel-default-mode 'org-mode)
-    (global-set-key (kbd "C-c RET") 'gptel-send))
-
-
-
-  ;; ... llm-client layer -- ellama backends
-  ;; See...
-  ;; 1. https://github.com/s-kostyaev/ellama
-  ;; 2. https://github.com/ahyatt/llm
-  (with-eval-after-load 'ellama
-    ;; TODO: Investigate setting up multiple providers, as we do with gptel...
-    ;; OpenAI...
-    (require 'llm-openai)
-    (setopt ellama-provider (make-llm-openai
-                             :key (auth-source-pick-first-password :host "api.openai.com")
-                             :chat-model "gpt-4o")))
-
-  ;; ... dedicated openai layer
-  (with-eval-after-load 'openai
-    (setq
-     openai-key (auth-source-pick-first-password :host "api.openai.om")))
 
   ;; JS / React
 
