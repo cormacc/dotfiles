@@ -143,6 +143,7 @@ in
       # is an additional chat frontend, not the only LAN-facing Lemonade path.
       host = "0.0.0.0";
       port = lemonadePort;
+      allowedOrigins = ["*"];
     };
   };
 
