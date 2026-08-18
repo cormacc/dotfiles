@@ -47,6 +47,14 @@
 
     nur.url  = "github:nix-community/NUR";
     nix-amd-ai.url = "github:noamsto/nix-amd-ai";
+    # DGX Spark (NVIDIA GB10, aarch64-linux) hardware module: NVIDIA kernel,
+    # nvidia-open driver, CUDA nixpkgs config, podman, DGX Dashboard, vLLM.
+    # Keep its nixpkgs input independent (no `inputs.nixpkgs.follows`): the
+    # `spark` host is evaluated with THIS input's nixpkgs, not ours, because
+    # a NixOS module resolves its packages from the importing flake's package
+    # set. See the spark entry under nixosConfigurations. Following our
+    # nixpkgs would both break the eval and bypass upstream's caches.
+    dgx-spark.url = "github:graham33/nixos-dgx-spark";
     pi.url = "github:lukasl-dev/pi.nix";
     claude-code.url = "github:sadjow/claude-code-nix";
 
@@ -93,6 +101,10 @@
       "https://pi.cachix.org"
       "https://claude-code.cachix.org"
       "https://nix-amd-ai.cachix.org"
+      # Flox CUDA binary cache: aarch64 CUDA packages (cudatoolkit, torch,
+      # vLLM dependencies) for the spark host. The upstream dgx-spark module
+      # also adds it to the running system's nix.settings.
+      "https://cache.flox.dev"
       #Not sure whether these last two are in use...
       "https://hyprland.cachix.org"
       "https://cache.numtide.com"
@@ -105,10 +117,11 @@
       "pi.cachix.org-1:lGeoGJaZ5ZDabuRzkcD5EBTNnDM4HJ1vqeOxlWk1Flk="
       "claude-code.cachix.org-1:YeXf2aNu7UTX8Vwrze0za1WEDS+4DuI2kVeWEE4fsRk="
       "nix-amd-ai.cachix.org-1:F4OU4vw/lV2oiG6SBHZ+nqjl4EFJuqI4X9A7pvaBmhQ="
+      "flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs="
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-code, claude-desktop, hermes-agent, rust-overlay, nur, pi, dirge, herdr, nix-amd-ai, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-code, claude-desktop, hermes-agent, rust-overlay, nur, pi, dirge, herdr, nix-amd-ai, dgx-spark, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -131,9 +144,10 @@
         herdr.overlays.default
         pi.overlays.default
       ];
-      # pkgs = nixpkgs.legacyPackages.${system};
-      pkgs = import nixpkgs {
-        system = "${system}";
+      # One overlaid package set per Linux system: x86_64 for the existing
+      # home profiles, aarch64 for the DGX Spark.
+      mkPkgsFor = sys: import nixpkgs {
+        system = "${sys}";
         config = {
           allowUnfree = true;
           allowUnfreePredicate = _: true;
@@ -145,6 +159,10 @@
         };
         overlays = linuxOverlays;
       };
+      # pkgs = nixpkgs.legacyPackages.${system};
+      pkgs = mkPkgsFor system;
+      systemArm = "aarch64-linux";
+      pkgsArm = mkPkgsFor systemArm;
     in {
       # Local packages (pkgs/<name>/default.nix) exposed as flake outputs so
       # they can be built directly, e.g. `nix build .#dirge --impure`. This is
@@ -194,6 +212,37 @@
             ./hosts/strix/nixos-configuration.nix
             ./nixos-workstation.nix
             ./nixos-gaming.nix
+          ];
+        };
+        # NVIDIA DGX Spark (GB10, aarch64-linux) — local LLM inference
+        # workstation. `inputs.dgx-spark.nixosModules.dgx-spark` supplies the
+        # NVIDIA 6.17 kernel, nvidia-open driver, `nixpkgs.config.cudaSupport`,
+        # podman, DGX Dashboard, fwupd and the Flox CUDA cache.
+        #
+        # Built with dgx-spark's OWN nixpkgs (`inputs.dgx-spark.inputs.nixpkgs`,
+        # also 26.11) rather than ours, for two reasons:
+        #   1. The module instantiates `pkgs.vllm` and `pkgs.callPackage
+        #      ../packages/dgx-dashboard` against the IMPORTING flake's pkgs.
+        #      In our pin, aarch64 vllm carries meta.badPlatforms and is
+        #      meta.broken under cudaSupport, so the host cannot evaluate.
+        #   2. Upstream's graham33 cachix and the Flox CUDA cache are built
+        #      against that pin, so this is what makes them hit.
+        # Do NOT use `nixpkgs.pkgs` to inject a foreign package set here: that
+        # silently discards the module's own `nixpkgs.overlays` (its linux-6.17
+        # overlay) and `nixpkgs.config.cudaSupport`.
+        #
+        # The host imports no shared profile -- see the header comment in
+        # hosts/spark/nixos-configuration.nix.
+        spark = inputs.dgx-spark.inputs.nixpkgs.lib.nixosSystem {
+          system = "aarch64-linux";
+          specialArgs = {
+            inherit inputs;
+            hostName = "spark";
+          };
+          modules = [
+            inputs.dgx-spark.nixosModules.dgx-spark
+            ./hosts/spark/hardware-configuration.nix
+            ./hosts/spark/nixos-configuration.nix
           ];
         };
         t580 = nixpkgs.lib.nixosSystem {
@@ -256,6 +305,23 @@
           extraSpecialArgs = {
             cfgName = "minimal";
             inherit inputs system; };
+        };
+        # DGX Spark home profile: the headless core profile
+        # (home-core-linux.nix, as used by `minimal`), built against the
+        # aarch64 package set. The Spark is an inference box reached over ssh,
+        # so it does not pull the desktop/dev layers that home.nix adds.
+        # `cfgName` must match the attribute name: the `hms`/`nob` shell
+        # aliases build `~/dotfiles#<cfgName>`.
+        spark = home-manager.lib.homeManagerConfiguration {
+          pkgs = pkgsArm;
+          modules = [
+            ./home-core-linux.nix
+          ];
+          extraSpecialArgs = {
+            cfgName = "spark";
+            inherit inputs;
+            system = "aarch64-linux";
+          };
         };
       };
 
