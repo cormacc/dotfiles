@@ -6,8 +6,7 @@ in {
   #
   # Single Nvidia preset for both modern (Turing+) and legacy (pre-Turing)
   # GPUs. Set `dotfiles.nvidia.legacy = true;` on a host to switch to the
-  # closed-source kernel module + `nvidiaPackages.latest` (last driver
-  # series that still supports older cards).
+  # closed-source kernel module
 
   options.dotfiles.nvidia = {
     legacy = lib.mkOption {
@@ -55,16 +54,7 @@ in {
       nvidiaSettings = true;
 
       # Driver package selection:
-      # - Modern: beta (Dec 25) pending fix for
-      #   https://github.com/NixOS/nixpkgs/issues/467814
-      # - Legacy: latest, which is the last driver series with support
-      #   for pre-Turing cards.
-      # Search nixpkgs for `linuxKernel.packages.linux_6_X.nvidia_x11` if
-      # you need to pin a specific kernel/driver pairing.
-      package =
-        if cfg.legacy
-        then config.boot.kernelPackages.nvidiaPackages.latest
-        else config.boot.kernelPackages.nvidiaPackages.beta;
+      package = config.boot.kernelPackages.nvidiaPackages.latest;
     };
 
     environment.systemPackages = with pkgs; [
