@@ -10,9 +10,7 @@
   ];
 
   # Use latest kernel for workstations
-  # boot.kernelPackages = pkgs.linuxPackages_latest;
-  # ... stick to 6.18 for now, due to issues with 6.19 and nvidia-open driver (Feb 2026)
-  boot.kernelPackages = pkgs.linuxKernel.packages.linux_6_18;
+  boot.kernelPackages = pkgs.linuxPackages_latest;
 
   #This is to allow maestral (dropbox sync client) to work with the nasty Neuromod dropbox mess
   boot.kernel.sysctl."fs.inotify.max_user_watches" = 1048576;
