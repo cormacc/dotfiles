@@ -250,6 +250,13 @@ in
       # submodule.
       "${piConfig}/settings.json".source =
         config.lib.file.mkOutOfStoreSymlink piSettings;
+
+      # Same for the model catalogue. Its `providers.<id>.modelOverrides` is
+      # pi's topmost model layer, so it corrects extension-registered providers
+      # (e.g. the lemonade plugin's hardcoded 4096 `maxTokens`) without
+      # patching the extension.
+      "${piConfig}/models.json".source =
+        config.lib.file.mkOutOfStoreSymlink piModels;
     };
   };
 }
