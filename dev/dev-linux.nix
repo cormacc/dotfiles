@@ -16,7 +16,7 @@
   # the dirge flake source tree (`inputs.dirge`) -- neither package output
   # carries it: `dirge-bin.src` is the release .tar.gz file and `dirge.src` is
   # a filtered fileset that excludes shell-plugin/. DIRGE_BIN pins it to the
-  # installed binary so it doesn't rely on PATH ordering. See pkgs/dirge and
+  # installed binary so it doesn't rely on PATH ordering. See
   # https://github.com/dirge-code/dirge/blob/main/shell-plugin/README.md
   programs.zsh.initContent = lib.mkAfter ''
     export DIRGE_BIN=${lib.getExe pkgs.dirge-bin}

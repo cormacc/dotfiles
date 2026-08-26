@@ -6,7 +6,8 @@ Drop-in local Nix packages for this flake. `overlay.nix` auto-discovers every
 
 > This directory is currently **empty** (only the overlay remains). The `dirge`
 > packages that used to live here now come from the upstream flake
-> (`github:cormacc/dirge`, applied via `dirge.overlays.default` in `flake.nix`).
+> (`github:dirge-code/dirge`, applied via `dirge.overlays.default` in
+> `flake.nix`).
 > The overlay is retained for the next local package.
 
 ## How it works
