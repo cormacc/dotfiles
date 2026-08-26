@@ -191,7 +191,7 @@ in stdenv.mkDerivation {
     url = "https://github.com/dirge-code/dirge/releases/download/v${version}/dirge-${sel.triple}.tar.gz";
     inherit (sel) hash;
   };
-  nativeBuildInputs = lib.optionals stdenv.isLinux [ autoPatchelfHook ];
+  nativeBuildInputs = lib.optionals stdenv.hostPlatform.isLinux [ autoPatchelfHook ];
   dontBuild = true;
   sourceRoot = ".";
   installPhase = ''
