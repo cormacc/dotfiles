@@ -25,10 +25,6 @@ aliases, provisioning, and required submodule bootstraps.
   commit on `release-25.11` (see flake comment) to dodge
   [nixpkgs#507531](https://github.com/NixOS/nixpkgs/issues/507531). Bump
   together with the `nix-darwin` + `home-manager-darwin` pins.
-- **Overlays differ by platform.** Linux (`pkgs`): nix-microchip,
-  rust-overlay, NUR, llm-agents, claude-desktop. Darwin: llm-agents,
-  claude-desktop, + a tiny babashka overlay sourcing unstable (drop once
-  the darwin pin advances past bb 1.12.211).
 - **`strix` host (Framework Desktop / Ryzen AI Max+ 395)** pulls in
   `inputs.nix-amd-ai.nixosModules.default` for XRT/XDNA/Lemonade/ROCm/
   Vulkan. **Do not** add `nix-amd-ai.inputs.nixpkgs.follows` — closure
@@ -38,11 +34,16 @@ aliases, provisioning, and required submodule bootstraps.
 
 `pkgs/overlay.nix` auto-exposes each `pkgs/<name>/default.nix` as `pkgs.<name>`
 and flake output `packages.x86_64-linux.<name>` (`nix build .#<name> --impure`) —
-no flake edits to add one.
+no flake edits to add one. See [pkgs/README.md](pkgs/README.md) for the
+auto-discovery mechanism and how to add a package.
 
-- **dirge** (pure-Rust coding agent): `pkgs.dirge` = from-source build
-  (`buildRustPackage`, default, installed by `dev/dev-linux.nix`); `pkgs.dirge-bin`
-  = prebuilt release tarball fallback. See
+- **`pkgs/` holds no packages right now** — only `overlay.nix` and `README.md`.
+  Do not cite `pkgs/dirge`: the local dirge derivations were removed at
+  `15cfd6c` in favour of the upstream flake.
+- **dirge** (pure-Rust coding agent) now comes from the `dirge` flake input.
+  `dev/dev-linux.nix` installs `pkgs.dirge-bin` and sources the `:` zsh plugin
+  from `${inputs.dirge}`, because neither package output ships
+  `shell-plugin/`. History:
   `design/log/2026-06-17-package-dirge-coding-agent-as-a-local-ni.org`.
 
 ## `agents.nix` — the dotagents bridge
