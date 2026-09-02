@@ -1,6 +1,14 @@
-{ config, pkgs, ... }:
+{ config, pkgs, inputs, ... }:
 
 let
+  # Emacs is held at 30.2 via the rev-pinned `nixpkgs-emacs` flake input --
+  # 31.1 breaks this config, and nixpkgs no longer carries an `emacs30-*`
+  # attribute. Everything else here still comes from the tracking nixpkgs.
+  pkgsEmacs = import inputs.nixpkgs-emacs {
+    inherit (pkgs.stdenv.hostPlatform) system;
+    config.allowUnfree = true;
+  };
+
   commonSessionVariables = {
     #Use xdg-config layout for spacemacs
     SPACEMACSDIR = "${config.xdg.configHome}/spacemacs";
@@ -73,7 +81,8 @@ in {
   programs.emacs = {
     enable = true;
     # Using pure GTK build for wayland, but not sure it's necessary...
-    package = pkgs.emacs-pgtk;
+    # Pinned package set -- see `pkgsEmacs` above.
+    package = pkgsEmacs.emacs-pgtk;
     extraPackages = (epkgs: [ epkgs.vterm ]);
   };
   services.emacs = {

@@ -8,6 +8,13 @@
     self.submodules = true;
 
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+
+    # Emacs pinned to nixpkgs @ 2026-08-25 (emacs-pgtk 30.2). Emacs 31.1 is
+    # incompatible with the local config in editors/emacs/. A rev-pinned URL is
+    # immutable, so `nix flake update` cannot move it -- bump this deliberately
+    # once the config is ported. Consumed only by editors/emacs/emacs.nix.
+    nixpkgs-emacs.url = "github:nixos/nixpkgs/ac6b2166e7a9375683b8e98f860f273222337b16";
+
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
