@@ -52,6 +52,14 @@
     # IMPORTANT: do NOT add `inputs.nixpkgs.follows` for inputs with cachix caches
     # Doing so bypasses the cache, triggering full source rebuilds.
 
+    nix-doom-emacs-unstraightened = {
+      url = "github:marienz/nix-doom-emacs-unstraightened";
+      # Upstream-endorsed: neither the module nor the overlay uses this input
+      # (Doom builds against our pkgs), so unset it to download less. This is
+      # NOT the forbidden cachix-bypass follows pattern.
+      inputs.nixpkgs.follows = "";
+    };
+
     nur.url  = "github:nix-community/NUR";
     nix-amd-ai.url = "github:noamsto/nix-amd-ai";
     pi.url = "github:lukasl-dev/pi.nix";
@@ -100,6 +108,7 @@
       "https://pi.cachix.org"
       "https://claude-code.cachix.org"
       "https://nix-amd-ai.cachix.org"
+      "https://doom-emacs-unstraightened.cachix.org"
       #Not sure whether these last two are in use...
       "https://hyprland.cachix.org"
       "https://cache.numtide.com"
@@ -112,6 +121,7 @@
       "pi.cachix.org-1:lGeoGJaZ5ZDabuRzkcD5EBTNnDM4HJ1vqeOxlWk1Flk="
       "claude-code.cachix.org-1:YeXf2aNu7UTX8Vwrze0za1WEDS+4DuI2kVeWEE4fsRk="
       "nix-amd-ai.cachix.org-1:F4OU4vw/lV2oiG6SBHZ+nqjl4EFJuqI4X9A7pvaBmhQ="
+      "doom-emacs-unstraightened.cachix.org-1:O5oOlRPnmQEvVaFyuMTmthCEooHbrg54WgSLR07tmg4="
     ];
   };
 

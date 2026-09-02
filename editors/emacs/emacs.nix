@@ -16,6 +16,8 @@ let
     PLANTUML_JAR = "${pkgs.plantuml}/lib/plantuml.jar";
   };
 in {
+  imports = [ inputs.nix-doom-emacs-unstraightened.homeModule ];
+
   #User environment
   home.sessionVariables = commonSessionVariables;
   #... and environment.d for gdm, kdm etc. that don't source user profile
@@ -72,11 +74,6 @@ in {
   home.file.".local/bin/md2org".source=./bin/md2org;
   home.file.".local/bin/org2md".source=./bin/org2md;
 
-  # TODO: Add more config for doom -- currently we're checking out manually to this location
-  home.shellAliases = {
-    emacs-doom = "emacs --init-directory=~/.config/doom-emacs";
-  };
-
   # Emacs and dependencies
   programs.emacs = {
     enable = true;
@@ -117,20 +114,11 @@ in {
 
 
   # Doom emacs
-  # This doesn't work, as doomemacs wants to modify its own directory
-  # Cloning manually instead for now
-  # home.file."${config.xdg.configHome}/emacs-doom" = {
-  #   recursive = true;
-  #   source = builtins.fetchGit {
-  #     url = "https://github.com/doomemacs/doomemacs";
-  #     ref = "master";
-  #   };
-  # };
-
-  # Do this to have a symlinked read-only version
-  # home.file."${config.xdg.configHome}/doom".source = .config/doom;
-  # ... or this to keep it editable in-place, rather than have to 'home-manager switch ...' after each edit
-  home.file."${config.xdg.configHome}/doom".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/doom";
+  programs.doom-emacs = {
+    enable = true;
+    provideEmacs = false;
+    doomDir = ./doom;
+  };
 
 
   # Corgi emacs... a clojure-focused minimal config with spacemacs-like keybindings
@@ -144,8 +132,7 @@ in {
   # TODO: add config dir after populating initial config...
 
   home.shellAliases = {
-    demacs = "emacs --init-dir ~/.config/emacs-doom";
-    doom = "~/.config/emacs-doom/bin/doom";
+    demacs = "doom-emacs";
     cemacs = "emacs --init-dir ~/.config/emacs-corgi";
   };
 }
