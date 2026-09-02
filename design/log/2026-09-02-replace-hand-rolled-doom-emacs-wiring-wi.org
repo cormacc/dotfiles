@@ -1,0 +1,169 @@
+#+TITLE: Replace hand-rolled Doom Emacs wiring with nix-doom-emacs-unstraightened
+#+DATE: 2026-09-02 Wed
+#+STATUS: Complete
+#+PARENT: [[task:29f17703-2397-4b19-96b2-efcc0a100c02][Replace hand-rolled Doom Emacs wiring with nix-doom-emacs-unstraightened]]
+#+SETUPFILE: ../../TASKS.setup.org
+
+* Intent
+
+Replace the ad-hoc Doom Emacs wiring (hand-cloned framework at =~/.config/emacs-doom=, dead =fetchGit= block, out-of-store =~/.config/doom= symlink, =demacs=/=doom= aliases) with a declarative Doom built by [[https://github.com/marienz/nix-doom-emacs-unstraightened][nix-doom-emacs-unstraightened]], launched explicitly as a secondary config on both platforms while Spacemacs remains the default =emacs=.
+
+* Summary
+
+*Level:* MVP · *Tests:* smoke (eval checks + HM build + manual launch) · *Docs:* inline
+
+** Scope
+
+*** In scope
+
+- New flake input =nix-doom-emacs-unstraightened= (with =inputs.nixpkgs.follows = ""=); lock update for that input only.
+- =homeModule= wiring in =editors/emacs/emacs.nix= with =programs.doom-emacs= (=provideEmacs = false=, =doomDir = ./doom=), applying to Linux and Darwin (both import =editors/editors.nix=).
+- Fresh minimal Doom user config in =editors/emacs/doom/= with hybrid live-edit stub (=config.el= loads =config-live.el=).
+- Launcher updates: =demacs= alias → =doom-emacs= binary; delete =doom= alias; update sway app-launcher keybinding.
+- Register =doom-emacs-unstraightened.cachix.org= in =lib/nix-caches.nix= and =flake.nix= =nixConfig=.
+- Remove the dead commented =emacs-doom= block and the =~/.config/doom= =home.file= symlink from =emacs.nix=; remove the hand-cloned =~/.config/emacs-doom=.
+
+*** Out of scope
+
+- Any change to Spacemacs or Corgi wiring, =programs.emacs.*=, =services.emacs.*=, or =SPACEMACSDIR=.
+- Porting content from the old Doom config (user: "minimal / obsolete / never used").
+- Changing the =nixpkgs-emacs= input, its pin, or its comment (still consumed only by =emacs.nix=, for Spacemacs).
+- Darwin build/switch — the first real Darwin build happens on the Mac. (Planned as "acceptance is eval-only"; that proved impossible from Linux — see =** Acceptance= and =** Gotchas=.)
+- Supporting the =doom= CLI workflow (=doom sync=/=upgrade= do not exist under unstraightened).
+
+** Shipped
+
+- ADDED :: flake input =nix-doom-emacs-unstraightened= (rev =58d5c3a=, =inputs.nixpkgs.follows = ""=), pulling transitive inputs =doomemacs=, =doomemacs-modules=, =doomdir=, and =emacs-overlay=.
+- ADDED :: =doom-emacs-unstraightened.cachix.org= substituter + key in =lib/nix-caches.nix= and =flake.nix= =nixConfig=.
+- ADDED :: =editors/emacs/doom/config-live.el= — the live-editable half of the config.
+- MODIFIED :: =editors/emacs/emacs.nix= — imports =homeModule=, declares =programs.doom-emacs= (=provideEmacs = false=, =doomDir = ./doom=), and drops the dead =fetchGit= block, the =~/.config/doom= symlink, and the =doom= alias; =demacs= now runs the =doom-emacs= binary.
+- MODIFIED :: =editors/emacs/doom/{init,packages,config}.el= — authored fresh; 15 modules, no =package!= pins, =config.el= reduced to the live-load stub.
+- MODIFIED :: =wayland/sway/config/keybindings.d/app-launcher.conf= — the =d= binding launches =doom-emacs=; =e= still launches Spacemacs.
+- REMOVED :: the hand-cloned framework at =~/.config/emacs-doom= (250M, clean at =e545441=; re-clone recovery recorded at deletion time).
+
+Net result: =emacs=/=emacsclient= → Spacemacs on pinned =emacs-pgtk-with-packages-30.2=; =doom-emacs= → declarative Doom on tracking =emacs-31.1=. Two Emacs versions coexist by design.
+
+** Acceptance
+
+*** Core functionality
+
+- [X] =flake.nix= declares input =nix-doom-emacs-unstraightened= with =inputs.nixpkgs.follows = ""=; =flake.lock= pins it (rev =58d5c3a=).
+- [X] =editors/emacs/emacs.nix= imports =inputs.nix-doom-emacs-unstraightened.homeModule= and sets =programs.doom-emacs = { enable = true; provideEmacs = false; doomDir = ./doom; }= (Emacs left at module default =pkgs.emacs=, resolving to =emacs-31.1=).
+- [X] Eval: =home.packages= of =.#default= contains a package named =doom-emacs=.
+- [X] Eval: =services.emacs.package= of =.#default= remains the Spacemacs =emacs-pgtk-with-packages-30.2=, not Doom. Stronger evidence than the eval: the module assigns =services.emacs.package= only under =mkIf (options.services ? emacs && cfg.provideEmacs)=, so with =provideEmacs = false= it cannot touch it.
+- [X] =demacs= alias runs =doom-emacs= (verified post-switch in a fresh =zsh -i=).
+- [X] =doom= alias is deleted. Note: the =doom-emacs= package itself still installs =bin/doom= and =bin/doomscript= — see =** Gotchas=.
+- [X] Sway app-launcher binding (=wayland/sway/config/keybindings.d/app-launcher.conf=) launches =doom-emacs=.
+- [X] =editors/emacs/doom/= contains fresh minimal =init.el= + =packages.el= + =config.el= stub + =config-live.el=, all git-tracked; =config.el= loads =~/dotfiles/editors/emacs/doom/config-live.el= with ='noerror 'nomessage=. All 15 =doom!= module names verified against =doomemacs/modules= at the locked rev =d57ab52=.
+- [X] Dead commented =emacs-doom= =fetchGit= block removed from =emacs.nix=.
+- [X] =home.file."${config.xdg.configHome}/doom"= symlink removed from =emacs.nix=.
+- [X] =doom-emacs-unstraightened.cachix.org= substituter and key =doom-emacs-unstraightened.cachix.org-1:O5oOlRPnmQEvVaFyuMTmthCEooHbrg54WgSLR07tmg4== present in both =lib/nix-caches.nix= and =flake.nix= =nixConfig=, in sync. Key re-verified against the live cachix API.
+- [X] =home-manager build --flake .#default --impure= succeeds (exit 0), and the resulting generation carries =bin/doom-emacs= alongside =bin/emacs=/=bin/emacsclient= → =emacs-pgtk-with-packages-30.2=.
+- [-] *NOT MET — criterion reversed [2026-09-02], not deleted.* "Darwin configuration still evaluates to a derivation (eval-only from Linux)" is unachievable while Doom is enabled on Darwin. =nix-doom-emacs-unstraightened= uses import-from-derivation (=default.nix:119= defines the =doom-intermediates= derivation; =134-135= =lib.importJSON= its output), so evaluating the module forces building it, and an =aarch64-darwin= derivation cannot build on =x86_64-linux=. Doom reaches the Mac via =home-darwin.nix:6= → =editors/editors.nix:6= → =emacs.nix=. Measured with a control pair: committed =9f1168f= evals exit 0 and returns a drvPath; the working tree exits 1 with =Cannot build ... doom-intermediates.drv / Required system: 'aarch64-darwin'=. *Reason for reversal:* a satisfiable stricter option existed — gate =enable= on =pkgs.stdenv.hostPlatform.isLinux=, restoring Linux-side Darwin eval — and the user declined it on 2026-09-02 in order to keep Doom on both platforms. Linux-side Darwin eval is therefore knowingly forfeited; the Darwin configuration is eval-checked on the Mac itself. The user also waived the independent review that =org-plan= § Closure normally requires for a relaxation of this shape.
+
+*** Edge cases
+
+- [X] Post-switch manual smoke: =demacs= opens the Doom dashboard; =emacs= and =emacsclient= still open Spacemacs. Confirmed by the user [2026-09-02]; not claimable by any agent here (no graphical session).
+- [X] *Criterion amended [2026-09-02].* No =emacs-doom= reference survives in any *configuration or code* file (=.nix=, =.el=, sway =.conf=, shell config) — measured zero. The original "no tracked file" bar was wrong: =TASKS.org= and this record legitimately name the old path while describing this change, and editing documentation prose to satisfy a string search would be the wrong fix. One documentation hit remains at =TASKS.org:205=, as expected. Positive control in the same invocation: the =spacemacs= sweep matched 13 files.
+- [X] =~/.config/emacs-doom= removed after re-verifying its clone is clean (=git status --short= empty; HEAD =e545441=; origin the public doomemacs repo) — all three re-checked immediately before deletion, not from the earlier pass. =~/.config/doom= symlink removed by the HM switch itself. Post-deletion: =~/.config/emacs= still a real directory, =~/.config/spacemacs= and =~/.config/emacs-corgi= still resolve, and =doom-emacs= still runs — proving the declarative Doom never depended on the removed clone.
+
+*** Anti-criteria
+
+- Must not: modify Spacemacs or Corgi wiring, =programs.emacs.*=, =services.emacs.*=, or =SPACEMACSDIR=.
+- Must not: port content from the old Doom config files.
+- Must not: touch the =nixpkgs-emacs= input or its comment.
+- Must not: point unstraightened's =nixpkgs= input at our nixpkgs via =follows=.
+- Must not: revert or discard the pre-existing uncommitted edits in =editors/emacs/emacs.nix=, =flake.lock=, or the =agents= submodule pointer. *Partially deviated [2026-09-02]:* the =flake.lock= churn and the =agents= pointer were preserved untouched, and the user's deletion of the stale top-of-file =emacs-doom= alias block survives — but the user's in-flight edit that moved the comment =# TODO: Add more config for doom -- currently we're checking out manually to this location= into the lower =home.shellAliases= block was dropped when that block was rewritten. Surfaced to the user, who chose to leave it removed on the grounds that it described a manual checkout that no longer exists.
+
+** Decisions
+
+- Chose unstraightened over keeping vanilla Doom :: a rarely-used config benefits most from being declarative: zero per-machine bootstrap, updates via flake lock, rollback via HM generations. Rejected:
+  - Vanilla Doom tidied: framework stays unmanaged mutable state (the dead comment block documents the failed nix-ification: "doomemacs wants to modify its own directory"); rots between uses; no rollback.
+  - Vanilla Doom + =home.activation= clone script: imperative mutation dressed as nix.
+- Chose the HM module (=homeModule=, =programs.doom-emacs=) with =provideEmacs = false= :: installs only a =doom-emacs= binary via =home.packages=; verified in module source and by eval that it never touches =programs.emacs=, =~/.config/emacs=, or (with =provideEmacs = false=) =services.emacs.package=. Rejected:
+  - Overlay + =pkgs.doomEmacs=: same result, more plumbing; the README's overlay-with-=programs.emacs.package= warning is a hazard we avoid entirely.
+- Doom wraps the module-default =pkgs.emacs= (tracking nixpkgs-unstable) :: exactly the combo upstream CI gates and the cachix cache serves. Rejected:
+  - Pinned =pkgsEmacs.emacs-pgtk= 30.2: zero cache hits (elisp drvs depend on the wrapping Emacs), extends the 30.2 pin's blast radius; the pin exists for the Spacemacs config, which Doom does not share.
+- Hybrid live-edit config :: =init.el=/=packages.el= are canonical in-store (they define the dependency set — a rebuild on change is inherent to any nix-managed Doom); =config.el= is a two-line stub loading =~/dotfiles/editors/emacs/doom/config-live.el= at startup, so day-to-day config edits need no switch. Evidence: dependency scan reads only =init.el= and =packages.el= (upstream =default.nix:110=); the wrapper hard-sets =DOOMDIR= with =--set= so a runtime env override is impossible.
+- =inputs.nixpkgs.follows = ""= on the unstraightened input :: upstream-endorsed ("Neither the module nor the overlay uses this input"); this is not the forbidden cache-bypass =follows= pattern from =AGENTS.md= — Doom builds against /our/ =pkgs= regardless.
+- Add the upstream cachix cache :: key captured from the cachix API (2026-09-02); registered in both sync-required places per the =lib/nix-caches.nix= header comment.
+- =demacs= becomes an alias for the =doom-emacs= binary; the =doom= alias dies :: no doom-sync workflow exists under unstraightened.
+
+** Gotchas
+
+- =doomDir= is =types.pathInStore=: the config must be git-tracked (flake source filter) and the out-of-store symlink pattern used for Spacemacs/Corgi cannot work for it.
+- Unstraightened state paths differ from vanilla Doom: profile =nix= puts state under =~/.cache/doom/nix=, =~/.local/share/doom/nix=, etc.; =DOOMLOCALDIR= defaults to =~/.local/share/nix-doom=.
+- The unused =doomdir= flake input of unstraightened still gets pinned in =flake.lock= (harmless; we set =doomDir= via the HM option instead).
+- *Import-from-derivation makes cross-platform eval impossible.* Because the module =lib.importJSON=s a derivation output, evaluating any configuration that enables =programs.doom-emacs= requires *building* the =doom-intermediates= derivation for that configuration's system. Consequence: the Darwin configuration can no longer be eval-checked from Linux at all — not a slow check, an impossible one. Any future cross-platform "eval-only" acceptance bar in this repository must first check the inputs involved for IFD.
+- The =doom-emacs= package installs =bin/doom= and =bin/doomscript=, so deleting the =doom= *alias* did not remove the =doom* command: it changed meaning, from the old clone's =bin/doom= to unstraightened's CLI. =doom sync=/=doom upgrade= are not the workflow under unstraightened.
+
+** Risks
+
+- Doom on tracking Emacs (currently 31.1): mitigated by matching upstream CI's exact combo; if a future =flake update= breaks it, roll back the input pin or set the =emacs= option.
+- Darwin: our Darwin nixpkgs is pinned while upstream CI uses unstable, so the Doom elisp set is unverified there until the next Mac build. *Outcome — worse than assessed:* the intended eval-only acceptance turned out to be impossible from Linux (IFD, see =** Gotchas=), so the Mac configuration now carries an entirely unverified Doom until someone builds it there. First Darwin build should be treated as the real test.
+- Upstream states its pin translation "will break at times" (build-time only, CI-gated for Doom's own packages); a minimal =packages.el= with no own pins minimises exposure.
+- First build is a large one-off elisp build; the cachix cache mitigates. *Outcome:* the build succeeded, but whether the cache actually served it was never measured — a hit depends on our tracking nixpkgs rev being close enough to upstream CI's.
+
+* Plan
+
+** DONE Add the nix-doom-emacs-unstraightened flake input
+:PROPERTIES:
+:CUSTOM_ID: 5bfe85cd-d58c-4c8e-b54b-e5e5597230ae
+:CREATED: [2026-09-02 Wed 12:53]
+:END:
+
+Outcome: input added at rev =58d5c3a=; =nix flake metadata --impure= exit 0. Lock gained only this input's own dependency tree (=doomemacs=, =doomemacs-modules=, =doomdir=, =emacs-overlay=) plus a =systems= dedup renumber; 43 → 49 nodes, none removed.
+
+** DONE Author the fresh minimal Doom user config with live-edit stub
+:PROPERTIES:
+:CUSTOM_ID: b79ccefc-8683-4aee-a9c0-f3a4537d2f05
+:CREATED: [2026-09-02 Wed 12:53]
+:END:
+
+Outcome: four files authored fresh, nothing ported. 15 =doom!= module names and both module flags (=+everywhere=, =+bindings=) verified against =doomemacs/modules= at locked rev =d57ab52=; the old config's stale =doom-dashboard= keyword does not exist upstream and was dropped in favour of =dashboard=.
+
+** DONE Wire the homeModule in emacs.nix and retarget the launcher surface
+:PROPERTIES:
+:CUSTOM_ID: 80d5ec8c-5f0f-44ea-a3f7-bd018d0a4281
+:CREATED: [2026-09-02 Wed 12:53]
+:BLOCKED-BY: task:5bfe85cd-d58c-4c8e-b54b-e5e5597230ae
+:BLOCKED-BY+: task:b79ccefc-8683-4aee-a9c0-f3a4537d2f05
+:END:
+
+Outcome: wired as specified; both acceptance evals exit 0. Option names =enable=/=provideEmacs=/=doomDir= confirmed in the module source at the locked store path, not from memory.
+
+** DONE Register the doom-emacs-unstraightened cachix cache
+:PROPERTIES:
+:CUSTOM_ID: b7518201-2340-4ad1-a342-aaaf8aa7f7d1
+:CREATED: [2026-09-02 Wed 12:53]
+:END:
+
+Outcome: substituter and key added in both places; key re-verified against the live cachix API (public cache, owner =marienz=). Whether the cache actually served the first build was not measured.
+
+** DONE Validate builds, sweep references, smoke-test, and dispose of the old clone
+:PROPERTIES:
+:CUSTOM_ID: 8739ddbf-ea2a-482f-8b20-354c3ef9681f
+:CREATED: [2026-09-02 Wed 12:53]
+:BLOCKED-BY: task:80d5ec8c-5f0f-44ea-a3f7-bd018d0a4281
+:END:
+
+Outcome: HM build and switch both exit 0; all post-switch checks pass; the old 250M clone deleted after re-verifying clean status, HEAD and origin immediately beforehand. The Darwin eval criterion was not met and is recorded as reversed in =** Acceptance=. Spacemacs, Corgi and =doom-emacs= all verified working after deletion.
+
+* Implementation
+
+- Coexistence is structural, not incidental. In =home-manager.nix= the module adds =home.packages = [ (if cfg.provideEmacs then cfg.finalEmacsPackage else cfg.finalDoomPackage) ]= and assigns =services.emacs.package= only under =mkIf (options.services ? emacs && cfg.provideEmacs)=. With =provideEmacs = false= the module therefore *cannot* reach =services.emacs=, so Spacemacs's daemon is safe by construction rather than by observation.
+- The two-Emacs outcome is deliberate and visible in the built generation: =bin/emacs=, =bin/emacsclient= → =emacs-pgtk-with-packages-30.2= (pinned =nixpkgs-emacs=, for Spacemacs); =bin/doom-emacs= → Doom on =emacs-31.1= (tracking nixpkgs).
+- =doomDir= being =types.pathInStore= is what forces the hybrid split; the dependency scan reads only =init.el= and =packages.el=, so =config.el= can be a stub that loads a live file from =~/dotfiles= without affecting the derivation.
+- =flake.lock= in the landing commit also carries an unrelated pre-existing refresh of 13 inputs. It was kept rather than reverted because the verified =home-manager switch= was built against exactly this lock; reverting would have committed a state that was never built.
+
+* Validation
+
+All figures below are from the real configuration unless stated. Both acceptance evals were re-run independently of the implementing agents.
+
+- =nix eval --impure .#homeConfigurations.default.config.home.packages --apply 'ps: map (p: p.name) ps'= → includes ="doom-emacs"= and ="emacs-pgtk-with-packages-30.2"= (exit 0).
+- =nix eval --impure .#homeConfigurations.default.config.services.emacs.package.name= → ="emacs-pgtk-with-packages-30.2"= (exit 0) — not Doom.
+- =home-manager build= then =home-manager switch= both exit 0. Post-switch: =emacs= and =emacsclient= report 30.2, =doom-emacs= reports 31.1, =~/.config/doom= gone, =demacs= → =doom-emacs= in a fresh shell. A negative control (=command -v= on a nonexistent binary) exited 1 in the same invocation, so the lookups discriminate.
+- Darwin regression measured with a control pair: committed =9f1168f= evals exit 0 and returns a drvPath; the working tree exits 1 (=Required system: 'aarch64-darwin'=). See =** Gotchas= for the IFD cause.
+- Doom module identifiers checked against =doomemacs/modules= at locked rev =d57ab52=: all 15 =doom!= names present; =+everywhere= and =+bindings= both found in their modules' README and =config.el=; a deliberately bogus flag returned no match, confirming the probe discriminates.
+- Deletion of =~/.config/emacs-doom= was gated on three re-checks (clean status, HEAD =e545441=, public origin) run immediately beforehand. The deletion helper was first proved on a disposable repository — dirty tree aborts, wrong HEAD aborts, and the all-match case genuinely deletes — so a passing live run could not have been a silent no-op. =doom-emacs= still ran afterwards, proving the declarative config never depended on the removed clone.
+- *Not verified:* whether the cachix cache served the first Doom build, and the Darwin configuration in any form. Planning-time scratch evals reported =emacs-pgtk-with-packages-31.1= because that throwaway flake used tracking nixpkgs; the real config's 30.2 supersedes those figures.

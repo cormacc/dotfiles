@@ -192,3 +192,16 @@ CLOSED: [2026-06-16 Tue 11:46]
 - State "DONE" from "STARTED" [2026-06-16 Tue 11:46]
 :END:
 #+IMPORT: [[plan:2026-06-16-build-limux-from-source-to-fix-native-wa.org]]
+
+** DONE Replace hand-rolled Doom Emacs wiring with nix-doom-emacs-unstraightened
+CLOSED: [2026-09-02 Wed 17:04]
+:PROPERTIES:
+:CUSTOM_ID: 29f17703-2397-4b19-96b2-efcc0a100c02
+:CREATED: [2026-09-02 Wed 12:45]
+:END:
+:LOGBOOK:
+- Created [2026-09-02 Wed 12:45]
+- State "DONE" from "TODO" [2026-09-02 Wed 17:04]
+:END:
+#+IMPORT: [[plan:2026-09-02-replace-hand-rolled-doom-emacs-wiring-wi.org]]
+Remove the ad-hoc Doom wiring (dead fetchGit block, ~/.config/doom symlink, demacs/doom aliases, hand-cloned ~/.config/emacs-doom) and replace it with a declarative Doom built by nix-doom-emacs-unstraightened. Spacemacs stays the default emacs. See change-record.

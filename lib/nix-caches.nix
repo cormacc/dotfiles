@@ -24,6 +24,9 @@
     "https://pi.cachix.org"
     # Claude Code binary cache (see flake input `claude-code`).
     "https://claude-code.cachix.org"
+    # Doom Emacs (unstraightened) elisp build cache (see flake input
+    # `nix-doom-emacs-unstraightened`).
+    "https://doom-emacs-unstraightened.cachix.org"
   ];
 
   trustedPublicKeys = [
@@ -33,5 +36,6 @@
     "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
     "pi.cachix.org-1:lGeoGJaZ5ZDabuRzkcD5EBTNnDM4HJ1vqeOxlWk1Flk="
     "claude-code.cachix.org-1:YeXf2aNu7UTX8Vwrze0za1WEDS+4DuI2kVeWEE4fsRk="
+    "doom-emacs-unstraightened.cachix.org-1:O5oOlRPnmQEvVaFyuMTmthCEooHbrg54WgSLR07tmg4="
   ];
 }
