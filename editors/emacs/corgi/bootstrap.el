@@ -14,6 +14,17 @@
       (eval-print-last-sexp)))
   (load bootstrap-file nil 'nomessage))
 
+;; Recipe overrides
+;;
+;; MELPA's `paredit' recipe points at https://paredit.org/paredit.git, and the
+;; paredit.org domain no longer resolves, so the clone fails and init aborts.
+;; paredit comes in as a dependency of `evil-cleverparens' (via corgi-editor).
+;; Clone from the GitHub mirror instead; it carries the same history, including
+;; the commit that Corgi's version lockfile pins.
+
+(straight-override-recipe
+ '(paredit :type git :host github :repo "emacsmirror/paredit"))
+
 ;; Install the use-package convenience macro
 
 (straight-use-package 'use-package)

@@ -1,0 +1,20 @@
+# Defensive exclusions for runtime output if Emacs is started directly from
+# this source directory. Home Manager normally links only the controlled files.
+
+# Entries from upstream corgi-emacs/corgi sample-config/.gitignore
+straight/
+auto-save-list/
+backups/
+transient/
+recentf
+projectile-bookmarks.eld
+.#projectile-bookmarks.eld
+.emacs.desktop
+.emacs.desktop.lock
+custom.el
+local.el
+.cache
+
+# Additional state this setup produces
+eln-cache/
+var/
