@@ -124,12 +124,13 @@ in {
   # Corgi emacs... a clojure-focused minimal config with spacemacs-like keybindings
   # See https://github.com/corgi-emacs/corgi
 
-  # Do this to have a symlinked read-only version
-  # home.file."${config.xdg.configHome}/corgi".source = .config/corgi;
-  # ... or this to keep it editable in-place, rather than have to 'home-manager switch ...' after each edit
-  home.file."${config.xdg.configHome}/emacs-corgi".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/corgi";
-
-  # TODO: add config dir after populating initial config...
+  # Keep the config files editable in place, but leave the containing directory
+  # writable so Emacs runtime state does not end up in the dotfiles repository.
+  xdg.configFile."emacs-corgi/bootstrap.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/corgi/bootstrap.el";
+  xdg.configFile."emacs-corgi/early-init.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/corgi/early-init.el";
+  xdg.configFile."emacs-corgi/init.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/corgi/init.el";
+  xdg.configFile."emacs-corgi/user-keys.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/corgi/user-keys.el";
+  xdg.configFile."emacs-corgi/user-signals.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/corgi/user-signals.el";
 
   home.shellAliases = {
     demacs = "doom-emacs";
