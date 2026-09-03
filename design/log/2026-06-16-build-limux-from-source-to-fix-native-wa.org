@@ -1,6 +1,6 @@
 #+TITLE: Build limux from source to fix native-Wayland rendering
 #+DATE: 2026-06-16 Tue
-#+PARENT: [[task:38bfcb27-efeb-4d35-9369-b359792489f0][Build limux from source to fix native-Wayland rendering]]
+#+PARENT: [[archive:38bfcb27-efeb-4d35-9369-b359792489f0][Build limux from source to fix native-Wayland rendering]]
 #+SETUPFILE: ../../TASKS.setup.org
 #+NO_SPEC_IMPACT: true
 

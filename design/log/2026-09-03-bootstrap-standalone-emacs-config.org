@@ -1,0 +1,50 @@
+#+TITLE: Bootstrap standalone emacs config
+#+DATE: 2026-09-03 Thu
+#+PARENT: [[archive:39772e87-b4e9-4c11-9783-a7a680cffb66][Bootstrap standalone emacs config]]
+#+SETUPFILE: ../../TASKS.setup.org
+#+STATUS: Complete
+#+SPEC: [[proj:README.org]]
+
+* Intent
+
+Bare Emacs is the literate Evil-based daily driver at =~/.config/emacs=. PATH Emacs tracks nixpkgs; Spacemacs keeps its separate Emacs 30.2 pin.
+
+* Summary
+
+** End state
+
+- Home Manager links [[file:../../editors/emacs/minimal/early-init.el][early-init.el]], [[file:../../editors/emacs/minimal/init.el][init.el]], and [[file:../../editors/emacs/minimal/config.org][config.org]] into the writable XDG directory =~/.config/emacs=.
+- PATH =emacs= is Emacs 31.1 and loads that directory without an alias or =--init-dir=. Spacemacs uses =nixpkgs-spacemacs= and =~/.config/emacs-spacemacs= on Emacs 30.2.
+- The literate file is the source of truth for packages and key maps. It provides Evil, completion, development tools, and Org, Markdown, and Nix support.
+- Elpaca installs external packages. Built-in Org tangles =config.org= to =~/.config/emacs/config.el=, and =init.el= loads that same runtime file.
+- Org buffers enable =toc-org-mode=. Tagged tables of contents update before save.
+- The default face uses the =Aporetic Sans Mono= family supplied by =aporetic-bin=.
+- There is no managed Emacs service. =EDITOR= and =VISUAL= start the default daemon on demand; =VISUAL= waits for Git commit buffers.
+
+** Acceptance
+
+- [X] Bare =emacs= reports Emacs 31.1 and =~/.config/emacs/init.el= as =user-init-file=.
+- [X] =~/.emacs.d= and =emacs.service= are absent.
+- [X] Tangling writes =~/.config/emacs/config.el= and does not create =editors/emacs/minimal/config.el=.
+- [X] A fresh daemon loads Elpaca, Evil, which-key, the leader maps, and the configured package set without an initialisation error.
+- [X] =toc-org-mode= activates in Org buffers with =toc-org-insert-toc= on the buffer-local =before-save-hook=.
+- [X] A GUI frame opens =Aporetic Sans Mono= from the active Home Manager profile.
+- [X] =.nix= files use =nix-ts-mode= with a live parser; languages without a grammar use their =*-ts-mode-maybe= fallback.
+- [X] CIDER and Eglot work with the configured Clojure, C, and Python tools.
+- [X] Spacemacs boots from its separate directory on Emacs 30.2; Doom and Corgi still boot on Emacs 31.1.
+
+** Constraints
+
+- Keep =~/.emacs.d= absent because it takes precedence over the XDG directory.
+- Keep the Spacemacs nixpkgs revision =ac6b2166e7a9375683b8e98f860f273222337b16= scoped to =nixpkgs-spacemacs=.
+- Keep generated files, Elpaca state, grammars, and native-comp caches outside the repository.
+- Keep the explicit =org-babel-tangle-file= target. The source =config.org= is an out-of-store symlink, so implicit tangling can write beside the repository source and load a different file.
+- Update =my/emacs-release-dates= when PATH Emacs moves to a stable version not listed there.
+- A new installation needs network access for Elpaca and grammar bootstrap.
+
+* Validation
+
+- =home-manager build --flake .#default --impure= and =home-manager switch --flake .#default --impure= exited 0.
+- A fresh named daemon loaded the XDG init, tangled to the runtime target, installed =toc-org=, and enabled it in a temporary Org buffer. No generated =config.el= remained in the repository.
+- A fresh invisible GUI frame reported =Aporetic Sans Mono= as its configured and opened font and resolved the packaged TTF from the active Home Manager profile.
+- Behaviour probes exercised leader bindings, completion, search/edit, Magit, project.el, EditorConfig, CIDER, Eglot, tree-sitter fallback, and Nix parsing and fontification.

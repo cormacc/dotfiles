@@ -68,6 +68,7 @@ fresh machine.
       - [[#microchip-mplab-x][Microchip MPLAB-X]]
 - [[#maintenance][Maintenance]]
   - [[#shell-aliases][Shell aliases]]
+    - [[#emacs-aliases][Emacs aliases]]
   - [[#updating-packages][Updating packages]]
   - [[#managing-generations][Managing generations]]
   - [[#updating-nixos][Updating NixOS]]
@@ -114,7 +115,7 @@ home-core.nix  ->  shell/shell.nix
 home-core-linux.nix
       ^
 home.nix (full Linux workstation, adds:)
-      |-- editors/editors.nix    (emacs configs: corgi, doom, spacemacs)
+      |-- editors/editors.nix    (emacs configs: corgi, doom, spacemacs, minimal)
       |-- dev/dev.nix            (dev tooling, clojure)
       |-- dev/dev-linux.nix
       |-- desktop/{web,audio,office}.nix
@@ -143,7 +144,7 @@ See [[#set-git-name-and-e-mail][Set Git name and e-mail]] for the actual =export
 |------+---------|
 | =hosts/= | Per-host =hardware-configuration.nix= and NixOS overrides |
 | =shell/= | Shell config (fish, zsh, bash), direnv, babashka scripts |
-| =editors/= | Editor configs (emacs: corgi / doom / spacemacs) |
+| =editors/= | Editor configs (emacs: corgi / doom / spacemacs / minimal) |
 | =dev/= | Development tooling (clojure, linux-specific dev) |
 | =desktop/= | Desktop app modules (web, audio, office, entertainment) |
 | =wayland/= | Wayland compositor configs (sway, hyprland, foot, rofi) |
@@ -465,6 +466,21 @@ Defined in [[./home-core.nix]] and available after the first successful apply:
 | =nos= | =sudo nixos-rebuild switch --flake './dotfiles#$(hostname)' --impure= |
 | =nob= | =nixos-rebuild build --flake './dotfiles#$(hostname)' --impure= |
 | =drs= | =sudo darwin-rebuild switch --flake './dotfiles#<host>' --impure= |
+
+*** Emacs aliases
+Defined in [[./editors/emacs/emacs.nix]]. The literate minimal config is the default: bare =emacs= finds it at =~/.config/emacs= through the normal XDG startup search, with no alias and no =--init-dir=. Every other config is launched with its own =--init-dir=, so they coexist without touching each other's state:
+| Command | Config | Init directory | Emacs |
+|---------+--------+----------------+-------|
+| =emacs= | minimal (literate, evil + elpaca) -- the default | =~/.config/emacs= | nixpkgs (31.x) |
+| =cemacs= | corgi | =~/.config/emacs-corgi= | nixpkgs (31.x) |
+| =demacs= | doom (nix-doom-emacs-unstraightened) | store-managed | nixpkgs (31.x) |
+| =semacs= | spacemacs | =~/.config/emacs-spacemacs= | pinned 30.2 |
+
+PATH =emacs= tracks the main =nixpkgs= input. Only Spacemacs is pinned: it does not run on Emacs 31.1, so =semacs= launches a 30.2 build supplied by the rev-pinned =nixpkgs-spacemacs= flake input (=ac6b216=, nixpkgs @ 2026-08-25). That input is consumed only by [[./editors/emacs/emacs.nix]]; a rev-pinned URL is immutable, so =nix flake update= cannot move it. The minimal config's sources live in [[./editors/emacs/minimal/]] and are symlinked out of store to =~/.config/emacs/=, so edits take effect on the next =emacs= launch with no Home Manager switch.
+
+There is no Emacs daemon unit (=services.emacs= is not enabled). =nixos-workstation.nix= therefore sets =EDITOR=/=VISUAL= to =emacsclient --alternate-editor= ...=, so the first =$EDITOR=/=$VISUAL= invocation of a session starts a daemon on the default config instead of failing. Git resolves its editor as =GIT_EDITOR= -> =core.editor= -> =VISUAL= -> =EDITOR=, so =git commit= runs =VISUAL=, not =EDITOR=; =VISUAL= carries no =-n= (=--no-wait=) for exactly this reason -- =emacsclient= must wait for the commit buffer to be edited and finished, or git reads back an unmodified, empty =COMMIT_EDITMSG= and aborts the commit.
+
+Keep =~/.emacs.d= and =~/.emacs= absent. Emacs tests those two locations *before* =$XDG_CONFIG_HOME/emacs=, so either one silently shadows the default config -- bare =emacs= then boots vanilla with no error to explain it.
 
 ** Updating packages
 =flake.lock= pins nixpkgs for reproducibility. To update:
