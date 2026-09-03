@@ -12,33 +12,35 @@ Packages come from [[https://github.com/progfolio/elpaca][Elpaca]]; =org= itself
 Sources live in =dotfiles/editors/emacs/minimal/= and are symlinked out of store, so an edit here takes effect on the next =emacs= launch.
 
 
-* Table of Contents                                       :TOC_2_gh:noexport:
+* Table of Contents                                       :TOC_2:noexport:
 - [[#header][Header]]
-- [[#defaults][Defaults]]
-- [[#evil][Evil]]
-- [[#keybindings][Keybindings]]
-  - [[#leader-definers][Leader definers]]
-  - [[#which-key][which-key]]
-  - [[#small-commands-the-table-needs][Small commands the table needs]]
-  - [[#global-binding-table][Global binding table]]
-- [[#windows][Windows]]
+- [[#core-configuration][Core configuration]]
+  - [[#defaults][Defaults]]
+  - [[#evil][Evil]]
+  - [[#keybindings][Keybindings]]
+  - [[#session][Session]]
+- [[#layout-and-file-management][Layout and file management]]
+  - [[#windows][Windows]]
+  - [[#buffers][Buffers]]
+  - [[#files][Files]]
+  - [[#project][Project]]
+  - [[#jump][Jump]]
 - [[#ui][UI]]
-- [[#jump][Jump]]
 - [[#completion][Completion]]
   - [[#minibuffer][Minibuffer]]
   - [[#consult][consult]]
   - [[#corfu][corfu]]
   - [[#embark-and-wgrep][embark and wgrep]]
-- [[#git][Git]]
-- [[#project][Project]]
-- [[#prog][Prog]]
+- [[#programming-tools][Programming tools]]
+  - [[#git][Git]]
   - [[#tree-sitter][Tree-sitter]]
   - [[#editorconfig][editorconfig]]
   - [[#eglot][eglot]]
-- [[#clojure][Clojure]]
-- [[#nix][Nix]]
-- [[#org][Org]]
-- [[#markdown][Markdown]]
+- [[#languages-and-file-formats][Languages and file formats]]
+  - [[#clojure][Clojure]]
+  - [[#nix][Nix]]
+  - [[#org][Org]]
+  - [[#markdown][Markdown]]
 - [[#terminal-and-repl-states][Terminal and REPL states]]
 
 * Header
@@ -50,7 +52,8 @@ block: Emacs reads the lexical-binding cookie from line 1 of =config.el=.
   ;;; config.el --- tangled from config.org -*- lexical-binding: t; -*-
 #+end_src
 
-* Defaults
+* Core configuration
+** Defaults
 
 Editor behaviour that needs no package.  =use-package emacs :ensure nil= is the
 Elpaca idiom for configuring built-ins without asking Elpaca to install them.
@@ -124,7 +127,7 @@ auto-revert of files changed on disk.  All of these now pick up the
     :config (global-auto-revert-mode 1))
 #+end_src
 
-* Evil
+** Evil
 
 Vim editing everywhere, with =evil-collection= supplying third-party bindings
 and =evil-surround= for =cs"'=-style edits.
@@ -171,13 +174,13 @@ Evil states and must not run before Evil exists.
   (elpaca-wait)
 #+end_src
 
-* Keybindings
+** Keybindings
 
 =general.el= supplies the =SPC= leader and the =,= local leader.  =:ensure
 (:wait t)= is required because later blocks use general's own macros while the
 init file is still being evaluated.
 
-** Leader definers
+*** Leader definers
 
 - =SPC= is the global leader in normal/visual/motion states, bound in general's
   override keymap so no major mode can shadow it.  =C-SPC= is the insert-state
@@ -210,10 +213,33 @@ init file is still being evaluated.
   (elpaca-wait)
 #+end_src
 
-** which-key
+*** which-key
 
 Built into Emacs since 30, so no package is installed.  It renders the labels
 attached to each prefix below.
+
+Labels use which-key's *keymap-based replacement*, not general's =:which-key=
+keyword.  general's own documentation recommends this: keymap-based
+replacement is more performant and correct, because the description lives in
+the keymap entry itself rather than in ~which-key-replacement-alist~, where it
+has to be matched by string at display time.  The two forms are:
+
+- a command --- ="k" '("description" . command)=
+- a prefix --- ="k" (cons "description" (make-sparse-keymap))=, written
+  unquoted because a fresh keymap object cannot be a literal.  The prefix line
+  must come *before* its sub-bindings, or the new keymap replaces the
+  populated one.  Re-evaluating one block therefore resets that block's
+  prefixes: =SPC b= and =SPC f= gain further entries in the consult block, so
+  re-evaluate that block too (or just restart) after re-evaluating the global
+  table.
+
+The one remaining =:which-key= below belongs to ~general-simulate-key~, where
+it is a function argument rather than a definition keyword.
+
+~which-key-replacement-alist~ remains the right tool for the one case
+keymap-based replacement cannot express: rewriting the *key* text rather than
+the description.  The single example is the winum row collapse, which lives
+with winum in [[#windows][Windows]].
 
 #+begin_src emacs-lisp
   (use-package which-key
@@ -225,88 +251,46 @@ attached to each prefix below.
     (which-key-mode 1))
 #+end_src
 
-** Small commands the table needs
+*** Leader skeleton
 
-#+begin_src emacs-lisp
-  (defun my/alternate-buffer ()
-    "Switch to the most recently visited other buffer."
-    (interactive)
-    (switch-to-buffer (other-buffer (current-buffer) t)))
+The compatibility contract: every prefix the leader offers, and nothing else.
+Anything not listed here or in a section below is deliberately absent.
 
-  (defun my/toggle-maximize-window ()
-    "Maximize the selected window, or restore the previous layout."
-    (interactive)
-    (if (and (= 1 (length (window-list)))
-             (assq ?_ register-alist))
-        (jump-to-register ?_)
-      (window-configuration-to-register ?_)
-      (delete-other-windows)))
+Each *leaf* lives in the section that owns its subject --- window commands in
+[[#windows][Windows]], buffer commands in [[#buffers][Buffers]], and so on --- together with the package
+configuration and any helper command it needs.  Deleting a section therefore
+takes its bindings with it.  One invariant keeps that safe:
 
-  (defun my/find-literate-config ()
-    "Open this configuration's `config.org'."
-    (interactive)
-    (find-file (expand-file-name "config.org" user-emacs-directory)))
-#+end_src
+#+begin_quote
+A prefix is created here and *only* here.  Sections add leaves.
+#+end_quote
 
-** Global binding table
+The reason is mechanical.  ~(cons "description" (make-sparse-keymap))~ builds a
+*new* keymap, so a second block creating the same prefix would discard the
+leaves the first one added.  With prefixes centralised, no section can clobber
+another, and re-evaluating a section is always safe.  This block must run
+before the sections that extend it --- which is simply file order.
 
-The compatibility contract.  Anything not listed here is deliberately absent.
+Only two leaves stay here: =SPC SPC= and =SPC h=, which belong to no subject
+but the leader itself.
 
 #+begin_src emacs-lisp
   (my/leader
-    "SPC" '(execute-extended-command :which-key "M-x")
-    "TAB" '(my/alternate-buffer :which-key "alternate buffer")
-    "1"   '(winum-select-window-1 :which-key "window 1")
-    "2"   '(winum-select-window-2 :which-key "window 2")
-    "3"   '(winum-select-window-3 :which-key "window 3")
-    "4"   '(winum-select-window-4 :which-key "window 4")
-    "5"   '(winum-select-window-5 :which-key "window 5")
-    "6"   '(winum-select-window-6 :which-key "window 6")
-    "7"   '(winum-select-window-7 :which-key "window 7")
-    "8"   '(winum-select-window-8 :which-key "window 8")
-    "9"   '(winum-select-window-9 :which-key "window 9")
-    "0"   '(winum-select-window-0-or-10 :which-key "window 0")
-    "h"   '(:keymap help-map :which-key "help")
+    "SPC" '("M-x" . execute-extended-command)
+    "h"   (cons "help" help-map)
 
-    "q"   '(:ignore t :which-key "quit")
-    "q q" '(save-buffers-kill-terminal :which-key "quit emacs")
-
-    "w"   '(:ignore t :which-key "windows")
-    "w v" '(split-window-right :which-key "split right")
-    "w s" '(split-window-below :which-key "split below")
-    "w d" '(delete-window :which-key "delete")
-    "w m" '(my/toggle-maximize-window :which-key "maximize toggle")
-    "w w" '(other-window :which-key "other window")
-    "w h" '(evil-window-left :which-key "focus left")
-    "w j" '(evil-window-down :which-key "focus down")
-    "w k" '(evil-window-up :which-key "focus up")
-    "w l" '(evil-window-right :which-key "focus right")
-    "w H" '(evil-window-move-far-left :which-key "move left")
-    "w J" '(evil-window-move-very-bottom :which-key "move down")
-    "w K" '(evil-window-move-very-top :which-key "move up")
-    "w L" '(evil-window-move-far-right :which-key "move right")
-    "w u" '(winner-undo :which-key "winner undo")
-    "w =" '(balance-windows :which-key "balance")
-
-    "b"   '(:ignore t :which-key "buffers")
-    "b d" '(kill-current-buffer :which-key "kill buffer")
-    "b r" '(revert-buffer-quick :which-key "revert")
-    "b s" '(scratch-buffer :which-key "scratch")
-
-    "f"   '(:ignore t :which-key "files")
-    "f f" '(find-file :which-key "find file")
-    "f s" '(save-buffer :which-key "save")
-    "f S" '(save-some-buffers :which-key "save all")
-    "f e" '(:ignore t :which-key "emacs config")
-    "f e i" '(my/find-literate-config :which-key "config.org")
-
-    "j"   '(:ignore t :which-key "jump")
-    "j j" '(avy-goto-char :which-key "goto char")
-
-    "t"   '(:ignore t :which-key "toggles")
-    "t n" '(display-line-numbers-mode :which-key "line numbers")
-    "t t" '(toggle-truncate-lines :which-key "truncate lines")
-    "t T" '(my/toggle-theme :which-key "theme light/dark"))
+    ;; Prefixes only.  Leaves live in the section named after each subject:
+    ;; Session, Windows, Buffers, Files, Jump, Completion, Git, Project, UI.
+    "q"   (cons "quit" (make-sparse-keymap))
+    "w"   (cons "windows" (make-sparse-keymap))
+    "b"   (cons "buffers" (make-sparse-keymap))
+    "f"   (cons "files" (make-sparse-keymap))
+    "f e" (cons "emacs config" (make-sparse-keymap))
+    "j"   (cons "jump" (make-sparse-keymap))
+    "s"   (cons "search" (make-sparse-keymap))
+    "g"   (cons "git" (make-sparse-keymap))
+    "p"   (cons "project" (make-sparse-keymap))
+    "t"   (cons "toggles" (make-sparse-keymap)))
 #+end_src
 
 =SPC m= re-dispatches the =,= key so the local-leader menu is reachable from
@@ -318,10 +302,37 @@ returns a command that must exist when the binding is made.
     "m" (general-simulate-key "," :which-key "local leader"))
 #+end_src
 
-* Windows
+** Session
+:PROPERTIES:
+:CUSTOM_ID: session
+:END:
+
+Leaving and re-entering Emacs.  ~restart-emacs~ is built in since Emacs 29 and
+restarts the process, so it applies to a standalone =Emacs.app= rather than an
+=emacsclient= frame.
+
+#+begin_src emacs-lisp
+  (my/leader
+    "q q" '("quit emacs" . save-buffers-kill-terminal)
+    "q r" '("restart emacs" . restart-emacs))
+#+end_src
+* Layout and file management
+** Windows
+:PROPERTIES:
+:CUSTOM_ID: windows
+:END:
 
 =winum= numbers the windows so =SPC 1= .. =SPC 0= jump directly; =winner=
-provides the undo history behind =SPC w u=.
+provides the undo history behind =SPC w u=.  The rest of =SPC w= is built-in
+and evil window motion.
+
+Ten near-identical which-key rows are noise, so the =window 1= row is
+relabelled to cover the whole range and the other nine are hidden.  A
+replacement of =t= (anything that is not a cons) makes which-key drop the
+binding from the popup.  The rules match on the *description* the keymap
+carries --- "window 1", "window 2", ... --- so they stay correct for both the
+=SPC= and =C-SPC= leaders.  This is the one job keymap-based replacement
+cannot do, because it rewrites the key text rather than the description.
 
 #+begin_src emacs-lisp
   (use-package winum
@@ -337,11 +348,138 @@ provides the undo history behind =SPC w u=.
     :ensure nil
     :config
     (winner-mode 1))
+
+  (defun my/toggle-maximize-window ()
+    "Maximize the selected window, or restore the previous layout."
+    (interactive)
+    (if (and (= 1 (length (window-list)))
+             (assq ?_ register-alist))
+        (jump-to-register ?_)
+      (window-configuration-to-register ?_)
+      (delete-other-windows)))
+
+  (my/leader
+    "w v" '("split right" . split-window-right)
+    "w s" '("split below" . split-window-below)
+    "w d" '("delete" . delete-window)
+    "w m" '("maximize toggle" . my/toggle-maximize-window)
+    "w w" '("other window" . other-window)
+    "w h" '("focus left" . evil-window-left)
+    "w j" '("focus down" . evil-window-down)
+    "w k" '("focus up" . evil-window-up)
+    "w l" '("focus right" . evil-window-right)
+    "w H" '("move left" . evil-window-move-far-left)
+    "w J" '("move down" . evil-window-move-very-bottom)
+    "w K" '("move up" . evil-window-move-very-top)
+    "w L" '("move right" . evil-window-move-far-right)
+    "w =" '("balance" . balance-windows)
+    "w u" '("winner undo" . winner-undo)
+
+    "1"   '("window 1" . winum-select-window-1)
+    "2"   '("window 2" . winum-select-window-2)
+    "3"   '("window 3" . winum-select-window-3)
+    "4"   '("window 4" . winum-select-window-4)
+    "5"   '("window 5" . winum-select-window-5)
+    "6"   '("window 6" . winum-select-window-6)
+    "7"   '("window 7" . winum-select-window-7)
+    "8"   '("window 8" . winum-select-window-8)
+    "9"   '("window 9" . winum-select-window-9)
+    "0"   '("window 0" . winum-select-window-0-or-10))
+
+  ;; Show one "0..9" row for the winum window pickers instead of ten rows.
+  ;; The key text is rewritten in place, so any leader prefix is preserved;
+  ;; `which-key--extract-key' displays the last space-delimited token.
+  (add-to-list 'which-key-replacement-alist
+               '((" 1\\'" . "\\`window 1\\'") . (" 0..9" . "select window")))
+  (add-to-list 'which-key-replacement-alist
+               '((nil . "\\`window [02-9]\\'") . t))
 #+end_src
+
+** Buffers
+:PROPERTIES:
+:CUSTOM_ID: buffers
+:END:
+
+All built-in; =SPC b b= is added by consult in [[#completion][Completion]].
+
+#+begin_src emacs-lisp
+  (defun my/alternate-buffer ()
+    "Switch to the most recently visited other buffer."
+    (interactive)
+    (switch-to-buffer (other-buffer (current-buffer) t)))
+
+  (my/leader
+    "TAB" '("alternate buffer" . my/alternate-buffer)
+    "b d" '("kill buffer" . kill-current-buffer)
+    "b n" '("next buffer" . next-buffer)
+    "b p" '("previous buffer" . previous-buffer)
+    "b r" '("revert" . revert-buffer-quick)
+    "b s" '("scratch" . scratch-buffer))
+#+end_src
+
+** Files
+:PROPERTIES:
+:CUSTOM_ID: files
+:END:
+
+All built-in; =SPC f r= is added by consult in [[#completion][Completion]].  =SPC f e i= opens
+this file, which is symlinked out of the store, so an edit takes effect on the
+next launch.
+
+#+begin_src emacs-lisp
+  (defun my/find-literate-config ()
+    "Open this configuration's `config.org'."
+    (interactive)
+    (find-file (expand-file-name "config.org" user-emacs-directory)))
+
+  (my/leader
+    "f f" '("find file" . find-file)
+    "f s" '("save" . save-buffer)
+    "f S" '("save all" . save-some-buffers)
+    "f e i" '("config.org" . my/find-literate-config))
+#+end_src
+
+** Project
+
+Built-in =project.el=; no projectile.
+
+#+begin_src emacs-lisp
+  (use-package project
+    :ensure nil
+    :init
+    (setq project-vc-extra-root-markers '(".project" "deps.edn" "bb.edn" "pyproject.toml")))
+
+  (my/leader
+    "p p" '("switch project" . project-switch-project)
+    "p f" '("find file" . project-find-file)
+    "p b" '("buffers" . project-switch-to-buffer))
+#+end_src
+
+** Jump
+:PROPERTIES:
+:CUSTOM_ID: jump
+:END:
+
+=imenu= is built in; =avy= supplies the character jump.
+
+#+begin_src emacs-lisp
+  (use-package avy
+    :ensure t
+    :commands (avy-goto-char avy-goto-line)
+    :init
+    (setq avy-all-windows t
+          avy-timeout-seconds 0.4))
+
+  (my/leader
+    "j i" '("imenu" . imenu)
+    "j j" '("goto char" . avy-goto-char))
+#+end_src
+
 
 * UI
 
-[[https://protesilaos.com/emacs/ef-themes][ef-themes]] with a light/dark pair behind =SPC t T=. The default face uses the =Aporetic Sans Mono= family supplied by =aporetic-bin=.
+[[https://protesilaos.com/emacs/ef-themes][ef-themes]] with a light/dark pair behind =SPC t T=. The default face uses the =Aporetic Sans Mono= family supplied by =aporetic-bin=.  =SPC t= collects the
+display toggles.
 
 #+begin_src emacs-lisp
   (use-package ef-themes
@@ -353,7 +491,7 @@ provides the undo history behind =SPC w u=.
     ;; before the alias exists warns about overwriting the aliased value.
     (setq ef-themes-to-toggle '(ef-day ef-night)
           ef-themes-mixed-fonts t)
-    (load-theme 'ef-night :no-confirm)
+    (load-theme 'ef-day :no-confirm)
     ;; Family name verified from the packaged font's metadata.
     (set-face-attribute 'default nil :family "Aporetic Sans Mono"))
 
@@ -361,20 +499,17 @@ provides the undo history behind =SPC w u=.
     "Toggle between the light and dark `ef-themes' pair."
     (interactive)
     (ef-themes-toggle))
-#+end_src
 
-* Jump
-
-#+begin_src emacs-lisp
-  (use-package avy
-    :ensure t
-    :commands (avy-goto-char avy-goto-line)
-    :init
-    (setq avy-all-windows t
-          avy-timeout-seconds 0.4))
+  (my/leader
+    "t n" '("line numbers" . display-line-numbers-mode)
+    "t t" '("truncate lines" . toggle-truncate-lines)
+    "t T" '("theme light/dark" . my/toggle-theme))
 #+end_src
 
 * Completion
+:PROPERTIES:
+:CUSTOM_ID: completion
+:END:
 
 Minibuffer completion is vertico + orderless + marginalia; in-buffer
 completion is corfu; consult supplies the search/navigation commands behind
@@ -424,12 +559,11 @@ action menu, and wgrep makes an exported grep buffer directly editable.
     (consult-customize consult-ripgrep consult-buffer :preview-key '(:debounce 0.3 any)))
 
   (my/leader
-    "/"   '(consult-ripgrep :which-key "ripgrep project")
-    "b b" '(consult-buffer :which-key "switch buffer")
-    "f r" '(consult-recent-file :which-key "recent files")
-    "s"   '(:ignore t :which-key "search")
-    "s s" '(consult-line :which-key "search line")
-    "s p" '(consult-ripgrep :which-key "ripgrep project"))
+    "/"   '("ripgrep project" . consult-ripgrep)
+    "b b" '("switch buffer" . consult-buffer)
+    "f r" '("recent files" . consult-recent-file)
+    "s s" '("search line" . consult-line)
+    "s p" '("ripgrep project" . consult-ripgrep))
 #+end_src
 
 ** corfu
@@ -491,8 +625,11 @@ back to the files.
     (setq wgrep-auto-save-buffer t))
 #+end_src
 
-* Git
 
+
+* Programming tools
+
+** Git
 #+begin_src emacs-lisp
   ;; :demand t (not deferred to :commands): global-git-commit-mode only
   ;; installs its find-file-hook once git-commit.el has loaded, and that
@@ -511,28 +648,8 @@ back to the files.
     (add-hook 'git-commit-setup-hook #'evil-insert-state))
 
   (my/leader
-    "g"   '(:ignore t :which-key "git")
-    "g s" '(magit-status :which-key "status"))
+    "g s" '("status" . magit-status))
 #+end_src
-
-* Project
-
-Built-in =project.el=; no projectile.
-
-#+begin_src emacs-lisp
-  (use-package project
-    :ensure nil
-    :init
-    (setq project-vc-extra-root-markers '(".project" "deps.edn" "bb.edn" "pyproject.toml")))
-
-  (my/leader
-    "p"   '(:ignore t :which-key "project")
-    "p p" '(project-switch-project :which-key "switch project")
-    "p f" '(project-find-file :which-key "find file")
-    "p b" '(project-switch-to-buffer :which-key "buffers"))
-#+end_src
-
-* Prog
 
 ** Tree-sitter
 
@@ -611,13 +728,13 @@ Built-in LSP client.  Emacs 31 already maps =clojure-lsp=, =clangd= and
     :config
     (my/local-leader
       :keymaps 'eglot-mode-map
-      ""  '(:ignore t :which-key "lsp")
-      "a" '(eglot-code-actions :which-key "code action")
-      "r" '(eglot-rename :which-key "rename")
-      "=" '(eglot-format-buffer :which-key "format buffer")))
+      ""  (cons "lsp" (make-sparse-keymap))
+      "a" '("code action" . eglot-code-actions)
+      "r" '("rename" . eglot-rename)
+      "=" '("format buffer" . eglot-format-buffer)))
 #+end_src
-
-* Clojure
+* Languages and file formats
+** Clojure
 
 #+begin_src emacs-lisp
   (use-package clojure-mode
@@ -637,17 +754,17 @@ Built-in LSP client.  Emacs 31 already maps =clojure-lsp=, =clangd= and
     :config
     (my/local-leader
       :keymaps 'clojure-mode-map
-      ""    '(:ignore t :which-key "clojure")
-      "'"   '(cider-jack-in :which-key "jack in")
-      "e"   '(:ignore t :which-key "eval")
-      "e e" '(cider-eval-last-sexp :which-key "last sexp")
-      "e f" '(cider-eval-defun-at-point :which-key "defun")
-      "e b" '(cider-eval-buffer :which-key "buffer")
-      "s"   '(:ignore t :which-key "repl")
-      "s s" '(cider-switch-to-repl-buffer :which-key "switch to repl")
-      "t"   '(:ignore t :which-key "test")
-      "t t" '(cider-test-run-test :which-key "test at point")
-      "t n" '(cider-test-run-ns-tests :which-key "ns tests")))
+      ""    (cons "clojure" (make-sparse-keymap))
+      "'"   '("jack in" . cider-jack-in)
+      "e"   (cons "eval" (make-sparse-keymap))
+      "e e" '("last sexp" . cider-eval-last-sexp)
+      "e f" '("defun" . cider-eval-defun-at-point)
+      "e b" '("buffer" . cider-eval-buffer)
+      "s"   (cons "repl" (make-sparse-keymap))
+      "s s" '("switch to repl" . cider-switch-to-repl-buffer)
+      "t"   (cons "test" (make-sparse-keymap))
+      "t t" '("test at point" . cider-test-run-test)
+      "t n" '("ns tests" . cider-test-run-ns-tests)))
 
   (use-package lispyville
     :ensure t
@@ -659,7 +776,7 @@ Built-in LSP client.  Emacs 31 already maps =clojure-lsp=, =clangd= and
        additional additional-insert slurp/barf-lispy commentary)))
 #+end_src
 
-* Nix
+** Nix
 
 This repository is a Nix flake, so =.nix= gets a real mode.  [[https://github.com/nix-community/nix-ts-mode][nix-ts-mode]]
 (nix-community, MELPA) is the tree-sitter mode for it; Emacs 31.1 ships no Nix
@@ -685,7 +802,7 @@ want it, bearing in mind the variable is global.
     :mode "\\.nix\\'")
 #+end_src
 
-* Org
+** Org
 
 Built-in org (9.8.x); never installed via Elpaca, so the tangle/load in
 =init.el= cannot hit a mixed-version conflict.  [[https://github.com/snosov1/toc-org][toc-org]] maintains tagged in-file
@@ -703,21 +820,21 @@ tables of contents and is enabled in Org buffers.
     :config
     (my/local-leader
       :keymaps 'org-mode-map
-      ""    '(:ignore t :which-key "org")
-      "t"   '(org-todo :which-key "todo")
-      "e"   '(org-export-dispatch :which-key "export")
-      "d"   '(:ignore t :which-key "dates")
-      "d s" '(org-schedule :which-key "schedule")
-      "d d" '(org-deadline :which-key "deadline")
-      "'"   '(org-edit-special :which-key "edit block")
-      "x"   '(org-toggle-checkbox :which-key "toggle checkbox")))
+      ""    (cons "org" (make-sparse-keymap))
+      "t"   '("todo" . org-todo)
+      "e"   '("export" . org-export-dispatch)
+      "d"   (cons "dates" (make-sparse-keymap))
+      "d s" '("schedule" . org-schedule)
+      "d d" '("deadline" . org-deadline)
+      "'"   '("edit block" . org-edit-special)
+      "x"   '("toggle checkbox" . org-toggle-checkbox)))
 
   (use-package toc-org
     :ensure t
     :hook (org-mode . toc-org-mode))
 #+end_src
 
-* Markdown
+** Markdown
 
 Emacs 31.1 ships =markdown-ts-mode= as an experimental, opt-in mode: it carries
 no autoload cookie and =.md= has no entry in the default =auto-mode-alist=, so
@@ -735,14 +852,14 @@ Tree-sitter, or run =M-x markdown-ts-mode-install-parsers=.
     :config
     (my/local-leader
       :keymaps 'markdown-ts-mode-map
-      ""    '(:ignore t :which-key "markdown")
-      "TAB" '(markdown-ts-outline-cycle :which-key "outline cycle")
-      "h"   '(:ignore t :which-key "heading")
-      "h k" '(markdown-ts-promote :which-key "promote")
-      "h j" '(markdown-ts-demote :which-key "demote")
-      "m"   '(markdown-ts-toggle-hide-markup :which-key "toggle markup")
-      "x"   '(markdown-ts-toggle-checkbox :which-key "toggle checkbox")
-      "i"   '(markdown-ts-insert-structure :which-key "insert structure")))
+      ""    (cons "markdown" (make-sparse-keymap))
+      "TAB" '("outline cycle" . markdown-ts-outline-cycle)
+      "h"   (cons "heading" (make-sparse-keymap))
+      "h k" '("promote" . markdown-ts-promote)
+      "h j" '("demote" . markdown-ts-demote)
+      "m"   '("toggle markup" . markdown-ts-toggle-hide-markup)
+      "x"   '("toggle checkbox" . markdown-ts-toggle-checkbox)
+      "i"   '("insert structure" . markdown-ts-insert-structure)))
 #+end_src
 
 * Terminal and REPL states
