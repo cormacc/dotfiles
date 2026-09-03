@@ -1,13 +1,17 @@
 { config, pkgs, inputs, ... }:
 
 let
-  # Emacs is held at 30.2 via the rev-pinned `nixpkgs-emacs` flake input --
-  # 31.1 breaks this config, and nixpkgs no longer carries an `emacs30-*`
-  # attribute. Everything else here still comes from the tracking nixpkgs.
-  pkgsEmacs = import inputs.nixpkgs-emacs {
+  # Spacemacs alone is held at Emacs 30.2 via the rev-pinned `nixpkgs-spacemacs`
+  # flake input -- 31.1 breaks it, and nixpkgs no longer carries an `emacs30-*`
+  # attribute. PATH `emacs` and every other config track the main nixpkgs.
+  pkgsSpacemacs = import inputs.nixpkgs-spacemacs {
     inherit (pkgs.stdenv.hostPlatform) system;
     config.allowUnfree = true;
   };
+
+  # Pinned 30.2 Emacs used only by the `semacs` alias below. Not on PATH.
+  spacemacsEmacs = (pkgsSpacemacs.emacsPackagesFor pkgsSpacemacs.emacs-pgtk).emacsWithPackages
+    (epkgs: [ epkgs.vterm ]);
 
   commonSessionVariables = {
     #Use xdg-config layout for spacemacs
@@ -31,6 +35,7 @@ in {
     # aspellDicts.en
     # aspellDicts.ga
     (aspellWithDicts (dicts: with dicts; [en en-computers en-science ga]))
+    aporetic-bin
     source-code-pro
     ripgrep
     gsettings-desktop-schemas
@@ -78,20 +83,30 @@ in {
   programs.emacs = {
     enable = true;
     # Using pure GTK build for wayland, but not sure it's necessary...
-    # Pinned package set -- see `pkgsEmacs` above.
-    package = pkgsEmacs.emacs-pgtk;
+    # Tracking nixpkgs (31.x). Only Spacemacs stays pinned -- see above.
+    package = pkgs.emacs-pgtk;
     extraPackages = (epkgs: [ epkgs.vterm ]);
   };
-  services.emacs = {
-    enable = true;
-    client.enable = true;
-    # defaultEditor = true;
-  };
+
+  # Minimal literate config -- the *default* configuration, so bare `emacs`
+  # (and `emacsclient --alternate-editor=`) picks it up through the normal XDG
+  # startup search, with no alias and no --init-dir.
+  #
+  # Same out-of-store pattern as Corgi: the three sources are editable in place
+  # and the containing directory stays writable, so elpaca clones, the tangled
+  # config.el, and eln caches live in ~/.config/emacs, not in the repo.
+  xdg.configFile."emacs/early-init.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/minimal/early-init.el";
+  xdg.configFile."emacs/init.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/minimal/init.el";
+  xdg.configFile."emacs/config.org".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/minimal/config.org";
 
 
-  # Spacemacs
+  # Alternate distributions
 
-  home.file."${config.xdg.configHome}/emacs" = {
+  # ... Spacemacs
+
+  # Launched via the `semacs` alias on the pinned 30.2 build; deliberately not
+  # at ~/.config/emacs, which now holds the default literate config below.
+  home.file."${config.xdg.configHome}/emacs-spacemacs" = {
     recursive = true;
     #Use this variant to pin a specific commit
     # source = pkgs.fetchFromGitHub {
@@ -113,7 +128,7 @@ in {
   home.file."${config.xdg.configHome}/spacemacs".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/spacemacs";
 
 
-  # Doom emacs
+  # ... Doom emacs
   programs.doom-emacs = {
     enable = true;
     provideEmacs = false;
@@ -121,7 +136,7 @@ in {
   };
 
 
-  # Corgi emacs... a clojure-focused minimal config with spacemacs-like keybindings
+  # ... Corgi emacs... a clojure-focused minimal config with spacemacs-like keybindings
   # See https://github.com/corgi-emacs/corgi
 
   # Keep the config files editable in place, but leave the containing directory
@@ -132,8 +147,10 @@ in {
   xdg.configFile."emacs-corgi/user-keys.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/corgi/user-keys.el";
   xdg.configFile."emacs-corgi/user-signals.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/corgi/user-signals.el";
 
+
+  # Bare `emacs` loads the default / literate config
   home.shellAliases = {
-    demacs = "doom-emacs";
     cemacs = "emacs --init-dir ~/.config/emacs-corgi";
+    spacemacs = "${spacemacsEmacs}/bin/emacs --init-dir ${config.xdg.configHome}/emacs-spacemacs";
   };
 }

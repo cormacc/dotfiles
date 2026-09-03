@@ -122,7 +122,6 @@ Add consistent search tooling to my setup:
 - (Maybe) per-workstation instances to be hosted locally on my dev machines for use when off the home network
   - Either using an appropriate small local model, or my openai or anthropic subs via oauth?
   - This should probably use Vane, as these machines won't be running open-webui locally -- though consider other options
-
 ** DONE Package dirge coding agent as a local nix package
 CLOSED: [2026-06-17 Wed]
 :PROPERTIES:
@@ -135,3 +134,47 @@ CLOSED: [2026-06-17 Wed]
 - Done [2026-06-17 Wed] all 4 plan tasks complete; commits 4f4f54e, e648581, 7460408.
 :END:
 #+IMPORT: [[plan:2026-06-17-package-dirge-coding-agent-as-a-local-ni.org]]
+** DONE Build limux from source to fix native-Wayland rendering
+CLOSED: [2026-06-16 Tue 11:46]
+:PROPERTIES:
+:CUSTOM_ID: 38bfcb27-efeb-4d35-9369-b359792489f0
+:CREATED: [2026-06-16 Tue 09:16]
+:STARTED: [2026-06-16 Tue 11:06]
+:ARCHIVED: [2026-06-16 Tue 11:46]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-06-16 Tue 09:16]
+- State "STARTED" from "TODO" [2026-06-16 Tue 11:06]
+- State "DONE" from "STARTED" [2026-06-16 Tue 11:46]
+:END:
+#+IMPORT: [[plan:2026-06-16-build-limux-from-source-to-fix-native-wa.org]]
+** DONE Replace hand-rolled Doom Emacs wiring with nix-doom-emacs-unstraightened
+CLOSED: [2026-09-02 Wed 17:04]
+:PROPERTIES:
+:CUSTOM_ID: 29f17703-2397-4b19-96b2-efcc0a100c02
+:CREATED: [2026-09-02 Wed 12:45]
+:ARCHIVED: [2026-09-02 Wed 17:04]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-09-02 Wed 12:45]
+- State "DONE" from "TODO" [2026-09-02 Wed 17:04]
+:END:
+#+IMPORT: [[plan:2026-09-02-replace-hand-rolled-doom-emacs-wiring-wi.org]]
+Remove the ad-hoc Doom wiring (dead fetchGit block, ~/.config/doom symlink, demacs/doom aliases, hand-cloned ~/.config/emacs-doom) and replace it with a declarative Doom built by nix-doom-emacs-unstraightened. Spacemacs stays the default emacs. See change-record.
+** DONE Bootstrap standalone emacs config
+CLOSED: [2026-09-03 Thu 21:04]
+:PROPERTIES:
+:CUSTOM_ID: 39772e87-b4e9-4c11-9783-a7a680cffb66
+:CREATED: [2026-09-03 Thu 16:23]
+:STARTED: [2026-09-03 Thu 18:00]
+:ARCHIVED: [2026-09-03 Thu 21:04]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-09-03 Thu 16:23]
+- State "STARTED" from "TODO" [2026-09-03 Thu 18:00]
+- State "DONE" from "STARTED" [2026-09-03 Thu 21:04]
+:END:
+#+IMPORT: [[plan:2026-09-03-bootstrap-standalone-emacs-config.org]]

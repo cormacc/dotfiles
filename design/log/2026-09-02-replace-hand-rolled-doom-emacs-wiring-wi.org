@@ -1,7 +1,7 @@
 #+TITLE: Replace hand-rolled Doom Emacs wiring with nix-doom-emacs-unstraightened
 #+DATE: 2026-09-02 Wed
 #+STATUS: Complete
-#+PARENT: [[task:29f17703-2397-4b19-96b2-efcc0a100c02][Replace hand-rolled Doom Emacs wiring with nix-doom-emacs-unstraightened]]
+#+PARENT: [[archive:29f17703-2397-4b19-96b2-efcc0a100c02][Replace hand-rolled Doom Emacs wiring with nix-doom-emacs-unstraightened]]
 #+SETUPFILE: ../../TASKS.setup.org
 
 * Intent
@@ -111,7 +111,6 @@ Net result: =emacs=/=emacsclient= → Spacemacs on pinned =emacs-pgtk-with-packa
 :CUSTOM_ID: 5bfe85cd-d58c-4c8e-b54b-e5e5597230ae
 :CREATED: [2026-09-02 Wed 12:53]
 :END:
-
 Outcome: input added at rev =58d5c3a=; =nix flake metadata --impure= exit 0. Lock gained only this input's own dependency tree (=doomemacs=, =doomemacs-modules=, =doomdir=, =emacs-overlay=) plus a =systems= dedup renumber; 43 → 49 nodes, none removed.
 
 ** DONE Author the fresh minimal Doom user config with live-edit stub
@@ -119,7 +118,6 @@ Outcome: input added at rev =58d5c3a=; =nix flake metadata --impure= exit 0. Loc
 :CUSTOM_ID: b79ccefc-8683-4aee-a9c0-f3a4537d2f05
 :CREATED: [2026-09-02 Wed 12:53]
 :END:
-
 Outcome: four files authored fresh, nothing ported. 15 =doom!= module names and both module flags (=+everywhere=, =+bindings=) verified against =doomemacs/modules= at locked rev =d57ab52=; the old config's stale =doom-dashboard= keyword does not exist upstream and was dropped in favour of =dashboard=.
 
 ** DONE Wire the homeModule in emacs.nix and retarget the launcher surface
@@ -129,7 +127,6 @@ Outcome: four files authored fresh, nothing ported. 15 =doom!= module names and 
 :BLOCKED-BY: task:5bfe85cd-d58c-4c8e-b54b-e5e5597230ae
 :BLOCKED-BY+: task:b79ccefc-8683-4aee-a9c0-f3a4537d2f05
 :END:
-
 Outcome: wired as specified; both acceptance evals exit 0. Option names =enable=/=provideEmacs=/=doomDir= confirmed in the module source at the locked store path, not from memory.
 
 ** DONE Register the doom-emacs-unstraightened cachix cache
@@ -137,7 +134,6 @@ Outcome: wired as specified; both acceptance evals exit 0. Option names =enable=
 :CUSTOM_ID: b7518201-2340-4ad1-a342-aaaf8aa7f7d1
 :CREATED: [2026-09-02 Wed 12:53]
 :END:
-
 Outcome: substituter and key added in both places; key re-verified against the live cachix API (public cache, owner =marienz=). Whether the cache actually served the first build was not measured.
 
 ** DONE Validate builds, sweep references, smoke-test, and dispose of the old clone
@@ -146,7 +142,6 @@ Outcome: substituter and key added in both places; key re-verified against the l
 :CREATED: [2026-09-02 Wed 12:53]
 :BLOCKED-BY: task:80d5ec8c-5f0f-44ea-a3f7-bd018d0a4281
 :END:
-
 Outcome: HM build and switch both exit 0; all post-switch checks pass; the old 250M clone deleted after re-verifying clean status, HEAD and origin immediately beforehand. The Darwin eval criterion was not met and is recorded as reversed in =** Acceptance=. Spacemacs, Corgi and =doom-emacs= all verified working after deletion.
 
 * Implementation

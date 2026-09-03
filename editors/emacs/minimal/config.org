@@ -1,0 +1,757 @@
+#+TITLE: Minimal Emacs configuration
+#+AUTHOR: Cormac Cannon
+#+PROPERTY: header-args:emacs-lisp :results silent
+#+STARTUP: overview
+
+A literate, Evil-based Emacs configuration.
+Deliberately small enough to read end to end.
+
+Loaded by =init.el=, which explicitly tangles this file to =config.el= inside =~/.config/emacs= (runtime state, never the dotfiles repository).
+Packages come from [[https://github.com/progfolio/elpaca][Elpaca]]; =org= itself is the built-in version, so no second =org= is ever loaded.
+
+Sources live in =dotfiles/editors/emacs/minimal/= and are symlinked out of store, so an edit here takes effect on the next =emacs= launch.
+
+
+* Table of Contents                                       :TOC_2_gh:noexport:
+- [[#header][Header]]
+- [[#defaults][Defaults]]
+- [[#evil][Evil]]
+- [[#keybindings][Keybindings]]
+  - [[#leader-definers][Leader definers]]
+  - [[#which-key][which-key]]
+  - [[#small-commands-the-table-needs][Small commands the table needs]]
+  - [[#global-binding-table][Global binding table]]
+- [[#windows][Windows]]
+- [[#ui][UI]]
+- [[#jump][Jump]]
+- [[#completion][Completion]]
+  - [[#minibuffer][Minibuffer]]
+  - [[#consult][consult]]
+  - [[#corfu][corfu]]
+  - [[#embark-and-wgrep][embark and wgrep]]
+- [[#git][Git]]
+- [[#project][Project]]
+- [[#prog][Prog]]
+  - [[#tree-sitter][Tree-sitter]]
+  - [[#editorconfig][editorconfig]]
+  - [[#eglot][eglot]]
+- [[#clojure][Clojure]]
+- [[#nix][Nix]]
+- [[#org][Org]]
+- [[#markdown][Markdown]]
+- [[#terminal-and-repl-states][Terminal and REPL states]]
+
+* Header
+
+Tangling concatenates blocks in order, so this must stay the first source
+block: Emacs reads the lexical-binding cookie from line 1 of =config.el=.
+
+#+begin_src emacs-lisp
+  ;;; config.el --- tangled from config.org -*- lexical-binding: t; -*-
+#+end_src
+
+* Defaults
+
+Editor behaviour that needs no package.  =use-package emacs :ensure nil= is the
+Elpaca idiom for configuring built-ins without asking Elpaca to install them.
+
+#+begin_src emacs-lisp
+  (use-package emacs
+    :ensure nil
+    :init
+    (setq-default indent-tabs-mode nil
+                  tab-width 2
+                  fill-column 80)
+    (setq create-lockfiles nil
+          make-backup-files nil
+          require-final-newline t
+          sentence-end-double-space nil
+          uniquify-buffer-name-style 'forward
+          enable-recursive-minibuffers t
+          read-extended-command-predicate #'command-completion-default-include-p
+          completion-cycle-threshold 3
+          tab-always-indent 'complete
+          xref-search-program 'ripgrep)
+    :config
+    (column-number-mode 1)
+    (global-so-long-mode 1)
+    (delete-selection-mode 1)
+    (minibuffer-depth-indicate-mode 1)
+    (add-hook 'prog-mode-hook #'display-line-numbers-mode)
+    (add-hook 'before-save-hook #'delete-trailing-whitespace))
+#+end_src
+
+=no-littering= keeps runtime state out of the top level of =~/.config/emacs=.
+It *must* load before any mode that reads or writes a state file, because those
+modes resolve their file variable when the mode is enabled: enabling
+=recentf-mode= before =no-littering= repoints =recentf-save-file= gives a
+session that saves to =var/recentf-save.el= but reads the (empty) default path.
+So this block comes first, and =:ensure (:wait t)= blocks until it has actually
+loaded.
+
+#+begin_src emacs-lisp
+  (use-package no-littering
+    :ensure (:wait t)
+    :demand t
+    :config
+    (setq custom-file (no-littering-expand-etc-file-name "custom.el"))
+    (when (file-exists-p custom-file) (load custom-file nil t))
+    (no-littering-theme-backups))
+#+end_src
+
+Session state: recent files, minibuffer history, cursor position, and
+auto-revert of files changed on disk.  All of these now pick up the
+=no-littering= paths set above.
+
+#+begin_src emacs-lisp
+  (use-package recentf
+    :ensure nil
+    :init (setq recentf-max-saved-items 200)
+    :config (recentf-mode 1))
+
+  (use-package savehist
+    :ensure nil
+    :config (savehist-mode 1))
+
+  (use-package saveplace
+    :ensure nil
+    :config (save-place-mode 1))
+
+  (use-package autorevert
+    :ensure nil
+    :init (setq global-auto-revert-non-file-buffers t
+                auto-revert-verbose nil)
+    :config (global-auto-revert-mode 1))
+#+end_src
+
+* Evil
+
+Vim editing everywhere, with =evil-collection= supplying third-party bindings
+and =evil-surround= for =cs"'=-style edits.
+
+=evil-want-keybinding= must be nil before =evil= loads for =evil-collection= to
+take over.  =undo-redo= is Emacs 28+ native undo, so no =undo-tree= is needed.
+
+#+begin_src emacs-lisp
+  (use-package evil
+    :ensure t
+    :demand t
+    :init
+    (setq evil-want-integration t
+          evil-want-keybinding nil
+          evil-want-C-u-scroll t
+          evil-want-Y-yank-to-eol t
+          evil-undo-system 'undo-redo
+          evil-respect-visual-line-mode t
+          evil-split-window-below t
+          evil-vsplit-window-right t
+          evil-search-module 'evil-search)
+    :config
+    (evil-mode 1))
+
+  (use-package evil-collection
+    :ensure t
+    :after evil
+    :demand t
+    :config
+    (evil-collection-init))
+
+  (use-package evil-surround
+    :ensure t
+    :after evil
+    :demand t
+    :config
+    (global-evil-surround-mode 1))
+#+end_src
+
+Elpaca installs asynchronously, so block here: everything below binds keys in
+Evil states and must not run before Evil exists.
+
+#+begin_src emacs-lisp
+  (elpaca-wait)
+#+end_src
+
+* Keybindings
+
+=general.el= supplies the =SPC= leader and the =,= local leader.  =:ensure
+(:wait t)= is required because later blocks use general's own macros while the
+init file is still being evaluated.
+
+** Leader definers
+
+- =SPC= is the global leader in normal/visual/motion states, bound in general's
+  override keymap so no major mode can shadow it.  =C-SPC= is the insert-state
+  equivalent.
+- =,= is the local (major-mode) leader.  It is defined per mode map, so the
+  same key does something different in Clojure and in Org.
+- =SPC m= is an alias for =,=: it simulates the =,= key, which then resolves in
+  whatever maps the current buffer has.
+
+#+begin_src emacs-lisp
+  (use-package general
+    :ensure (:wait t)
+    :demand t
+    :config
+    (general-evil-setup)
+
+    (general-create-definer my/leader
+      :states '(normal visual motion emacs)
+      :keymaps 'override
+      :prefix "SPC"
+      :global-prefix "C-SPC")
+
+    (general-create-definer my/local-leader
+      :states '(normal visual)
+      :prefix ","
+      :global-prefix "C-,"))
+#+end_src
+
+#+begin_src emacs-lisp
+  (elpaca-wait)
+#+end_src
+
+** which-key
+
+Built into Emacs since 30, so no package is installed.  It renders the labels
+attached to each prefix below.
+
+#+begin_src emacs-lisp
+  (use-package which-key
+    :ensure nil
+    :init
+    (setq which-key-idle-delay 0.3
+          which-key-sort-order 'which-key-key-order-alpha)
+    :config
+    (which-key-mode 1))
+#+end_src
+
+** Small commands the table needs
+
+#+begin_src emacs-lisp
+  (defun my/alternate-buffer ()
+    "Switch to the most recently visited other buffer."
+    (interactive)
+    (switch-to-buffer (other-buffer (current-buffer) t)))
+
+  (defun my/toggle-maximize-window ()
+    "Maximize the selected window, or restore the previous layout."
+    (interactive)
+    (if (and (= 1 (length (window-list)))
+             (assq ?_ register-alist))
+        (jump-to-register ?_)
+      (window-configuration-to-register ?_)
+      (delete-other-windows)))
+
+  (defun my/find-literate-config ()
+    "Open this configuration's `config.org'."
+    (interactive)
+    (find-file (expand-file-name "config.org" user-emacs-directory)))
+#+end_src
+
+** Global binding table
+
+The compatibility contract.  Anything not listed here is deliberately absent.
+
+#+begin_src emacs-lisp
+  (my/leader
+    "SPC" '(execute-extended-command :which-key "M-x")
+    "TAB" '(my/alternate-buffer :which-key "alternate buffer")
+    "1"   '(winum-select-window-1 :which-key "window 1")
+    "2"   '(winum-select-window-2 :which-key "window 2")
+    "3"   '(winum-select-window-3 :which-key "window 3")
+    "4"   '(winum-select-window-4 :which-key "window 4")
+    "5"   '(winum-select-window-5 :which-key "window 5")
+    "6"   '(winum-select-window-6 :which-key "window 6")
+    "7"   '(winum-select-window-7 :which-key "window 7")
+    "8"   '(winum-select-window-8 :which-key "window 8")
+    "9"   '(winum-select-window-9 :which-key "window 9")
+    "0"   '(winum-select-window-0-or-10 :which-key "window 0")
+    "h"   '(:keymap help-map :which-key "help")
+
+    "q"   '(:ignore t :which-key "quit")
+    "q q" '(save-buffers-kill-terminal :which-key "quit emacs")
+
+    "w"   '(:ignore t :which-key "windows")
+    "w v" '(split-window-right :which-key "split right")
+    "w s" '(split-window-below :which-key "split below")
+    "w d" '(delete-window :which-key "delete")
+    "w m" '(my/toggle-maximize-window :which-key "maximize toggle")
+    "w w" '(other-window :which-key "other window")
+    "w h" '(evil-window-left :which-key "focus left")
+    "w j" '(evil-window-down :which-key "focus down")
+    "w k" '(evil-window-up :which-key "focus up")
+    "w l" '(evil-window-right :which-key "focus right")
+    "w H" '(evil-window-move-far-left :which-key "move left")
+    "w J" '(evil-window-move-very-bottom :which-key "move down")
+    "w K" '(evil-window-move-very-top :which-key "move up")
+    "w L" '(evil-window-move-far-right :which-key "move right")
+    "w u" '(winner-undo :which-key "winner undo")
+    "w =" '(balance-windows :which-key "balance")
+
+    "b"   '(:ignore t :which-key "buffers")
+    "b d" '(kill-current-buffer :which-key "kill buffer")
+    "b r" '(revert-buffer-quick :which-key "revert")
+    "b s" '(scratch-buffer :which-key "scratch")
+
+    "f"   '(:ignore t :which-key "files")
+    "f f" '(find-file :which-key "find file")
+    "f s" '(save-buffer :which-key "save")
+    "f S" '(save-some-buffers :which-key "save all")
+    "f e" '(:ignore t :which-key "emacs config")
+    "f e i" '(my/find-literate-config :which-key "config.org")
+
+    "j"   '(:ignore t :which-key "jump")
+    "j j" '(avy-goto-char :which-key "goto char")
+
+    "t"   '(:ignore t :which-key "toggles")
+    "t n" '(display-line-numbers-mode :which-key "line numbers")
+    "t t" '(toggle-truncate-lines :which-key "truncate lines")
+    "t T" '(my/toggle-theme :which-key "theme light/dark"))
+#+end_src
+
+=SPC m= re-dispatches the =,= key so the local-leader menu is reachable from
+the global leader.  Defined after the table because =general-simulate-key=
+returns a command that must exist when the binding is made.
+
+#+begin_src emacs-lisp
+  (my/leader
+    "m" (general-simulate-key "," :which-key "local leader"))
+#+end_src
+
+* Windows
+
+=winum= numbers the windows so =SPC 1= .. =SPC 0= jump directly; =winner=
+provides the undo history behind =SPC w u=.
+
+#+begin_src emacs-lisp
+  (use-package winum
+    :ensure t
+    :demand t
+    :init
+    (setq winum-auto-setup-mode-line nil
+          winum-scope 'frame-local)
+    :config
+    (winum-mode 1))
+
+  (use-package winner
+    :ensure nil
+    :config
+    (winner-mode 1))
+#+end_src
+
+* UI
+
+[[https://protesilaos.com/emacs/ef-themes][ef-themes]] with a light/dark pair behind =SPC t T=. The default face uses the =Aporetic Sans Mono= family supplied by =aporetic-bin=.
+
+#+begin_src emacs-lisp
+  (use-package ef-themes
+    :ensure t
+    :demand t
+    :config
+    ;; Set after load: `ef-themes-to-toggle' and `ef-themes-mixed-fonts' are
+    ;; defvaralias-es onto the modus-themes variables, and assigning them
+    ;; before the alias exists warns about overwriting the aliased value.
+    (setq ef-themes-to-toggle '(ef-day ef-night)
+          ef-themes-mixed-fonts t)
+    (load-theme 'ef-night :no-confirm)
+    ;; Family name verified from the packaged font's metadata.
+    (set-face-attribute 'default nil :family "Aporetic Sans Mono"))
+
+  (defun my/toggle-theme ()
+    "Toggle between the light and dark `ef-themes' pair."
+    (interactive)
+    (ef-themes-toggle))
+#+end_src
+
+* Jump
+
+#+begin_src emacs-lisp
+  (use-package avy
+    :ensure t
+    :commands (avy-goto-char avy-goto-line)
+    :init
+    (setq avy-all-windows t
+          avy-timeout-seconds 0.4))
+#+end_src
+
+* Completion
+
+Minibuffer completion is vertico + orderless + marginalia; in-buffer
+completion is corfu; consult supplies the search/navigation commands behind
+=SPC b=, =SPC s= and =SPC /=; embark turns any completion candidate into an
+action menu, and wgrep makes an exported grep buffer directly editable.
+
+** Minibuffer
+
+#+begin_src emacs-lisp
+  (use-package vertico
+    :ensure t
+    :demand t
+    :init
+    (setq vertico-cycle t
+          vertico-count 15)
+    :config
+    (vertico-mode 1))
+
+  (use-package orderless
+    :ensure t
+    :demand t
+    :init
+    (setq completion-styles '(orderless basic)
+          completion-category-defaults nil
+          completion-category-overrides '((file (styles basic partial-completion)))))
+
+  (use-package marginalia
+    :ensure t
+    :demand t
+    :config
+    (marginalia-mode 1))
+#+end_src
+
+** consult
+
+#+begin_src emacs-lisp
+  (use-package consult
+    :ensure t
+    :demand t
+    :init
+    (setq consult-narrow-key "<"
+          register-preview-delay 0.5
+          register-preview-function #'consult-register-format
+          xref-show-xrefs-function #'consult-xref
+          xref-show-definitions-function #'consult-xref)
+    :config
+    (consult-customize consult-ripgrep consult-buffer :preview-key '(:debounce 0.3 any)))
+
+  (my/leader
+    "/"   '(consult-ripgrep :which-key "ripgrep project")
+    "b b" '(consult-buffer :which-key "switch buffer")
+    "f r" '(consult-recent-file :which-key "recent files")
+    "s"   '(:ignore t :which-key "search")
+    "s s" '(consult-line :which-key "search line")
+    "s p" '(consult-ripgrep :which-key "ripgrep project"))
+#+end_src
+
+** corfu
+
+Popup completion in buffers.  =tab-always-indent= is already ='complete= in
+the Defaults section, so TAB both indents and completes.
+
+#+begin_src emacs-lisp
+  (use-package corfu
+    :ensure t
+    :demand t
+    :init
+    (setq corfu-auto t
+          corfu-auto-prefix 2
+          corfu-auto-delay 0.15
+          corfu-cycle t
+          corfu-quit-no-match 'separator
+          corfu-preselect 'prompt)
+    :config
+    (global-corfu-mode 1)
+    (corfu-popupinfo-mode 1)
+    ;; Escape should leave the popup, not insert-state.
+    (keymap-set corfu-map "<escape>" #'corfu-quit))
+#+end_src
+
+** embark and wgrep
+
+=C-.= acts on the thing at point, including the current minibuffer candidate.
+=embark-export= from a =consult-ripgrep= session produces a grep buffer;
+=wgrep= then makes it editable with =C-c C-p=, and =C-c C-c= writes the edits
+back to the files.
+
+#+begin_src emacs-lisp
+  (use-package embark
+    :ensure t
+    :demand t
+    :init
+    (setq prefix-help-command #'embark-prefix-help-command)
+    :bind (("C-." . embark-act)
+           ("C-h B" . embark-bindings)
+           :map minibuffer-local-map
+           ("C-." . embark-act)
+           ("C-c C-o" . embark-export)))
+
+  ;; No preview hook here: embark-consult installs its own
+  ;; `consult--default-completion-list-preview-setup' on
+  ;; `embark-collect-mode-hook'.  (The commonly copied
+  ;; `consult-preview-at-point-mode' hook no longer exists in consult, and
+  ;; adding it breaks every embark-collect / embark-live buffer.)
+  (use-package embark-consult
+    :ensure t
+    :demand t
+    :after (embark consult))
+
+  (use-package wgrep
+    :ensure t
+    :demand t
+    :init
+    (setq wgrep-auto-save-buffer t))
+#+end_src
+
+* Git
+
+#+begin_src emacs-lisp
+  ;; :demand t (not deferred to :commands): global-git-commit-mode only
+  ;; installs its find-file-hook once git-commit.el has loaded, and that
+  ;; only happens when magit loads. $EDITOR/$VISUAL can start a fresh
+  ;; daemon and open COMMIT_EDITMSG before magit-status is ever called, so
+  ;; magit-commit integration must load at startup, not on first :commands use.
+  (use-package magit
+    :ensure t
+    :demand t
+    :commands (magit-status magit-dispatch)
+    :init
+    (setq magit-diff-refine-hunk 'all
+          magit-save-repository-buffers 'dontask)
+    :config
+    ;; Bedrock: start commit messages in insert state.
+    (add-hook 'git-commit-setup-hook #'evil-insert-state))
+
+  (my/leader
+    "g"   '(:ignore t :which-key "git")
+    "g s" '(magit-status :which-key "status"))
+#+end_src
+
+* Project
+
+Built-in =project.el=; no projectile.
+
+#+begin_src emacs-lisp
+  (use-package project
+    :ensure nil
+    :init
+    (setq project-vc-extra-root-markers '(".project" "deps.edn" "bb.edn" "pyproject.toml")))
+
+  (my/leader
+    "p"   '(:ignore t :which-key "project")
+    "p p" '(project-switch-project :which-key "switch project")
+    "p f" '(project-find-file :which-key "find file")
+    "p b" '(project-switch-to-buffer :which-key "buffers"))
+#+end_src
+
+* Prog
+
+** Tree-sitter
+
+Grammars are *not* bundled with Emacs and are not managed by Nix here.  Install
+them once per machine from a running Emacs:
+
+- =M-x treesit-install-language-grammar= for a single language, or
+- =M-x treesit-auto-install-all= for every grammar =treesit-auto= knows about, or
+- =M-x markdown-ts-mode-install-parsers= for the =markdown= + =markdown-inline=
+  pair that =markdown-ts-mode= needs.
+
+They land in =~/.config/emacs/tree-sitter/=, i.e. runtime state.
+=treesit-auto= then remaps a language's classic mode to its =*-ts-mode= only
+when the grammar is actually present, so a missing grammar degrades to the
+classic mode instead of erroring.
+
+=treesit-auto-add-to-auto-mode-alist= is called with *no* argument on purpose:
+that registers only grammars satisfying =treesit-ready-p=.  Passing ='all=
+would overwrite Emacs 31's own =\.rs\' → rust-ts-mode-maybe= style entries,
+whose whole job is to degrade when the grammar is missing, and every visit to
+an uninstalled language would prompt to install a grammar instead.
+
+=treesit-language-source-alist= starts empty; built-in language files push their
+own entry when they load (=sh-script.el= adds =bash=, for instance).
+=treesit-auto= only /let-binds/ its recipe list inside =M-x
+treesit-auto-install-all=, so a plain =M-x treesit-install-language-grammar=
+sees nothing for a language whose mode came from a package.  The entries below
+are the grammars this config wires a mode for by hand (see =* Nix=).
+
+#+begin_src emacs-lisp
+  (use-package treesit
+    :ensure nil
+    :config
+    ;; src/ is at the repository root for this grammar, so URL alone is enough.
+    (add-to-list 'treesit-language-source-alist
+                 '(nix "https://github.com/nix-community/tree-sitter-nix")))
+
+  (use-package treesit-auto
+    :ensure t
+    :demand t
+    :init
+    (setq treesit-auto-install 'prompt)
+    :config
+    (treesit-auto-add-to-auto-mode-alist)
+    (global-treesit-auto-mode 1))
+#+end_src
+
+** editorconfig
+
+Built into Emacs since 30, so nothing is installed.
+
+#+begin_src emacs-lisp
+  (use-package editorconfig
+    :ensure nil
+    :config
+    (editorconfig-mode 1))
+#+end_src
+
+** eglot
+
+Built-in LSP client.  Emacs 31 already maps =clojure-lsp=, =clangd= and
+=pyright-langserver= in =eglot-server-programs=; all three come from
+=home.packages= in =editors/emacs/emacs.nix=, so only the hooks are needed.
+
+#+begin_src emacs-lisp
+  (use-package eglot
+    :ensure nil
+    :hook ((clojure-mode clojurescript-mode clojurec-mode clojure-ts-mode
+            c-mode c-ts-mode c++-mode c++-ts-mode
+            python-mode python-ts-mode)
+           . eglot-ensure)
+    :init
+    (setq eglot-autoshutdown t
+          eglot-sync-connect nil
+          eglot-extend-to-xref t)
+    :config
+    (my/local-leader
+      :keymaps 'eglot-mode-map
+      ""  '(:ignore t :which-key "lsp")
+      "a" '(eglot-code-actions :which-key "code action")
+      "r" '(eglot-rename :which-key "rename")
+      "=" '(eglot-format-buffer :which-key "format buffer")))
+#+end_src
+
+* Clojure
+
+#+begin_src emacs-lisp
+  (use-package clojure-mode
+    :ensure t
+    :mode (("\\.clj\\'" . clojure-mode)
+           ("\\.cljs\\'" . clojurescript-mode)
+           ("\\.cljc\\'" . clojurec-mode)
+           ("\\.edn\\'" . clojure-mode)))
+
+  (use-package cider
+    :ensure t
+    :after clojure-mode
+    :init
+    (setq cider-repl-display-help-banner nil
+          cider-save-file-on-load t
+          cider-font-lock-dynamically '(macro core function var))
+    :config
+    (my/local-leader
+      :keymaps 'clojure-mode-map
+      ""    '(:ignore t :which-key "clojure")
+      "'"   '(cider-jack-in :which-key "jack in")
+      "e"   '(:ignore t :which-key "eval")
+      "e e" '(cider-eval-last-sexp :which-key "last sexp")
+      "e f" '(cider-eval-defun-at-point :which-key "defun")
+      "e b" '(cider-eval-buffer :which-key "buffer")
+      "s"   '(:ignore t :which-key "repl")
+      "s s" '(cider-switch-to-repl-buffer :which-key "switch to repl")
+      "t"   '(:ignore t :which-key "test")
+      "t t" '(cider-test-run-test :which-key "test at point")
+      "t n" '(cider-test-run-ns-tests :which-key "ns tests")))
+
+  (use-package lispyville
+    :ensure t
+    :hook ((emacs-lisp-mode clojure-mode clojurescript-mode clojurec-mode
+            lisp-mode scheme-mode) . lispyville-mode)
+    :config
+    (lispyville-set-key-theme
+     '(operators c-w prettify text-objects atom-motions
+       additional additional-insert slurp/barf-lispy commentary)))
+#+end_src
+
+* Nix
+
+This repository is a Nix flake, so =.nix= gets a real mode.  [[https://github.com/nix-community/nix-ts-mode][nix-ts-mode]]
+(nix-community, MELPA) is the tree-sitter mode for it; Emacs 31.1 ships no Nix
+mode of its own and no =.nix= entry in =auto-mode-alist=.
+
+It needs the =nix= grammar (see Prog ▸ Tree-sitter): =M-x
+treesit-install-language-grammar= then =nix=, or =M-x
+treesit-auto-install-all=, which knows the same grammar URL.  Without it
+=nix-ts-mode= still loads -- its body is guarded by =treesit-ready-p= -- but
+degrades to a plain =prog-mode= with a warning rather than prompting or
+erroring.
+
+Fontification runs at the stock =treesit-font-lock-level= 3, i.e. comments,
+builtins, constants, strings, paths, URIs, numbers, operators, keywords,
+function calls and definitions -- the same level every other =*-ts-mode= here
+uses.  nix-ts-mode also defines a decorative level 4 (parameters, properties,
+brackets, delimiters, the =@= pattern); raise =treesit-font-lock-level= if you
+want it, bearing in mind the variable is global.
+
+#+begin_src emacs-lisp
+  (use-package nix-ts-mode
+    :ensure t
+    :mode "\\.nix\\'")
+#+end_src
+
+* Org
+
+Built-in org (9.8.x); never installed via Elpaca, so the tangle/load in
+=init.el= cannot hit a mixed-version conflict.  [[https://github.com/snosov1/toc-org][toc-org]] maintains tagged in-file
+tables of contents and is enabled in Org buffers.
+
+#+begin_src emacs-lisp
+  (use-package org
+    :ensure nil
+    :init
+    (setq org-startup-indented t
+          org-hide-emphasis-markers t
+          org-src-fontify-natively t
+          org-edit-src-content-indentation 0
+          org-return-follows-link t)
+    :config
+    (my/local-leader
+      :keymaps 'org-mode-map
+      ""    '(:ignore t :which-key "org")
+      "t"   '(org-todo :which-key "todo")
+      "e"   '(org-export-dispatch :which-key "export")
+      "d"   '(:ignore t :which-key "dates")
+      "d s" '(org-schedule :which-key "schedule")
+      "d d" '(org-deadline :which-key "deadline")
+      "'"   '(org-edit-special :which-key "edit block")
+      "x"   '(org-toggle-checkbox :which-key "toggle checkbox")))
+
+  (use-package toc-org
+    :ensure t
+    :hook (org-mode . toc-org-mode))
+#+end_src
+
+* Markdown
+
+Emacs 31.1 ships =markdown-ts-mode= as an experimental, opt-in mode: it carries
+no autoload cookie and =.md= has no entry in the default =auto-mode-alist=, so
+this config enables it explicitly.  31.1 covers fontification, markup hiding,
+structure navigation, list/heading editing, tables and filling; there is no
+=markdown-ts-convert= or export helper in this release.
+
+Requires the =markdown= and =markdown-inline= grammars -- see Prog ▸
+Tree-sitter, or run =M-x markdown-ts-mode-install-parsers=.
+
+#+begin_src emacs-lisp
+  (use-package markdown-ts-mode
+    :ensure nil
+    :mode ("\\.md\\'" . markdown-ts-mode)
+    :config
+    (my/local-leader
+      :keymaps 'markdown-ts-mode-map
+      ""    '(:ignore t :which-key "markdown")
+      "TAB" '(markdown-ts-outline-cycle :which-key "outline cycle")
+      "h"   '(:ignore t :which-key "heading")
+      "h k" '(markdown-ts-promote :which-key "promote")
+      "h j" '(markdown-ts-demote :which-key "demote")
+      "m"   '(markdown-ts-toggle-hide-markup :which-key "toggle markup")
+      "x"   '(markdown-ts-toggle-checkbox :which-key "toggle checkbox")
+      "i"   '(markdown-ts-insert-structure :which-key "insert structure")))
+#+end_src
+
+* Terminal and REPL states
+
+Bedrock: terminal-like buffers should start in Emacs state so the terminal
+sees the keys.  vterm/eat are not installed by this config, so guard on them.
+
+#+begin_src emacs-lisp
+  (dolist (hook '(vterm-mode-hook eat-mode-hook term-mode-hook shell-mode-hook
+                  eshell-mode-hook))
+    (add-hook hook #'evil-emacs-state))
+#+end_src
