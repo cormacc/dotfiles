@@ -60,6 +60,13 @@ in
 
   homebrew = {
     enable = true;
+    # Without this, activation runs `brew bundle --no-upgrade`, which installs
+    # missing entries but never upgrades installed ones (emacs-app sat at 30.2
+    # while the pinned tap already carried 31.1). Trade-off: `darwin-rebuild
+    # switch` is no longer idempotent -- it upgrades every brew/cask below
+    # whenever the pinned taps advance. Tap contents move only on
+    # `nix flake update homebrew-core homebrew-cask` (mutableTaps = false).
+    onActivation.upgrade = true;
     brews = [
       "libtool"
       "libvterm"
