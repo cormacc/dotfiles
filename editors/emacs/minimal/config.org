@@ -63,33 +63,39 @@ block: Emacs reads the lexical-binding cookie from line 1 of =config.el=.
 * Startup
 ** Defaults
 
-Editor behaviour that needs no package.  =use-package emacs :ensure nil= is the
-Elpaca idiom for configuring built-ins without asking Elpaca to install them.
+Editor behaviour that needs no package, so no =use-package= wrapper --- the Org
+heading does the grouping, exactly as in [[#optimisation][Optimisation]].  Wrapping these in
+=(use-package emacs :ensure nil ...)= would add only a =(require 'emacs)= that
+cannot do anything, since =emacs= is always in =features=; =:init= and
+=:config= would then run in sequence with nothing to separate them.
+
+These are plain =setq=, not =:custom=, which is what a lazily loaded defcustom
+needs: =uniquify-buffer-name-style= and =xref-search-program= are assigned here
+and read when their files load later.
 
 #+begin_src emacs-lisp
-  (use-package emacs
-    :ensure nil
-    :init
-    (setq-default indent-tabs-mode nil
-                  tab-width 2
-                  fill-column 80)
-    (setq create-lockfiles nil
-          make-backup-files nil
-          require-final-newline t
-          sentence-end-double-space nil
-          uniquify-buffer-name-style 'forward
-          enable-recursive-minibuffers t
-          read-extended-command-predicate #'command-completion-default-include-p
-          completion-cycle-threshold 3
-          tab-always-indent 'complete
-          xref-search-program 'ripgrep)
-    :config
-    (column-number-mode 1)
-    (global-so-long-mode 1)
-    (delete-selection-mode 1)
-    (minibuffer-depth-indicate-mode 1)
-    (add-hook 'prog-mode-hook #'display-line-numbers-mode)
-    (add-hook 'before-save-hook #'delete-trailing-whitespace))
+  (setq-default indent-tabs-mode nil
+                tab-width 2
+                fill-column 80)
+
+  (setq create-lockfiles nil
+        make-backup-files nil
+        require-final-newline t
+        sentence-end-double-space nil
+        uniquify-buffer-name-style 'forward
+        enable-recursive-minibuffers t
+        read-extended-command-predicate #'command-completion-default-include-p
+        completion-cycle-threshold 3
+        tab-always-indent 'complete
+        xref-search-program 'ripgrep)
+
+  (column-number-mode 1)
+  (global-so-long-mode 1)
+  (delete-selection-mode 1)
+  (minibuffer-depth-indicate-mode 1)
+
+  (add-hook 'prog-mode-hook #'display-line-numbers-mode)
+  (add-hook 'before-save-hook #'delete-trailing-whitespace)
 #+end_src
 
 ** Run-time state hygiene (no-littering)
