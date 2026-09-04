@@ -12,12 +12,15 @@ Packages come from [[https://github.com/progfolio/elpaca][Elpaca]]; =org= itself
 Sources live in =dotfiles/editors/emacs/minimal/= and are symlinked out of store, so an edit here takes effect on the next =emacs= launch.
 
 
-* Table of Contents                                       :TOC_2:noexport:
+* Table of Contents                                       :TOC_2:
 - [[#header][Header]]
-- [[#core-configuration][Core configuration]]
+- [[#startup][Startup]]
   - [[#defaults][Defaults]]
-  - [[#startup-optimisation][Startup optimisation]]
-  - [[#keybindings][Keybindings]]
+  - [[#run-time-state-hygiene-no-littering][Run-time state hygiene (no-littering)]]
+  - [[#optimisation][Optimisation]]
+  - [[#restore-open-buffers][Restore open buffers]]
+- [[#keybindings][Keybindings]]
+  - [[#general][general]]
   - [[#evil][Evil]]
   - [[#session][Session]]
 - [[#layout-and-file-management][Layout and file management]]
@@ -27,7 +30,9 @@ Sources live in =dotfiles/editors/emacs/minimal/= and are symlinked out of store
   - [[#project][Project]]
   - [[#jump][Jump]]
 - [[#ui][UI]]
-  - [[#theme-and-font][Theme and font]]
+  - [[#fonts][Fonts]]
+  - [[#themes][Themes]]
+  - [[#landing-page][Landing page]]
 - [[#completion][Completion]]
   - [[#minibuffer][Minibuffer]]
   - [[#consult][consult]]
@@ -55,7 +60,7 @@ block: Emacs reads the lexical-binding cookie from line 1 of =config.el=.
   ;;; config.el --- tangled from config.org -*- lexical-binding: t; -*-
 #+end_src
 
-* Core configuration
+* Startup
 ** Defaults
 
 Editor behaviour that needs no package.  =use-package emacs :ensure nil= is the
@@ -87,6 +92,7 @@ Elpaca idiom for configuring built-ins without asking Elpaca to install them.
     (add-hook 'before-save-hook #'delete-trailing-whitespace))
 #+end_src
 
+** Run-time state hygiene (no-littering)
 =no-littering= keeps runtime state out of the top level of =~/.config/emacs=.
 It *must* load before any mode that reads or writes a state file, because those
 modes resolve their file variable when the mode is enabled: enabling
@@ -130,7 +136,7 @@ auto-revert of files changed on disk.  All of these now pick up the
     :config (global-auto-revert-mode 1))
 #+end_src
 
-** Startup optimisation
+** Optimisation
 
 Embedded from [[https://github.com/magnars/emacsd-reboot/blob/main/settings/fast-startup.el][magnars/emacsd-reboot]].
 
@@ -161,7 +167,12 @@ Embedded from [[https://github.com/magnars/emacsd-reboot/blob/main/settings/fast
      (makunbound 'file-name-handler-alist-original)))
 #+end_src
 
-** Keybindings
+
+** TODO Restore open buffers
+When we restart emacs using <SPC q r> we want to restore the open buffer set and window layout.
+
+* Keybindings
+** general
 
 =general.el= supplies the =SPC= leader and the =,= local leader.  =:ensure
 (:wait t)= is required because later blocks use general's own macros while the
@@ -507,7 +518,30 @@ Built-in =project.el=; no projectile.
 
 
 * UI
-** Theme and font
+
+** Fonts
+
+[[https://github.com/rainstormstudio/nerd-icons.el][nerd-icons]] supplies the glyphs that =dashboard= and the completion UIs draw.
+
+=:ensure t= is *not* optional here.  =init.el= leaves =use-package-always-ensure=
+at nil and sets =use-package-always-defer= to nil, so a bare =(use-package
+nerd-icons)= expands to a plain =(require 'nerd-icons nil nil)= with no Elpaca
+order behind it --- the package is never installed and the require aborts the
+rest of =config.el=.  No other package pulls it in: =dashboard= declares only
+=((emacs "27.1"))=.
+
+The glyphs need the =Symbols Nerd Font Mono= family --- the default value of
+=nerd-icons-font-family=.  =M-x nerd-icons-install-fonts= drops it in
+=~/.local/share/fonts=, outside Nix's control; add =nerd-fonts.symbols-only= to
+=dev/dev.nix= to have Home Manager own it instead.
+
+#+begin_src emacs-lisp
+  (use-package nerd-icons
+    :ensure t
+    :demand t)
+#+end_src
+
+** Themes
 [[https://protesilaos.com/emacs/ef-themes][ef-themes]] with a light/dark pair behind =SPC t T=. The default face uses the =Aporetic Sans Mono= family supplied by =aporetic-bin=.  =SPC t= collects the
 display toggles.
 
@@ -534,6 +568,32 @@ display toggles.
     "t n" '("line numbers" . display-line-numbers-mode)
     "t t" '("truncate lines" . toggle-truncate-lines)
     "t T" '("theme light/dark" . my/toggle-theme))
+#+end_src
+
+** Landing page
+
+[[https://github.com/emacs-dashboard/dashboard][dashboard]] as the startup buffer.  The two =elpaca-after-init-hook= entries are
+the upstream Elpaca recipe: Elpaca installs asynchronously, so the dashboard
+must be built after the queues drain rather than at =after-init-time=.
+
+The options are set in =:init=, before =dashboard-setup-startup-hook= reads
+them.  Installing [[#fonts][nerd-icons]] is necessary but not sufficient for icons:
+=dashboard-icon-type= is a defcustom gated on the two =set-*-icons= flags, so
+it evaluates to nil unless at least one of them is already non-nil.
+
+#+begin_src emacs-lisp
+  (use-package dashboard
+    :ensure t
+    :demand t
+    :init
+    (setq dashboard-center-content t
+          dashboard-vertically-center-content t
+          dashboard-set-heading-icons t
+          dashboard-set-file-icons t)
+    :config
+    (add-hook 'elpaca-after-init-hook #'dashboard-insert-startupify-lists)
+    (add-hook 'elpaca-after-init-hook #'dashboard-initialize)
+    (dashboard-setup-startup-hook))
 #+end_src
 
 * Completion
