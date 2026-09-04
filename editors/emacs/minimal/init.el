@@ -88,8 +88,18 @@
 (elpaca elpaca-use-package
   (elpaca-use-package-mode))
 
+;; `use-package-expand-minimally' nil wraps each :init/:config body in
+;; `condition-case-unless-debug', so a failing block reports
+;;   Error (use-package): PACKAGE/:config: <message>
+;; and the rest of config.el still loads.  With t the error propagates and
+;; silently truncates the file at the point of failure -- which is how a bare
+;; (require 'nerd-icons) once took out every block below it.
+;;
+;; Measured over the 38 use-package forms in config.el: expanded code grows
+;; 8.8k -> 25.8k chars and expansion takes 6.4ms -> 12.9ms, but startup is
+;; unchanged (median `emacs-init-time' 248ms either way, 3 runs each).
 (setq use-package-always-defer nil
-      use-package-expand-minimally t)
+      use-package-expand-minimally nil)
 
 ;;;; Literate configuration
 ;;
