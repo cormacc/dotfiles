@@ -24,12 +24,13 @@
   programs.wezterm.enable = true;
 
   home.packages = with pkgs; [
-    nerd-fonts.roboto-mono
-    nerd-fonts.jetbrains-mono
-    nerd-fonts.inconsolata
     nerd-fonts.hack
     nerd-fonts.fira-code
-    nerd-fonts.caskaydia-cove
+    nerd-fonts.iosevka
+    # "Symbols Nerd Font Mono": the default `nerd-icons-font-family'.  Emacs
+    # nerd-icons otherwise relies on `M-x nerd-icons-install-fonts' writing
+    # ~/.local/share/fonts/NFM.ttf, which Home Manager does not own.
+    nerd-fonts.symbols-only
 
     # Tools to help with nixpkg development...
     bundix
