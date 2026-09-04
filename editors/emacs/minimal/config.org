@@ -168,8 +168,77 @@ Embedded from [[https://github.com/magnars/emacsd-reboot/blob/main/settings/fast
 #+end_src
 
 
-** TODO Restore open buffers
-When we restart emacs using <SPC q r> we want to restore the open buffer set and window layout.
+** Restore open buffers
+
+=SPC q r= runs =restart-emacs=, which is =(save-buffers-kill-emacs nil t)=.  That
+runs =kill-emacs-query-functions= and =kill-emacs-hook=, where =desktop-save-mode=
+has installed =desktop-kill= and =desktop--on-kill=.  So the *save* side needs
+nothing but the mode.  =desktop-restore-frames= defaults to t, and that is the
+variable that carries the window and frame layout rather than just the buffer
+list.  Paths come from [[#run-time-state-hygiene-no-littering][no-littering]], which points =desktop-dirname= at
+=var/desktop/= --- so this block must stay after it.
+
+The *restore* side cannot use the built-in path.  =desktop.el= registers an
+=after-init-hook= entry that calls =desktop-read=, and =after-init-hook= is
+exactly where =init.el= puts =elpaca-process-queues=.  Elpaca has not installed
+anything yet, so buffers needing =clojure-mode= or =nix-ts-mode= would restore
+into =fundamental-mode=.  Restore on =elpaca-after-init-hook= instead.
+
+That built-in entry is guarded by ~(when desktop-save-mode ...)~, so the mode
+must *not* be enabled at load time or the desktop is read twice --- once too
+early, once correctly.  Loading =desktop.el= here is therefore safe; only
+=my/restore-session= turns the mode on, by which point the guard has already
+run and found it nil.
+
+=desktop-save= is t so a restart never stops to ask.  =desktop-load-locked-desktop=
+is ='check-pid=: a clean =SPC q r= releases the lock anyway, so this only applies
+after a crash (stale PID, loads silently) or with a second live Emacs on the
+same desktop directory (owner alive, correctly refuses).  The default ='ask=
+would instead prompt after every crash, and --- because its branch reads
+~(unless (daemonp) (y-or-n-p ...))~ --- would silently refuse to restore under a
+daemon.  ='check-pid= is only unsafe when =desktop-dirname= is on a remote
+mount; =var/desktop/= is local.
+
+The dashboard is the fallback for a genuinely fresh start.  The test is
+snapshotted into =my/desktop-available-p= at load time, *before* anything can
+write a desktop file, and [[#landing-page][Landing page]] does no startup wiring of its own ---
+otherwise =dashboard-setup-startup-hook= puts =dashboard-initialize= on
+=emacs-startup-hook=, which fires whatever this function decides and leaves a
+=*dashboard*= buffer behind a restored layout.
+
+Desktop only restores file-backed buffers plus modes registering a
+=desktop-buffer-mode-handlers= entry.  Dired is covered; Magit opts out; the
+terminal and REPL buffers from [[#terminal-and-repl-states][Terminal and REPL states]] do not come back.
+
+#+begin_src emacs-lisp
+  (defvar my/desktop-available-p nil
+    "Non-nil when a saved desktop existed at startup.
+Snapshotted before `desktop-save-mode' can write one, so it stays a
+statement about the previous session.")
+
+  (use-package desktop
+    :ensure nil
+    :demand t
+    :init
+    (setq desktop-save t
+          desktop-load-locked-desktop 'check-pid
+          desktop-restore-frames t)
+    :config
+    (setq my/desktop-available-p (file-exists-p (desktop-full-file-name))))
+
+  (defun my/restore-session ()
+    "Restore the saved desktop, or build the dashboard when there is none.
+Runs from `elpaca-after-init-hook', once every package is installed and
+activated, so restored buffers get their real major modes."
+    (desktop-save-mode 1)
+    (if my/desktop-available-p
+        (desktop-read)
+      (dashboard-setup-startup-hook)
+      (dashboard-insert-startupify-lists)
+      (dashboard-initialize)))
+
+  (add-hook 'elpaca-after-init-hook #'my/restore-session)
+#+end_src
 
 * Keybindings
 ** general
@@ -351,9 +420,38 @@ Leaving and re-entering Emacs.  ~restart-emacs~ is built in since Emacs 29 and
 restarts the process, so it applies to a standalone =Emacs.app= rather than an
 =emacsclient= frame.
 
+Restart and quit mean different things here: =q r= comes back to the session
+[[#restore-open-buffers][Restore open buffers]] saved, =q q= ends it.  Desktop cannot draw that
+distinction itself --- =save-buffers-kill-terminal= falls through to
+=save-buffers-kill-emacs=, which is exactly what =restart-emacs= calls, and the
+RESTART argument goes straight to =kill-emacs= in C without ever reaching
+=kill-emacs-query-functions=.  So the *commands* have to differ.
+
+Order inside =my/quit-emacs= is load-bearing.  =desktop-save-mode= goes off
+first, which makes the =desktop-kill= entry on =kill-emacs-query-functions=
+no-op; only then is the file removed.  Doing it the other way round hits
+~(unless desktop-dirname (read-directory-name "Directory for desktop file: "))~
+in =desktop-kill= and turns quitting into a prompt.  The file is deleted
+directly rather than with =desktop-remove=, because that function nulls
+=desktop-dirname= as a side effect and would leave =desktop--on-kill= resolving
+the lock name against nothing.
+
+An unclean exit still leaves a desktop behind, so a crash remains recoverable
+--- it is only a *deliberate* quit that discards the session.
+
 #+begin_src emacs-lisp
+  (defun my/quit-emacs ()
+    "Quit Emacs, discarding the saved session.
+The next launch starts fresh; use \\[restart-emacs] to come back to this one."
+    (interactive)
+    (desktop-save-mode 0)
+    (let ((file (desktop-full-file-name)))
+      (desktop-release-lock)
+      (when (file-exists-p file) (delete-file file)))
+    (save-buffers-kill-terminal))
+
   (my/leader
-    "q q" '("quit emacs" . save-buffers-kill-terminal)
+    "q q" '("quit emacs" . my/quit-emacs)
     "q r" '("restart emacs" . restart-emacs))
 #+end_src
 * Layout and file management
@@ -572,14 +670,20 @@ display toggles.
 
 ** Landing page
 
-[[https://github.com/emacs-dashboard/dashboard][dashboard]] as the startup buffer.  The two =elpaca-after-init-hook= entries are
-the upstream Elpaca recipe: Elpaca installs asynchronously, so the dashboard
-must be built after the queues drain rather than at =after-init-time=.
+[[https://github.com/emacs-dashboard/dashboard][dashboard]] as the startup buffer, shown only on a fresh start --- Elpaca
+installs asynchronously, so it is built after the queues drain rather than at
+=after-init-time=.
 
 The options are set in =:init=, before =dashboard-setup-startup-hook= reads
 them.  Installing [[#fonts][nerd-icons]] is necessary but not sufficient for icons:
 =dashboard-icon-type= is a defcustom gated on the two =set-*-icons= flags, so
 it evaluates to nil unless at least one of them is already non-nil.
+
+This block does *no* startup wiring: [[#restore-open-buffers][my/restore-session]] owns that, and calls
+=dashboard-setup-startup-hook= only when there is no desktop to restore.
+Calling it here instead would put =dashboard-initialize= on
+=emacs-startup-hook=, which fires regardless and leaves a =*dashboard*= buffer
+sitting behind a restored window layout.
 
 #+begin_src emacs-lisp
   (use-package dashboard
@@ -589,11 +693,7 @@ it evaluates to nil unless at least one of them is already non-nil.
     (setq dashboard-center-content t
           dashboard-vertically-center-content t
           dashboard-set-heading-icons t
-          dashboard-set-file-icons t)
-    :config
-    (add-hook 'elpaca-after-init-hook #'dashboard-insert-startupify-lists)
-    (add-hook 'elpaca-after-init-hook #'dashboard-initialize)
-    (dashboard-setup-startup-hook))
+          dashboard-set-file-icons t))
 #+end_src
 
 * Completion
