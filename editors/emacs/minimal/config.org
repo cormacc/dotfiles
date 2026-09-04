@@ -16,8 +16,9 @@ Sources live in =dotfiles/editors/emacs/minimal/= and are symlinked out of store
 - [[#header][Header]]
 - [[#core-configuration][Core configuration]]
   - [[#defaults][Defaults]]
-  - [[#evil][Evil]]
+  - [[#startup-optimisation][Startup optimisation]]
   - [[#keybindings][Keybindings]]
+  - [[#evil][Evil]]
   - [[#session][Session]]
 - [[#layout-and-file-management][Layout and file management]]
   - [[#windows][Windows]]
@@ -26,21 +27,23 @@ Sources live in =dotfiles/editors/emacs/minimal/= and are symlinked out of store
   - [[#project][Project]]
   - [[#jump][Jump]]
 - [[#ui][UI]]
+  - [[#theme-and-font][Theme and font]]
 - [[#completion][Completion]]
   - [[#minibuffer][Minibuffer]]
   - [[#consult][consult]]
   - [[#corfu][corfu]]
   - [[#embark-and-wgrep][embark and wgrep]]
-- [[#programming-tools][Programming tools]]
+- [[#tools][Tools]]
   - [[#git][Git]]
   - [[#tree-sitter][Tree-sitter]]
   - [[#editorconfig][editorconfig]]
   - [[#eglot][eglot]]
-- [[#languages-and-file-formats][Languages and file formats]]
-  - [[#clojure][Clojure]]
-  - [[#nix][Nix]]
+- [[#file-format-support][File format support]]
   - [[#org][Org]]
   - [[#markdown][Markdown]]
+- [[#language-support][Language support]]
+  - [[#clojure][Clojure]]
+  - [[#nix][Nix]]
 - [[#terminal-and-repl-states][Terminal and REPL states]]
 
 * Header
@@ -127,51 +130,35 @@ auto-revert of files changed on disk.  All of these now pick up the
     :config (global-auto-revert-mode 1))
 #+end_src
 
-** Evil
+** Startup optimisation
 
-Vim editing everywhere, with =evil-collection= supplying third-party bindings
-and =evil-surround= for =cs"'=-style edits.
-
-=evil-want-keybinding= must be nil before =evil= loads for =evil-collection= to
-take over.  =undo-redo= is Emacs 28+ native undo, so no =undo-tree= is needed.
+Embedded from [[https://github.com/magnars/emacsd-reboot/blob/main/settings/fast-startup.el][magnars/emacsd-reboot]].
 
 #+begin_src emacs-lisp
-  (use-package evil
-    :ensure t
-    :demand t
-    :init
-    (setq evil-want-integration t
-          evil-want-keybinding nil
-          evil-want-C-u-scroll t
-          evil-want-Y-yank-to-eol t
-          evil-undo-system 'undo-redo
-          evil-respect-visual-line-mode t
-          evil-split-window-below t
-          evil-vsplit-window-right t
-          evil-search-module 'evil-search)
-    :config
-    (evil-mode 1))
 
-  (use-package evil-collection
-    :ensure t
-    :after evil
-    :demand t
-    :config
-    (evil-collection-init))
+;; Set garbage collection threshold high for startup
+(setq gc-cons-threshold (* 1024 1024 100))
 
-  (use-package evil-surround
-    :ensure t
-    :after evil
-    :demand t
-    :config
-    (global-evil-surround-mode 1))
-#+end_src
+;; Set file-name-handler-alist
+(setq file-name-handler-alist-original file-name-handler-alist)
+(setq file-name-handler-alist nil)
 
-Elpaca installs asynchronously, so block here: everything below binds keys in
-Evil states and must not run before Evil exists.
+;; Keep tabs on startup time
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (message "Emacs ready in %s with %d garbage collections."
+                     (format "%.2f seconds"
+                             (float-time
+                              (time-subtract after-init-time before-init-time)))
+                     gcs-done)))
 
-#+begin_src emacs-lisp
-  (elpaca-wait)
+;; Reset to a lower value once startup has completed
+(run-with-idle-timer
+   5 nil
+   (lambda ()
+     (setq gc-cons-threshold (* 1024 1024 20))
+     (setq file-name-handler-alist file-name-handler-alist-original)
+     (makunbound 'file-name-handler-alist-original)))
 #+end_src
 
 ** Keybindings
@@ -256,23 +243,11 @@ with winum in [[#windows][Windows]].
 The compatibility contract: every prefix the leader offers, and nothing else.
 Anything not listed here or in a section below is deliberately absent.
 
-Each *leaf* lives in the section that owns its subject --- window commands in
-[[#windows][Windows]], buffer commands in [[#buffers][Buffers]], and so on --- together with the package
-configuration and any helper command it needs.  Deleting a section therefore
-takes its bindings with it.  One invariant keeps that safe:
+Top-level prefixes are created here.  Subject sections add their nested
+prefixes and leaves after this block, beside the commands they expose.
 
-#+begin_quote
-A prefix is created here and *only* here.  Sections add leaves.
-#+end_quote
-
-The reason is mechanical.  ~(cons "description" (make-sparse-keymap))~ builds a
-*new* keymap, so a second block creating the same prefix would discard the
-leaves the first one added.  With prefixes centralised, no section can clobber
-another, and re-evaluating a section is always safe.  This block must run
-before the sections that extend it --- which is simply file order.
-
-Only two leaves stay here: =SPC SPC= and =SPC h=, which belong to no subject
-but the leader itself.
+The =SPC SPC= and help leaves stay here because they belong to the leader
+itself.
 
 #+begin_src emacs-lisp
   (my/leader
@@ -300,6 +275,60 @@ returns a command that must exist when the binding is made.
 #+begin_src emacs-lisp
   (my/leader
     "m" (general-simulate-key "," :which-key "local leader"))
+#+end_src
+
+** Evil
+
+Vim editing everywhere, with =evil-collection= supplying third-party bindings
+and =evil-surround= for =cs"'=-style edits.
+
+=evil-want-keybinding= must be nil before =evil= loads for =evil-collection= to
+take over.  =undo-redo= is Emacs 28+ native undo, so no =undo-tree= is needed.
+
+#+begin_src emacs-lisp
+  (use-package evil
+    :ensure t
+    :demand t
+    :init
+    (setq evil-want-integration t
+          evil-want-keybinding nil
+          evil-want-C-u-scroll t
+          evil-want-Y-yank-to-eol t
+          evil-undo-system 'undo-redo
+          evil-respect-visual-line-mode t
+          evil-split-window-below t
+          evil-vsplit-window-right t
+          evil-search-module 'evil-search)
+    :config
+    (evil-mode 1))
+
+  (use-package evil-collection
+    :ensure t
+    :after evil
+    :demand t
+    :config
+    (evil-collection-init))
+
+  (use-package evil-surround
+    :ensure t
+    :after evil
+    :demand t
+    :config
+    (global-evil-surround-mode 1))
+#+end_src
+
+Elpaca installs asynchronously, so block here: everything below binds keys in
+Evil states and must not run before Evil exists.
+
+#+begin_src emacs-lisp
+  (elpaca-wait)
+
+  (my/leader
+    "h E"   (cons "Evil keymaps" (make-sparse-keymap))
+    "h E n" '("normal" . (lambda () (interactive) (describe-keymap evil-normal-state-map)))
+    "h E i" '("insert" . (lambda () (interactive) (describe-keymap evil-insert-state-map)))
+    "h E v" '("visual" . (lambda () (interactive) (describe-keymap evil-visual-state-map)))
+    "h E m" '("motion" . (lambda () (interactive) (describe-keymap evil-motion-state-map))))
 #+end_src
 
 ** Session
@@ -359,6 +388,7 @@ cannot do, because it rewrites the key text rather than the description.
       (delete-other-windows)))
 
   (my/leader
+    "w b" '("Goto minibuffer" . switch-to-minibuffer)
     "w v" '("split right" . split-window-right)
     "w s" '("split below" . split-window-below)
     "w d" '("delete" . delete-window)
@@ -477,7 +507,7 @@ Built-in =project.el=; no projectile.
 
 
 * UI
-
+** Theme and font
 [[https://protesilaos.com/emacs/ef-themes][ef-themes]] with a light/dark pair behind =SPC t T=. The default face uses the =Aporetic Sans Mono= family supplied by =aporetic-bin=.  =SPC t= collects the
 display toggles.
 
@@ -489,9 +519,9 @@ display toggles.
     ;; Set after load: `ef-themes-to-toggle' and `ef-themes-mixed-fonts' are
     ;; defvaralias-es onto the modus-themes variables, and assigning them
     ;; before the alias exists warns about overwriting the aliased value.
-    (setq ef-themes-to-toggle '(ef-day ef-night)
+    (setq ef-themes-to-toggle '(ef-maris-light ef-maris-dark)
           ef-themes-mixed-fonts t)
-    (load-theme 'ef-day :no-confirm)
+    (load-theme 'ef-maris-light :no-confirm)
     ;; Family name verified from the packaged font's metadata.
     (set-face-attribute 'default nil :family "Aporetic Sans Mono"))
 
@@ -627,8 +657,7 @@ back to the files.
 
 
 
-* Programming tools
-
+* Tools
 ** Git
 #+begin_src emacs-lisp
   ;; :demand t (not deferred to :commands): global-git-commit-mode only
@@ -733,7 +762,70 @@ Built-in LSP client.  Emacs 31 already maps =clojure-lsp=, =clangd= and
       "r" '("rename" . eglot-rename)
       "=" '("format buffer" . eglot-format-buffer)))
 #+end_src
-* Languages and file formats
+* File format support
+** Org
+
+Built-in org (9.8.x); never installed via Elpaca, so the tangle/load in
+=init.el= cannot hit a mixed-version conflict.  [[https://github.com/snosov1/toc-org][toc-org]] maintains tagged in-file
+tables of contents and is enabled in Org buffers.
+
+#+begin_src emacs-lisp
+(use-package org
+  :ensure nil
+  :init
+  (setq org-startup-indented t
+        org-hide-emphasis-markers t
+        org-src-fontify-natively t
+        org-edit-src-content-indentation 0
+        org-return-follows-link t)
+  :config
+  (my/local-leader
+    :keymaps 'org-mode-map
+    ""    (cons "org" (make-sparse-keymap))
+    "t"   '("todo" . org-todo)
+    "e"   '("export" . org-export-dispatch)
+    "d"   (cons "dates" (make-sparse-keymap))
+    "d s" '("schedule" . org-schedule)
+    "d d" '("deadline" . org-deadline)
+    "s"   (cons "subtree" (make-sparse-keymap))
+    "s d" '("demote" . org-demote-subtree)
+    "'"   '("edit block" . org-edit-special)
+    "x"   '("toggle checkbox" . org-toggle-checkbox)))
+
+(use-package toc-org
+  :ensure t
+  :hook (org-mode . toc-org-mode))
+#+end_src
+
+** Markdown
+
+Emacs 31.1 ships =markdown-ts-mode= as an experimental, opt-in mode: it carries
+no autoload cookie and =.md= has no entry in the default =auto-mode-alist=, so
+this config enables it explicitly.  31.1 covers fontification, markup hiding,
+structure navigation, list/heading editing, tables and filling; there is no
+=markdown-ts-convert= or export helper in this release.
+
+Requires the =markdown= and =markdown-inline= grammars -- see Prog ▸
+Tree-sitter, or run =M-x markdown-ts-mode-install-parsers=.
+
+#+begin_src emacs-lisp
+  (use-package markdown-ts-mode
+    :ensure nil
+    :mode ("\\.md\\'" . markdown-ts-mode)
+    :config
+    (my/local-leader
+      :keymaps 'markdown-ts-mode-map
+      ""    (cons "markdown" (make-sparse-keymap))
+      "TAB" '("outline cycle" . markdown-ts-outline-cycle)
+      "h"   (cons "heading" (make-sparse-keymap))
+      "h k" '("promote" . markdown-ts-promote)
+      "h j" '("demote" . markdown-ts-demote)
+      "m"   '("toggle markup" . markdown-ts-toggle-hide-markup)
+      "x"   '("toggle checkbox" . markdown-ts-toggle-checkbox)
+      "i"   '("insert structure" . markdown-ts-insert-structure)))
+#+end_src
+
+* Language support
 ** Clojure
 
 #+begin_src emacs-lisp
@@ -800,66 +892,6 @@ want it, bearing in mind the variable is global.
   (use-package nix-ts-mode
     :ensure t
     :mode "\\.nix\\'")
-#+end_src
-
-** Org
-
-Built-in org (9.8.x); never installed via Elpaca, so the tangle/load in
-=init.el= cannot hit a mixed-version conflict.  [[https://github.com/snosov1/toc-org][toc-org]] maintains tagged in-file
-tables of contents and is enabled in Org buffers.
-
-#+begin_src emacs-lisp
-  (use-package org
-    :ensure nil
-    :init
-    (setq org-startup-indented t
-          org-hide-emphasis-markers t
-          org-src-fontify-natively t
-          org-edit-src-content-indentation 0
-          org-return-follows-link t)
-    :config
-    (my/local-leader
-      :keymaps 'org-mode-map
-      ""    (cons "org" (make-sparse-keymap))
-      "t"   '("todo" . org-todo)
-      "e"   '("export" . org-export-dispatch)
-      "d"   (cons "dates" (make-sparse-keymap))
-      "d s" '("schedule" . org-schedule)
-      "d d" '("deadline" . org-deadline)
-      "'"   '("edit block" . org-edit-special)
-      "x"   '("toggle checkbox" . org-toggle-checkbox)))
-
-  (use-package toc-org
-    :ensure t
-    :hook (org-mode . toc-org-mode))
-#+end_src
-
-** Markdown
-
-Emacs 31.1 ships =markdown-ts-mode= as an experimental, opt-in mode: it carries
-no autoload cookie and =.md= has no entry in the default =auto-mode-alist=, so
-this config enables it explicitly.  31.1 covers fontification, markup hiding,
-structure navigation, list/heading editing, tables and filling; there is no
-=markdown-ts-convert= or export helper in this release.
-
-Requires the =markdown= and =markdown-inline= grammars -- see Prog ▸
-Tree-sitter, or run =M-x markdown-ts-mode-install-parsers=.
-
-#+begin_src emacs-lisp
-  (use-package markdown-ts-mode
-    :ensure nil
-    :mode ("\\.md\\'" . markdown-ts-mode)
-    :config
-    (my/local-leader
-      :keymaps 'markdown-ts-mode-map
-      ""    (cons "markdown" (make-sparse-keymap))
-      "TAB" '("outline cycle" . markdown-ts-outline-cycle)
-      "h"   (cons "heading" (make-sparse-keymap))
-      "h k" '("promote" . markdown-ts-promote)
-      "h j" '("demote" . markdown-ts-demote)
-      "m"   '("toggle markup" . markdown-ts-toggle-hide-markup)
-      "x"   '("toggle checkbox" . markdown-ts-toggle-checkbox)
-      "i"   '("insert structure" . markdown-ts-insert-structure)))
 #+end_src
 
 * Terminal and REPL states
