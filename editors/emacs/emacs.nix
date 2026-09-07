@@ -10,7 +10,7 @@ let
   };
 
   # Pinned 30.2 Emacs used only by the `semacs` alias below. Not on PATH.
-  spacemacsEmacs = (pkgsSpacemacs.emacsPackagesFor pkgsSpacemacs.emacs-pgtk).emacsWithPackages
+  spacemacsEmacs = (pkgsSpacemacs.emacsPackagesFor pkgsSpacemacs.emacs).emacsWithPackages
     (epkgs: [ epkgs.vterm ]);
 
   commonSessionVariables = {
@@ -31,18 +31,11 @@ in {
   programs.texlive.enable = true;
 
   home.packages = with pkgs; [
-    # aspell
-    # aspellDicts.en
-    # aspellDicts.ga
     (aspellWithDicts (dicts: with dicts; [en en-computers en-science ga]))
     aporetic-bin
     source-code-pro
     ripgrep
     gsettings-desktop-schemas
-    #vterm deps
-    # .. This is old/broken -- see https://weblog.zamazal.org/sw-problem-nixos-emacs-vterm/
-    # libvterm
-    # ... This allegedly isn't
     libvterm-neovim
     # org export
     zip #for ODT export
@@ -82,9 +75,6 @@ in {
   # Emacs and dependencies
   programs.emacs = {
     enable = true;
-    # Using pure GTK build for wayland, but not sure it's necessary...
-    # Tracking nixpkgs (31.x). Only Spacemacs stays pinned -- see above.
-    package = pkgs.emacs-pgtk;
     extraPackages = (epkgs: [ epkgs.vterm ]);
   };
 
@@ -129,11 +119,11 @@ in {
 
 
   # ... Doom emacs
-  programs.doom-emacs = {
-    enable = true;
-    provideEmacs = false;
-    doomDir = ./doom;
-  };
+  # programs.doom-emacs = {
+  #   enable = true;
+  #   provideEmacs = false;
+  #   doomDir = ./doom;
+  # };
 
 
   # ... Corgi emacs... a clojure-focused minimal config with spacemacs-like keybindings

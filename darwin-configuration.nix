@@ -77,7 +77,7 @@ in
       "emacs-app"
       "ghostty"
       "google-chrome"
-      "ungoogled-chromium"
+      # "ungoogled-chromium"
       "audacity"
       "reaper"
       "claude"
