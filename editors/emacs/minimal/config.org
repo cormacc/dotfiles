@@ -20,6 +20,7 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
   - [[#core-keybindings---leaders-and-prefixes][Core keybindings - leaders and prefixes]]
   - [[#session][Session]]
   - [[#editing-text][Editing text]]
+  - [[#indentation][Indentation]]
 - [[#layout-and-file-management][Layout and file management]]
   - [[#windows][Windows]]
   - [[#buffers][Buffers]]
@@ -76,7 +77,8 @@ Transcribed from =sensible-defaults=. TODO: review magnars' defaults for more.
         enable-recursive-minibuffers t
         read-extended-command-predicate #'command-completion-default-include-p
         completion-cycle-threshold 3
-        tab-always-indent 'complete
+        ;; TAB always re-indents; see Keybindings > Indentation.
+        tab-always-indent t
         xref-search-program 'ripgrep)
 
   (column-number-mode 1)
@@ -337,6 +339,33 @@ The next launch starts fresh; use \\[restart-emacs] to come back to this one."
   "; ;" '("comment dwim" . comment-dwim))
 #+end_src
 
+** Indentation
+:PROPERTIES:
+:CUSTOM_ID: indentation
+:END:
+
+=indent-for-tab-command= is the single context-aware entry point: it delegates to the buffer-local =indent-line-function=, and to =indent-region= when a region is active. =tab-always-indent= is =t= ([[#defaults][Defaults]]) rather than the more usual ='complete=, so TAB re-indents the line wherever point sits, instead of completing once the line is already indented. [[#corfu][corfu]] pops up by itself after two characters, and the global =M-TAB= (=completion-at-point=) covers an explicit request.
+
+Where the level comes from, per buffer:
+
+- =*-ts-mode= (nix, C, python, and code blocks in markdown) --- =treesit-indent=, i.e. the nesting depth of the node at point in the syntax tree.
+- Lisps --- =lisp-indent-line= / =clojure-indent-line=, from the sexp nesting and each symbol's indent spec.
+- Org --- =org-indent-line=, aligned to the enclosing headline, list item or block. TAB stays =org-cycle=: with =org-cycle-emulate-tab= at its default =t=, =org-cycle= calls the /global/ TAB binding when point is off a headline, so the same =indent-for-tab-command= runs there.
+- =markdown-ts-mode= --- TAB is =markdown-ts-outline-cycle= (visibility on a headline, nothing elsewhere), =markdown-ts-table-next-cell= in a table, and =indent-for-tab-command= in a fenced code block, where the embedded language's tree-sitter rules apply.
+
+Eglot adds no indentation: LSP has document and range formatting only, with no per-line indent request, so server-side layout stays on =, == (=eglot-format-buffer=) in [[#eglot][eglot]].
+
+Evil leaves TAB out of normal state, so without a binding a line can only be re-indented from insert state. =<tab>= is bound instead of =TAB=: the two are distinct events in a graphical frame, so =C-i= keeps =evil-jump-forward= (=evil-want-C-i-jump= is t by default). A terminal frame cannot tell them apart, and there =TAB= jumps rather than indents; =evil-indent= (===) is the fallback in either frame.
+
+=prog-mode-map= scopes it to programming buffers, so markup modes keep the TAB behaviour described above, and any major mode that binds =<tab>= itself still wins over this.
+
+#+begin_src emacs-lisp
+  (general-define-key
+   :states '(normal visual)
+   :keymaps 'prog-mode-map
+   "<tab>" '("indent line/region" . indent-for-tab-command))
+#+end_src
+
 * Layout and file management
 ** Windows
 :PROPERTIES:
@@ -436,19 +465,26 @@ All built-in; =SPC b b= is added by consult in [[#completion][Completion]].
 :CUSTOM_ID: files
 :END:
 
-All built-in; =SPC f r= is added by consult in [[#completion][Completion]]. =SPC f e i= opens this file.
+All built-in; =SPC f r= is added by consult in [[#completion][Completion]]. =SPC f e e= opens this file.
 
 #+begin_src emacs-lisp
-  (defun my/find-literate-config ()
-    "Open this configuration's `config.org'."
-    (interactive)
-    (find-file (expand-file-name "config.org" user-emacs-directory)))
+(defun my/find-literate-config ()
+  "Open this configuration's `config.org'."
+  (interactive)
+  (find-file (expand-file-name "config.org" user-emacs-directory)))
 
-  (my/leader
-    "f f" '("find file" . find-file)
-    "f s" '("save" . save-buffer)
-    "f S" '("save all" . save-some-buffers)
-    "f e i" '("config.org" . my/find-literate-config))
+(defun my/find-emacs-nix ()
+  "Open this configuration's `emacs.nix'."
+  (interactive)
+  (find-file (expand-file-name "~/dotfiles/editors/emacs/emacs.nix")))
+
+
+(my/leader
+  "f f" '("find file" . find-file)
+  "f s" '("save" . save-buffer)
+  "f S" '("save all" . save-some-buffers)
+  "f e e" '("config.org" . my/find-literate-config)
+  "f e n" '("emacs.nix" . my/find-emacs-nix))
 #+end_src
 
 ** Project
@@ -608,7 +644,7 @@ vertico + orderless + marginalia in the minibuffer; corfu in buffers; consult be
 
 ** corfu
 
-=tab-always-indent= is already ='complete= ([[#defaults][Defaults]]), so TAB both indents and completes.
+TAB is indentation only ([[#indentation][Indentation]]), so completion comes from =corfu-auto= or from an explicit =M-TAB=.
 
 #+begin_src emacs-lisp
   (use-package corfu
