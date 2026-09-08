@@ -20,6 +20,7 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
   - [[#core-keybindings---leaders-and-prefixes][Core keybindings - leaders and prefixes]]
   - [[#session][Session]]
   - [[#editing-text][Editing text]]
+  - [[#iedit][Simultaneous editing (iedit)]]
   - [[#indentation][Indentation]]
 - [[#layout-and-file-management][Layout and file management]]
   - [[#windows][Windows]]
@@ -337,6 +338,40 @@ The next launch starts fresh; use \\[restart-emacs] to come back to this one."
 #+begin_src emacs-lisp
 (my/leader
   "; ;" '("comment dwim" . comment-dwim))
+#+end_src
+
+** Simultaneous editing (iedit)
+:PROPERTIES:
+:CUSTOM_ID: iedit
+:END:
+
+[[https://github.com/victorhge/iedit][iedit]] edits every occurrence of a symbol at once, and [[https://github.com/syl20bnr/evil-iedit-state][evil-iedit-state]] wraps it in the two Evil states Spacemacs uses, so =SPC s e= works as it does there.
+
+What starts: from visual state the selection is the occurrence; from normal state it is the thing at point (=iedit-default-occurrence= --- symbol, word, url, email or markup tag); =C-u SPC s e= recovers the occurrence from the last iedit in this buffer, =C-u C-u SPC s e= the last one in any buffer; =M-0 SPC s e= limits the match to the current function.
+
+=iedit state= inherits normal state, so ordinary motions still work. On top: =n= / =N= next and previous occurrence, =gg= / =G= first and last, =0= / =$= start and end of the occurrence, =TAB= toggle the occurrence at point, =D= delete the occurrences, =S= delete them and enter =iedit-insert state=, =p= replace them with the last yank, =F= / =L= restrict the scope to the function or the line, =J= / =K= grow it one line down or up, =#= number the occurrences, =V= hide the lines with no occurrence, =U= up-case and =C-S-u= down-case. =ESC= or =C-g= leaves; from =iedit-insert state=, =ESC= returns to =iedit state= and =C-g= goes straight to normal state.
+
+=iedit= is in the tree already as a [[#clojure][lispy]] dependency, but it is declared here because =iedit-toggle-key-default= must be nil before it loads: iedit otherwise claims the global =C-;= and starts plain =iedit-mode=, outside the Evil state.
+
+=evil-iedit-state= carries a 2014 copy of =iedit-done=, redefined only to stop iedit pushing the occurrence onto the kill ring. iedit has had =iedit-auto-save-occurrence-in-kill-ring= for that since, and its own =iedit-done= has moved on: the copy drops the =iedit-occurrence-type-global= hand-over that =C-u C-u= reads back, drops the =widen= that ends a scope narrowed under =iedit-auto-narrow=, and repeats buffering cleanup that =iedit-lib-cleanup= now does with kmacro support. Loading =iedit= again after the package restores the upstream definition, and the option covers the kill ring.
+
+#+begin_src emacs-lisp
+  (use-package iedit
+    :ensure t
+    :commands (iedit-mode)
+    :init
+    (setq iedit-toggle-key-default nil
+          iedit-auto-save-occurrence-in-kill-ring nil))
+
+  (use-package evil-iedit-state
+    :ensure t
+    :commands (evil-iedit-state/iedit-mode)
+    :config
+    ;; Put the upstream `iedit-done' back over the package's stale copy.
+    (load "iedit" nil t))
+
+  (my/leader
+    "s e" '("iedit occurrences" . evil-iedit-state/iedit-mode))
 #+end_src
 
 ** Indentation
