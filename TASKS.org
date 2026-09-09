@@ -178,3 +178,15 @@ Origin:
 - Blocked by `0e5c627e-1297-4609-8d11-5081c6dae485` (LAN Caddy).
 - timestamp: [2026-05-29 Fri]
 - sender: agent
+
+** STARTED Setup minecraft with the SWEM mod
+:PROPERTIES:
+:CUSTOM_ID: eba242ca-609a-44f6-92db-8a473421873d
+:CREATED: [2026-09-09 Wed 20:01]
+:STARTED: [2026-09-09 Wed 21:22]
+:END:
+:LOGBOOK:
+- Created [2026-09-09 Wed 20:01]
+- State "STARTED" from "TODO" [2026-09-09 Wed 21:22]
+:END:
+#+IMPORT: [[plan:2026-09-09-setup-minecraft-with-the-swem-mod.org]]
