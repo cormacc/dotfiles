@@ -20,7 +20,9 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
   - [[#core-keybindings---leaders-and-prefixes][Core keybindings - leaders and prefixes]]
   - [[#session][Session]]
   - [[#editing-text][Editing text]]
+  - [[#expand-region][Expand region]]
   - [[#iedit][Simultaneous editing (iedit)]]
+  - [[#multiple-cursors][Multiple cursors]]
   - [[#indentation][Indentation]]
 - [[#layout-and-file-management][Layout and file management]]
   - [[#windows][Windows]]
@@ -340,6 +342,28 @@ The next launch starts fresh; use \\[restart-emacs] to come back to this one."
   "; ;" '("comment dwim" . comment-dwim))
 #+end_src
 
+** Expand region
+:PROPERTIES:
+:CUSTOM_ID: expand-region
+:END:
+
+[[https://github.com/magnars/expand-region.el][expand-region]] grows the selection one semantic unit at a time --- symbol, string, inside the delimiters, the sexp, the defun --- where an Evil text object needs the shape named up front. =SPC e= starts it; then =e= expands again, =-= contracts and =0= resets. The repeat key is the last key of the invoking sequence, which is what makes it =e= here; =-= and =0= are the upstream =expand-region-contract-fast-key= and =expand-region-reset-fast-key= defaults (Spacemacs' =V= / =r= remap sits inside their helm-ag branch, so it does not apply).
+
+No Evil wrapper is needed. expand-region activates the mark, Evil's =evil-visual-activate-hook= then enters visual state, and the visual selection matches the unit exactly. Measured on =(defun f (x) (+ x 1))= with point at =x 1=: =SPC e= selects =x=, then =e= gives =+ x 1=, =e= gives =(+ x 1)=, =e= gives =defun f (x) (+ x 1)=; at that point =d= deletes =(+ x 1)= and =c= replaces it. Starting from a selection behaves the same (=v i w SPC e= gives =+ x 1=). While visual state is inclusive, =region-end= reads one character short of the selection --- Evil's operators use =evil-visual-end=, so only code that inspects the region needs to know.
+
+The selection is a live region, so it feeds the next two sections: =SPC s e= takes it as the [[#iedit][iedit]] occurrence, and =SPC s m a= as the [[#multiple-cursors][multiple-cursors]] match.
+
+=evil-iedit-state= also advises expand-region to add "=e= to edit", but expand-region defines the repeat key last, so =e= expands: measured, pressing =e= went from =x= to =+ x 1= with =iedit-mode= still nil. The echo-area hint still advertises it; =SPC s e= is the way in.
+
+#+begin_src emacs-lisp
+  (use-package expand-region
+    :ensure t
+    :commands (er/expand-region))
+
+  (my/leader
+    "e" '("expand region" . er/expand-region))
+#+end_src
+
 ** Simultaneous editing (iedit)
 :PROPERTIES:
 :CUSTOM_ID: iedit
@@ -372,6 +396,63 @@ What starts: from visual state the selection is the occurrence; from normal stat
 
   (my/leader
     "s e" '("iedit occurrences" . evil-iedit-state/iedit-mode))
+#+end_src
+
+** Multiple cursors
+:PROPERTIES:
+:CUSTOM_ID: multiple-cursors
+:END:
+
+[[https://github.com/magnars/multiple-cursors.el][multiple-cursors]] puts a real cursor at several places at once, for the cases [[#iedit][iedit]] does not cover: text that differs between the occurrences, one cursor per line of a selection, and numbering or sorting the regions. Bindings follow the Spacemacs =multiple-cursors= layer, whose =mc= backend they are taken from.
+
+multiple-cursors is an Emacs-region tool, not an Evil one, and that decides the workflow. Its entry points test =region-active-p=, and Evil normal state leaves =transient-mark-mode= nil, so =mc/mark-all-like-this= called from normal state fails with "Mark a region to match first". Start from *visual state*:
+
+1. select the text (=v e=, =v i w=, =V j j= for whole lines);
+2. =SPC s m a= (or =b=, or =r= for one cursor per line);
+3. =ESC= to leave visual state --- the cursors stay;
+4. =i=, =I= or =A=, then type: the insertion is mirrored at every cursor;
+5. =ESC=, then =C-g= (or =SPC s m q=) to end multiple-cursors editing.
+
+Evil *operators* are the part that does not carry over, because =mc/cursor-specific-vars= tracks 21 variables for each fake cursor and not one of them belongs to Evil. Measured on =foo foo foo= with a cursor on each match: =ciw bar= gives =bar baro baro=, =x= gives =fo o o=, =dw= gives =fobar o bar o bar=. Insert-state typing, =A=, =mc/edit-lines= and =mc/insert-numbers= are all correct. So: iedit for renaming a symbol, multiple-cursors for typing the same new text in several places, and no evil operator in between.
+
+=mc/always-run-for-all= is t, as in the Spacemacs layer. With the default whitelist, mc asks "execute for all cursors?" for every command it does not know, and under Evil almost every command is one it does not know: =mc--default-cmds-to-run-for-all= holds 77 entries and none of them is an Evil command. The cost is that commands are mirrored per cursor, so a leader command that opens a UI runs once per cursor --- hence the additions to =mc/cmds-to-run-once= below, which is also the escape hatch for anything else that misbehaves.
+
+=mc/keymap= is a minor-mode map, and it outranks Evil's state maps: measured with cursors active, =C-g= reaches =mc/keyboard-quit= and =<return>= reaches =multiple-cursors-mode= in both normal and insert state. That =<return>= binding ends the session instead of inserting a newline, and only in a graphical frame --- a terminal sends =RET=, which mc does not bind. It is unbound here, so RET inserts a newline at every cursor in either kind of frame, and =C-g= remains the way out. =ESC= is left alone: bound in =mc/keymap= it would shadow Evil's own insert-state exit.
+
+[[#run-time-state-hygiene-no-littering][no-littering]] already points =mc/list-file= at =var/mc-list.el=, so the whitelist answers do not land at the top of =~/.config/emacs=.
+
+#+begin_src emacs-lisp
+  (use-package multiple-cursors
+    :ensure t
+    :commands (mc/mark-all-dwim mc/mark-all-like-this mc/mark-more-like-this-extended
+               mc/edit-lines mc/insert-letters mc/insert-numbers mc/mark-sgml-tag-pair
+               mc/sort-regions mc/reverse-regions set-rectangular-region-anchor
+               mc/keyboard-quit)
+    :init
+    (setq mc/always-run-for-all t)
+    :config
+    ;; RET types a newline at every cursor; C-g ends the session.
+    (keymap-unset mc/keymap "<return>" t)
+    ;; Commands that open a UI, and so must not run once per cursor.
+    (dolist (cmd '(consult-line consult-buffer consult-ripgrep consult-recent-file
+                   embark-act magit-status project-find-file project-switch-project
+                   eca eca-chat-toggle-window my/quit-emacs restart-emacs))
+      (add-to-list 'mc/cmds-to-run-once cmd)))
+
+  (my/leader
+    "s m"   (cons "multiple cursors" (make-sparse-keymap))
+    "s m a" '("mark all dwim" . mc/mark-all-dwim)
+    "s m b" '("mark all like this" . mc/mark-all-like-this)
+    "s m m" '("mark more (extended)" . mc/mark-more-like-this-extended)
+    "s m r" '("one cursor per line" . mc/edit-lines)
+    "s m q" '("stop cursors" . mc/keyboard-quit)
+    "s m s"   (cons "specials" (make-sparse-keymap))
+    "s m s l" '("insert letters" . mc/insert-letters)
+    "s m s m" '("mark sgml tag pair" . mc/mark-sgml-tag-pair)
+    "s m s n" '("insert numbers" . mc/insert-numbers)
+    "s m s r" '("rectangular anchor" . set-rectangular-region-anchor)
+    "s m s s" '("sort regions" . mc/sort-regions)
+    "s m s t" '("reverse regions" . mc/reverse-regions))
 #+end_src
 
 ** Indentation
