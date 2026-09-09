@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>Minecraft with SWEM horses: install guide</title>
+<style>
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    max-width: 46em;
+    margin: 2em auto;
+    padding: 0 1em;
+    line-height: 1.5;
+    color: #202020;
+    background: #fefefe;
+  }
+  h1 { font-size: 1.6em; margin-bottom: 0.2em; }
+  h2 {
+    margin-top: 2em;
+    padding: 0.4em 0.6em;
+    border-radius: 6px;
+  }
+  h2.grownup { background: #e6eef7; border-left: 6px solid #2f6fab; }
+  h2.kid { background: #eaf6ea; border-left: 6px solid #3a8a3a; }
+  h3 { margin-top: 1.4em; }
+  ol { padding-left: 1.4em; }
+  li { margin-bottom: 0.6em; }
+  .note {
+    background: #fff8e6;
+    border: 1px solid #e0c060;
+    border-radius: 6px;
+    padding: 0.7em 1em;
+    margin: 1em 0;
+  }
+  .slow {
+    background: #f3f0fb;
+    border: 1px solid #a898d8;
+    border-radius: 6px;
+    padding: 0.7em 1em;
+    margin: 1.5em 0;
+  }
+  .slow ol { margin: 0.4em 0 0 0; }
+  code {
+    background: #eee;
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    font-size: 0.95em;
+  }
+  a { color: #2f6fab; }
+  .word { font-style: italic; }
+  footer {
+    margin-top: 2.5em;
+    padding-top: 0.6em;
+    border-top: 1px solid #ccc;
+    font-size: 0.9em;
+    color: #555;
+  }
+</style>
+</head>
+<body>
+
+<h1>Minecraft with SWEM horses: install guide</h1>
+<p>This guide sets up Minecraft with the SWEM mod (it adds rideable, tackable horses) on the Pi 500+. Do the "Grown-up part" first. Then do the "Your part" together.</p>
+
+<h2 class="grownup">Grown-up part</h2>
+<p>These four steps need an adult, because they involve an account, money, and a first sign-in.</p>
+<div class="note">One honest note: Pi-Apps' own installer says its Raspberry Pi graphics fix is only checked to work up to an older Minecraft version (1.19.2), not our newer 1.21.1 with mods — so it might run slowly, or not at all, on the Pi. If that happens, the "If it is slow" box further down has the plan for what to try next.</div>
+<ol>
+  <li>Add her to your Microsoft family group and give consent for her account, if she does not already have one in it. Microsoft explains the steps here: <a href="https://support.microsoft.com/en-us/family-safety/set-up-microsoft-family-safety">Set up Microsoft Family Safety</a>.</li>
+  <li>On her Microsoft account, buy <strong>"Minecraft: Java &amp; Bedrock Edition for PC"</strong> at the official store page: <a href="https://www.minecraft.net/en-us/store/minecraft-java-bedrock-edition-pc">minecraft.net</a>. This is the edition that supports mods; the Bedrock edition you already own does not.</li>
+  <li>Do not write her Microsoft password anywhere in this guide or on a sticky note. Type it together, at the keyboard, when asked.</li>
+  <li>The first time her account signs in to Prism Launcher (in "Your part", step 6), stay with her: the first sign-in asks extra questions that a later sign-in will not.</li>
+</ol>
+
+<h2 class="kid">Your part</h2>
+<p>Below you will set up one <span class="word">instance</span> (instance: one self-contained copy of Minecraft, with its own version, mods, and settings, kept separate from any other copy) called <strong>SWEM</strong>.</p>
+
+<h3>1. Install Pi-Apps</h3>
+<ol>
+  <li>Open the Pi's terminal (terminal: a plain black window where you type commands instead of clicking).</li>
+  <li>Type this line exactly and press Enter: <code>wget -qO- https://raw.githubusercontent.com/Botspot/pi-apps/master/install | bash</code></li>
+  <li>Wait until the window says the install has finished, then close it.</li>
+</ol>
+<p>Source: <a href="https://pi-apps.io/install/">Pi-Apps install page</a>.</p>
+
+<h3>2. Install Prism Launcher from Pi-Apps</h3>
+<ol>
+  <li>Open Pi-Apps from the Pi's main menu.</li>
+  <li>Click the "Games" category.</li>
+  <li>Scroll down to find "Minecraft Java Prism Launcher" and click Install.</li>
+  <li>Wait for Pi-Apps to say the install is finished.</li>
+</ol>
+<p>Source: <a href="https://pi-apps.io/install-app/install-minecraft-java-prism-launcher-on-raspberry-pi/">Pi-Apps: install Minecraft Java Prism Launcher</a>.</p>
+
+<h3>3. Make the SWEM instance (1.21.1 / NeoForge)</h3>
+<ol>
+  <li>Open Prism Launcher: Menu &gt; Games &gt; Prism Launcher.</li>
+  <li>Click "Add Instance…".</li>
+  <li>Name the new instance <code>SWEM</code>.</li>
+  <li>Choose Minecraft version <code>1.21.1</code>.</li>
+  <li>Choose <span class="word">NeoForge</span> as the <span class="word">loader</span> (loader: the extra program inside the instance that lets mods run). Do not choose Forge or Fabric.</li>
+  <li>Click OK and wait for it to download.</li>
+</ol>
+<p>Source: <a href="https://prismlauncher.org/wiki/getting-started/create-instance/">Prism Launcher wiki: Creating an Instance</a>.</p>
+
+<h3>4. Add SWEM, GeckoLib, and Player Animator</h3>
+<ol>
+  <li>Right-click the SWEM instance and choose Edit…, then open the Mods tab.</li>
+  <li>Click "Download mods" and choose the CurseForge tab.</li>
+  <li>Search for <strong>SWEM</strong>, choose "Star Worm Equestrian (Upgrading Horses)", and pick the file made for Minecraft 1.21.1 and NeoForge: <code>swem-1.21.1-1.6.12.jar</code>.</li>
+  <li>Search for <strong>GeckoLib</strong> and pick the newest file offered for Minecraft 1.21.1 and NeoForge.</li>
+  <li>Search for <strong>Player Animator</strong> and pick the newest file offered for Minecraft 1.21.1 and NeoForge.</li>
+  <li>Click OK and wait for all three to download and appear ticked (enabled) on the Mods tab.</li>
+</ol>
+<div class="note">If CurseForge shows an "Update" button next to a mod later on, leave it alone. These versions are chosen on purpose so everything keeps working together.</div>
+<p>Source: <a href="https://www.curseforge.com/minecraft/mc-mods/swem">CurseForge: SWEM (Star Worm Equestrian)</a>.</p>
+
+<h3>5. Turn on Java 21 and memory, then turn off entity shadows</h3>
+<div class="note">This step assumes the Pi 500+'s 16 GB of memory. If your Pi has less memory than that, ask an adult before using the number below — a smaller Pi may need a smaller number here, or the game can freeze instead of starting.</div>
+<ol>
+  <li>Right-click the SWEM instance, choose Edit…, then choose Settings in the list on the left, and open the Java tab.</li>
+  <li>Tick the box titled "Java installation" — ticking it turns on custom Java settings for just this instance.</li>
+  <li>Click "Auto-detect…" and choose an entry that shows version 21. Minecraft 1.21.1 will not start on an older Java version.</li>
+  <li>If no entry shows version 21 (the Pi's own installer only promises Java 8 and 17 by default), click "Download Java" instead and choose 21 there.</li>
+  <li>Tick the box titled "Memory".</li>
+  <li>Set "Maximum memory allocation:" — programmers call this the <span class="word">heap</span> (heap: the block of computer memory that Minecraft is allowed to use) — to <code>6144</code>.</li>
+  <li>Start the SWEM instance once, open Options…, then Video Settings…, and set "Entity Shadows" to Off. This stops the SWEM horses' animations from glitching.</li>
+</ol>
+<p>Source: <a href="https://wiki.swequestrian.com/books/star-worm-equestrian/page/installing-mods">SWEM wiki: Installing Mods</a>.</p>
+
+<h3>6. First launch</h3>
+<ol>
+  <li>Double-click the SWEM instance (or select it and click "Launch" in the toolbar) to start it.</li>
+  <li>Sign in with her Microsoft account when asked (a grown-up should be there for this first time — see the Grown-up part).</li>
+  <li>Once Minecraft opens, click Singleplayer, then Create New World, and wait for the world to load.</li>
+</ol>
+
+<h3>7. Make the desktop shortcut</h3>
+<ol>
+  <li>In Prism Launcher, right-click the SWEM instance and choose "Create Shortcut".</li>
+  <li>Find the new shortcut on the desktop and try it once: it should start the SWEM instance directly, without opening Prism Launcher's main window first.</li>
+</ol>
+
+<div class="slow">
+<strong>If it is slow</strong> (the game feels jerky or the numbers in the corner, F3, show low FPS), try these in order:
+<ol>
+  <li>Add the Sodium mod (the NeoForge build) to make Minecraft draw the screen faster.</li>
+  <li>If that is still not enough, switch to the older 1.20.1 Forge version of SWEM instead.</li>
+  <li>If that is still not enough, play on the Chromebook instead of the Pi.</li>
+</ol>
+</div>
+
+<footer>
+  This guide never asks for or stores a password. Type account details directly into Microsoft's or Minecraft's own sign-in screens, never into this file.
+</footer>
+
+</body>
+</html>

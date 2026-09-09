@@ -77,3 +77,15 @@ The hermes agent instance should own the following:
 :END:
 #+IMPORT: [[plan:2026-10-21-remove-hermes-from-all-hosts.org]]
 The owner abandoned Hermes on 2026-10-21. Remove the hermes-agent flake input, overlay and NixOS module (nas, xps15), the services.hermes-agent block and /opt/homelab-agent mount in hosts/odroid-h4/homelab-agent.nix, the disabled Python UniFi unit, hermes-agent in dev/dev-linux.nix, the hermes-desktop cask, and Hermes mentions in docs. Keep hosts/odroid-h4/sudo-authorization.nix (global sudo ticket). The NAS switch unblocks the homelab-agent UniFi collector task. Record /var/lib/hermes and container state before deletion; deletion needs separate approval.
+
+** STARTED Setup minecraft with the SWEM mod
+:PROPERTIES:
+:CUSTOM_ID: eba242ca-609a-44f6-92db-8a473421873d
+:CREATED: [2026-09-09 Wed 20:01]
+:STARTED: [2026-09-09 Wed 21:22]
+:END:
+:LOGBOOK:
+- Created [2026-09-09 Wed 20:01]
+- State "STARTED" from "TODO" [2026-09-09 Wed 21:22]
+:END:
+#+IMPORT: [[plan:2026-09-09-setup-minecraft-with-the-swem-mod.org]]

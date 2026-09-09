@@ -1,0 +1,179 @@
+#+TITLE: Setup minecraft with the SWEM mod
+#+DATE: 2026-09-09 Wed
+#+PARENT: [[task:eba242ca-609a-44f6-92db-8a473421873d][Setup minecraft with the SWEM mod]]
+#+SETUPFILE: ../../TASKS.setup.org
+#+STATUS: Accepted
+#+NO_SPEC: true
+
+* Intent
+
+Give my daughter a reliable, adult-free way to play Minecraft with the Star Worm Equestrian Mod (SWEM). Decide between a local install and a LAN server, state plainly which of her devices can take part, and keep the setup out of the Nix flake because the Pi is not Nix-managed and the world is disposable.
+
+* Summary
+
+*Level:* MVP · *Tests:* smoke · *Docs:* README
+
+Decision: install everything locally on the Pi 500+ (Prism Launcher, pinned NeoForge 1.21.1 instance, SWEM + dependencies), following a kid-friendly HTML install guide written first so parent and daughter can work through it together. No server, no backup, nothing in the flake. Only the Pi 500+ (and, as a fallback, the Chromebook via its Linux container) can run SWEM; the Nintendo Switch and the Android tablet cannot, under any architecture.
+
+** Scope
+
+*** In scope
+- Prism Launcher on the Pi 500+ via Pi-Apps, with the Mesa GL-version override Pi-Apps configures.
+- One pinned instance: MC 1.21.1, NeoForge, SWEM 1.21.1-1.6.12, GeckoLib, Player Animator; 6 GiB max heap; entity shadows off.
+- A viability gate (median F3 FPS ≥ 25 with a SWEM horse in view) before any effort on polish, with ordered fallbacks.
+- A desktop shortcut that launches the instance directly and carries the Mesa override.
+- A kid-friendly HTML install guide with links (=2026-09-09-setup-minecraft-with-the-swem-mod/install-guide.html=), written before the install and revised after the viability gate; it doubles as the reinstall how-to.
+
+*** Out of scope
+- Any Minecraft server (on =nas= or elsewhere), Geyser/Floodgate or any Bedrock bridge.
+- Serving the Switch or the Android tablet: SWEM is a Java Edition mod required client-side; Geyser cannot translate modded content (Geyser FAQ).
+- World backups or snapshots: the world is declared disposable.
+- Any change to the Nix flake, NixOS hosts, or Home Manager.
+- Multiplayer; a second player would need their own Java licence and a server (see Follow-ups).
+
+** Acceptance
+
+*** Core functionality
+- [ ] From the Pi 500+ desktop, one launcher entry starts Minecraft 1.21.1 + NeoForge + SWEM (+ GeckoLib, Player Animator) with no password prompt after the first login.
+- [ ] In a world, a SWEM horse spawns.
+- [ ] A SWEM tack item can be equipped on that horse.
+- [ ] Median FPS ≥ 25 (F3 overlay) with a SWEM horse in view at the pinned settings.
+- [ ] After a Pi reboot the same world opens with progress intact.
+- [ ] Minecraft, NeoForge, SWEM and dependency versions are pinned in the Prism instance; nothing auto-updates.
+- [ ] =install-guide.html= opens in a browser on the Pi and its steps match the settings that passed the gate.
+- [ ] Every hyperlink in =install-guide.html= returns HTTP 200 (or 403 from CurseForge's bot filter, which is browser-reachable).
+
+*** Edge cases
+- [ ] The direct-launch shortcut still starts the game after the system =org.prismlauncher.PrismLauncher.desktop= is rewritten without the Mesa override (the shortcut carries the env itself).
+
+*** Anti-criteria
+- Must not: expose any port to the internet.
+- Must not: add a Geyser/Bedrock bridge or touch the Switch or tablet.
+- Must not: depend on "latest" for MC, loader, or any mod.
+- Must not: add anything to the Nix flake or NixOS host configs.
+
+** Decisions
+- Chose A (local single-player on the Pi 500+, no backup) :: single player, disposable world, one machine, works with the LAN or =nas= down; the client renders SWEM locally regardless of where the world lives, so a server would not reduce the Pi rendering risk. Rejected:
+  - B (NeoForge server on =nas= via the nix-minecraft flake, Pi as client): adds a second install whose SWEM/NeoForge versions must match the client exactly, a LAN dependency, and a =nas= rebuild; buys world safety and multiplayer that are not wanted now. Retained as the follow-up path if a second player appears; =nas= (NixOS 26.11, Intel N97, 30 GiB RAM, ZFS, Docker) is ample, and nix-minecraft packages NeoForge ≥ 20.4.240 (MC 1.20.4+), covering SWEM's 1.21.1 line but not its 1.20.1 Forge line.
+  - C (server via =itzg/minecraft-server= in =homelab-compose.nix=): same objection as B; covers the older Forge 1.20.1 line too, less Nix-native.
+  - Nightly backup of the world to =nas=: declined by the user; the world is disposable.
+- Target the MC 1.21.1 / NeoForge / Java 21 line, not 1.20.1 Forge :: it is the actively developed line (latest =swem-1.21.1-1.6.12.jar= 2026-08-01 vs 1.20.1's last build 2026-05-15) and Prism ≥ 8.0 supports NeoForge. 1.20.1 Forge is the second fallback if 1.21.1 fails the FPS gate.
+- Nothing in the flake :: the Pi runs Raspberry Pi OS and is not Nix-managed; this record is the durable home of the how-to.
+- Pi 500+ is the primary client; the Lenovo IdeaPad Flex 3 Chromebook is a fallback only (its CPU family is unknown -- the model shipped with both MediaTek and Intel N-series; only Intel/AMD Crostini is credible for a modded Java client).
+
+** Gotchas
+- SWEM requires Java Edition; the household owns only Bedrock, so a Microsoft account with "Minecraft: Java & Bedrock Edition for PC" is a prerequisite. A child account needs family-group consent; single player never needs the Xbox multiplayer toggles.
+- Pi-Apps' Prism installer patches =Exec=env MESA_GL_VERSION_OVERRIDE=3.3 prismlauncher= into the system =.desktop= and installs Temurin 8/17/21; Pi-Apps vouches for that override only up to MC 1.19.2, so 1.21.1 is empirically gated here.
+- SWEM wiki: disable entity shadows or animations desync.
+- The CurseForge site returns HTTP 403 to non-browser fetchers; version facts came from the Modrinth API, the SWEM wiki, and the CFWidget mirror (=2026-09-09-setup-minecraft-with-the-swem-mod/curseforge-files-2026-09-09.tsv=).
+
+** Risks
+- Pi 5 Mesa (v3d) with the 3.3 override may not sustain 25 FPS on 1.21.1 with GeckoLib entities. Mitigated by making the gate the first task, with fallbacks: Sodium (NeoForge build) → 1.20.1 Forge line → Chromebook via Crostini.
+- Prism's CurseForge browser may be refused third-party download for one of the jars. Mitigated in-task: download in a browser and drop into =mods/=.
+- A Microsoft child account may stall on the Xbox-profile step of the Java login. Accepted: first login is done with a parent present.
+- The Chromebook fallback may be MediaTek-based and unviable. Accepted: it is only consulted if the Pi fails the gate.
+
+** Follow-ups
+- If a second player is wanted: revisit B (nix-minecraft NeoForge server on =nas=), which needs a second Java licence and a flake input; the research note in =2026-09-09-setup-minecraft-with-the-swem-mod/research-swem-devices-hosting.md= covers the hosting options.
+
+* User story
+
+As a child with a Pi 500+, I want a single icon that starts Minecraft with SWEM horses, so that I can play without asking an adult to fix versions or log in.
+
+* Plan
+
+** DONE Write the kid-friendly HTML install guide
+CLOSED: [2026-09-09 Wed 21:30]
+:PROPERTIES:
+:CUSTOM_ID: e55a432d-7cf0-439a-ae34-a9bdaeda5fb8
+:CREATED: [2026-09-09 Wed 20:44]
+:STARTED: [2026-09-09 Wed 21:28]
+:END:
+:LOGBOOK:
+- State "DONE" from "TODO" [2026-09-09 Wed 20:59]
+- State "STARTED" from "DONE" [2026-09-09 Wed 21:28]
+- State "DONE" from "STARTED" [2026-09-09 Wed 21:30]
+:END:
+Acceptance criteria:
+- =design/log/2026-09-09-setup-minecraft-with-the-swem-mod/install-guide.html= exists as a single self-contained HTML file (inline CSS, no JS, no external assets) and opens in Chromium on the Pi.
+- It has a clearly marked "Grown-up part" (Microsoft account, family consent, buying Java & Bedrock Edition for PC, first login) and a "Your part" for her, in that order.
+- "Your part" sections map one-to-one onto plan tasks: install Pi-Apps, install Prism Launcher from Pi-Apps, make the =SWEM= instance (1.21.1 / NeoForge), add SWEM + GeckoLib + Player Animator from the CurseForge tab, set memory to 6144 MiB and turn entity shadows off, first launch, make the desktop shortcut.
+- Each step is one numbered action with one screenshot-free sentence; words an 11-year-old will not know (instance, loader, heap) are explained the first time in a bracket.
+- Every link points at an official page: minecraft.net purchase page, Microsoft family page, pi-apps.io install page, prismlauncher.org wiki, curseforge.com SWEM page, wiki.swequestrian.com installing-mods page.
+- A link-check script under =.tmp/= reports HTTP 200 for every link (CurseForge may return 403 to curl; record that and confirm it in a browser).
+- A "If it is slow" box lists the three fallbacks in order: Sodium (NeoForge build), the 1.20.1 Forge line, the Chromebook.
+- Must not: include any account credentials, and must not tell her to press "Update" on mods.
+Pointer: the settings come from this record's =** Scope= and =** Gotchas=; Pi-Apps' installer facts are in =.tmp/piapps-prism-install-64.sh= (Temurin 8/17/21, Mesa override in the =.desktop=).
+
+** TODO Microsoft account and Java Edition licence for her
+:PROPERTIES:
+:CUSTOM_ID: e3e4e312-5d37-4ea7-aef2-77a43b4f5c1d
+:CREATED: [2026-09-09 Wed 20:44]
+:END:
+Parent task, done in a browser. Acceptance criteria:
+- A Microsoft account exists for her inside your family group with consent granted.
+- "Minecraft: Java & Bedrock Edition for PC" shows as owned on that account at minecraft.net.
+- Logging that account into Prism Launcher on any machine reaches the Xbox-profile step and completes (proves the child-account path works before the Pi is ready).
+- Must not: use a parent's account for her play; the launcher keeps one login per instance owner.
+
+** TODO Pi 500+ base: Pi-Apps and Prism Launcher
+:PROPERTIES:
+:CUSTOM_ID: 2979fc78-6c13-4f62-904a-21270cf429a3
+:CREATED: [2026-09-09 Wed 20:44]
+:BLOCKED-BY: task:e55a432d-7cf0-439a-ae34-a9bdaeda5fb8
+:END:
+Follow the guide's "Your part" steps 1-2. Acceptance criteria:
+- =uname -m= prints =aarch64= and =cat /etc/os-release= shows 64-bit Raspberry Pi OS (Bookworm or newer).
+- Pi-Apps is installed and its "Minecraft Java Prism Launcher" app shows as installed.
+- =prismlauncher --version= reports 8.0 or newer (NeoForge support).
+- =/usr/lib/jvm= (or =update-alternatives --list java=) contains a Temurin/OpenJDK 21 runtime.
+- =grep Exec= /usr/share/applications/org.prismlauncher.PrismLauncher.desktop= contains =MESA_GL_VERSION_OVERRIDE=3.3=.
+- Prism opens from the menu and her Microsoft account is added and shows as active.
+- Must not: install Java or Prism by any other route (Flatpak, manual deb) -- one install path only.
+
+** TODO Create the pinned SWEM instance
+:PROPERTIES:
+:CUSTOM_ID: 382ece8d-3223-40cf-8969-4f5192b4f76c
+:CREATED: [2026-09-09 Wed 20:44]
+:BLOCKED-BY: task:2979fc78-6c13-4f62-904a-21270cf429a3
+:END:
+Follow the guide's steps 3-5. Acceptance criteria:
+- A Prism instance named =SWEM= exists with Minecraft 1.21.1 and the NeoForge loader; the instance's Version page shows the exact NeoForge build, and it is written into the guide.
+- The instance's Mods page lists =swem-1.21.1-1.6.12.jar=, a GeckoLib 1.21.1 NeoForge jar, and a Player Animator 1.21.1 NeoForge jar, all enabled.
+- Instance Settings → Java: Java 21 selected; maximum memory 6144 MiB.
+- In-game Video Settings: render distance 8, graphics Fast, entity shadows Off (saved in the instance's =options.txt=).
+- Must not: enable Prism's mod auto-update; must not: add any other mod at this stage.
+If the CurseForge tab refuses a download ("third-party downloads disabled"), download the same file from curseforge.com in Chromium and drop it into the instance's =.minecraft/mods/= via Prism's "Open folder".
+
+** TODO Viability gate on the Pi 500+
+:PROPERTIES:
+:CUSTOM_ID: b725e92c-6e5f-48f2-a256-3359d87d307a
+:CREATED: [2026-09-09 Wed 20:44]
+:BLOCKED-BY: task:e3e4e312-5d37-4ea7-aef2-77a43b4f5c1d
+:BLOCKED-BY+: task:382ece8d-3223-40cf-8969-4f5192b4f76c
+:END:
+Acceptance criteria:
+- A plain vanilla 1.21.1 instance reaches the title screen (proves the Mesa 3.3 override on this Pi OS).
+- The =SWEM= instance reaches a new Creative world; a SWEM horse spawns from its spawn egg.
+- A SWEM tack item (saddle or bridle) is equipped on that horse.
+- Median FPS from the F3 overlay, read at five moments over two minutes with the horse in view, is ≥ 25; the five readings are noted in =* Implementation=.
+- Outcome recorded in =* Implementation=: PASS, or which fallback was taken (Sodium NeoForge build → 1.20.1 Forge line → Chromebook via Crostini) and its readings.
+- Must not: change the pinned versions to pass the gate without recording it as a fallback.
+
+** TODO Desktop shortcut, reboot check, and guide revision
+:PROPERTIES:
+:CUSTOM_ID: b40ccaba-4695-4df9-9e4a-95d2ab96d601
+:CREATED: [2026-09-09 Wed 20:44]
+:BLOCKED-BY: task:b725e92c-6e5f-48f2-a256-3359d87d307a
+:END:
+Acceptance criteria:
+- A desktop shortcut whose =Exec= is =env MESA_GL_VERSION_OVERRIDE=3.3 prismlauncher -l SWEM= launches straight into the game with no password prompt.
+- After =sudo reboot=, the shortcut opens the same world with the horse still there.
+- With the system =org.prismlauncher.PrismLauncher.desktop= temporarily edited to drop the override, the shortcut still launches (then restore the file).
+- =install-guide.html= is updated with the exact NeoForge build, any fallback taken, and the shortcut step; its link check still passes.
+- Must not: leave the system =.desktop= edited.
+Prism's own "Create shortcut" on the instance is the starting point; verify its generated =Exec= carries the env, or write the =.desktop= by hand.
+
+* Implementation
+
+Research evidence (SWEM edition/loader/versions, per-device Java capability, Geyser limits, NixOS hosting options, licences) is in =2026-09-09-setup-minecraft-with-the-swem-mod/research-swem-devices-hosting.md=; claims persisted above were re-probed against the Modrinth API, the Geyser FAQ, the nix-minecraft README, the Pi-Apps =install-64= script, and the Prism Launcher release notes on 2026-09-09.
