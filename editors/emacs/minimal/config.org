@@ -21,9 +21,10 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
   - [[#session][Session]]
   - [[#editing-text][Editing text]]
   - [[#expand-region][Expand region]]
-  - [[#iedit][Simultaneous editing (iedit)]]
+  - [[#simultaneous-editing-iedit][Simultaneous editing (iedit)]]
   - [[#multiple-cursors][Multiple cursors]]
   - [[#indentation][Indentation]]
+  - [[#parens][Parens]]
 - [[#layout-and-file-management][Layout and file management]]
   - [[#windows][Windows]]
   - [[#buffers][Buffers]]
@@ -39,8 +40,8 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
   - [[#consult][consult]]
   - [[#corfu][corfu]]
   - [[#embark-and-wgrep][embark and wgrep]]
+- [[#version-control][Version control]]
 - [[#tools][Tools]]
-  - [[#git][Git]]
   - [[#tree-sitter][Tree-sitter]]
   - [[#editorconfig][editorconfig]]
   - [[#eglot][eglot]]
@@ -68,29 +69,42 @@ Tangling concatenates blocks in order, so this must stay the first source block:
 Transcribed from =sensible-defaults=. TODO: review magnars' defaults for more.
 
 #+begin_src emacs-lisp
-  (setq-default indent-tabs-mode nil
-                tab-width 2
-                fill-column 80)
+(setq-default indent-tabs-mode nil ; Never insert tabs
+              tab-width 2
+              fill-column 80
+              indicate-empty-lines t)
 
-  (setq create-lockfiles nil
-        make-backup-files nil
-        require-final-newline t
-        sentence-end-double-space nil
-        uniquify-buffer-name-style 'forward
-        enable-recursive-minibuffers t
-        read-extended-command-predicate #'command-completion-default-include-p
-        completion-cycle-threshold 3
-        ;; TAB always re-indents; see Keybindings > Indentation.
-        tab-always-indent t
-        xref-search-program 'ripgrep)
+(setq create-lockfiles nil
+      make-backup-files nil
+      uniquify-buffer-name-style 'forward
+      enable-recursive-minibuffers t
+      ;; Search and completion
+      xref-search-program 'ripgrep
+      read-extended-command-predicate #'command-completion-default-include-p
+      completion-cycle-threshold 3
+      ;; Buffer display and editing
+      require-final-newline t
+      sentence-end-double-space nil
+      ;; TAB always re-indents; see Keybindings > Indentation.
+      tab-always-indent t)
 
-  (column-number-mode 1)
-  (global-so-long-mode 1)
-  (delete-selection-mode 1)
-  (minibuffer-depth-indicate-mode 1)
+;; UTF-8 please
+(setq locale-coding-system 'utf-8) ; pretty
+(set-terminal-coding-system 'utf-8) ; pretty
+(set-keyboard-coding-system 'utf-8) ; pretty
+(set-selection-coding-system 'utf-8) ; please
+(prefer-coding-system 'utf-8) ; with sugar on top
 
-  (add-hook 'prog-mode-hook #'display-line-numbers-mode)
-  (add-hook 'before-save-hook #'delete-trailing-whitespace)
+;; Answering just 'y' or 'n' will do
+(defalias 'yes-or-no-p 'y-or-n-p)
+
+(column-number-mode 1)
+(global-so-long-mode 1)
+(delete-selection-mode 1)
+(minibuffer-depth-indicate-mode 1)
+
+(add-hook 'prog-mode-hook #'display-line-numbers-mode)
+(add-hook 'before-save-hook #'delete-trailing-whitespace)
 #+end_src
 
 ** Run-time state hygiene (no-littering)
@@ -110,24 +124,26 @@ Transcribed from =sensible-defaults=. TODO: review magnars' defaults for more.
 Session state (recent files, minibuffer history, cursor position, auto-revert) follows and picks up the =no-littering= paths.
 
 #+begin_src emacs-lisp
-  (use-package recentf
-    :ensure nil
-    :init (setq recentf-max-saved-items 200)
-    :config (recentf-mode 1))
+(use-package recentf
+  :ensure nil
+  :init (setq recentf-max-saved-items 200)
+  :config (recentf-mode 1))
 
-  (use-package savehist
-    :ensure nil
-    :config (savehist-mode 1))
+(use-package savehist
+  :ensure nil
+  :config (savehist-mode 1))
 
-  (use-package saveplace
-    :ensure nil
-    :config (save-place-mode 1))
+(use-package saveplace
+  :ensure nil
+  :config (save-place-mode 1))
 
-  (use-package autorevert
-    :ensure nil
-    :init (setq global-auto-revert-non-file-buffers t
-                auto-revert-verbose nil)
-    :config (global-auto-revert-mode 1))
+(use-package autorevert
+  :ensure nil
+  ;;Auto-refresh dired, quietly
+  :init (setq global-auto-revert-non-file-buffers t
+              auto-revert-verbose nil)
+  ;;Auto-refresh file buffers
+  :config (global-auto-revert-mode 1))
 #+end_src
 
 ** Optimisation
@@ -482,6 +498,21 @@ Evil leaves TAB out of normal state, so without a binding a line can only be re-
    "<tab>" '("indent line/region" . indent-for-tab-command))
 #+end_src
 
+
+** Parens
+We want to auto-insert matching parens by default.
+
+#+begin_src emacs-lisp
+(use-package elec-pair
+  :ensure nil
+  :config
+  (electric-pair-mode 1))
+
+;; Toggle electric pairs on / off (on by default)
+(my/leader
+  "t p" '("electric pairs" . electric-pair-local-mode))
+#+end_src
+
 * Layout and file management
 ** Windows
 :PROPERTIES:
@@ -815,29 +846,34 @@ TAB is indentation only ([[#indentation][Indentation]]), so completion comes fro
 
 
 
-* Tools
-** Git
+* Version control
 #+begin_src emacs-lisp
-  ;; :demand t (not deferred to :commands): global-git-commit-mode only
-  ;; installs its find-file-hook once git-commit.el has loaded, and that
-  ;; only happens when magit loads. $EDITOR/$VISUAL can start a fresh
-  ;; daemon and open COMMIT_EDITMSG before magit-status is ever called, so
-  ;; magit-commit integration must load at startup, not on first :commands use.
-  (use-package magit
-    :ensure t
-    :demand t
-    :commands (magit-status magit-dispatch)
-    :init
-    (setq magit-diff-refine-hunk 'all
-          magit-save-repository-buffers 'dontask)
-    :config
-    ;; Bedrock: start commit messages in insert state.
-    (add-hook 'git-commit-setup-hook #'evil-insert-state))
+;; :demand t (not deferred to :commands): global-git-commit-mode only
+;; installs its find-file-hook once git-commit.el has loaded, and that
+;; only happens when magit loads. $EDITOR/$VISUAL can start a fresh
+;; daemon and open COMMIT_EDITMSG before magit-status is ever called, so
+;; magit-commit integration must load at startup, not on first :commands use.
+(use-package magit
+  :ensure t
+  :demand t
+  :commands (magit-status magit-dispatch)
+  :init
+  (setq magit-diff-refine-hunk 'all
+        magit-save-repository-buffers 'dontask)
+  :config
+  ;; Bedrock: start commit messages in insert state.
+  (add-hook 'git-commit-setup-hook #'evil-insert-state))
 
-  (my/leader
-    "g s" '("status" . magit-status))
+(my/leader
+  "g s" '("status" . magit-status))
+
+;; We use git. Don't try all the other VC systems in existence first.
+(setq vc-handled-backends '(Git))
+
 #+end_src
 
+
+* Tools
 ** Tree-sitter
 
 Grammars are not bundled with Emacs or managed by Nix here. Install once per machine, from a running Emacs:
