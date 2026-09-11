@@ -1,7 +1,19 @@
-{ config, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   dir-nav-posix = ".profile.d/dir-nav.sh";
+
+  # dir-nav.sh is the single definition of the folder-navigation shortcuts.
+  # Fish cannot source POSIX shell, so translate it line by line: every
+  # function there is `function NAME() {` ... `}` with `$1` as its argument.
+  toFish = line:
+    let m = builtins.match "function ([a-zA-Z0-9_]+)\\(\\) \\{" line;
+    in if m != null then "function ${builtins.head m}"
+       else if line == "}" then "end"
+       else builtins.replaceStrings [ "$1" ] [ "$argv[1]" ] line;
+  dir-nav-fish = lib.concatMapStringsSep "\n" toFish
+    (lib.splitString "\n" (builtins.readFile ./dir-nav.sh));
+
   sharedPosixInit = ''
      . ~/${dir-nav-posix}
      export PATH="$HOME/.local/bin:$PATH"
@@ -13,7 +25,6 @@ in {
     bbin
     unzip
     p7zip
-    zsh-powerlevel10k
   ];
 
   home.shell = {
@@ -68,8 +79,6 @@ complete -f -F _bb_tasks bb'';
       }
       compdef _bb_tasks bb
 
-      # Source your custom p10k configuration
-      # [[ ! -f ~/.config/zsh/.p10k.zsh ]] || source ~/.config/zsh/.p10k.zsh
    '';
    antidote = {
       enable = true;
@@ -88,8 +97,7 @@ complete -f -F _bb_tasks bb'';
         # History
         "belak/zsh-utils path:history"
 
-        # Prompt
-        # "romkatv/powerlevel10k"
+        # Prompt: starship, configured via programs.starship above
 
         # Utilities
         "belak/zsh-utils path:utility"
@@ -105,15 +113,8 @@ complete -f -F _bb_tasks bb'';
   };
   programs.fish = {
     enable = true;
-    functions = {
-      # Folder navigation
-      n = "pushd ~/nmd/$argv[1]";
-      p = "n products/$argv[1]";
-      d = "pushd \"${config.home.homeDirectory}/Neuromod\ Devices\ Dropbox/$argv[1]\"";
-      t = "d NMDProductTesting/$argv[1]";
-      it = "d NMDIT/$argv[1]";
-      pd = "d Product_Development/$argv[1]";
-    };
+    # Folder navigation, translated from the canonical shell/dir-nav.sh.
+    interactiveShellInit = dir-nav-fish;
   };
 
   home.file.".config/fish/completions/bb.fish".source = ./bb.fish;
