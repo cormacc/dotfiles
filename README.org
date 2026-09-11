@@ -87,7 +87,7 @@ The golden path for development machines is currently Arch Linux + nix + home-ma
 - ZephyrOS toolchain (incorporates some dynamically linked binaries)
 - Microchip compilers (dynamically linked binaries + license to be applied post-installation)
 
-Progress on the Microchip side lives under [[./microchip/]] and the [[https://github.com/cormacc/nix-microchip][nix-microchip]] flake input.
+Progress on the Microchip side lives in the [[https://github.com/cormacc/nix-microchip][nix-microchip]] flake input.
 
 * Repository layout / architecture
 
@@ -115,7 +115,7 @@ home-core.nix  ->  shell/shell.nix
 home-core-linux.nix
       ^
 home.nix (full Linux workstation, adds:)
-      |-- editors/editors.nix    (emacs configs: corgi, doom, spacemacs, minimal)
+      |-- editors/editors.nix    (emacs configs: minimal, corgi, spacemacs)
       |-- dev/dev.nix            (dev tooling, clojure)
       |-- dev/dev-linux.nix
       |-- desktop/{web,audio,office}.nix
@@ -144,15 +144,13 @@ See [[#set-git-name-and-e-mail][Set Git name and e-mail]] for the actual =export
 |------+---------|
 | =hosts/= | Per-host =hardware-configuration.nix= and NixOS overrides |
 | =shell/= | Shell config (fish, zsh, bash), direnv, babashka scripts |
-| =editors/= | Editor configs (emacs: corgi / doom / spacemacs / minimal) |
+| =editors/= | Editor configs (emacs: minimal / corgi / spacemacs) |
 | =dev/= | Development tooling (clojure, linux-specific dev) |
 | =desktop/= | Desktop app modules (web, audio, office, entertainment) |
 | =wayland/= | Wayland compositor configs (sway, hyprland, foot, rofi) |
 | =nmd/= | Work-specific tooling (OneDrive etc.) |
 | =agents/= | Git submodule pointing at [[https://github.com/cormacc/dotagents][=cormacc/dotagents=]] — every reusable skill, pi extension, prompt template, the pi-side =AGENTS.md=, the user-local =pi/settings.json=, and the =agent-org-memory= pi package. [[./agents.nix]] symlinks the working tree into =~/.agents/skills= (including packaged Herdr personas at =skills/herdr-subagents/subagents/=) and =~/.pi/agent/{extensions,skills,prompts,AGENTS.md,settings.json}= for live editing. =~/.agents/subagents/= remains unmanaged for genuine home overrides. |
 | =sources/homelab-agent/= | Git submodule pinning the exact private =homelab-agent= revision deployed on =nas=.  Nix materializes this source immutably; it is not an editable production checkout. |
-| =microchip/= | Microchip embedded dev tooling (see [[./microchip/README.org]]) |
-| =legacy/= | Deprecated configs (ruby, matlab, cdrip) |
 | =darwin-configuration.nix= | macOS system config (nix-darwin) |
 
 * The homelab-agent deployment submodule
@@ -194,7 +192,6 @@ pushed so that another checkout can fetch the Gitlink:
   git -C ~/dotfiles/sources/homelab-agent checkout <reviewed-commit>
   git -C ~/dotfiles add sources/homelab-agent
 
-  python3 -m unittest discover -s ~/dotfiles/tests -v
   nix flake check --no-build --impure --all-systems ~/dotfiles
 #+end_src
 
@@ -453,7 +450,7 @@ Follow instructions on avahi setup on [[https://wiki.archlinux.org/title/Avahi][
 **** Microchip MPLAB-X
 I've made some progress (building on other people's work) to getting a nix-based setup for microchip development. However the licensed compiler is still a stumbling block. For now, installing MPLAB-X under Arch linux via the AUR.
 
-MPLAB-X requires some funky setup -- see [[./microchip/README.org]] for instructions and further info.
+MPLAB-X requires some funky setup. The Arch install notes and the =java8-openjfx= PKGBUILD patch were removed from this repo on 2026-09-11; recover them from git history (=git show <rev>:microchip/README.org=) if needed.
 
 * Maintenance
 
@@ -473,7 +470,6 @@ Defined in [[./editors/emacs/emacs.nix]]. The literate minimal config is the def
 |---------+--------+----------------+-------|
 | =emacs= | minimal (literate, evil + elpaca) -- the default | =~/.config/emacs= | nixpkgs (31.x) |
 | =cemacs= | corgi | =~/.config/emacs-corgi= | nixpkgs (31.x) |
-| =demacs= | doom (nix-doom-emacs-unstraightened) | store-managed | nixpkgs (31.x) |
 | =semacs= | spacemacs | =~/.config/emacs-spacemacs= | pinned 30.2 |
 
 PATH =emacs= tracks the main =nixpkgs= input. Only Spacemacs is pinned: it does not run on Emacs 31.1, so =semacs= launches a 30.2 build supplied by the rev-pinned =nixpkgs-spacemacs= flake input (=ac6b216=, nixpkgs @ 2026-08-25). That input is consumed only by [[./editors/emacs/emacs.nix]]; a rev-pinned URL is immutable, so =nix flake update= cannot move it. The minimal config's sources live in [[./editors/emacs/minimal/]] and are symlinked out of store to =~/.config/emacs/=, so edits take effect on the next =emacs= launch with no Home Manager switch.
