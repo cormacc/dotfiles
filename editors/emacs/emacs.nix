@@ -20,8 +20,6 @@ let
     PLANTUML_JAR = "${pkgs.plantuml}/lib/plantuml.jar";
   };
 in {
-  imports = [ inputs.nix-doom-emacs-unstraightened.homeModule ];
-
   #User environment
   home.sessionVariables = commonSessionVariables;
   #... and environment.d for gdm, kdm etc. that don't source user profile
@@ -123,14 +121,6 @@ in {
   # home.file."${config.xdg.configHome}/spacemacs".source = .config/spacemacs;
   # ... or this to keep it editable in-place, rather than have to 'home-manager switch ...' after each edit
   home.file."${config.xdg.configHome}/spacemacs".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/spacemacs";
-
-
-  # ... Doom emacs
-  # programs.doom-emacs = {
-  #   enable = true;
-  #   provideEmacs = false;
-  #   doomDir = ./doom;
-  # };
 
 
   # ... Corgi emacs... a clojure-focused minimal config with spacemacs-like keybindings
