@@ -29,6 +29,7 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
   - [[#windows][Windows]]
   - [[#buffers][Buffers]]
   - [[#files][Files]]
+  - [[#file-manager-dirvish][File manager (dirvish)]]
   - [[#project][Project]]
   - [[#jump][Jump]]
 - [[#ui][UI]]
@@ -632,6 +633,98 @@ All built-in; =SPC f r= is added by consult in [[#completion][Completion]]. =SPC
   "f S" '("save all" . save-some-buffers)
   "f e e" '("config.org" . my/find-literate-config)
   "f e n" '("emacs.nix" . my/find-emacs-nix))
+#+end_src
+
+** File manager (dirvish)
+:PROPERTIES:
+:CUSTOM_ID: dirvish
+:END:
+
+[[https://github.com/alexluigit/dirvish][dirvish]] is a session layer over Dired, not a replacement major mode. =dirvish-override-dired-mode= advises seven Dired entry points (=dired-noselect=, =dired--find-file=, =wdired-change-to-dired-mode= and four others), and =dirvish--setup-dired= calls ~(use-local-map dirvish-mode-map)~; the buffer stays in =dired-mode=. So every Dired buffer gains the attributes, preview pane and mode line, and no separate =dirvish-mode= exists.
+
+=:demand t= rather than deferred: the override has to be installed before =my/restore-session= runs on =elpaca-after-init-hook= ([[#restore-open-buffers][Restore open buffers]]), or the Dired buffers that =desktop= restores come back as plain Dired.
+
+=dired-listing-switches= uses long flag names on purpose. =dirvish-ls-switches-menu= and =dirvish-quicksort= decompose this string, and the short forms (=-A=, =-v=) defeat that. GNU =ls= is required; Emacs 31 already selects =gls= on macOS when it is installed, so =insert-directory-program= needs no setting here.
+
+=dirvish-quick-access-entries= is set with =:custom=, not =setq=: its =:set= function re-evaluates the =dirvish-quick-access= transient prefix, so a plain assignment leaves the old menu in place.
+
+Every Evil binding goes on =dired-mode-map=, never on =dirvish-mode-map=. =evil-get-auxiliary-keymap= resolves a state's bindings with ~(lookup-key map [normal-state])~, and =lookup-key= follows the parent chain, so one auxiliary keymap on =dired-mode-map= serves both maps and merges with what evil-collection's =dired= module already binds there. An auxiliary keymap on the child would be found first and take the parent's out of reach. evil-collection 3.0.1 ships no =dirvish= module and needs none.
+
+The single-letter Dired keys are evil-collection's (=a=, =o=, =r=, =^= are all taken), so the transient menus sit behind the local leader, as they do for org, markdown and eglot. =<tab>= toggles a subtree; =TAB= stays unbound so =C-i= keeps =evil-jump-forward= in a terminal frame ([[#indentation][Indentation]]).
+
+=q= is re-bound because evil-collection maps it to =quit-window= (its =quit= theme entry, =:key "q"=).
+
+Preview helpers (=vipsthumbnail=, =ffmpegthumbnailer=, =mediainfo=, =pdftoppm=, =magick=) come from =home.packages= in [[file:~/dotfiles/editors/emacs/emacs.nix][emacs.nix]]; dirvish warns once per missing program. =fd= is =programs.fd.enable= in =shell/shell.nix= and backs =dirvish-large-directory-threshold=.
+
+#+begin_src emacs-lisp
+(use-package dired
+  :ensure nil
+  :init
+  (setq dired-listing-switches
+        "-l --almost-all --human-readable --group-directories-first --no-group"
+        dired-kill-when-opening-new-dired-buffer t)
+  :config
+  ;; Lets `dirvish-side' close its own window when it opens a file.
+  (put 'dired-find-alternate-file 'disabled nil))
+
+(use-package dirvish
+  :ensure t
+  :demand t
+  :custom
+  ;; `:set' rebuilds the transient prefix, so `setq' would not take effect.
+  (dirvish-quick-access-entries
+   '(("h" "~/"               "Home")
+     ("d" "~/Downloads/"     "Downloads")
+     ("f" "~/dotfiles/"      "dotfiles")
+     ("p" "~/dev/"           "dev")
+     ("e" "~/.config/emacs/" "Emacs")))
+  :init
+  ;; Order matters: the first four share one position, the rest follow it.
+  (setq dirvish-attributes
+        '(vc-state subtree-state nerd-icons collapse file-time file-size)
+        dirvish-side-attributes
+        '(vc-state nerd-icons collapse file-size)
+        dirvish-mode-line-format '(:left (sort symlink) :right (omit yank index))
+        ;; Hand directories this large to `dirvish-fd' instead of `ls'.
+        dirvish-large-directory-threshold 20000)
+  :config
+  (dirvish-override-dired-mode 1)
+  ;; Side window tracks the current buffer, like `treemacs-follow-mode'.
+  (dirvish-side-follow-mode 1)
+
+  (my/local-leader
+    :keymaps 'dired-mode-map
+    ""  (cons "dirvish" (make-sparse-keymap))
+    "?" '("cheatsheet" . dirvish-dispatch)
+    "a" '("attributes" . dirvish-setup-menu)
+    "e" '("pin files" . dirvish-emerge-menu)
+    "f" '("file info" . dirvish-file-info-menu)
+    "h" '("history" . dirvish-history-jump)
+    "l" '("ls switches" . dirvish-ls-switches-menu)
+    "m" '("mark" . dirvish-mark-menu)
+    "n" '("narrow" . dirvish-narrow)
+    "o" '("quick access" . dirvish-quick-access)
+    "s" '("sort" . dirvish-quicksort)
+    "v" '("version control" . dirvish-vc-menu)
+    "y" '("yank" . dirvish-yank-menu)
+    "w" (cons "window" (make-sparse-keymap))
+    "w w" '("layout toggle" . dirvish-layout-toggle)
+    "w n" '("next layout" . dirvish-layout-switch))
+
+  (general-define-key
+   :states '(normal visual)
+   :keymaps 'dired-mode-map
+   "q"     '("quit session" . dirvish-quit)
+   "<tab>" '("toggle subtree" . dirvish-subtree-toggle)
+   "M-f"   '("history forward" . dirvish-history-go-forward)
+   "M-b"   '("history back" . dirvish-history-go-backward)))
+
+(my/leader
+  "f d" '("file manager" . dirvish-dwim)
+  "f D" '("dired other frame" . dired-other-frame)
+  "f j" '("jump to dired" . dired-jump)
+  "f t" '("file tree (side)" . dirvish-side)
+  "s f" '("find files (fd)" . dirvish-fd))
 #+end_src
 
 ** Project
