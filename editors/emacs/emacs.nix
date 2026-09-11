@@ -44,6 +44,13 @@ in {
     cmake
     gnumake
     gcc
+    # dirvish file previews (`fd' comes from programs.fd in shell/shell.nix,
+    # 7z from p7zip). Each missing program makes dirvish warn on first use.
+    vips # vipsthumbnail -- images
+    ffmpegthumbnailer # video thumbnails
+    mediainfo # audio/video metadata
+    poppler-utils # pdftoppm -- pdf
+    imagemagick # magick -- fonts
     # charts
     plantuml
     # plantuml-c4
