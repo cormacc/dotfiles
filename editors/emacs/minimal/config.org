@@ -27,6 +27,7 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
   - [[#parens][Parens]]
 - [[#layout-and-file-management][Layout and file management]]
   - [[#windows][Windows]]
+  - [[#frames][Frames]]
   - [[#buffers][Buffers]]
   - [[#files][Files]]
   - [[#file-manager-dirvish][File manager (dirvish)]]
@@ -311,6 +312,7 @@ Labels use which-key's keymap-based replacement, not general's =:which-key= keyw
   ";"   (cons "comment" (make-sparse-keymap))
   "q"   (cons "quit" (make-sparse-keymap))
   "w"   (cons "windows" (make-sparse-keymap))
+  "F"   (cons "frames" (make-sparse-keymap))
   "b"   (cons "buffers" (make-sparse-keymap))
   "f"   (cons "files" (make-sparse-keymap))
   "f e" (cons "emacs config" (make-sparse-keymap))
@@ -586,6 +588,23 @@ Ten near-identical which-key rows are noise, so the =window 1= row is relabelled
                '((nil . "\\`window [02-9]\\'") . t))
 #+end_src
 
+** Frames
+:PROPERTIES:
+:CUSTOM_ID: frames
+:END:
+
+Adapted from the Spacemacs =SPC F= group, (=layers/+spacemacs/spacemacs-defaults/keybindings.el:396-406=). Everything here is built in, so no package is needed.
+
+A frame layout survives a restart without any setting of its own --- =desktop-restore-frames= is t in [[#restore-open-buffers][Restore open buffers]].
+
+#+begin_src emacs-lisp
+  (my/leader
+    "F d" '("delete frame" . delete-frame)
+    "F D" '("delete other frames" . delete-other-frames)
+    "F n" '("make frame" . make-frame)
+    "F o" '("other frame" . other-frame))
+#+end_src
+
 ** Buffers
 :PROPERTIES:
 :CUSTOM_ID: buffers
@@ -605,7 +624,9 @@ All built-in; =SPC b b= is added by consult in [[#completion][Completion]].
     "b n" '("next buffer" . next-buffer)
     "b p" '("previous buffer" . previous-buffer)
     "b r" '("revert" . revert-buffer-quick)
-    "b s" '("scratch" . scratch-buffer))
+    "b s" '("scratch" . scratch-buffer)
+    "b f" '("buffer other frame" . switch-to-buffer-other-frame)
+    "b F" '("display buffer other frame" . display-buffer-other-frame))
 #+end_src
 
 ** Files
@@ -629,6 +650,7 @@ All built-in; =SPC f r= is added by consult in [[#completion][Completion]]. =SPC
 
 (my/leader
   "f f" '("find file" . find-file)
+  "f F" '("find file other frame" . find-file-other-frame)
   "f s" '("save" . save-buffer)
   "f S" '("save all" . save-some-buffers)
   "f e e" '("config.org" . my/find-literate-config)
