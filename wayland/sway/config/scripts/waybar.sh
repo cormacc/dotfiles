@@ -3,4 +3,5 @@
 
 pkill waybar
 
-waybar -c ~/.config/sway/waybar-sway.jsonc -s ~/.config/sway/waybar-sway.css > $(mktemp -t XXXX.waybar.log)
+# Style comes from the shared ~/.config/waybar/style.css default.
+waybar -c ~/.config/sway/waybar-sway.jsonc > $(mktemp -t XXXX.waybar.log)

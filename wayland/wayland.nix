@@ -125,6 +125,10 @@ in {
   # rofi - a dmenu replacement
   home.file."${config.xdg.configHome}/rofi".source = config.lib.file.mkOutOfStoreSymlink "${wayland-dotfiles-root}/rofi";
 
+  # waybar - one shared stylesheet for sway and hyprland, at waybar's default
+  # style location so neither launcher needs `-s`.
+  home.file."${config.xdg.configHome}/waybar/style.css".source = config.lib.file.mkOutOfStoreSymlink "${wayland-dotfiles-root}/waybar-style.css";
+
   # foot - terminal
   home.file."${config.xdg.configHome}/foot/foot.ini".source = config.lib.file.mkOutOfStoreSymlink "${wayland-dotfiles-root}/foot.ini";
 
