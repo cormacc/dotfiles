@@ -82,6 +82,7 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-babashka.url = "github:cormacc/nix-babashka";
   };
 
   # NOTE: nixConfig must be a literal attrset of literals — nix parses it
@@ -115,7 +116,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-code, claude-desktop, hermes-agent, rust-overlay, nur, pi, dirge, herdr, nix-amd-ai, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-code, claude-desktop, hermes-agent, rust-overlay, nur, pi, dirge, herdr, nix-amd-ai, nix-babashka, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -129,6 +130,7 @@
         nur.overlays.default
         pi.overlays.default
         rust-overlay.overlays.default
+        nix-babashka.overlays.default
         # Local packages: pkgs/<name>/default.nix -> pkgs.<name>
         (import ./pkgs/overlay.nix)
       ];
@@ -137,6 +139,7 @@
         dirge.overlays.default
         herdr.overlays.default
         pi.overlays.default
+        nix-babashka.overlays.default
       ];
       # pkgs = nixpkgs.legacyPackages.${system};
       pkgs = import nixpkgs {
