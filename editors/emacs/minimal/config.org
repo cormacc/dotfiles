@@ -143,7 +143,12 @@ Session state (recent files, minibuffer history, cursor position, auto-revert) f
   :ensure nil
   ;;Auto-refresh dired, quietly
   :init (setq global-auto-revert-non-file-buffers t
-              auto-revert-verbose nil)
+              auto-revert-verbose nil
+              ;; Poll instead of inotify: a writer that truncates then writes
+              ;; emits two `changed' events, and `auto-revert-notify-handler'
+              ;; reverts on the first one (the 2.5s lockout only throttles the
+              ;; later ones), so the buffer can be filled from the 0-byte file.
+              auto-revert-use-notify nil)
   ;;Auto-refresh file buffers
   :config (global-auto-revert-mode 1))
 #+end_src
