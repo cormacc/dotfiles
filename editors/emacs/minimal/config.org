@@ -982,7 +982,18 @@ TAB is indentation only ([[#indentation][Indentation]]), so completion comes fro
         magit-save-repository-buffers 'dontask)
   :config
   ;; Bedrock: start commit messages in insert state.
-  (add-hook 'git-commit-setup-hook #'evil-insert-state))
+  (add-hook 'git-commit-setup-hook #'evil-insert-state)
+
+  ;; with-editor's own C-c C-c / C-c C-k stay; evil-collection adds ZZ / ZQ.
+  ;; This is the local-leader equivalent, for COMMIT_EDITMSG and any other
+  ;; buffer $EDITOR hands back to an external process.  It must stay inside
+  ;; `:config': general resolves `with-editor-mode-map' when the form runs,
+  ;; and magit.el is what pulls with-editor in.
+  (my/local-leader
+    :keymaps 'with-editor-mode-map
+    ""  (cons "editor" (make-sparse-keymap))
+    "c" '("finish" . with-editor-finish)
+    "k" '("cancel" . with-editor-cancel)))
 
 (my/leader
   "g s" '("status" . magit-status))
