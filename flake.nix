@@ -202,6 +202,7 @@
             inputs.nix-amd-ai.nixosModules.default
             ./hosts/strix/hardware-configuration.nix
             ./hosts/strix/nixos-configuration.nix
+            ./nixos-boot-default.nix
             ./nixos-workstation.nix
             ./nixos-gaming.nix
           ];

@@ -18,6 +18,9 @@
     useOSProber = true;
     efiSupport = true;
     copyKernels = true;
+    # 511M /boot, ~56 MiB/pair measured; grub's default of 100 overflows it.
+    # Ceiling 8 distinct kernels.
+    configurationLimit = 10;
     default = "saved";
     device = "nodev"; # Necessary for EFI, otherwise grub installs MBR bits
     # For chainloading, either Boot/bootx64.efi or systemd/systemd-bootx64.efi works
