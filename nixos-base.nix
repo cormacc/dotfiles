@@ -19,6 +19,14 @@ in
     trusted-public-keys = caches.trustedPublicKeys;
   };
 
+  # Bounds generation age, so the /boot kernel count tracks the update rate
+  # rather than the switch count.
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 30d";
+  };
+
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 

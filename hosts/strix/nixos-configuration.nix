@@ -104,12 +104,9 @@ in
   # ---------------------------------------------------------------------------
   # Bootloader
   # ---------------------------------------------------------------------------
-  # Fresh NixOS install on a single 4TB SSD with no dual-boot, so systemd-boot
-  # is the right pick (simpler than grub, no chainloading needed). If the box
-  # ever dual-boots, switch to the grub block used in hosts/xps15.
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
-  boot.loader.efi.efiSysMountPoint = "/boot";
+  # Fresh NixOS install on a single 4TB SSD with no dual-boot, so use systemd-boot
+  # default from ./nixos-boot-default.nix, imported via flake.nix. If the box ever
+  # dual-boots, override here with the grub block used in hosts/xps15.
 
   # ---------------------------------------------------------------------------
   # AMD AI / Lemonade (Strix Halo)
