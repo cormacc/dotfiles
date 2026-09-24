@@ -69,8 +69,14 @@
   services.udev.packages = [
     pkgs.nrf-udev
     pkgs.openocd
-    # pkgs.segger-jlink
+    pkgs.segger-jlink
   ];
+
+  # segger-jlink (needed for its udev rules above) is unfree and pulls in the
+  # insecure segger-jlink-qt4-810. allowUnfree is set in nixos-base.nix; the
+  # remaining overrides must be on the NixOS system nixpkgs config too.
+  nixpkgs.config.permittedInsecurePackages = [ "segger-jlink-qt4-952" ];
+  nixpkgs.config.segger-jlink.acceptLicense = true;
 
   # Required to install sway via home-manager
   # ... but we're installing via nixos
