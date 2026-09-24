@@ -6,10 +6,16 @@
     dirge-bin
 
     hermes-agent
+    claude-desktop
 
     # Tools to help with nixpkg development...
     bubblewrap
   ];
+
+  programs.codexDesktopLinux = {
+    enable = true;
+    #linuxFeatures = [ "" ];
+  };
 
   # dirge ':' shell plugin -- type `:<prompt>` at the zsh prompt to talk to
   # dirge headlessly, sharing one session per shell. The plugin only ships in

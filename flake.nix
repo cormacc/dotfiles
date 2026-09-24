@@ -56,6 +56,7 @@
     nix-amd-ai.url = "github:noamsto/nix-amd-ai";
     pi.url = "github:lukasl-dev/pi.nix";
     claude-code.url = "github:sadjow/claude-code-nix";
+    codex-desktop.url = "github:ilysenko/codex-desktop-linux";
 
     herdr = {
       url = "github:ogulcancelik/herdr";
@@ -116,7 +117,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-code, claude-desktop, hermes-agent, rust-overlay, nur, pi, dirge, herdr, nix-amd-ai, nix-babashka, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-code, claude-desktop, codex-desktop, hermes-agent, rust-overlay, nur, pi, dirge, herdr, nix-amd-ai, nix-babashka, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -253,6 +254,7 @@
           inherit pkgs;
           modules = [
             ./home.nix
+            codex-desktop.homeManagerModules.default
           ];
           extraSpecialArgs = {
             cfgName = "default";
