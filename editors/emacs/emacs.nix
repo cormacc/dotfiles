@@ -28,10 +28,9 @@ in {
   programs.pandoc.enable = true;
   programs.texlive.enable = true;
 
+  #N.B. See dev.nix for font installation...
   home.packages = with pkgs; [
     (aspellWithDicts (dicts: with dicts; [en en-computers en-science ga]))
-    aporetic-bin
-    source-code-pro
     ripgrep
     gsettings-desktop-schemas
     libvterm-neovim

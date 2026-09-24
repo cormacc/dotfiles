@@ -808,7 +808,11 @@ The glyphs need the =Symbols Nerd Font Mono= family (the default =nerd-icons-fon
 #+end_src
 
 ** Themes
-[[https://protesilaos.com/emacs/ef-themes][ef-themes]] with a light/dark pair behind =SPC t T=. The default face is =Aporetic Sans Mono= from =aporetic-bin=. =SPC t= collects the display toggles.
+[[https://protesilaos.com/emacs/ef-themes][ef-themes]] with a light/dark pair behind =SPC t T=. =SPC t= collects the display toggles.
+
+Some good font choices for programming...
+- FiraCode Nerd Font
+- 0xProto Nerd Font Mono
 
 #+begin_src emacs-lisp
   (use-package ef-themes
@@ -821,8 +825,8 @@ The glyphs need the =Symbols Nerd Font Mono= family (the default =nerd-icons-fon
     (setq ef-themes-to-toggle '(ef-maris-light ef-maris-dark)
           ef-themes-mixed-fonts t)
     (load-theme 'ef-maris-light :no-confirm)
-    ;; Family name verified from the packaged font's metadata.
-    (set-face-attribute 'default nil :family "Aporetic Sans Mono"))
+    ;; Family name verified against `fc-list' output.
+    (set-face-attribute 'default nil :family "Fira Code Nerd Font" :height 100))
 
   (defun my/toggle-theme ()
     "Toggle between the light and dark `ef-themes' pair."

@@ -24,9 +24,14 @@
   programs.wezterm.enable = true;
 
   home.packages = with pkgs; [
+    # This page compares some fonts: https://jdsalaro.com/note/best-programming-fonts/index.html
     nerd-fonts.hack
     nerd-fonts.fira-code
     nerd-fonts.iosevka
+    nerd-fonts._0xproto
+    nerd-fonts.jetbrains-mono
+    nerd-fonts.caskaydia-cove
+    nerd-fonts.sauce-code-pro
     # "Symbols Nerd Font Mono": the default `nerd-icons-font-family'.  Emacs
     # nerd-icons otherwise relies on `M-x nerd-icons-install-fonts' writing
     # ~/.local/share/fonts/NFM.ttf, which Home Manager does not own.
