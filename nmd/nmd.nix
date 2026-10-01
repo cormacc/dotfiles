@@ -20,7 +20,7 @@
   # Microsoft 365 MCP server (Softeria) for coding agents, in HTTP (OAuth) mode.
   # The ms365 skill launcher owns the server version, flags, and scope list;
   # this unit only supplies PATH and the Entra app identifiers (not secrets).
-  # Clients connect to http://127.0.0.1:3365/mcp -- see agents/mcp.json and
+  # Clients connect to http://127.0.0.1:3365/mcp -- see agents/pi/mcp.json and
   # agents/skills/ms365/README.org. Non-Nix hosts use the skill's
   # assets/ms365-mcp.service instead.
   systemd.user.services.ms365-mcp = {
