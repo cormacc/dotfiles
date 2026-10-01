@@ -62,8 +62,7 @@ live submodule tree into:
   `herdr-orch` skill's contract rather than wiring, and are documented once
   in `agents/skills/herdr-orch/scripts/docs/contract.md` (§ Model resolution,
   § Harness `:extra-args`)
-- `~/.pi/agent/{AGENTS.md, prompts, extensions, skills, settings.json}`
-- `~/.config/mcp/mcp.json`
+- `~/.pi/agent/{AGENTS.md, prompts, extensions, skills, settings.json, mcp.json}`
 - `~/.local/bin/ot` → org-tasks CLI shim
 
 Out-of-store symlinks, so edits in `agents/` take effect immediately via

@@ -6,7 +6,8 @@ let
   # The dotagents repo is registered as a git submodule of this checkout
   # under `agents/`. Its working tree provides every reusable skill,
   # extension, prompt, the pi-side AGENTS.md, and the user-local
-  # pi/settings.json (package list, default provider/model, secrets toggles).
+  # pi/settings.json (package list, default provider/model, secrets toggles)
+  # and pi/mcp.json (native MCP servers).
   # Whole-directory symlinks below point ~/.agents/skills, ~/.claude/skills,
   # ~/.pi/agent/extensions, ~/.pi/agent/skills, ~/.pi/agent/agents,
   # ~/.pi/agent/prompts, ~/.pi/agent/AGENTS.md, and ~/.pi/agent/settings.json
@@ -15,6 +16,7 @@ let
   agentsRoot = "${dotRoot}/agents";
   piRoot = "${agentsRoot}/pi";
   piSettings = "${piRoot}/settings.json";
+  piMcp = "${piRoot}/mcp.json";
   piModels = "${piRoot}/models.json";
 
   # ───────────────────────────── Dest paths ───────────────────────────────
@@ -226,10 +228,6 @@ in
       ".local/bin/ot".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills/org-tasks/scripts/ot";
 
-      # Generic MCP config
-      "${config.xdg.configHome}/mcp/mcp.json".source =
-        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/mcp.json";
-
       # Pi-side discovery locations. AGENTS.md comes from the submodule's
       # `home/` layer -- the portable, project-agnostic rules. The submodule's
       # *root* AGENTS.md is the dotagents project file (maintenance specifics
@@ -250,6 +248,11 @@ in
       # submodule.
       "${piConfig}/settings.json".source =
         config.lib.file.mkOutOfStoreSymlink piSettings;
+
+      # Native pi MCP server configuration (pi-only keys such as `oauth.callbackUrl`
+      # and `description`), so it lives beside settings.json.
+      "${piConfig}/mcp.json".source =
+        config.lib.file.mkOutOfStoreSymlink piMcp;
 
       # Same for the model catalogue. Its `providers.<id>.modelOverrides` is
       # pi's topmost model layer, so it corrects extension-registered providers
