@@ -74,10 +74,12 @@ On activation, `agents.nix`:
    (`chromium`, `pi-clojure`, `dataspex`) when their `package.json` hash
    changes.
 3. Registers the submodule-local `pi-settings` git clean filter by running
-   `agents/install-git-filter.sh` when `filter.pi-settings.clean` is unset
-   (the filter definition lives in `.git/config`, so it cannot be tracked).
-   The filter strips pi's volatile runtime keys (`lastChangelogVersion`,
-   `defaultProvider`, `defaultModel`) from `agents/pi/settings.json` at stage
-   time; `jq` is in `home.packages` because the filter is `required = true`.
+   `agents/install-git-filter.sh` on every activation; the script exits early
+   when the filter is current (the filter definition lives in `.git/config`,
+   so it cannot be tracked). The filter strips pi's volatile runtime keys
+   (`lastChangelogVersion`, `deviceId`) from `agents/pi/settings.json` at
+   stage time; `defaultProvider` and `defaultModel` are tracked (pi saves them
+   only on Ctrl+S in `/model`). `jq` is in `home.packages` because the filter
+   is `required = true`.
    Failure warns instead of aborting activation. See README.org § The
    pi-settings clean filter.

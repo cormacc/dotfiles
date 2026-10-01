@@ -262,11 +262,18 @@ Then bump the dotfiles submodule pointer (see *Update workflow*).
 * The pi-settings clean filter
 
 [[file:./agents/pi/settings.json]] (inside the dotagents submodule) is a
-single source of truth for two very different concerns: a stable list
-of installed pi packages (=packages= field) and volatile runtime
-preferences (=defaultProvider=, =defaultModel=, =lastChangelogVersion=)
-that pi rewrites on every =/model= swap or version bump. Without
-intervention the volatile fields show up as repo churn.
+single source of truth for two very different concerns: durable
+settings (the =packages= list, =defaultProvider= and =defaultModel=) and
+volatile runtime state (=lastChangelogVersion=, rewritten on every pi
+upgrade, and =deviceId=, a per-installation ID). Without intervention
+the volatile fields show up as repo churn, and =deviceId= would be
+shared by every clone. The default model is tracked on purpose: since
+pi 0.84.3 a =/model= choice is session-only, and only =Ctrl+S= in the
+selector saves it.
+
+A git command that rewrites the working tree (=git stash=, =git reset
+--hard=, =git checkout -- pi/settings.json=) writes back the committed
+copy, which lacks the stripped fields; pi recreates them as needed.
 
 A git clean filter strips them when staging while leaving the working
 tree untouched. Pi keeps writing through unchanged; git only ever sees
@@ -279,9 +286,10 @@ dotfiles repo's.
 ** First-time setup
 Home Manager activation registers the filter for you: the
 =installPiSettingsGitFilter= hook in [[file:./agents.nix]] runs
-=agents/install-git-filter.sh= when =filter.pi-settings.clean= is not
-already set in the submodule, and warns (without failing activation) if
-that fails. =jq= is on =home.packages= for the same reason -- the filter
+=agents/install-git-filter.sh= on every activation; the script exits
+early when the filter is current, so a changed field list reaches
+clones that already had the filter. The hook warns (without failing
+activation) if the script fails. =jq= is on =home.packages= for the same reason -- the filter
 is declared =required = true=, so staging fails without it.
 
 On a clone that has not been through a switch yet (or a non-Nix
@@ -301,8 +309,8 @@ invocations inside =agents/= honour it automatically.
 #+begin_src shell
   cd ~/dotfiles/agents
 
-  # Edit a runtime field directly:
-  jq '.defaultModel = "some-other-model"' \
+  # Edit a volatile field directly:
+  jq '.lastChangelogVersion = "0.0.0"' \
     pi/settings.json > /tmp/settings.json && \
     mv /tmp/settings.json pi/settings.json
 
