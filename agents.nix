@@ -60,22 +60,22 @@ in
 
     # ─────────────── pi/settings.json git clean filter ────────────────
     # The tracked `agents/pi/settings.json` is live-linked into ~/.pi/agent,
-    # and pi writes runtime state (lastChangelogVersion, defaultProvider,
-    # defaultModel) back into it on every /model swap or upgrade. dotagents
-    # marks the file `filter=pi-settings` in .gitattributes and ships
-    # install-git-filter.sh to register that filter, which strips the volatile
-    # keys at stage time (smudge = cat, so the working tree is untouched).
+    # and pi writes runtime state (lastChangelogVersion on upgrade, a
+    # per-installation deviceId) back into it. dotagents marks the file
+    # `filter=pi-settings` in .gitattributes and ships install-git-filter.sh
+    # to register that filter, which strips those keys at stage time
+    # (smudge = cat, so the working tree is untouched). defaultProvider and
+    # defaultModel are tracked: pi saves them only on Ctrl+S in /model.
     #
     # The filter *definition* lives in the submodule's .git/config, which is
     # not version-controlled, so every fresh clone needs it registered once --
     # easy to forget, and forgetting it means dirty-tree noise every session.
-    # Register it here, short-circuiting when already configured. Non-fatal:
-    # a failure warns rather than aborting activation.
+    # Run the installer on every activation: it exits early when the filter is
+    # current, so a changed field list reaches clones that already had the
+    # filter. Non-fatal: a failure warns rather than aborting activation.
     home.activation.installPiSettingsGitFilter =
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        if [ -f "${agentsRoot}/install-git-filter.sh" ] && \
-           [ -z "$(${pkgs.git}/bin/git -C "${agentsRoot}" config --get filter.pi-settings.clean || true)" ]; then
-          echo "Registering pi-settings git clean filter in ${agentsRoot}"
+        if [ -f "${agentsRoot}/install-git-filter.sh" ]; then
           # cd into the submodule: the script resolves its target from
           # `git rev-parse --show-toplevel`, and activation's cwd is $HOME.
           if ! (cd "${agentsRoot}" && \
