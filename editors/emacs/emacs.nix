@@ -30,7 +30,7 @@ in {
 
   #N.B. See dev.nix for font installation...
   home.packages = with pkgs; [
-    (aspellWithDicts (dicts: with dicts; [en en-computers en-science ga]))
+    (aspellWithDicts (dicts: with dicts; [en ga]))
     ripgrep
     gsettings-desktop-schemas
     libvterm-neovim
