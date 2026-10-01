@@ -52,6 +52,7 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
 - [[#file-format-support][File format support]]
   - [[#org][Org]]
   - [[#markdown][Markdown]]
+    - [[#live-preview-in-eww][Live preview in EWW]]
 - [[#language-support][Language support]]
   - [[#clojure][Clojure]]
   - [[#nix][Nix]]
@@ -1149,21 +1150,159 @@ Built-in org (9.8.x), never installed via Elpaca, so the tangle in =init.el= can
 ** Markdown
 Emacs 31.1 ships =markdown-ts-mode= as experimental and opt-in: no autoload cookie and no =.md= entry in =auto-mode-alist=, so it is enabled explicitly here. This release has no export helper. Needs the =markdown= and =markdown-inline= grammars (see [[#tree-sitter][Tree-sitter]]).
 
+
 #+begin_src emacs-lisp
-  (use-package markdown-ts-mode
-    :ensure nil
-    :mode ("\\.md\\'" . markdown-ts-mode)
-    :config
-    (my/local-leader
-      :keymaps 'markdown-ts-mode-map
-      ""    (cons "markdown" (make-sparse-keymap))
-      "TAB" '("outline cycle" . markdown-ts-outline-cycle)
-      "h"   (cons "heading" (make-sparse-keymap))
-      "h k" '("promote" . markdown-ts-promote)
-      "h j" '("demote" . markdown-ts-demote)
-      "m"   '("toggle markup" . markdown-ts-toggle-hide-markup)
-      "x"   '("toggle checkbox" . markdown-ts-toggle-checkbox)
-      "i"   '("insert structure" . markdown-ts-insert-structure)))
+(use-package markdown-ts-mode
+  :ensure nil
+  :mode ("\\.md\\'" . markdown-ts-mode)
+  :config
+  ;; install extras - e.g. TOC insertion etc.
+  (require 'markdown-ts-mode-x)
+  (markdown-ts-toc-update-before-save-mode)
+  (my/local-leader
+    :keymaps 'markdown-ts-mode-map
+    ""    (cons "markdown" (make-sparse-keymap))
+    "TAB" '("outline cycle" . markdown-ts-outline-cycle)
+    ;; command
+    "c"   (cons "command" (make-sparse-keymap))
+    "c n" '("renumber list" . markdown-ts-renumber-list)
+    ;; export
+    "e"   (cons "export" (make-sparse-keymap))
+    "e e" '("convert" . markdown-ts-convert)
+    "e f" '("convert file" . markdown-ts-convert-file)
+    "e o" '("convert & open externally" . my/markdown-ts-convert-open-external)
+    "e p" '("live preview (eww)" . my/markdown-eww-preview-mode)
+    ;; heading
+    "h"   (cons "heading" (make-sparse-keymap))
+    "h k" '("promote" . markdown-ts-promote)
+    "h j" '("demote" . markdown-ts-demote)
+    "h K" '("move subtree up" . markdown-ts-move-subtree-up)
+    "h J" '("move subtree down" . markdown-ts-move-subtree-down)
+    ;; insert
+    "i"   (cons "insert" (make-sparse-keymap))
+    "i s" '("block structure" . markdown-ts-insert-structure)
+    "i l" '("list item" . markdown-ts-insert-list-item)
+    "i t" '("table" . markdown-ts-table-insert-table)
+    "i T" '("table of contents" . markdown-ts-toc-insert-template)
+    ;; table of contents
+    "I"   (cons "Index/TOC" (make-sparse-keymap))
+    "I i" '("insert" . markdown-ts-toc-insert-template)
+    "I c" '("clear" . markdown-ts-toc-clear)
+    "I u" '("update" . markdown-ts-toc-generate)
+    ;; text / emphasis
+    "x"   (cons "text" (make-sparse-keymap))
+    "x e" '("emphasize" . markdown-ts-emphasize)
+    "x E" '("remove emphasis" . markdown-ts-remove-emphasis)
+    ;; toggle
+    "T"   (cons "toggle" (make-sparse-keymap))
+    "T m" '("markup hiding" . markdown-ts-toggle-hide-markup)
+    "T i" '("inline images" . markdown-ts-toggle-inline-images)
+    "T t" '("checkbox" . markdown-ts-toggle-checkbox)
+    ;; table
+    "t"   (cons "table" (make-sparse-keymap))
+    "t a" '("align" . markdown-ts-table-align-table)
+    "t p" '("row up" . markdown-ts-table-move-row-up)
+    "t n" '("row down" . markdown-ts-table-move-row-down)
+    "t f" '("column right" . markdown-ts-table-move-column-right)
+    "t b" '("column left" . markdown-ts-table-move-column-left)
+    "t r" '("insert row" . markdown-ts-table-insert-row)
+    "t R" '("delete row" . markdown-ts-table-delete-row)
+    "t c" '("insert column" . markdown-ts-table-insert-column)
+    "t C" '("delete column" . markdown-ts-table-delete-column)
+    "t d" '("convert region" . markdown-ts-table-convert-region)
+    "t t" '("transpose" . markdown-ts-table-transpose-table)))
+#+end_src
+
+*** Export
+=markdown-ts-mode-x= supplies the converters (Pandoc for =html= and =pdf=; =cmark=/=cmark-gfm=/=markdown.pl= for =html=). =e e= (=markdown-ts-convert=) and =e f= (=markdown-ts-convert-file=) prompt for format, converter and output file; a prefix argument makes either display the result through =markdown-ts-convert-display-function=.
+
+=e o= is a thin wrapper that forces a one-shot HTML export beside the source and opens it in the /external/ browser by let-binding that display function to =browse-url-of-file=, which honours =browse-url-browser-function=. It is the fuller-fidelity counterpart to the =shr=-based =e p= preview.
+
+#+begin_src emacs-lisp
+  (defun my/markdown-ts-convert-open-external ()
+    "Convert the current buffer to HTML and open it in the external browser.
+  Exports beside the source so relative links resolve, and routes display
+  through `browse-url-of-file' (honouring `browse-url-browser-function')."
+    (interactive)
+    (let ((markdown-ts-convert-display-function #'browse-url-of-file))
+      (markdown-ts-convert
+       nil
+       (concat (file-name-sans-extension
+                (or buffer-file-name
+                    (expand-file-name "markdown-preview" default-directory)))
+               ".html")
+       '(html . pandoc) t t t)))
+#+end_src
+
+*** Live preview in EWW
+EWW renders no JavaScript, so a browser-side live preview (as =org-markdown-preview= does over WebSockets) is impossible here. Instead Emacs /pushes/ the refresh: on =after-save-hook=, convert the buffer to HTML with Pandoc --- reusing =markdown-ts-convert= from [[#markdown][markdown-ts-mode-x]], so no new packages --- and (re)render that file in EWW. =C-, e p= toggles it.
+
+This is a structural /reading/ preview, not a fidelity one: =shr= handles headings, lists, tables, emphasis, links and images, but applies almost no CSS and shows fenced code blocks as plain =<pre>= with no syntax highlighting. There is no scroll-sync; the preview only restores its own scroll position across refreshes.
+
+- The HTML is a =make-temp-file= written /beside the source/ (a dotted =.mdprev-*.html=) so relative image links resolve; it is deleted when the mode is turned off or the buffer is killed.
+- =markdown-ts-convert= reads the live buffer (=nil= input file), so unsaved edits preview too; the refresh fires on save to keep Pandoc spawns cheap. Swap =after-save-hook= for an idle timer if you want keystroke-level updates.
+- EWW renders asynchronously via =url-retrieve=, so the saved scroll position is restored from a one-shot buffer-local =eww-after-render-hook=. Assumes the default =eww-auto-rename-buffer= (=nil=), i.e. a single =*eww*= buffer.
+
+#+begin_src emacs-lisp
+  (defvar-local my/markdown-eww-preview-file nil
+    "Temp HTML file backing the EWW preview of this buffer.")
+
+  (defun my/markdown-eww-preview--file ()
+    "Return this buffer's preview HTML file, creating it beside the source."
+    (or (and my/markdown-eww-preview-file
+             (file-exists-p my/markdown-eww-preview-file)
+             my/markdown-eww-preview-file)
+        (setq my/markdown-eww-preview-file
+              (make-temp-file (expand-file-name ".mdprev-" default-directory)
+                              nil ".html"))))
+
+  (defun my/markdown-eww-preview--cleanup ()
+    "Delete this buffer's preview HTML file."
+    (when (and my/markdown-eww-preview-file
+               (file-exists-p my/markdown-eww-preview-file))
+      (delete-file my/markdown-eww-preview-file))
+    (setq my/markdown-eww-preview-file nil))
+
+  (defun my/markdown-eww-preview-refresh ()
+    "Convert the current buffer to HTML and (re)render it in EWW.
+  Focus stays in the source window; the preview's scroll position is
+  restored after EWW's asynchronous render."
+    (when (derived-mode-p 'markdown-ts-mode)
+      (let* ((html (my/markdown-eww-preview--file))
+             (ewin (get-buffer-window "*eww*" 'visible))
+             (start (and ewin (window-start ewin)))
+             (pt    (and ewin (window-point ewin))))
+        ;; nil input-file => current buffer contents (unsaved edits included).
+        (markdown-ts-convert nil html '(html . pandoc) nil t t)
+        (save-selected-window
+          (select-window
+           (or ewin
+               (display-buffer (get-buffer-create "*eww*")
+                               '(display-buffer-pop-up-window
+                                 (inhibit-same-window . t)))))
+          (when start
+            (with-current-buffer (get-buffer "*eww*")
+              (letrec ((restore
+                        (lambda ()
+                          (remove-hook 'eww-after-render-hook restore t)
+                          (when-let ((w (get-buffer-window (current-buffer) 'visible)))
+                            (set-window-start w start)
+                            (set-window-point w pt)))))
+                (add-hook 'eww-after-render-hook restore nil t))))
+          (let ((inhibit-message t))
+            (eww-open-file html))))))
+
+  (define-minor-mode my/markdown-eww-preview-mode
+    "Live-preview the Markdown buffer in EWW, refreshing on save."
+    :lighter " md-eww"
+    (if my/markdown-eww-preview-mode
+        (progn
+          (add-hook 'after-save-hook #'my/markdown-eww-preview-refresh nil t)
+          (add-hook 'kill-buffer-hook #'my/markdown-eww-preview--cleanup nil t)
+          (my/markdown-eww-preview-refresh))
+      (remove-hook 'after-save-hook #'my/markdown-eww-preview-refresh t)
+      (remove-hook 'kill-buffer-hook #'my/markdown-eww-preview--cleanup t)
+      (my/markdown-eww-preview--cleanup)))
 #+end_src
 
 * Language support
