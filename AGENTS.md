@@ -60,8 +60,8 @@ live submodule tree into:
   `subagents/`, which carries the claude/codex approval-relaxing override).
   Definition resolution order and `config.edn` merge semantics are the
   `herdr-orch` skill's contract rather than wiring, and are documented once
-  in `agents/skills/herdr-orch/scripts/docs/contract.md` (§ Model resolution,
-  § Harness `:extra-args`)
+  in [agents/skills/herdr-orch/scripts/docs/contract.md#Model resolution](agents/skills/herdr-orch/scripts/docs/contract.md#model-resolution) and
+  [agents/skills/herdr-orch/scripts/docs/contract.md#Harness `:extra-args`](agents/skills/herdr-orch/scripts/docs/contract.md#harness-extra-args)
 - `~/.pi/agent/{AGENTS.md, prompts, extensions, skills, settings.json, mcp.json}`
 - `~/.local/bin/ot` → org-tasks CLI shim
 
@@ -81,5 +81,5 @@ On activation, `agents.nix`:
    stage time; `defaultProvider` and `defaultModel` are tracked (pi saves them
    only on Ctrl+S in `/model`). `jq` is in `home.packages` because the filter
    is `required = true`.
-   Failure warns instead of aborting activation. See README.org § The
-   pi-settings clean filter.
+   Failure warns instead of aborting activation. See
+   [README.org#The pi-settings clean filter](README.org#the-pi-settings-clean-filter).

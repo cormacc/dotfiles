@@ -339,7 +339,7 @@ non-NixOS install.
 * Provisioning a new account/installation
 
 The dotagents submodule must be initialised before any =home-manager
-switch= -- see [[#bootstrap][The dotagents submodule § Bootstrap]]. Then follow the
+switch= -- see [[*Bootstrap]]. Then follow the
 platform-specific section below.
 
 ** Non-NixOS
@@ -436,7 +436,7 @@ Workstation (full desktop):
   home-manager switch --flake './dotfiles#default' --impure -b backup
 #+end_src
 
-This first apply defines the =hms= / =nos= / =drs= shell aliases (see [[#shell-aliases][Maintenance § Shell aliases]]).
+This first apply defines the =hms= / =nos= / =drs= shell aliases (see [[*Shell aliases]]).
 
 ** Post-installation activities
 
