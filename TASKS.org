@@ -128,7 +128,7 @@ Acceptance shape (refine in planner pass):
 
 Origin:
 - Spun out of the `2026-05-28-explore-and-adopt-web-search-tooling` change-record while clarifying off-LAN/public exposure model.
-- Design reference: `~/dotfiles/design/home-network-infrastructure.org` § "Phase 2: Caddy ingress and internal DNS".
+- Design reference: [[file:design/home-network-infrastructure.org::*Phase 2: Caddy ingress and internal DNS]].
 - timestamp: [2026-05-29 Fri]
 - sender: agent
 
@@ -144,7 +144,7 @@ Origin:
 
 Expose a curated subset of home services to the public internet, using strix Caddy as the TLS terminator and UniFi as the WAN gateway with port-forward to Caddy. Blocked by the LAN Caddy task (`0e5c627e-1297-4609-8d11-5081c6dae485`) — needs Caddy already running internally before any public path is added.
 
-Per-service exposure policy (see `~/dotfiles/design/home-network-infrastructure.org` § "Per-service exposure model"):
+Per-service exposure policy (see [[file:design/home-network-infrastructure.org::*Per-service exposure model]]):
 
 | Service    | Public OK? | Reason                                              |
 |------------+------------+-----------------------------------------------------|
