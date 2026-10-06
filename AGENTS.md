@@ -21,10 +21,13 @@ aliases, provisioning, and required submodule bootstraps.
 
 ## Nix-specific gotchas
 
-- **Linux tracks nixpkgs unstable; Darwin is pinned** to a bisect-verified
-  commit on `release-25.11` (see flake comment) to dodge
-  [nixpkgs#507531](https://github.com/NixOS/nixpkgs/issues/507531). Bump
-  together with the `nix-darwin` + `home-manager-darwin` pins.
+- **Linux and Darwin both track `nixos-unstable`, through separate inputs.**
+  Darwin uses `nixpkgs-darwin`, and `nix-darwin` and `home-manager-darwin`
+  follow it. The separate input lets you pin Darwin when a macOS regression
+  occurs, without a change to the Linux package set. The earlier
+  `release-25.11` pin (for
+  [nixpkgs#507531](https://github.com/NixOS/nixpkgs/issues/507531)) was
+  removed at `22ed8db`.
 - **`strix` host (Framework Desktop / Ryzen AI Max+ 395)** pulls in
   `inputs.nix-amd-ai.nixosModules.default` for XRT/XDNA/Lemonade/ROCm/
   Vulkan. **Do not** add `nix-amd-ai.inputs.nixpkgs.follows` — closure
