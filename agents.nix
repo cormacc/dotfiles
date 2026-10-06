@@ -145,12 +145,10 @@ in
     ];
 
     home.packages = with pkgs; [
-      # Pi coding-agent. Provided by `pi.overlays.default` from the
-      # `lukasl-dev/pi.nix` flake input (replaces the older
-      # numtide/llm-agents.nix path which exposed `llm-agents.pi`).
-      # N.B. We're intentionally not using the agents home-manager based config module
-      #      for compatibility with our symlinking / live editable strategy for agent config
-      pi-coding-agent
+      # Pi coding-agent. Provided by `pi.overlays.default` from the upstream
+      # `earendil-works/pi` flake input (replaces the third-party
+      # lukasl-dev/pi.nix flake, which exposed `pi-coding-agent`).
+      pi
       claude-code
       codex
       # This is installed for linux only -- installed via homebrew on darwin
