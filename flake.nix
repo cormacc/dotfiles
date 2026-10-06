@@ -54,10 +54,17 @@
 
     nur.url  = "github:nix-community/NUR";
     nix-amd-ai.url = "github:noamsto/nix-amd-ai";
-    pi.url = "github:lukasl-dev/pi.nix";
     claude-code.url = "github:sadjow/claude-code-nix";
     codex-desktop.url = "github:ilysenko/codex-desktop-linux";
 
+    # Upstream pi flake. No binary cache: the overlay builds from source with
+    # `final.callPackage`, so following our nixpkgs costs nothing.
+    pi = {
+      url = "github:earendil-works/pi";
+      inputs.nixpkgs.follows = "nixpkgs";
+      # Only used for upstream's own packages.x86_64-darwin output.
+      inputs.nixpkgs-darwin-x64.follows = "nixpkgs-darwin";
+    };
     herdr = {
       url = "github:ogulcancelik/herdr";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -99,7 +106,6 @@
     extra-substituters = [
       "https://cache.nixos.org"
       "https://nix-community.cachix.org"
-      "https://pi.cachix.org"
       "https://claude-code.cachix.org"
       "https://nix-amd-ai.cachix.org"
       #Not sure whether these last two are in use...
@@ -111,7 +117,6 @@
       "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
       "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
       "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
-      "pi.cachix.org-1:lGeoGJaZ5ZDabuRzkcD5EBTNnDM4HJ1vqeOxlWk1Flk="
       "claude-code.cachix.org-1:YeXf2aNu7UTX8Vwrze0za1WEDS+4DuI2kVeWEE4fsRk="
       "nix-amd-ai.cachix.org-1:F4OU4vw/lV2oiG6SBHZ+nqjl4EFJuqI4X9A7pvaBmhQ="
     ];
