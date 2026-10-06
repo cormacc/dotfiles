@@ -39,8 +39,7 @@
       Restart = "on-failure";
       RestartSec = 10;
     };
-    # No Install section: start on demand with
-    #   systemctl --user start ms365-mcp
+    Install.WantedBy = [ "default.target" ];
   };
 
   # Zephyr development config
