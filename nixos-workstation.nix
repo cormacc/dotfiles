@@ -73,9 +73,13 @@
   ];
 
   # segger-jlink (needed for its udev rules above) is unfree and pulls in the
-  # insecure segger-jlink-qt4-810. allowUnfree is set in nixos-base.nix; the
-  # remaining overrides must be on the NixOS system nixpkgs config too.
-  nixpkgs.config.permittedInsecurePackages = [ "segger-jlink-qt4-952" ];
+  # insecure segger-jlink-qt4. allowUnfree is set in nixos-base.nix; the
+  # remaining overrides live only here, on the NixOS system nixpkgs config
+  # (the Home Manager pkgs set in flake.nix does not use segger-jlink).
+  # Match on pname, not name-version: permittedInsecurePackages needs the exact
+  # version and broke on each nixpkgs bump (810 -> 952 -> 970).
+  nixpkgs.config.allowInsecurePredicate =
+    pkg: pkgs.lib.getName pkg == "segger-jlink-qt4";
   nixpkgs.config.segger-jlink.acceptLicense = true;
 
   # Required to install sway via home-manager
