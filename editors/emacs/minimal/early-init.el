@@ -43,6 +43,17 @@
 (setq native-comp-async-report-warnings-errors 'silent
       native-comp-warning-on-missing-source nil)
 
+;; Without a deployment target, the GCC driver in the emacs-app cask's
+;; libgccjit derives `-mmacosx-version-min' from the Darwin kernel version.
+;; On Darwin 27 (macOS 27) it passes 18.0, clang rejects that value, and every
+;; native compile fails.
+;; An explicit deployment target overrides the derived value.  Child compile
+;; processes inherit it through `process-environment'.
+(when (and (eq system-type 'darwin)
+           (not (getenv "MACOSX_DEPLOYMENT_TARGET"))
+           (>= (string-to-number operating-system-release) 25))
+  (setenv "MACOSX_DEPLOYMENT_TARGET" "26.0"))
+
 ;; Site-lisp default file loading is not used by this config.
 (setq inhibit-default-init t)
 
