@@ -155,7 +155,8 @@ in
       # hermes-agent
       herdr
       prettier
-      typescript-language-server
+      # FIXME: Disabled - failing in nixpkgs 13/10/2026
+      # typescript-language-server
       # Required on PATH at stage time by the `pi-settings` git clean filter
       # registered above (the filter command is `jq 'del(...)'`), which is
       # declared `required = true` and so fails the stage without it.
