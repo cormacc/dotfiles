@@ -61,8 +61,8 @@ in
   homebrew = {
     enable = true;
     # Without this, activation runs `brew bundle --no-upgrade`, which installs
-    # missing entries but never upgrades installed ones (emacs-app sat at 30.2
-    # while the pinned tap already carried 31.1). Trade-off: `darwin-rebuild
+    # missing entries but never upgrades installed ones (the former emacs-app
+    # cask sat at 30.2 while the pinned tap carried 31.1). Trade-off: `darwin-rebuild
     # switch` is no longer idempotent -- it upgrades every brew/cask below
     # whenever the pinned taps advance. Tap contents move only on
     # `nix flake update homebrew-core homebrew-cask` (mutableTaps = false).
@@ -71,14 +71,14 @@ in
     # --cleanup`), so hand-installed packages cannot drift or shadow nix tools
     # on PATH. "zap" would also delete cask app data; "uninstall" keeps it.
     onActivation.cleanup = "uninstall";
+    # Emacs comes from nixpkgs (programs.emacs in editors/emacs/emacs.nix), with
+    # the vterm module prebuilt against nix's libvterm-neovim. The emacs-app
+    # cask and the libtool/libvterm brews it needed for vterm were dropped.
     brews = [
-      "libtool"
-      "libvterm"
       # This doesn't work, and is included in hermes-desktop anyway...
       # "hermes-agent"
     ];
     casks = [
-      "emacs-app"
       "ghostty"
       "google-chrome"
       # "ungoogled-chromium"
