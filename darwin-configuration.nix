@@ -67,6 +67,10 @@ in
     # whenever the pinned taps advance. Tap contents move only on
     # `nix flake update homebrew-core homebrew-cask` (mutableTaps = false).
     onActivation.upgrade = true;
+    # Uninstall every formula/cask/tap not declared here (`brew bundle
+    # --cleanup`), so hand-installed packages cannot drift or shadow nix tools
+    # on PATH. "zap" would also delete cask app data; "uninstall" keeps it.
+    onActivation.cleanup = "uninstall";
     brews = [
       "libtool"
       "libvterm"
