@@ -233,8 +233,6 @@ in
       # rely on specific pi extensions.
       "${piConfig}/skills" = link "${piRoot}/skills";
 
-      # User-local pi settings come from dotfiles, not from the dotagents
-      # submodule.
       "${piConfig}/settings.json" = link piSettings;
 
       # Native pi MCP server configuration (pi-only keys such as `oauth.callbackUrl`

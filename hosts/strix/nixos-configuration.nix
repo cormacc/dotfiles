@@ -106,7 +106,7 @@ in
   # ---------------------------------------------------------------------------
   # AMD AI / Lemonade (Strix Halo)
   # ---------------------------------------------------------------------------
-  # Kernel >= 6.14 is satisfied by nixos-workstation.nix (linux_6_18).
+  # Kernel >= 6.14 is satisfied by nixos-workstation.nix (linuxPackages_latest).
   # `users.users.cormacc` already carries `video` and `render` groups via
   # nixos-base.nix, so the amd-npu module's group requirement is met.
   hardware.amd-npu = {
