@@ -164,10 +164,16 @@
       # is no duplication and new pkgs/<name>/ dirs appear automatically.
       packages.${system} = (import ./pkgs/overlay.nix) pkgs pkgs;
 
-      checks.${system}.homelab-unifi-module = import ./tests/homelab-unifi-module.nix {
-        config = self.nixosConfigurations.nas.config;
-        modulePath = ./hosts/odroid-h4/homelab-unifi.nix;
-        inherit pkgs;
+      checks.${system} = {
+        homelab-unifi-module = import ./tests/homelab-unifi-module.nix {
+          config = self.nixosConfigurations.nas.config;
+          modulePath = ./hosts/odroid-h4/homelab-unifi.nix;
+          inherit pkgs;
+        };
+        hermes-shared-home-permissions = import ./tests/hermes-shared-home-permissions.nix {
+          config = self.nixosConfigurations.nas.config;
+          inherit pkgs;
+        };
       };
 
       nixosConfigurations = {

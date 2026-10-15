@@ -1,7 +1,36 @@
-{ lib, pkgs, ... }:
+{ lib, options, pkgs, ... }:
 
 let
   homelabAgentRepo = ../../sources/homelab-agent;
+  # Patch the Python leaf, not the assembled wrapper. Keep the pinned input and
+  # other hosts unchanged; append after upstream's workspace overlays. Remove
+  # this bridge when upstream exposes a direct Python override argument.
+  patchedHermes = options.services.hermes-agent.package.default.override (args:
+    let
+      upstream = args.pyproject-nix;
+      patchHermes = _final: prev:
+        lib.optionalAttrs (prev ? hermes-agent) {
+          hermes-agent = prev.hermes-agent.overrideAttrs (old: {
+            patches = (old.patches or [ ]) ++ [
+              ./patches/hermes-shared-home-permissions.patch
+            ];
+          });
+        };
+    in {
+      pyproject-nix = upstream // {
+        build = upstream.build // {
+          packages = lib.setFunctionArgs
+            (buildArgs:
+              let scope = upstream.build.packages buildArgs;
+              in scope // {
+                overrideScope = overlays:
+                  scope.overrideScope
+                    (lib.composeExtensions overlays patchHermes);
+              })
+            (builtins.functionArgs upstream.build.packages);
+        };
+      };
+    });
   # Install collector scripts from the homelab-agent repo into
   # libexec/homelab-<name>/ and byte-compile them as a syntax check.
   mkCollector = name: scripts:
@@ -20,6 +49,7 @@ let
 in {
   services.hermes-agent = {
     enable = true;
+    package = patchedHermes;
     addToSystemPackages = true;
 
     # The managed container gives the operations agent a mutable tool runtime

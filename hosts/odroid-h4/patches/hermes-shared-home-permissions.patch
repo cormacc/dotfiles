@@ -1,0 +1,13 @@
+--- a/hermes_constants.py
++++ b/hermes_constants.py
+@@ -650,3 +650,3 @@
+ def secure_parent_dir(path: Path) -> None:
+-    """Chmod ``0o700`` on *path*'s parent, refusing ``/`` and top-level dirs (misresolved HERMES_HOME)."""
++    """Harden credential parents, preserving active or locally managed home policy."""
+     parent = path.parent.resolve()
+@@ -667,2 +667,5 @@
+     with contextlib.suppress(OSError):
++        if parent == get_hermes_home().resolve() or (parent / ".managed").is_file():
++            apply_secure_dir_policy(parent, home=parent)
++            return
+         os.chmod(parent, 0o700)

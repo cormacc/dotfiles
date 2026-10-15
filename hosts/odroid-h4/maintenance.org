@@ -37,13 +37,16 @@ run zpool upgrade, reinstall firmware, or modify the gateway/other cluster nodes
 
 * Stage the exact build — manual, only after approval
 
-The NAS-installed nixos-rebuild CLI was checked to support --store-path.  Use its
-normal boot action: it updates the persistent system profile and boot entries,
+The NAS-installed nixos-rebuild CLI supports --store-path, but its default
+self-reexec first tries to build nixos-rebuild from a configuration.  Include
+--no-reexec for prebuilt-path staging and restoration: --store-path alone does
+not bypass that bootstrap.  The installed dispatch was tested without mutation.
+Use its normal boot action: it updates the persistent system profile and boot entries,
 without live-activating the new system.  Do not rebuild from a moving branch.
 The receipt must replace EXACT_CANDIDATE with the already built store path.
 
 #+begin_src shell
-ssh -t nas 'sudo timeout --kill-after=10s 180s nixos-rebuild boot --store-path /nix/store/EXACT_CANDIDATE'
+ssh -t nas 'sudo timeout --kill-after=10s 180s nixos-rebuild boot --no-reexec --store-path /nix/store/EXACT_CANDIDATE'
 #+end_src
 
 After exit, the agent verifies runtime still equals the saved runtime and the
@@ -81,7 +84,7 @@ do not assume --rollback selects either exact saved path.  Before reboot, undo
 staging by replacing SAVED_BOOT_PROFILE with the receipt's original boot path:
 
 #+begin_src shell
-ssh -t nas 'sudo timeout --kill-after=10s 180s nixos-rebuild boot --store-path /nix/store/SAVED_BOOT_PROFILE'
+ssh -t nas 'sudo timeout --kill-after=10s 180s nixos-rebuild boot --no-reexec --store-path /nix/store/SAVED_BOOT_PROFILE'
 #+end_src
 
 Verify the profile is restored and the old runtime has not changed.  If the new

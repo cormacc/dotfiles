@@ -209,7 +209,17 @@ the referenced object is unavailable.
 For a broader NAS update with accepted downtime, use the short
 [[file:hosts/odroid-h4/maintenance.org][NAS maintenance procedure]].  It stages an exact reviewed system for the next
 boot, keeps reboot separately approved, and leaves UniFi enrollment and timer
-enablement outside the maintenance window.
+enablement outside the maintenance window.  Prebuilt-path boot staging and
+restoration require =--no-reexec= as well as =--store-path= so the CLI does not
+try to rebuild itself from a missing host configuration.
+
+The NAS Hermes package carries a host-only source patch so credential-parent
+hardening honors the active home's declared permission policy.  The Nix check
+=hermes-shared-home-permissions= exercises the installed Python code with
+synthetic homes: shared managed-home permissions survive, unrelated credential
+caches remain private, and credential writes still request =0600=.  Do not use
+recursive permission changes as a workaround.  Building this fix does not
+authorize live permission repair, activation, or a gateway restart.
 
 * The dotagents submodule
 
