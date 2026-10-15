@@ -17,7 +17,7 @@ aliases, provisioning, and required submodule bootstraps.
   modules a workstation pulls in. NixOS host modules live in
   `hosts/<hostname>/`; shared profiles `nixos-workstation.nix` and
   `nixos-server.nix` both import `nixos-base.nix`, with optional mixins
-  (`nixos-nvidia*.nix`, `nixos-gaming.nix`, `nixos-llm.nix`).
+  (`nixos-nvidia*.nix`, `nixos-gaming.nix`).
 
 ## Nix-specific gotchas
 

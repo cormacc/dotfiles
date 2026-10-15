@@ -181,8 +181,6 @@
             ./hosts/xps15/nixos-configuration.nix
             ./nixos-workstation.nix
             ./nixos-gaming.nix
-            #Not currently doing anything with ollama, and it takes ages to build...
-            #./nixos-llm.nix
           ];
         };
         # Framework Desktop / AMD Ryzen AI Max+ 395 (Strix Halo) — local LLM
