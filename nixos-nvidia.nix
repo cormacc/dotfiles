@@ -14,10 +14,9 @@ in {
       default = false;
       description = ''
         When true, configure the host for a pre-Turing GPU: closed-source
-        kernel module (`hardware.nvidia.open = false`) and
-        `nvidiaPackages.latest` (the last series that still ships
-        legacy-card support). When false, use the open kernel module and
-        the current beta driver, suitable for Turing and newer GPUs.
+        kernel module (`hardware.nvidia.open = false`). When false, use the
+        open kernel module, suitable for Turing and newer GPUs. Both use
+        `nvidiaPackages.latest`.
       '';
     };
   };
