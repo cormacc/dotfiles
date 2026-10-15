@@ -25,7 +25,8 @@
   # ... although nixpkgs hasn't caught up yet
   programs.firefox = {
     enable = true;
-    # This configPath is the new default once home.stateVersion >= 26.05 -- we can remove the line then
+    # Keep explicit: HM wraps Firefox with this profile directory only when
+    # configPath differs from its default (.config/mozilla/firefox).
     configPath = "${config.xdg.configHome}/mozilla/firefox";
   };
 
