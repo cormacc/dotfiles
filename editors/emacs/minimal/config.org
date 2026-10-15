@@ -47,6 +47,7 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
   - [[#tree-sitter][Tree-sitter]]
   - [[#editorconfig][editorconfig]]
   - [[#eglot][eglot]]
+    - [[#definitions-inside-jars][Definitions inside jars]]
 - [[#llm][LLM]]
   - [[#eca][ECA]]
 - [[#file-format-support][File format support]]
@@ -174,6 +175,8 @@ Start the Emacs server in every interactive session, so =emacsclient= (shell =$E
 
 Embedded from [[https://github.com/magnars/emacsd-reboot/blob/main/settings/fast-startup.el][magnars/emacsd-reboot]].
 
+One local change: the idle-timer reset *merges* the saved handlers back in rather than overwriting. Session restore runs on =elpaca-after-init-hook=, inside the 5 s window, and can load packages that register a handler (=jarchive= via a restored Clojure buffer, see [[#eglot][eglot]]); a plain ~setq~ would silently drop those.
+
 #+begin_src emacs-lisp
 
 ;; Set garbage collection threshold high for startup
@@ -197,7 +200,9 @@ Embedded from [[https://github.com/magnars/emacsd-reboot/blob/main/settings/fast
    5 nil
    (lambda ()
      (setq gc-cons-threshold (* 1024 1024 20))
-     (setq file-name-handler-alist file-name-handler-alist-original)
+     (setq file-name-handler-alist
+           (delete-dups (append file-name-handler-alist
+                                file-name-handler-alist-original)))
      (makunbound 'file-name-handler-alist-original)))
 #+end_src
 
@@ -1091,6 +1096,20 @@ Built in. Emacs 31 already maps =clojure-lsp=, =clangd= and =pyright-langserver=
       "a" '("code action" . eglot-code-actions)
       "r" '("rename" . eglot-rename)
       "=" '("format buffer" . eglot-format-buffer)))
+#+end_src
+
+*** Definitions inside jars
+
+Go-to-definition into a dependency gets a URI inside the jar from clojure-lsp, e.g. =zipfile:///…/clojure-1.12.5.jar::clojure/core.clj= (its default =:dependency-scheme=). =eglot-uri-to-path= converts only =file://= URIs and passes anything else through untouched, expecting a =file-name-handler-alist= entry to open it (bug#58790). Without one, Emacs reads the URI as a relative path under =default-directory=, and =find-file= returns an empty read-only buffer for a file that does not exist.
+
+[[https://git.sr.ht/~dannyfreeman/jarchive][jarchive]] (GNU ELPA) registers that handler for both =zipfile:= and =jar:= URIs. It extracts the entry into a read-only buffer in the right major mode, attached to the current Eglot server so further navigation works. The handler would be dropped if it were registered during the startup window; [[#optimisation][Optimisation]] merges it back.
+
+#+begin_src emacs-lisp
+  (use-package jarchive
+    :ensure t
+    :after eglot
+    :config
+    (jarchive-mode))
 #+end_src
 * LLM
 ** ECA
