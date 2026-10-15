@@ -1,29 +1,20 @@
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 
 let
   homelabAgentRepo = ../../sources/homelab-agent;
-  healthCollector = pkgs.runCommand "homelab-health-collector" {
-    nativeBuildInputs = [ pkgs.python3 ];
-  } ''
-    install -Dm0555 ${homelabAgentRepo}/scripts/health_snapshot.py \
-      $out/libexec/homelab-health/health_snapshot.py
-    install -Dm0555 ${homelabAgentRepo}/scripts/watch_health.py \
-      $out/libexec/homelab-health/watch_health.py
-    ${pkgs.python3}/bin/python3 -m py_compile \
-      $out/libexec/homelab-health/health_snapshot.py \
-      $out/libexec/homelab-health/watch_health.py
-  '';
-  unifiCollector = pkgs.runCommand "homelab-unifi-collector" {
-    nativeBuildInputs = [ pkgs.python3 ];
-  } ''
-    install -Dm0555 ${homelabAgentRepo}/scripts/unifi_snapshot.py \
-      $out/libexec/homelab-unifi/unifi_snapshot.py
-    install -Dm0555 ${homelabAgentRepo}/scripts/watch_unifi.py \
-      $out/libexec/homelab-unifi/watch_unifi.py
-    ${pkgs.python3}/bin/python3 -m py_compile \
-      $out/libexec/homelab-unifi/unifi_snapshot.py \
-      $out/libexec/homelab-unifi/watch_unifi.py
-  '';
+  # Install collector scripts from the homelab-agent repo into
+  # libexec/homelab-<name>/ and byte-compile them as a syntax check.
+  mkCollector = name: scripts:
+    let dir = "$out/libexec/homelab-${name}";
+    in pkgs.runCommand "homelab-${name}-collector" { } ''
+      ${lib.concatMapStrings (s: ''
+        install -Dm0555 ${homelabAgentRepo}/scripts/${s} ${dir}/${s}
+      '') scripts}
+      ${pkgs.python3}/bin/python3 -m py_compile \
+        ${lib.concatMapStringsSep " " (s: "${dir}/${s}") scripts}
+    '';
+  healthCollector = mkCollector "health" [ "health_snapshot.py" "watch_health.py" ];
+  unifiCollector = mkCollector "unifi" [ "unifi_snapshot.py" "watch_unifi.py" ];
   emptyInventory = pkgs.writeText "homelab-empty-inventory.json" ''
     { "version": 1, "hosts": [] }
   '';

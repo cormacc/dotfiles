@@ -13,6 +13,10 @@ let
   spacemacsEmacs = (pkgsSpacemacs.emacsPackagesFor pkgsSpacemacs.emacs).emacsWithPackages
     (epkgs: [ epkgs.vterm ]);
 
+  # Live-editable link into this directory of the dotfiles checkout.
+  emacsDotfile = path: config.lib.file.mkOutOfStoreSymlink
+    "${config.home.homeDirectory}/dotfiles/editors/emacs/${path}";
+
   commonSessionVariables = {
     #Use xdg-config layout for spacemacs
     SPACEMACSDIR = "${config.xdg.configHome}/spacemacs";
@@ -90,9 +94,9 @@ in {
   # Same out-of-store pattern as Corgi: the three sources are editable in place
   # and the containing directory stays writable, so elpaca clones, the tangled
   # config.el, and eln caches live in ~/.config/emacs, not in the repo.
-  xdg.configFile."emacs/early-init.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/minimal/early-init.el";
-  xdg.configFile."emacs/init.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/minimal/init.el";
-  xdg.configFile."emacs/config.org".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/minimal/config.org";
+  xdg.configFile."emacs/early-init.el".source = emacsDotfile "minimal/early-init.el";
+  xdg.configFile."emacs/init.el".source = emacsDotfile "minimal/init.el";
+  xdg.configFile."emacs/config.org".source = emacsDotfile "minimal/config.org";
 
 
   # Alternate distributions
@@ -120,7 +124,7 @@ in {
   # Do this to have a symlinked read-only version
   # home.file."${config.xdg.configHome}/spacemacs".source = .config/spacemacs;
   # ... or this to keep it editable in-place, rather than have to 'home-manager switch ...' after each edit
-  home.file."${config.xdg.configHome}/spacemacs".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/spacemacs";
+  home.file."${config.xdg.configHome}/spacemacs".source = emacsDotfile "spacemacs";
 
 
   # ... Corgi emacs... a clojure-focused minimal config with spacemacs-like keybindings
@@ -128,11 +132,11 @@ in {
 
   # Keep the config files editable in place, but leave the containing directory
   # writable so Emacs runtime state does not end up in the dotfiles repository.
-  xdg.configFile."emacs-corgi/bootstrap.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/corgi/bootstrap.el";
-  xdg.configFile."emacs-corgi/early-init.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/corgi/early-init.el";
-  xdg.configFile."emacs-corgi/init.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/corgi/init.el";
-  xdg.configFile."emacs-corgi/user-keys.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/corgi/user-keys.el";
-  xdg.configFile."emacs-corgi/user-signals.el".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/dotfiles/editors/emacs/corgi/user-signals.el";
+  xdg.configFile."emacs-corgi/bootstrap.el".source = emacsDotfile "corgi/bootstrap.el";
+  xdg.configFile."emacs-corgi/early-init.el".source = emacsDotfile "corgi/early-init.el";
+  xdg.configFile."emacs-corgi/init.el".source = emacsDotfile "corgi/init.el";
+  xdg.configFile."emacs-corgi/user-keys.el".source = emacsDotfile "corgi/user-keys.el";
+  xdg.configFile."emacs-corgi/user-signals.el".source = emacsDotfile "corgi/user-signals.el";
 
 
   # Bare `emacs` loads the default / literate config

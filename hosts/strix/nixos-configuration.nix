@@ -9,11 +9,6 @@ let
   openWebUIWebSearchBootstrap = pkgs.writeShellScript "open-webui-web-search-bootstrap" ''
     set -euo pipefail
 
-    db=/var/lib/open-webui/data/webui.db
-    if [ ! -e "$db" ]; then
-      exit 0
-    fi
-
     ${pkgs.python3}/bin/python3 - <<'PY'
 import json
 import sqlite3
