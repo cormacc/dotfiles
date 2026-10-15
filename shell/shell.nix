@@ -64,8 +64,6 @@ complete -f -F _bb_tasks bb'';
 
   programs.zsh = {
     enable = true;
-    # This is the new default for stateversion >= 26.05
-    dotDir = "${config.xdg.configHome}/zsh";
     autosuggestion.enable = true;
     syntaxHighlighting = {
       enable = true;
