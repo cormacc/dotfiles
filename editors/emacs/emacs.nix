@@ -67,9 +67,10 @@ in {
     pyright
     black
     # ... clojure
-    clj-kondo
-    joker
-    clojure-lsp
+    # Installed via clojure.nix
+    # clj-kondo
+    # joker
+    # clojure-lsp
     # ...
   ];
 

@@ -149,10 +149,9 @@
       ];
       # pkgs = nixpkgs.legacyPackages.${system};
       pkgs = import nixpkgs {
-        system = "${system}";
+        inherit system;
         config = {
           allowUnfree = true;
-          allowUnfreePredicate = _: true;
         };
         overlays = linuxOverlays;
       };
@@ -169,13 +168,12 @@
         # is the canonical approach -- os-level tweaking should happen less
         # often than local environment changes.
         xps15 = nixpkgs.lib.nixosSystem {
-          system = "${system}";
+          inherit system;
           specialArgs = {
             inherit inputs;
             hostName = "xps15";
           };
           modules = [
-            { nixpkgs.config.allowUnfree = true; }
             hermes-agent.nixosModules.default
             # envfs.nixosModules.envfs
             ./nixos-nvidia.nix
@@ -193,13 +191,12 @@
         # dropped (iGPU + NPU only). `inputs.nix-amd-ai.nixosModules.default`
         # supplies `hardware.amd-npu` (XRT/XDNA/Lemonade/ROCm/Vulkan).
         strix = nixpkgs.lib.nixosSystem {
-          system = "${system}";
+          inherit system;
           specialArgs = {
             inherit inputs;
             hostName = "strix";
           };
           modules = [
-            { nixpkgs.config.allowUnfree = true; }
             inputs.nix-amd-ai.nixosModules.default
             ./hosts/strix/hardware-configuration.nix
             ./hosts/strix/nixos-configuration.nix
@@ -209,10 +206,9 @@
           ];
         };
         t580 = nixpkgs.lib.nixosSystem {
-          system = "${system}";
+          inherit system;
           specialArgs = { hostName = "t580"; };
           modules = [
-            { nixpkgs.config.allowUnfree = true; }
             # If re-enabling nvidia on t580, import ./nixos-nvidia.nix and
             # set `dotfiles.nvidia.legacy = true;` -- it has a pre-Turing
             # Quadro.
@@ -224,7 +220,7 @@
         };
         # Current NAS: odroid-h4.
         nas = nixpkgs.lib.nixosSystem {
-          system = "${system}";
+          inherit system;
           specialArgs = { hostName = "nas"; };
           modules = [
             hermes-agent.nixosModules.default

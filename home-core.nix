@@ -13,7 +13,6 @@ let
   emailOss =
     let v = builtins.getEnv "EMAIL_OSS";
     in if v == "" then email else v;
-  username = builtins.getEnv "USER";
 
   # Paths
   homedir = builtins.getEnv "HOME";

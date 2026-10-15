@@ -1,13 +1,5 @@
 { config, pkgs, ... }:
 
-let
-  brepl = pkgs.callPackage (pkgs.fetchFromGitHub {
-    owner = "licht1stein";
-    repo = "brepl";
-    rev = "v2.6.3";
-    hash = "sha256-1r+7DQcfOSD9gaBE3Hu961Se5lUqxIHPzF4E2NaNl/E=";
-  } + "/package.nix") {};
-in
 {
   home.packages = with pkgs; [
     # Compilers etc. for evaluating 3rd party repos without a flake...
@@ -16,8 +8,9 @@ in
     # binaryen
     # graalvmPackages.graalvm-oracle
     clojure
-    babashka
-    bbin
+    # Installed via shell.nix
+    # babashka
+    # bbin
     # ... editor support
     clojure-lsp
     clj-kondo
