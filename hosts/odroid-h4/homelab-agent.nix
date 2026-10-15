@@ -69,7 +69,9 @@ in {
       rsync
     ];
 
-    documents."USER.md" = ''
+    # Hermes loads SOUL.md from HERMES_HOME as its identity. Activation
+    # reinstalls it, so runtime edits do not survive a switch.
+    hermesHomeFiles."SOUL.md" = ''
       # Homelab operator context
 
       This agent maintains a private home network consisting of a UniFi Dream
