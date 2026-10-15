@@ -1,4 +1,4 @@
-{ config, pkgs, specialArgs, ... }:
+{ config, lib, pkgs, specialArgs, ... }:
 
 let
   # Input parameters
@@ -91,7 +91,7 @@ in
   #FIXME: This isn't applied for some reason...
   #...    When using sway, applied via sway config instead...
   #...    But would be nice to have it applied globally for gnome etc.
-  home.keyboard.options = [
+  home.keyboard.options = lib.optionals pkgs.stdenv.hostPlatform.isLinux [
     "caps:escape_shifted_capslock"
   ];
 

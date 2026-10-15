@@ -3,7 +3,9 @@
 # See https://nixcademy.com/posts/nix-on-macos/
 { self, pkgs, ... }:
 let
-  caches = import ./lib/nix-caches.nix;
+  caches = import ./lib/nix-caches.nix {
+    inherit (pkgs.stdenv.hostPlatform) isLinux;
+  };
 in
 {
   environment.systemPackages = [ pkgs.vim ];

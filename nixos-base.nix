@@ -5,7 +5,9 @@
 { config, pkgs, specialArgs, ... }:
 
 let
-  caches = import ./lib/nix-caches.nix;
+  caches = import ./lib/nix-caches.nix {
+    inherit (pkgs.stdenv.hostPlatform) isLinux;
+  };
 in
 {
   nix.settings = {
