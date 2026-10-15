@@ -59,8 +59,12 @@
 
     # Upstream pi flake. No binary cache: the overlay builds from source with
     # `final.callPackage`, so following our nixpkgs costs nothing.
+    # Track `stable`, not `main`: upstream CI fast-forwards `stable` to a
+    # release only after the Nix build of that release succeeds. On `main`,
+    # code can need model data newer than the pinned nix/model-catalog.json
+    # for a while, and the build then fails.
     pi = {
-      url = "github:earendil-works/pi";
+      url = "github:earendil-works/pi/stable";
       inputs.nixpkgs.follows = "nixpkgs";
       # Only used for upstream's own packages.x86_64-darwin output.
       inputs.nixpkgs-darwin-x64.follows = "nixpkgs-darwin";

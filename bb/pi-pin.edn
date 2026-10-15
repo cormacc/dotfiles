@@ -1,5 +1,0 @@
-;; Known-good rev of the pi flake input. Managed by `bb pin-pi`.
-;; Run `bb pin-pi current` only after a build with flake.lock succeeds.
-{:rev "b9ab2a6238d2c91cf0c6ebf836dfd05883f9db51",
- :date "2026-10-13T14:04:38Z",
- :source :current}
