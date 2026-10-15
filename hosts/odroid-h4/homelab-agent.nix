@@ -14,12 +14,8 @@ let
         ${lib.concatMapStringsSep " " (s: "${dir}/${s}") scripts}
     '';
   healthCollector = mkCollector "health" [ "health_snapshot.py" "watch_health.py" ];
-  unifiCollector = mkCollector "unifi" [ "unifi_snapshot.py" "watch_unifi.py" ];
   emptyInventory = pkgs.writeText "homelab-empty-inventory.json" ''
     { "version": 1, "hosts": [] }
-  '';
-  disabledUnifiConfig = pkgs.writeText "homelab-unifi-disabled.json" ''
-    { "version": 1, "enabled": false }
   '';
 in {
   services.hermes-agent = {
@@ -69,19 +65,19 @@ in {
       rsync
     ];
 
-    # Hermes loads SOUL.md from HERMES_HOME as its identity. Activation
-    # reinstalls it, so runtime edits do not survive a switch.
+    # Source-owned identity, reinstalled on activation. Keep operator facts and
+    # inventory out of this file; do not declaratively overwrite mutable memory.
     hermesHomeFiles."SOUL.md" = ''
-      # Homelab operator context
+      # Homelab operations assistant
 
-      This agent maintains a private home network consisting of a UniFi Dream
-      Machine Pro and access points, a MooseFS SBC storage cluster, two Intel
-      service servers, Home Assistant on Raspberry Pi, an AMD Strix Halo
-      Framework Desktop, and an NVIDIA DGX Spark.
+      You are the operator's homelab operations assistant. Prefer observation
+      and diagnosis before intervention. Be direct, evidence-based, and honest
+      about uncertainty; distinguish verified results from assumptions.
 
-      Start in observation mode. Follow /opt/homelab-agent/AGENTS.md and the
-      runbooks in /opt/homelab-agent/runbooks. Never perform a mutating action
-      without its required approval and verification steps.
+      Follow /opt/homelab-agent/AGENTS.md and the runbooks in
+      /opt/homelab-agent/runbooks for project-specific operating rules. Require
+      the applicable approval before mutations, and verify outcomes before
+      claiming success. Preserve operator data and keep secrets private.
     '';
   };
 
@@ -101,8 +97,6 @@ in {
   systemd.tmpfiles.rules = [
     "d /var/lib/homelab-agent 0750 homelab-health homelab-health - -"
     "C /var/lib/homelab-agent/hosts.json 0640 homelab-health homelab-health - ${emptyInventory}"
-    "d /var/lib/homelab-unifi 0750 root homelab-health - -"
-    "C /var/lib/homelab-unifi/config.json 0440 root homelab-health - ${disabledUnifiConfig}"
   ];
 
   systemd.services.homelab-health = {
@@ -147,55 +141,6 @@ in {
       RandomizedDelaySec = "20s";
       Persistent = true;
       Unit = "homelab-health.service";
-    };
-  };
-
-  # Introduce UniFi collection without enabling periodic execution. The first
-  # credentialed run is supervised; autostart is accepted in a later change.
-  systemd.services.homelab-unifi-watch = {
-    description = "Read-only UniFi Network health transition check";
-    wantedBy = [ ];
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    restartIfChanged = false;
-    stopIfChanged = true;
-    serviceConfig = {
-      Type = "oneshot";
-      User = "homelab-health";
-      Group = "homelab-health";
-      LoadCredential = [ "unifi-api-key:/var/lib/homelab-unifi/api-key" ];
-      StateDirectory = "homelab-unifi-state";
-      StateDirectoryMode = "0700";
-      UMask = "0077";
-      NoNewPrivileges = true;
-      PrivateTmp = true;
-      ProtectSystem = "strict";
-      ProtectHome = "read-only";
-      InaccessiblePaths = [
-        "-/var/lib/hermes"
-        "/run/nscd/socket"
-      ];
-      BindReadOnlyPaths = [ "/var/lib/homelab-unifi/hosts:/etc/hosts" ];
-      ReadWritePaths = [ "/var/lib/homelab-unifi-state" ];
-    };
-    script = ''
-      exec ${pkgs.python3}/bin/python3 \
-        ${unifiCollector}/libexec/homelab-unifi/watch_unifi.py \
-        --config /var/lib/homelab-unifi/config.json \
-        --credential-file "$CREDENTIALS_DIRECTORY/unifi-api-key" \
-        --state /var/lib/homelab-unifi-state/health.json
-    '';
-  };
-
-  systemd.timers.homelab-unifi-watch = {
-    description = "Run read-only UniFi health checks every five minutes";
-    wantedBy = [ ];
-    timerConfig = {
-      OnBootSec = "2min";
-      OnUnitActiveSec = "5min";
-      RandomizedDelaySec = "20s";
-      Persistent = true;
-      Unit = "homelab-unifi-watch.service";
     };
   };
 }

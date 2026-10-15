@@ -164,6 +164,12 @@
       # is no duplication and new pkgs/<name>/ dirs appear automatically.
       packages.${system} = (import ./pkgs/overlay.nix) pkgs pkgs;
 
+      checks.${system}.homelab-unifi-module = import ./tests/homelab-unifi-module.nix {
+        config = self.nixosConfigurations.nas.config;
+        modulePath = ./hosts/odroid-h4/homelab-unifi.nix;
+        inherit pkgs;
+      };
+
       nixosConfigurations = {
         # Standalone home-manager pattern (os config separate from user env)
         # is the canonical approach -- os-level tweaking should happen less
@@ -223,6 +229,7 @@
             hermes-agent.nixosModules.default
             ./hosts/odroid-h4/hardware-configuration.nix
             ./hosts/odroid-h4/homelab-agent.nix
+            ./hosts/odroid-h4/homelab-unifi.nix
             ./hosts/odroid-h4/homelab-compose.nix
             ./hosts/odroid-h4/sudo-authorization.nix
             ./nixos-boot-default.nix

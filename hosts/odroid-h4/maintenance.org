@@ -1,0 +1,98 @@
+#+title: NAS maintenance — accepted downtime, boot-only staging
+
+* Scope and approval
+
+This procedure prepares a broader NAS OS/runtime update.  The operator accepts
+planned downtime because this host currently has no critical services.  It is
+not a zero-downtime deployment.  Do not require container-identity continuity,
+a full application readiness matrix, or a backup drill for this window.
+
+Preparation, source review, publication and no-link builds do not authorize
+boot-profile changes or reboot.  Obtain fresh execution approval tied to a
+receipt naming the exact parent/child commits, built system store path, saved
+runtime and boot-profile paths, and pre-reboot boot ID.  Render the templates
+below with literal receipt paths before presenting them for execution; never
+run placeholder commands.
+
+All privileged commands are operator-run in a visible native terminal.  Never
+request a password through Hermes or run remote sudo through its terminal tool.
+No custom activation helper, dry-output parser, watchdog, or sudoers change is
+needed.  Keep private UniFi enrollment, collection and timer enablement separate.
+
+* Light preflight — read-only and separately runnable
+
+Confirm the exact reviewed build exists, record current/runtime and boot-profile
+paths separately, check root/store and boot free space, and require basic pool
+health.  Record the boot ID.  Confirm the operator can reach the local console
+or boot menu if SSH does not return; no recovery drill is required.
+
+#+begin_src shell
+ssh -t nas 'readlink -f /run/current-system && readlink -f /nix/var/nix/profiles/system && df -Pk / /boot /nix/store && zpool list -Hp -o health && read boot_id < /proc/sys/kernel/random/boot_id && printf "%s\n" "$boot_id"'
+#+end_src
+
+The agent inspects these results directly.  Treat failed commands, non-ONLINE
+pools, insufficient space for the built kernel/initrd, or changed generation
+paths as reasons to stop and refresh the receipt.  Do not change pool features,
+run zpool upgrade, reinstall firmware, or modify the gateway/other cluster nodes.
+
+* Stage the exact build — manual, only after approval
+
+The NAS-installed nixos-rebuild CLI was checked to support --store-path.  Use its
+normal boot action: it updates the persistent system profile and boot entries,
+without live-activating the new system.  Do not rebuild from a moving branch.
+The receipt must replace EXACT_CANDIDATE with the already built store path.
+
+#+begin_src shell
+ssh -t nas 'sudo timeout --kill-after=10s 180s nixos-rebuild boot --store-path /nix/store/EXACT_CANDIDATE'
+#+end_src
+
+After exit, the agent verifies runtime still equals the saved runtime and the
+system profile equals the exact candidate.  A nonzero/timeout result may leave
+a partial profile/boot update: do not reboot.  Restore the saved boot profile
+with the rollback boot action below and verify it.  If that fails, stop and use
+the console; never continue by guessing another generation.
+
+If staging succeeded but reboot is deferred, revoke the sudo ticket:
+
+#+begin_src shell
+ssh -t nas 'sudo -K'
+#+end_src
+
+* Reboot — separate manual execution gate
+
+After staged-profile verification and explicit reboot approval:
+
+#+begin_src shell
+ssh -t nas 'sudo systemctl reboot'
+#+end_src
+
+The agent waits for a different boot ID, then allows up to five minutes for
+startup convergence.  Check runtime and boot profile both equal the candidate,
+pools are ONLINE, required storage is mounted, and Docker/Hermes are accessible.
+Check UniFi remains inactive and unscheduled.  Report failed units.  Services
+whose declared autostart is disabled may remain stopped: do not start all
+containers or change restart policy implicitly.  Restore a particular optional
+application only if requested.
+
+* Standard rollback and escalation
+
+Runtime and boot-profile paths can differ before maintenance.  Preserve both;
+do not assume --rollback selects either exact saved path.  Before reboot, undo
+staging by replacing SAVED_BOOT_PROFILE with the receipt's original boot path:
+
+#+begin_src shell
+ssh -t nas 'sudo timeout --kill-after=10s 180s nixos-rebuild boot --store-path /nix/store/SAVED_BOOT_PROFILE'
+#+end_src
+
+Verify the profile is restored and the old runtime has not changed.  If the new
+boot fails, select the previous known boot entry locally.  If SSH returns but
+candidate health fails, the operator may approve restoring the saved boot path
+with that same boot action, verify staging, then approve one reboot.  That
+restores the saved boot generation, not necessarily the distinct saved runtime.
+Do not use a live switch as an automatic recovery shortcut.  Do not delete old
+generations or upgrade pool features during this window.
+
+Record fixed stage outcomes (preflight, staged, booted, abort, rollback-verified,
+rollback-failed), exact generation paths and aggregate health only.  Withhold
+success until postchecks pass.  On rollback failure or unavailable boot access,
+stop and escalate rather than issuing repeated speculative root commands.

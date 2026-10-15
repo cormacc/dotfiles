@@ -174,6 +174,13 @@ store.  In particular, Grafana's environment file belongs at
 Laptop-local or SSH development uses a separate clone/worktree.  It is never
 the systemd or container production input.
 
+The NAS declares =SOUL.md= under =hermesHomeFiles= as source-owned role and
+behavior guidance; activation reinstalls it.  Operator profile facts belong in
+mutable =$HERMES_HOME/memories/USER.md= and maintained inventory, not the identity
+file.  Do not declare that user-memory file as an unconditional activation copy:
+it could overwrite learned entries.  Project-specific rules remain in the
+deployed =AGENTS.md= and runbooks.
+
 ** Update and validation workflow
 
 Initialize all required sources on a fresh or existing checkout:
@@ -198,6 +205,11 @@ pushed so that another checkout can fetch the Gitlink:
 Commit the child revision before the parent pointer.  Never record an unpushed
 child commit: recursive clone and target-host builds would fail closed because
 the referenced object is unavailable.
+
+For a broader NAS update with accepted downtime, use the short
+[[file:hosts/odroid-h4/maintenance.org][NAS maintenance procedure]].  It stages an exact reviewed system for the next
+boot, keeps reboot separately approved, and leaves UniFi enrollment and timer
+enablement outside the maintenance window.
 
 * The dotagents submodule
 
