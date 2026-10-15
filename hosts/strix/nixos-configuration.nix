@@ -289,10 +289,10 @@ in
   # ---------------------------------------------------------------------------
   # nix-amd-ai Cachix at the NixOS level
   # ---------------------------------------------------------------------------
-  # `nixConfig.extra-substituters` in flake.nix covers flake evaluation
-  # (already-trusted users); these settings cover post-activation nix
-  # invocations on the running system, including fresh installs that
-  # haven't seen the flake's nixConfig yet.
+  # Keep this Linux-only cache out of the platform-neutral flake nixConfig.
+  # These settings cover post-activation nix invocations on the running
+  # system. Before the first activation, pass the cache and key explicitly
+  # if they are not already configured in the build machine's nix.conf.
   nix.settings = {
     extra-substituters = [ "https://nix-amd-ai.cachix.org" ];
     extra-trusted-public-keys = [

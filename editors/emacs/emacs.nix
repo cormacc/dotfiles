@@ -1,4 +1,4 @@
-{ config, pkgs, inputs, ... }:
+{ config, lib, pkgs, inputs, ... }:
 
 let
   # Spacemacs alone is held at Emacs 30.2 via the rev-pinned `nixpkgs-spacemacs`
@@ -27,7 +27,7 @@ in {
   #User environment
   home.sessionVariables = commonSessionVariables;
   #... and environment.d for gdm, kdm etc. that don't source user profile
-  systemd.user.sessionVariables = commonSessionVariables;
+  systemd.user.sessionVariables = lib.mkIf pkgs.stdenv.hostPlatform.isLinux commonSessionVariables;
 
   programs.pandoc.enable = true;
   programs.texlive.enable = true;
@@ -36,7 +36,6 @@ in {
   home.packages = with pkgs; [
     (aspellWithDicts (dicts: with dicts; [en ga]))
     ripgrep
-    gsettings-desktop-schemas
     libvterm-neovim
     # org export
     zip #for ODT export
@@ -76,6 +75,9 @@ in {
     # joker
     # clojure-lsp
     # ...
+  ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+    # GNOME desktop settings are not used by native macOS Emacs.
+    gsettings-desktop-schemas
   ];
 
   home.file.".local/bin/md2org".source=./bin/md2org;

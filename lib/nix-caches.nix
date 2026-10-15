@@ -14,21 +14,25 @@
 # MERGE. Use the replacing form here so the same list applies regardless
 # of upstream default churn, and reserve the extra-* form for genuine
 # host-local additions.
+#
+# Flake nixConfig repeats only the common entries because it cannot select
+# caches by platform. Linux system configurations also retain the Hyprland cache.
+{ isLinux }:
 {
   substituters = [
     "https://cache.nixos.org"
     "https://nix-community.cachix.org"
-    "https://hyprland.cachix.org"
     "https://cache.numtide.com"
     # Claude Code binary cache (see flake input `claude-code`).
     "https://claude-code.cachix.org"
-  ];
+  ] ++ (if isLinux then [ "https://hyprland.cachix.org" ] else []);
 
   trustedPublicKeys = [
     "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
     "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
-    "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
     "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
     "claude-code.cachix.org-1:YeXf2aNu7UTX8Vwrze0za1WEDS+4DuI2kVeWEE4fsRk="
-  ];
+  ] ++ (if isLinux then [
+    "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
+  ] else []);
 }
