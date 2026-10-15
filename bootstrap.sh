@@ -110,10 +110,12 @@ run() { printf '    $ %s\n' "$*"; "$@"; }
 
 # Ensure an identity variable is set in the environment, prompting the user
 # for a value if it isn't. Exports the result so child processes inherit it.
+# An empty answer takes the optional default.
 #   ensure_var NAME    "Full name (e.g. 'Jane Doe')" required
 #   ensure_var GITLAB  "Self-hosted GitLab host"     optional
+#   ensure_var EMAIL_OSS "OSS email" optional "$EMAIL"
 ensure_var() {
-    local var="$1" prompt="$2" mode="${3:-required}"
+    local var="$1" prompt="$2" mode="${3:-required}" default="${4-}"
     local current="${!var-}"
     if [ -n "$current" ]; then
         echo "    ok: \$$var already set"
@@ -125,6 +127,7 @@ ensure_var() {
         # Interactive: loop until we get a value (or accept empty if optional).
         while :; do
             read -r -p "    $prompt: " ans || ans=""
+            ans="${ans:-$default}"
             if [ -n "$ans" ] || [ "$mode" = "optional" ]; then
                 break
             fi
@@ -133,6 +136,7 @@ ensure_var() {
     else
         # Non-interactive: consume one line from stdin if available.
         read -r ans || ans=""
+        ans="${ans:-$default}"
         if [ -z "$ans" ] && [ "$mode" = "required" ]; then
             echo "error: \$$var not set and no value supplied on stdin" >&2
             exit 1
@@ -166,19 +170,7 @@ ensure_var EMAIL  "Your global / work email (used in git config)"   required
 # EMAIL_OSS scopes a personal email to ~/dev/ repos via a git includeIf.
 # Defaulting to $EMAIL keeps single-identity setups simple: hit Enter and
 # nothing changes vs the EMAIL-only case.
-if [ -z "${EMAIL_OSS-}" ]; then
-    if [ -t 0 ]; then
-        read -r -p "    Personal/OSS email for ~/dev/ repos [default: \$EMAIL = $EMAIL]: " EMAIL_OSS_ANS
-        EMAIL_OSS="${EMAIL_OSS_ANS:-$EMAIL}"
-    else
-        read -r EMAIL_OSS_ANS || EMAIL_OSS_ANS=""
-        EMAIL_OSS="${EMAIL_OSS_ANS:-$EMAIL}"
-    fi
-    export EMAIL_OSS
-    echo "    ok: \$EMAIL_OSS = $EMAIL_OSS"
-else
-    echo "    ok: \$EMAIL_OSS already set"
-fi
+ensure_var EMAIL_OSS "Personal/OSS email for ~/dev/ repos [default: \$EMAIL = $EMAIL]" optional "$EMAIL"
 ensure_var GITLAB "Self-hosted GitLab host (blank if none)"         optional
 
 # -----------------------------------------------------------------------------
