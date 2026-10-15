@@ -70,7 +70,6 @@ fresh machine.
   - [[#shell-aliases][Shell aliases]]
     - [[#emacs-aliases][Emacs aliases]]
   - [[#updating-packages][Updating packages]]
-    - [[#when-the-pi-input-fails-to-build][When the pi input fails to build]]
   - [[#managing-generations][Managing generations]]
   - [[#updating-nixos][Updating NixOS]]
 - [[#links][Links]]
@@ -493,22 +492,6 @@ Keep =~/.emacs.d= and =~/.emacs= absent. Emacs tests those two locations *before
   nix flake update
   hms   # or nos / drs depending on host
 #+end_src
-
-*** When the pi input fails to build
-pi's Nix build reads model data from a catalog pinned upstream in =nix/model-catalog.json=. A pi commit that needs newer model data fails to build until upstream updates that pin. The =pin-pi= task keeps a known-good pi rev in [[./bb/pi-pin.edn]] (tracked):
-#+begin_src shell
-  bb pin-pi           # show the locked rev, the pin, and the latest catalog commit
-  bb pin-pi refresh   # move the pin to the latest catalog commit, if it is newer
-  bb pin-pi revert    # lock pi to the pinned rev
-  hms
-#+end_src
-
-After a build succeeds with a newer pi rev, record that rev as the new pin:
-#+begin_src shell
-  bb pin-pi current
-#+end_src
-
-Run =current= only after a successful build. It does not build anything. It records the rev in =flake.lock= as good. If you record a bad rev, restore =bb/pi-pin.edn= with Git.
 
 ** Managing generations
 A new generation is built on every =home-manager switch= (or =nixos-rebuild switch=).
