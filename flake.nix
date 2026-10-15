@@ -168,7 +168,6 @@
         # is the canonical approach -- os-level tweaking should happen less
         # often than local environment changes.
         xps15 = nixpkgs.lib.nixosSystem {
-          inherit system;
           specialArgs = {
             inherit inputs;
             hostName = "xps15";
@@ -191,7 +190,6 @@
         # dropped (iGPU + NPU only). `inputs.nix-amd-ai.nixosModules.default`
         # supplies `hardware.amd-npu` (XRT/XDNA/Lemonade/ROCm/Vulkan).
         strix = nixpkgs.lib.nixosSystem {
-          inherit system;
           specialArgs = {
             inherit inputs;
             hostName = "strix";
@@ -206,7 +204,6 @@
           ];
         };
         t580 = nixpkgs.lib.nixosSystem {
-          inherit system;
           specialArgs = { hostName = "t580"; };
           modules = [
             # If re-enabling nvidia on t580, import ./nixos-nvidia.nix and
@@ -220,7 +217,6 @@
         };
         # Current NAS: odroid-h4.
         nas = nixpkgs.lib.nixosSystem {
-          inherit system;
           specialArgs = { hostName = "nas"; };
           modules = [
             hermes-agent.nixosModules.default
