@@ -155,6 +155,21 @@ Session state (recent files, minibuffer history, cursor position, auto-revert) f
   :config (global-auto-revert-mode 1))
 #+end_src
 
+** Server
+
+Start the Emacs server in every interactive session, so =emacsclient= (shell =$EDITOR=, git, the pi =emacsclient= extension) reaches the running instance instead of launching a second one. The default socket name is kept, so clients need no =--socket-name=.
+
+=server-running-p= guards the restart case: =SPC q r= (=restart-emacs=) and a =--daemon= launch already own the socket, and =server-start= would otherwise clobber it. =server-auth-dir= follows [[#run-time-state-hygiene-no-littering][no-littering]] (=var/server/=), so this block stays after it.
+
+#+begin_src emacs-lisp
+  (use-package server
+    :ensure nil
+    :demand t
+    :config
+    (unless (or (daemonp) (server-running-p))
+      (server-start)))
+#+end_src
+
 ** Optimisation
 
 Embedded from [[https://github.com/magnars/emacsd-reboot/blob/main/settings/fast-startup.el][magnars/emacsd-reboot]].
