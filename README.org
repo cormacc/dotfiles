@@ -103,7 +103,6 @@ Progress on the Microchip side lives in the [[https://github.com/cormacc/nix-mic
 [[./nixos-workstation.nix]] imports [[./nixos-base.nix]] and adds workstation concerns (audio, display, sway, hyprland). Host-specific configs live in =hosts/<hostname>/=. Optional mixins:
 - [[./nixos-nvidia.nix]] -- GPU drivers (set =dotfiles.nvidia.legacy = true= for pre-Turing cards)
 - [[./nixos-gaming.nix]] -- Steam and gaming packages
-- [[./nixos-llm.nix]] -- ollama / LLM setup
 - [[./nixos-server.nix]] -- server-only config
 - [[./nixos-boot-default.nix]] -- standard systemd-boot setup
 - [[./nixos-bootstrap.nix]] -- minimal config dropped onto a fresh install via [[./bootstrap.sh]]
