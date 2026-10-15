@@ -27,6 +27,9 @@ let
   # piConfig = "${config.xdg.configHome}/pi";
   npmCache = "${config.xdg.cacheHome}/npm";
 
+  # Live-editable link into the dotfiles checkout.
+  link = path: { source = config.lib.file.mkOutOfStoreSymlink path; };
+
 in
 {
   config = {
@@ -175,8 +178,7 @@ in
 
     home.file = {
       # Generic harness-agnostic skills (Agent Skills spec location).
-      "${agentsConfig}/skills".source =
-        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
+      "${agentsConfig}/skills" = link "${agentsRoot}/skills";
 
       # Home-layer Herdr subagent overrides. Packaged personas and their default
       # config.edn still live below the linked skills tree at
@@ -184,8 +186,7 @@ in
       # (packaged < home < project), and is now managed rather than hand-authored
       # so the harness permission overrides in dotagents apply on every host.
       # Out-of-store, so edits in the submodule take effect without a switch.
-      "${agentsConfig}/subagents".source =
-        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/subagents";
+      "${agentsConfig}/subagents" = link "${agentsRoot}/subagents";
 
       # Home layer of the trait-fragment store, the middle link of the same
       # project < home < packaged chain the subagents link above serves. The
@@ -195,8 +196,7 @@ in
       # pi trait-expansion extension when that is built. Out-of-store, so edits
       # in the submodule take effect without a switch, matching skills and
       # subagents.
-      "${agentsConfig}/traits".source =
-        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/traits";
+      "${agentsConfig}/traits" = link "${agentsRoot}/traits";
 
       # Claude Code discovery location for the same generic skills tree.
       # Claude Code hardcodes ~/.claude/skills (user scope) and
@@ -206,8 +206,7 @@ in
       # gitlab-cli-skills resident as a single entry while its 30+ glab-*
       # sub-skills stay on-demand -- the gradual-discovery behaviour the
       # sub-skill layout assumes. Out-of-store, matching ~/.agents/skills.
-      "${claudeConfig}/skills".source =
-        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
+      "${claudeConfig}/skills" = link "${agentsRoot}/skills";
 
       # Claude Code's user-scope memory, giving claude the same portable rules
       # pi gets via ~/.pi/agent/AGENTS.md. It is a one-line `@` import rather
@@ -217,45 +216,36 @@ in
       # `@AGENTS.md` would resolve differently depending on whether Claude
       # resolves the link before taking the dirname. An absolute path is correct
       # either way, and assumes only the `dotRoot` this module already assumes.
-      "${claudeConfig}/CLAUDE.md".source =
-        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/home/CLAUDE.md";
+      "${claudeConfig}/CLAUDE.md" = link "${agentsRoot}/home/CLAUDE.md";
 
       # Add the org-tasks cli tool shim to the path
-      ".local/bin/ot".source =
-        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills/org-tasks/scripts/ot";
+      ".local/bin/ot" = link "${agentsRoot}/skills/org-tasks/scripts/ot";
 
       # Pi-side discovery locations. AGENTS.md comes from the submodule's
       # `home/` layer -- the portable, project-agnostic rules. The submodule's
       # *root* AGENTS.md is the dotagents project file (maintenance specifics
       # for that repo) and is deliberately not projected here; it is picked up
       # by ordinary cwd discovery when working inside the submodule.
-      "${piConfig}/AGENTS.md".source =
-        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/home/AGENTS.md";
-      "${piConfig}/prompts".source =
-        config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/prompts";
-      "${piConfig}/extensions".source =
-        config.lib.file.mkOutOfStoreSymlink "${piRoot}/extensions";
+      "${piConfig}/AGENTS.md" = link "${agentsRoot}/home/AGENTS.md";
+      "${piConfig}/prompts" = link "${agentsRoot}/prompts";
+      "${piConfig}/extensions" = link "${piRoot}/extensions";
       # Pi-specific skills (separate from generic ~/.agents/skills) typically
       # rely on specific pi extensions.
-      "${piConfig}/skills".source =
-        config.lib.file.mkOutOfStoreSymlink "${piRoot}/skills";
+      "${piConfig}/skills" = link "${piRoot}/skills";
 
       # User-local pi settings come from dotfiles, not from the dotagents
       # submodule.
-      "${piConfig}/settings.json".source =
-        config.lib.file.mkOutOfStoreSymlink piSettings;
+      "${piConfig}/settings.json" = link piSettings;
 
       # Native pi MCP server configuration (pi-only keys such as `oauth.callbackUrl`
       # and `description`), so it lives beside settings.json.
-      "${piConfig}/mcp.json".source =
-        config.lib.file.mkOutOfStoreSymlink piMcp;
+      "${piConfig}/mcp.json" = link piMcp;
 
       # Same for the model catalogue. Its `providers.<id>.modelOverrides` is
       # pi's topmost model layer, so it corrects extension-registered providers
       # (e.g. the lemonade plugin's hardcoded 4096 `maxTokens`) without
       # patching the extension.
-      "${piConfig}/models.json".source =
-        config.lib.file.mkOutOfStoreSymlink piModels;
+      "${piConfig}/models.json" = link piModels;
     };
   };
 }
