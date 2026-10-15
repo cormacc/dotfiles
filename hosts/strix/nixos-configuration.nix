@@ -62,15 +62,19 @@ in
       host = "0.0.0.0";
       port = lemonadePort;
 
-      # No origin allowlist. lemond accepts requests with no Origin header
-      # (CLI/SDK clients, and Open WebUI and Vane, which call it from their
-      # backends), loopback origins, and same-origin requests from its own web
-      # UI. An empty string clears the "*" that lemond migrated into
-      # ~/.config/lemonade/config.json from the old LEMONADE_ALLOWED_ORIGINS
-      # env var; the module's reconcile merges keys but never deletes them.
-      # This makes the module emit a "allowedOrigins is empty" eval warning,
-      # which is expected.
-      settings.allowed_origins = "";
+      # Browser origins allowed to call lemond, for its web UI on the LAN.
+      # Requests with no Origin header (CLI/SDK clients, and Open WebUI and
+      # Vane, which call lemond from their backends) and loopback origins are
+      # always allowed. An explicit allowlist replaces lemond's same-origin
+      # check, so list every address that the web UI is opened from. Emitted
+      # as LEMONADE_ALLOWED_ORIGINS, which takes priority over the
+      # allowed_origins key in ~/.config/lemonade/config.json.
+      allowedOrigins = map (h: "http://${h}:${toString lemonadePort}") [
+        "strix"
+        "strix.internal"   # what `strix` resolves to on the LAN
+        "strix.local"
+        "192.168.1.164"
+      ];
     };
   };
 
