@@ -103,14 +103,19 @@ in
     environmentFile = "/var/lib/searx/searx.env";
 
     settings = {
+      # Engine set chosen by test from this network's public IP (2026-10-15).
+      # brave ("too many requests"), google, qwant and privacywall ("access
+      # denied"), startpage (CAPTCHA) and wolframalpha (timeout) returned no
+      # results. duckduckgo works intermittently (CAPTCHA after a few rapid
+      # queries). Retest after an IP change or a SearXNG bump.
       use_default_settings.engines.keep_only = [
+        "bing"
         "duckduckgo"
-        "brave"
         "mojeek"
-        "google"
+        "yahoo"
+        "yep"
         "wikipedia"
         "github"
-        "wolframalpha"
       ];
 
       server = {
@@ -121,14 +126,11 @@ in
 
       search.formats = [ "html" "json" ];
 
-      engines = [
-        {
-          name = "wolframalpha";
-          engine = "wolframalpha_noapi";
-          shortcut = "wa";
-          disabled = false;
-        }
-      ];
+      # Upstream defaults: bing, yahoo and yep are disabled; mojeek is
+      # inactive (not loaded) because of its proof-of-work CAPTCHA, which
+      # this IP does not get.
+      engines = map (name: { inherit name; disabled = false; }) [ "bing" "yahoo" "yep" ]
+        ++ [ { name = "mojeek"; inactive = false; } ];
     };
   };
 
