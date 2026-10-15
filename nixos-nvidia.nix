@@ -57,11 +57,6 @@ in {
       package = config.boot.kernelPackages.nvidiaPackages.latest;
     };
 
-    environment.systemPackages = with pkgs; [
-      # Required during laptop hybrid graphics setup
-      lshw
-    ];
-
     # llm-related additions - per
     # https://gist.github.com/reklis/fb300e1b6c3549b1b2a82b891a8cc1b7
     # N.B. Unverified

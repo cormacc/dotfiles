@@ -65,7 +65,6 @@ in {
     #
     # waybar
     rofi #launcher / dmenu replacement
-    fuzzel #alternative dmenu replacement
     jq # json parsing -- used by various sway/waybar scripts
     bc # gnu calculator -- used in some scripts
 

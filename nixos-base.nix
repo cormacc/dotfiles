@@ -54,7 +54,6 @@ in
 
     extraGroups = [ "networkmanager" "wheel" "dialout" "lp" "audio" "video" "render" "docker" "kvm" "adm" "systemd-journal" "uucp"];
     shell = pkgs.zsh;
-    packages = with pkgs; [];
   };
   programs.zsh.enable = true;
 

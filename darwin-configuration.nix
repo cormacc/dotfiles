@@ -54,7 +54,6 @@ in
   system.primaryUser = "cormacc";
 
   users.users.cormacc = {
-    name = "cormacc";
     home = "/Users/cormacc";
   };
 
