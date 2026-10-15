@@ -1,0 +1,4 @@
+{:paths ["bb"]
+ :tasks {pin-pi {:doc "Keep a known-good pi rev: status | revert | refresh | current (see --help)"
+                 :requires ([pin-pi])
+                 :task (apply pin-pi/-main *command-line-args*)}}}
