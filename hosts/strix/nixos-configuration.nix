@@ -6,46 +6,6 @@ let
   searxngPort = 8888;
   vanePort = 3001;
   vaneSearxngApiUrl = "http://host.docker.internal:${toString searxngPort}";
-  openWebUIWebSearchBootstrap = pkgs.writeShellScript "open-webui-web-search-bootstrap" ''
-    set -euo pipefail
-
-    ${pkgs.python3}/bin/python3 - <<'PY'
-import json
-import sqlite3
-from datetime import datetime
-from pathlib import Path
-
-DB = Path('/var/lib/open-webui/data/webui.db')
-if not DB.exists():
-    raise SystemExit(0)
-
-with sqlite3.connect(DB) as conn:
-    table = conn.execute(
-        "select name from sqlite_master where type = 'table' and name = 'config'"
-    ).fetchone()
-    if table is None:
-        raise SystemExit(0)
-
-    row = conn.execute('select id, data from config order by id desc limit 1').fetchone()
-    if row is None:
-        raise SystemExit(0)
-
-    config_id, raw_data = row
-    data = json.loads(raw_data) if isinstance(raw_data, str) else (raw_data or {})
-    search = data.setdefault('rag', {}).setdefault('web', {}).setdefault('search', {})
-    search.update({
-        'enable': True,
-        'engine': 'searxng',
-        'searxng_query_url': 'http://127.0.0.1:${toString searxngPort}/search?q=<query>',
-    })
-
-    conn.execute(
-        'update config set data = ?, updated_at = ? where id = ?',
-        (json.dumps(data), datetime.now().isoformat(sep=' '), config_id),
-    )
-    conn.commit()
-PY
-  '';
   vaneSearxngBootstrap = pkgs.writeShellScript "vane-searxng-bootstrap" ''
     set -euo pipefail
 
@@ -71,53 +31,18 @@ PY
 in
 {
   # ---------------------------------------------------------------------------
-  # Open WebUI: patch list-mode image-edit field name
-  # ---------------------------------------------------------------------------
-  # Open WebUI 0.9.5's chat-tool `edit_image` builds `EditImageForm(image=urls)`
-  # with a *list*, which makes routers/images.py send the file part(s) under
-  # the non-OpenAI field name `image[]`. Lemonade (and any strict OpenAI-compat
-  # backend) ignores `image[]`, returns HTTP 400 with body
-  # `{"error":{"message":"Missing 'image' field in request",...}}`, which Open
-  # WebUI then re-raises to the chat UI as `400: [ERROR: Bad Request]`.
-  #
-  # OpenAI's spec is to send multiple images as repeated `image` parts, not
-  # `image[]`. This overlay rewrites the single occurrence in routers/images.py
-  # so the field name is `image` for both the single-string and list branches.
-  # Drop this overlay once upstream Open WebUI ships an equivalent fix; track
-  # the change via `grep -n 'image\[\]' .../routers/images.py` after each bump.
-  nixpkgs.overlays = [
-    (final: prev: {
-      open-webui = prev.open-webui.overridePythonAttrs (old: {
-        postPatch = (old.postPatch or "") + ''
-          substituteInPlace backend/open_webui/routers/images.py \
-            --replace-fail "'image[]'" "'image'"
-        '';
-      });
-    })
-  ];
-
-  # ---------------------------------------------------------------------------
-  # Bootloader
-  # ---------------------------------------------------------------------------
-  # Fresh NixOS install on a single 4TB SSD with no dual-boot, so use systemd-boot
-  # default from ./nixos-boot-default.nix, imported via flake.nix. If the box ever
-  # dual-boots, override here with the grub block used in hosts/xps15.
-
-  # ---------------------------------------------------------------------------
   # AMD AI / Lemonade (Strix Halo)
   # ---------------------------------------------------------------------------
   # Kernel >= 6.14 is satisfied by nixos-workstation.nix (linuxPackages_latest).
   # `users.users.cormacc` already carries `video` and `render` groups via
   # nixos-base.nix, so the amd-npu module's group requirement is met.
+  # FastFlowLM (NPU), Lemonade and sd-cpp image generation are on by default
+  # upstream; only the non-default options are set here.
   hardware.amd-npu = {
     enable = true;
     gpuTarget = "gfx1151";   # Strix Halo (default is gfx1150 / Strix Point)
-    enableFastFlowLM = true;   # NPU (XDNA 2) inference runtime
-    enableLemonade = true;     # OpenAI-compatible local AI server
     enableROCm = true;         # ROCm-backed llama.cpp / sd-cpp
     enableVulkan = true;       # Vulkan-backed llama.cpp / whisper.cpp
-    enableImageGen = true;     # Decided 2026-05-19: accept ~1.5GB closure
-                               # for sd-cpp image generation from day one.
 
     # iGPU-addressable memory (GTT) for large omni models. Strix Halo's iGPU
     # reaches unified RAM via GTT, not the tiny BIOS VRAM carveout (~512 MiB).
@@ -136,7 +61,16 @@ in
       # is an additional chat frontend, not the only LAN-facing Lemonade path.
       host = "0.0.0.0";
       port = lemonadePort;
-      allowedOrigins = ["*"];
+
+      # No origin allowlist. lemond accepts requests with no Origin header
+      # (CLI/SDK clients, and Open WebUI and Vane, which call it from their
+      # backends), loopback origins, and same-origin requests from its own web
+      # UI. An empty string clears the "*" that lemond migrated into
+      # ~/.config/lemonade/config.json from the old LEMONADE_ALLOWED_ORIGINS
+      # env var; the module's reconcile merges keys but never deletes them.
+      # This makes the module emit a "allowedOrigins is empty" eval warning,
+      # which is expected.
+      settings.allowed_origins = "";
     };
   };
 
@@ -144,9 +78,6 @@ in
   # services.searx.openFirewall and services.open-webui.openFirewall add the
   # search API and chat UI ports separately.
   networking.firewall.allowedTCPPorts = [ lemonadePort vanePort ];
-
-  # jq is used by the Vane systemd bootstrap to patch persisted JSON safely.
-  environment.systemPackages = [ pkgs.jq ];
 
   # SearXNG refuses to start with its default "ultrasecretkey". Keep the actual
   # generated key out of git/the store while making first activation automatic.
@@ -210,16 +141,18 @@ in
     port = openWebUIPort;
     openFirewall = true;
 
-    # Open WebUI persists these settings to its DB under /var/lib/open-webui
-    # after first start. The systemd ExecStartPre below reapplies web-search
-    # settings to the persisted config so rebuilds stay declarative without
-    # requiring admin-UI clicks. Re-include the module's telemetry-off defaults
-    # here because setting this attr replaces the module default value rather
-    # than merging.
+    # ENABLE_PERSISTENT_CONFIG = False makes these environment values
+    # authoritative on every start, instead of only seeding the DB under
+    # /var/lib/open-webui on first start. Admin-UI changes to the same
+    # settings do not survive a restart. Re-include the module's telemetry-off
+    # defaults here because setting this attr replaces the module default
+    # value rather than merging.
     environment = {
       SCARF_NO_ANALYTICS = "True";
       DO_NOT_TRACK = "True";
       ANONYMIZED_TELEMETRY = "False";
+
+      ENABLE_PERSISTENT_CONFIG = "False";
 
       ENABLE_OPENAI_API = "True";
       OPENAI_API_BASE_URL = "http://127.0.0.1:${toString lemonadePort}/v1";
@@ -253,7 +186,6 @@ in
   systemd.services.open-webui = {
     after = [ "lemond.service" ];
     wants = [ "lemond.service" ];
-    serviceConfig.ExecStartPre = openWebUIWebSearchBootstrap;
   };
 
   # ---------------------------------------------------------------------------
