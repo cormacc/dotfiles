@@ -129,12 +129,13 @@ in
     # npm's default global prefix points into the (read-only) Nix store when
     # node comes from nixpkgs. Redirect it to a writable location so
     # `pi install` works. This is philosophically unsound w.r.t. Nix, but
-    # a necessary hypocrisy...
-    #
-    # Written as a raw ~/.npmrc rather than via `programs.npm` so this
-    # module works on home-manager release-25.11 (used by darwin per
-    # flake.nix) where `programs.npm` doesn't yet exist, *and* on
-    # home-manager master.
+    # a necessary hypocrisy... nodejs itself comes from dev/dev.nix.
+    programs.npm = {
+      enable = true;
+      package = null;
+      settings.prefix = npmCache;
+    };
+
     # Expose local npm globals plus the in-tree `ot` CLI shim. Third-party
     # installs should prefer bbin (`bbin install io.github.cormacc/dotagents
     # --as ot --latest-sha`), but this fallback keeps the pi extension and
@@ -173,10 +174,6 @@ in
     };
 
     home.file = {
-      ".npmrc".text = ''
-        prefix=${npmCache}
-      '';
-
       # Generic harness-agnostic skills (Agent Skills spec location).
       "${agentsConfig}/skills".source =
         config.lib.file.mkOutOfStoreSymlink "${agentsRoot}/skills";
