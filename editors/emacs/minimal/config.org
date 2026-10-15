@@ -551,6 +551,8 @@ We want to auto-insert matching parens by default.
 
 =winum= numbers the windows for =SPC 1= .. =SPC 0=; =winner= backs =SPC w u=. The rest of =SPC w= is built-in and evil window motion.
 
+Each window shows its number at the left of its mode line: =winum-auto-setup-mode-line= (default t) splices a =winum-face= segment into the default =mode-line-format= at =winum-mode-line-position= 1, just after =%e=. The face is bold so the digit stands out from the buffer name; =winum-format= pads it.
+
 Ten near-identical which-key rows are noise, so the =window 1= row is relabelled to cover the range and the other nine are hidden (a non-cons replacement such as =t= drops the binding from the popup). The rules match on the description, so they hold for both the =SPC= and =C-SPC= leaders. This is the one job keymap-based replacement cannot do, because it rewrites the key text rather than the description.
 
 #+begin_src emacs-lisp
@@ -558,9 +560,10 @@ Ten near-identical which-key rows are noise, so the =window 1= row is relabelled
     :ensure t
     :demand t
     :init
-    (setq winum-auto-setup-mode-line nil
-          winum-scope 'frame-local)
+    (setq winum-scope 'frame-local
+          winum-format " %s ")
     :config
+    (set-face-attribute 'winum-face nil :weight 'bold)
     (winum-mode 1))
 
   (use-package winner
