@@ -230,6 +230,20 @@ change the running unit, prove native timeout/descendant cleanup, or authorize
 enrollment, collection, a runtime drop-in, or scheduling. A credential-free
 synthetic systemd rehearsal remains a separate approved operational gate.
 
+The [[file:hosts/odroid-h4/unifi-native-rehearsal.org][standalone native rehearsal]]
+batches synthetic terminal/resolver/output checks, a shortened negative cgroup
+deadline test and exact cleanup into one native authentication. Its Nix fixture
+is not imported by production modules; building it requires no new activation.
+
+After the completed rehearsal, follow the
+[[file:hosts/odroid-h4/unifi-private-enrollment.org][remaining private enrollment and acceptance gates]].
+This current continuation supersedes the child draft's old deployment blockers.
+Live enrollment, config acceptance, one-shot collection and optional scheduling
+remain separately approved; their source preparation is batched together.
+UniFi is now the approved display-name authority; updated enrollment selects
+devices instead of requesting aliases. The name-aware collector still needs
+its reviewed package deployment before this behavior is live.
+
 * The dotagents submodule
 
 ** What it is

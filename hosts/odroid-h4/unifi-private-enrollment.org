@@ -1,0 +1,125 @@
+#+title: UniFi — remaining private enrollment and acceptance gates
+
+* Current boundary
+
+Deployment and the credential-free native rehearsal are COMPLETE. The deployed
+collector is =/nix/store/69sarv1zmgfljr7ida7dwp1gj1vx21n5-homelab-unifi-collector=,
+from child =9eb348b97a37ff89ec0b059f687414a9f5af5a8c=. The active system is
+=/nix/store/rlxisxghpfvw6nqlhqqh05rvly97p0cl-nixos-system-nas-26.11.20261014.55bfb4d=.
+The private TTY fix and 120-second/10-second watcher deadline are installed;
+the synthetic namespace, TTY, writer, TERM-to-KILL and descendant cleanup have
+passed native testing. They are not remaining deployment blockers.
+
+This parent-owned continuation supersedes the old pre-deployment warnings in
+the child's draft =runbooks/unifi-collector-deployment.org=. That older draft's
+baseline/preflight commands are historical and must not be used on this system.
+No OS activation or reboot is needed for these standalone native tools.
+
+The approved switch to live UniFi names changes the collector itself. Its new
+package must be built/reviewed and installed through the declarative deployment
+before claiming the existing watcher has name-aware behavior. The baseline
+package above and old alias-prompt launchers do not acquire this change merely
+because source was edited. That deployment remains separately approved.
+
+Source preparation/build/review does not authorize a live gate. Each gate below
+requires its own fresh explicit approval. Operator commands must use the exact
+built, independently reviewed immutable executable within =ssh -t nas '…'=;
+no placeholder command is execution-ready. Passwords belong only at the native
+sudo prompt, never in Hermes. The agent inspects coarse audit output directly.
+
+* Gate A — private enrollment only
+
+The standalone =tests/unifi-native-enrollment.nix= tool uses one fixed temporary
+interactive unit, =homelab-unifi-enroll-01.service=. It must first reject any
+existing enrollment unit/state and unsafe input metadata, without reading the
+key. Its separately runnable =--preflight= performs no enrollment mutation.
+
+After approval and successful preflight, the service obtains the existing key
+through systemd's sealed =LoadCredential= mechanism, binds the existing protected
+hosts file to its own =/etc/hosts=, and hides nscd, Hermes state and the original
+key path. Unlike the synthetic rehearsal it must retain real network access.
+The application opens the private controlling TTY before reading configuration
+or the credential. It reuses the deployed enrollment code, client, exact trust
+anchor and verified TLS. No new HTTP implementation is introduced.
+
+Only these GET endpoint families are allowed, including bounded pagination:
+
+- =/proxy/network/integration/v1/info=
+- =/proxy/network/integration/v1/sites=
+- =/proxy/network/integration/v1/sites/{siteId}/devices=
+
+The operator sees raw discovery only in the private native terminal, selects a
+site, then device numbers/ranges or =all=. Blank device selection cancels. There
+are no alias prompts or collector-side name overrides. Start with devices
+intended for monitoring; do not relay UUIDs, addresses, MACs or raw inventory to
+Hermes. UniFi UI names are now deliberately permitted in validated monitoring
+state/alerts, not arbitrary discovery dumps. The three-minute interaction bound
+remains. No recording, redirect, tee or raw-response file is permitted.
+
+The only retained enrollment result is
+=/var/lib/homelab-unifi-enroll-01/config.candidate.json=, root-owned =0600= inside
+a fresh root-owned =0700= directory. It contains selected UUIDs, automatically
+allocated internal monitor keys and parser-required settings, not discovery
+names/MACs/topology or the key. The collector reads names afresh from UniFi on
+every observation; renames do not change UUID membership. Duplicate names remain
+distinct and a replacement's new UUID requires explicit selection.
+A success marker requires parser/metadata verification and transient-unit cleanup.
+The native wrapper revokes and tests its sudo ticket before final success.
+
+This gate DOES NOT replace live config, run the watcher or start the timer.
+A failed gate preserves unexpected residue or a valid private candidate for
+inspection; it never recursively deletes or repairs state. Do not retry by
+adopting the same directory. Resolve the named failure before any new approval.
+
+If enrollment aborts before selection, report only a fixed operation-stage and
+typed failure category in the root audit; never exception text, URLs, response
+bodies or credentials. Diagnostics observe the same client/transport, with no
+automatic retry or timeout/TLS/key changes. A new credentialed run needs fresh
+approval. After a second failed run, stop and reorient before another password
+intervention rather than continuing a helper-revision loop.
+
+* Gate B — install and authenticated validation
+
+The separate native acceptance tool requires Gate A's verified candidate and a
+fresh approval covering installation, three-GET validation, protected rollback
+copy and automatic restoration on failure. It must never install synthetic UUIDs.
+
+Require dormant watcher/timer and safe metadata, preserve the previous config as
+=root:root 0600= in the enrollment directory, then atomically install the selected
+candidate as =root:homelab-health 0440= at the existing live config path. Same-dir
+rename, fsync and exact protected readback are required; no key/CA/hosts changes.
+
+Authenticated validation uses the updated collector in a bounded private
+resolver/credential environment and checks its versioned name-bearing snapshot schema.
+Both =healthy= and =degraded= inventory can represent successful collection;
+=disabled=, runtime/transport/schema errors cannot. No raw response or private
+configuration enters the audit. Failure before acceptance restores and verifies
+the saved config; unknown third-party config changes cause stop/escalation,
+never unconditional overwrite. Audit failure must not prevent restoration.
+
+Retain candidate and previous config protected for at most 24 hours after the
+accepted transaction unless the operator explicitly approves longer retention.
+Cleanup must be explicit and exact; production credentials are never rotated or
+replaced as part of this work. A rollback-failed marker blocks subsequent gates.
+
+* Gate C — one supervised observation
+
+This is a separate approval, not an automatic continuation of Gate B. The native
+acceptance package's collection entrypoint starts only the existing
+=homelab-unifi-watch.service=, under its installed deadline and service identity.
+The timer remains inactive and unscheduled.
+
+Record invocation freshness before starting. Require a new completed invocation,
+=Result=success=, status zero, protected =homelab-health= state and a fresh,
+validated snapshot. Inspect only coarse validated results, not raw journal/state
+content. Preserve existing state. A second unchanged observation requires its
+own approval and must be silent; do not silently double the live request scope.
+
+* Scheduling is a separate choice
+
+A working supervised collector does not imply periodic operation. If scheduling
+is desired, make and review a small declarative timer change, assess its exact
+activation impact, build, and obtain the appropriate deployment approval. This
+may need a later NixOS generation; it is not included in the activation-free
+standalone tooling above. No imperative =enable --now=, drop-in, second scheduler,
+implicit application restart, firmware update or reboot is authorized here.

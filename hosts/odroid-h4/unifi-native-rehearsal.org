@@ -1,0 +1,76 @@
+#+title: Credential-free native UniFi rehearsal
+
+* Scope
+
+This standalone fixture is not imported by any production host module. Building
+it changes no generation, service, scheduler, secret, or production input.
+Execution requires separate approval and a visible native terminal. It does not
+authorize enrollment or any controller request.
+
+One approved run batches:
+
+1. Metadata-only preflight: the two literal transient unit names and synthetic
+   state path must be absent; no symlink replacement or permission repair.
+2. A network-isolated transient oneshot with synthetic hosts, a genuine private
+   TTY exchange and one synthetic private candidate written by the already
+   deployed enrollment writer. Type only =rehearsal-ok= when prompted.
+3. A second synthetic oneshot whose parent and child ignore TERM. Its shortened
+   2-second start/1-second stop deadlines exercise the same whole-cgroup kill
+   mechanism without waiting two minutes. Require timeout/SIGKILL status, original
+   process identities no longer live, and empty cgroups.
+4. Stop/reset only those units, validate/unlink only the known synthetic files,
+   remove the empty directory, verify freshness preconditions again, audit the
+   outcome and revoke the sudo ticket. Unexpected state is preserved and fails
+   closed; no recursive deletion is used.
+
+There is no additional OS activation or reboot. The positive unit uses the
+installed 120-second start/10-second stop policy; this is not an absolute
+wall-clock guarantee against kernel stalls. Every subprocess/cleanup/auth step
+has its own timeout. The wrapper requests exactly one native sudo authentication;
+passwords are never passed through Hermes, argv, environment, files or stdin.
+
+* Exact synthetic resources
+
+- Units: =homelab-unifi-rehearsal-01.service= and
+  =homelab-unifi-deadline-rehearsal-01.service=.
+- State: =/var/lib/homelab-unifi-rehearsal-01=, freshly created root-owned =0700=.
+- Files: =candidate.json= and =pids.json=, root-owned =0600=.
+- DNS fixture: =unifi-rehearsal.invalid= -> =192.0.2.23=, a documentation address.
+- Private network namespace; synthetic hosts bind; nscd socket and production
+  UniFi/Hermes paths obscured. The code never loads production config, a key,
+  certificate, inventory, or the credential-bearing client.
+
+* Build and verification
+
+=tests/unifi-native-rehearsal.nix= accepts the locked package set and the exact
+reviewed collector store path. It builds immutable hosts/probe/wrapper artifacts;
+no production flake output or activation hook is added. Use the generated exact
+build receipt for native execution, not a placeholder store path.
+
+Run source regressions from this checkout:
+
+#+begin_src sh
+python3 -m unittest discover -s tests -p test_unifi_native_rehearsal.py -v
+#+end_src
+
+The existing collector's real-PTY tests and full suite remain separate gates.
+Source mocks/builds cannot certify the native systemd namespace or kernel cleanup
+before the operator actually approves and runs this fixture.
+
+* Native operation and audit
+
+The operator-facing invocation must be rendered with its built immutable path
+inside an explicit =ssh -t nas '…'= wrapper. No remote sudo invocation is sent
+through Hermes' terminal tool. The fixture refuses noninteractive execution.
+The optional =--preflight= mode is separately runnable and performs no fixture
+mutation, but still requires native root authentication for protected checks.
+
+The agent inspects the journal directly using the literal identifier
+=homelab-unifi-rehearsal-01=, the current boot and a fresh time boundary; the
+operator need only report completion, not relay output. Successful checks/cleanup
+produce a root =UNIFI_REHEARSAL_CHECKS_PASS= audit, followed by final
+=UNIFI_REHEARSAL_SUCCESS= after ticket revocation. No success claim is made by a
+preflight-only result. Audit/revocation failures withhold success. On
+=UNIFI_REHEARSAL_ABORT_ROLLBACK_FAILED=, stop and inspect only these synthetic
+resources before proposing exact cleanup; never weaken permissions or proceed
+to real enrollment.
