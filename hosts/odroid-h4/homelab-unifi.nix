@@ -40,6 +40,15 @@ in {
     stopIfChanged = true;
     serviceConfig = {
       Type = "oneshot";
+      # A oneshot needs a start deadline; timing out systemctl alone leaves
+      # the service running. Terminate its entire cgroup, then escalate.
+      TimeoutStartSec = "120s";
+      TimeoutStopSec = "10s";
+      TimeoutStartFailureMode = "terminate";
+      KillMode = "control-group";
+      KillSignal = "SIGTERM";
+      FinalKillSignal = "SIGKILL";
+      SendSIGKILL = true;
       User = "homelab-health";
       Group = "homelab-health";
       LoadCredential = [ "unifi-api-key:/var/lib/homelab-unifi/api-key" ];
