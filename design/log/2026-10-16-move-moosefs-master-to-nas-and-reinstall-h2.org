@@ -1,0 +1,148 @@
+#+TITLE: Move the MooseFS master, Plex and Roon to the NAS and reinstall the Odroid H2+ with NixOS
+#+DATE: 2026-10-16 Fri
+#+PARENT: [[task:c394a695-ac39-435c-bbf9-faacb8df7f36][Move the MooseFS master, Plex and Roon to the NAS and reinstall the Odroid H2+ with NixOS]]
+#+SETUPFILE: ../../TASKS.setup.org
+#+STATUS: Draft
+#+SPEC: [[proj:design/home-network-infrastructure.org]]
+
+* Intent
+Free the Odroid H2+ of its MooseFS master, Plex and Roon roles and reinstall it with NixOS as a storage-only node, by moving those services to the NixOS NAS, without data loss in a MooseFS cluster that is about 90% full.
+
+* Summary
+*Level:* production · *Tests:* smoke · *Docs:* inline
+
+Draft. The target host responsibilities, the cluster figures and the rejected alternatives are in =design/home-network-infrastructure.org= (Host responsibilities). On 2026-10-16 the H2+ (=mfsmaster=, 192.168.1.195, Ubuntu focal) ran the MooseFS master 4.58.3, a chunkserver on port 9460 with two 10 TB disks (=/mnt/chunks/10t01=, =/mnt/chunks/10t02=; 311,271 chunks; labels =B,H=), Plex and Roon. The other chunkservers and the three metaloggers (on the HC4s) ran 4.59.2, which matches nixpkgs =moosefs=.
+
+** Scope
+*** In scope
+- Inventory of the H2+: MooseFS configuration, disk UUIDs, Plex and Roon installation and data locations.
+- MooseFS master and CGI monitor on the NAS (=services.moosefs.master=, =services.moosefs.cgiserver=), with the =mfsmaster= DNS record moved to the NAS.
+- Plex on the NAS (=services.plex=, with =accelerationDevices= for =/dev/dri=).
+- Roon Server on the NAS (=services.roon-server=).
+- NixOS reinstall of the H2+ in place: a new =x86_64-linux= host in =flake.nix= with =services.moosefs.chunkserver= on the existing disks, and =services.moosefs.metalogger=.
+- Relevant contract: =design/home-network-infrastructure.org= (Host responsibilities).
+*** Out of scope
+- OS changes on the HC4 and HC2 nodes, added capacity, HC2 retirement, the DGX Spark migration.
+- The edge Raspberry Pi 4 (task 2d737e59).
+- Changes to storage classes.
+
+** Acceptance
+*** Core functionality
+- [ ] =mfscli -H mfsmaster -SIN= shows the master at 192.168.1.63, version 4.59.2.
+- [ ] After the master move, 5 chunkservers and 3 metaloggers are connected.
+- [ ] After the master move, 0 chunks are missing and 0 are under goal.
+- [ ] =/mnt/mfs= is mounted on each NixOS host after the master move.
+- [ ] Plex on the NAS serves the existing libraries with watch history intact.
+- [ ] Plex on the NAS transcodes with hardware acceleration.
+- [ ] Roon Server on the NAS shows the existing library.
+- [ ] Roon Server on the NAS plays to the existing zones.
+- [ ] The H2+ runs NixOS from this flake.
+- [ ] The H2+ chunkserver rejoins with its existing chunks and labels =B,H=.
+- [ ] A metalogger runs on the H2+.
+*** Edge cases
+- [ ] The master move can be rolled back until the old master is decommissioned; the steps are written down before the cutover.
+- [ ] No re-replication starts while the H2+ chunkserver is offline for the reinstall.
+*** Anti-criteria
+- [ ] Must not: format or repartition the H2+ chunk disks.
+- [ ] Must not: run two MooseFS masters at the same time.
+- [ ] Must not: start the H2+ reinstall while any chunk is under goal.
+
+** Decisions
+- Cut over the master by a clean stop and a copy of =metadata.mfs= :: a clean stop writes complete metadata, so the new master starts from it directly.
+  Rejected:
+  - Promote metalogger data with =mfsmaster -a=: intended for a lost master; a user report (moosefs/moosefs#278) describes lost changes after an unclean recovery.
+- Reinstall the H2+ in place, keeping the chunk disks :: the cluster cannot absorb its 18.1 TB.
+  Rejected:
+  - Drain the H2+ first: about 14.1 TB free across the cluster on 2026-10-16.
+
+** Risks
+- Single-copy window :: while the H2+ is offline, its chunks have one copy elsewhere; a second disk failure in that window loses data. The HC2 disk showed errors (last 2026-10-08). Check the HC2 first and keep the window short.
+- Cached master address :: chunkservers, metaloggers or clients may keep the old address after the DNS change; restart or remount them.
+- Plex or Roon metadata loss :: libraries reference media paths; keep the same paths on the NAS.
+- Roon licence :: a licence covers one Roon core; release the old core when the NAS core signs in.
+
+* Plan
+** TODO Inventory the H2+ and check the cluster before changes
+:PROPERTIES:
+:CUSTOM_ID: 4b53763b-72cc-46ff-99ae-808222c76b53
+:CREATED: [2026-10-16 Fri 09:20]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 09:20]
+:END:
+Acceptance criteria:
+- SSH access to the H2+ works with a key.
+- Copies of mfsmaster.cfg, mfsexports.cfg, mfschunkserver.cfg and mfshdd.cfg are saved outside the H2+.
+- The chunk disk UUIDs and mount paths are recorded.
+- The Plex and Roon installation method, data paths and media paths are recorded.
+- The HC2 disk health is checked, and its errors are understood.
+
+** TODO Move the MooseFS master to the NAS
+:PROPERTIES:
+:CUSTOM_ID: 15067996-a159-4b06-80f6-4811396b5918
+:CREATED: [2026-10-16 Fri 09:20]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 09:20]
+:END:
+Acceptance criteria:
+- The NAS configuration enables services.moosefs.master with the exports from mfsexports.cfg, and services.moosefs.cgiserver.
+- Rollback steps are written under Implementation before the cutover.
+- After a clean stop of the H2+ master and a copy of metadata.mfs, the NAS master starts.
+- The mfsmaster DNS record points at 192.168.1.63.
+- mfscli -H mfsmaster -SIN shows master 4.59.2, 5 chunkservers, 3 metaloggers, and 0 missing chunks.
+- /mnt/mfs is mounted on each NixOS host.
+- Must not: run two masters at the same time.
+
+** TODO Move Plex to the NAS
+:PROPERTIES:
+:CUSTOM_ID: 37316f24-f48d-473d-b65f-7f674d33733c
+:CREATED: [2026-10-16 Fri 09:20]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 09:20]
+:END:
+Acceptance criteria:
+- services.plex runs on the NAS with the data copied from the H2+.
+- The existing libraries and watch history are present.
+- Hardware transcoding works through accelerationDevices (/dev/dri).
+- Plex on the H2+ is stopped.
+
+** TODO Move Roon Server to the NAS
+:PROPERTIES:
+:CUSTOM_ID: 9dde61ca-2c20-42fc-b81d-a0691d3b34ef
+:CREATED: [2026-10-16 Fri 09:20]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 09:20]
+:END:
+Acceptance criteria:
+- services.roon-server runs on the NAS with the library restored from a Roon backup.
+- The existing zones play.
+- The licence is moved to the NAS core.
+- Roon on the H2+ is stopped.
+
+** TODO Reinstall the H2+ with NixOS as a chunkserver and metalogger
+:PROPERTIES:
+:CUSTOM_ID: 38cd599f-91d1-4de0-ab4a-a8bc2b77a9fd
+:CREATED: [2026-10-16 Fri 09:20]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 09:20]
+:END:
+Acceptance criteria:
+- 0 chunks are under goal before the reinstall starts.
+- The H2+ chunkserver is in maintenance mode during the reinstall, and no re-replication starts.
+- flake.nix has an x86_64-linux nixosConfiguration for the H2+ with services.moosefs.chunkserver on the existing disks (mounted by UUID) and services.moosefs.metalogger.
+- The chunkserver rejoins with its existing chunks and labels B,H, then leaves maintenance mode.
+- Must not: format or repartition the chunk disks.
+
+* Implementation
+
+* Open questions
+** OPEN How are Plex and Roon installed on the H2+ (distribution packages, Docker or snap), and where is their data?
+** OPEN Which media paths do the Plex and Roon libraries use?
+** OPEN Do any hosts that are not NixOS mount MooseFS (Macs, Roon endpoints, the HC nodes)?
+** OPEN Which Ubuntu versions run on the HC4 and HC2 nodes?
+** OPEN What is the maintenance-mode command for a chunkserver in MooseFS 4.59.2?
+** OPEN After the reinstall, keep chunkserver port 9460 or use the default 9422?

@@ -3,7 +3,9 @@
 #+DATE: 2026-05-21
 
 * Summary
-The home LAN should converge on a small ingress-and-identity pattern rather than exposing every service directly. Application backends should bind to localhost where practical, Caddy should become the LAN-facing reverse proxy, stable internal DNS names should be introduced early, and a later identity service should provide web SSO and, if feasible, central Linux SSH identity without removing local break-glass access.
+The home LAN should converge on a small ingress-and-identity pattern rather than exposing every service directly. Application backends should bind to localhost where practical, Caddy should become the LAN-facing reverse proxy, stable DNS names under =emptycannon.eu= should be introduced early, and an identity service should provide web SSO and, if feasible, central Linux SSH identity without removing local break-glass access.
+
+Decided 2026-10-16: Kanidm is the identity provider and NetBird is the private off-LAN network. Both run on a dedicated Raspberry Pi 4 edge host, which is also the single public entry point. Kanidm comes first, because the NetBird server needs an external IdP.
 
 * Target shape
 #+BEGIN_EXAMPLE
@@ -19,9 +21,9 @@ For the local AI search stack specifically:
 #+BEGIN_EXAMPLE
 LAN client (browser or pi)
   -> Caddy ingress (Phase 2; direct ports today)
-    -> chat.home.arpa     -> Open WebUI ┐
-    -> search.home.arpa   -> Vane       ├-> Lemonade (chat) + SearXNG (search)
-    -> lemonade.home.arpa -> Lemonade   ┘
+    -> chat.home.emptycannon.eu     -> Open WebUI ┐
+    -> search.home.emptycannon.eu   -> Vane       ├-> Lemonade (chat) + SearXNG (search)
+    -> lemonade.home.emptycannon.eu -> Lemonade   ┘
   pi (CLI agent) bypasses chat UIs:
     -> mcp-searxng -> SearXNG (raw JSON, no LLM hop)
 #+END_EXAMPLE
@@ -32,14 +34,23 @@ Open WebUI is the preferred initial chat UI for =strix=: it is available in nixp
 
 LibreChat remains a viable alternative if a broader ChatGPT-like multi-provider/team platform is needed later. LobeChat/LobeHub remains a viable alternative if UI polish, agents, plugins, or a richer AI workspace become more important, but it is less attractive for the first declarative NixOS pass because current self-hosting guidance is Docker/full-stack oriented and no nixpkgs package or NixOS service was found.
 
-** Use stable internal DNS names
-Prefer names under =home.arpa=, for example:
+** Use stable DNS names under =emptycannon.eu=
+Use the owned domain =emptycannon.eu= (decided 2026-10-16), not =home.arpa=:
 
-- =ai.home.arpa= for the local AI chat UI.
-- =id.home.arpa= for the future identity provider.
-- Service-specific names such as =files.home.arpa= or =git.home.arpa= as services are added.
+- Public names for the services that remote devices must reach before they join the private network: =id.emptycannon.eu= (Kanidm) and =netbird.emptycannon.eu= (NetBird management, signal and dashboard).
+- Internal names under =home.emptycannon.eu=, for example =chat.home.emptycannon.eu=, that resolve only on the LAN or the NetBird network.
+- ACME DNS-01 issues certificates for both, so internal names get publicly trusted certificates and family devices need no private CA.
 
-This avoids baking hostnames and ports into user-facing URLs, OAuth redirect URIs, cookie scopes, TLS certificates, and bookmarks.
+This avoids baking hostnames and ports into user-facing URLs, OAuth redirect URIs, cookie scopes, TLS certificates, and bookmarks. =home.arpa= was rejected because it cannot get publicly trusted certificates. The LAN resolver currently publishes hosts as =<host>.internal= (for example =strix.internal=).
+
+** Host =emptycannon.eu= DNS at a provider with an API
+GoDaddy remains the registrar, but the nameservers move to a DNS provider with a free API (Cloudflare or deSEC; not yet chosen). ACME DNS-01 and dynamic DNS for the home WAN address both need the API.
+
+Rejected:
+- GoDaddy DNS API: since 2024-04, GoDaddy limits its DNS API to accounts with 10 or more domains or an active Discount Domain Club plan (per the lego GoDaddy provider documentation).
+- CNAME-delegating only =_acme-challenge= to acme-dns: fixes certificates but not dynamic DNS, and adds a service.
+- NS-delegating a subzone such as =home.emptycannon.eu=: splits the zone across two providers for no gain over moving it.
+- Discount Domain Club: recurring cost to restore an API that other providers give free.
 
 ** Introduce Caddy as the ingress layer, but not necessarily in phase one
 Direct service exposure is acceptable for the first Open WebUI pass if it keeps the implementation small. The configuration should still be compatible with moving behind Caddy later: Open WebUI and Lemonade should not require LAN-reachable backend ports once Caddy is present.
@@ -67,24 +78,64 @@ Rationale and tradeoffs in [[file:../agents/design/log/2026-05-28-explore-and-ad
 ** Per-service exposure model
 Each service has a distinct exposure ceiling. This matrix pre-empts accidental public exposure of unauthenticated services:
 
-| Service    | LAN | Tailscale (off-LAN private) | Public (Caddy + UniFi forward) |
-|------------+-----+-----------------------------+--------------------------------|
-| Open WebUI | yes | yes                         | yes (has auth)                 |
-| Vane       | yes | yes                         | no (no auth by design)         |
-| SearXNG    | yes | yes                         | no (internal backend)          |
-| Lemonade   | yes | yes                         | no (compute-abuse risk)        |
+| Service    | LAN | NetBird (off-LAN private) | Public (edge Caddy + UniFi forward) |
+|------------+-----+---------------------------+-------------------------------------|
+| Open WebUI | yes | yes                       | yes (has auth)                      |
+| Vane       | yes | yes                       | no (no auth by design)              |
+| SearXNG    | yes | yes                       | no (internal backend)               |
+| Lemonade   | yes | yes                       | no (compute-abuse risk)             |
+| Kanidm     | yes | yes                       | yes (login pages; see Identity)     |
 
-Trust boundaries: LAN trusted (home firewall); tailnet trusted (Tailscale device auth + ACLs); public exposure requires per-service auth review /and/ explicit UniFi port-forward, not enabled by default.
+Trust boundaries: LAN trusted (home firewall); NetBird network trusted (device login through Kanidm + NetBird policies); public exposure requires per-service auth review /and/ explicit UniFi port-forward, not enabled by default.
 
-** Tailscale provides the private off-LAN transport
-Fills the slot for services that should /not/ be publicly exposed (Vane, SearXNG, Lemonade, internal admin UIs). Public exposure via Caddy + UniFi is reserved for services with explicit auth (initially Open WebUI). Both paths coexist.
+** NetBird provides the private off-LAN transport
+Decided 2026-10-16. Fills the slot for services that should /not/ be publicly exposed (Vane, SearXNG, Lemonade, internal admin UIs). Public exposure via the edge Caddy + UniFi is reserved for services with explicit auth (initially Open WebUI). Both paths coexist.
+
+- Server: =services.netbird.server= (management, signal, dashboard, relay, coturn) on the edge host. The NixOS module takes an external IdP through =oidcConfigEndpoint=; NetBird's built-in IdP (upstream v0.62+) is not exposed by the module, so Kanidm is the IdP.
+- Clients: =services.netbird.clients.<name>= on NixOS; =services.netbird= on nix-darwin (=enable= and =package= only, so the management URL is set once with =netbird up=); the distribution package on Arch, because Home Manager cannot run the root daemon.
+- NetBird can sync IdP groups into its access policies and map IdP groups to local OS users for SSH (v0.60+).
+
+Rejected:
+- Headscale: lighter, and it drives the official Tailscale clients, but OIDC groups cannot be used in its policy rules, so network group membership would live in its policy file rather than the identity store.
+- Tailscale SaaS: a third-party control plane.
+
+** A dedicated Raspberry Pi 4 is the edge host
+Decided 2026-10-16. The Pi 4 runs Kanidm, the NetBird server, and Caddy as the single public entry point. Its root and Kanidm database live on an SSD, not the SD card. It holds no family data and does not mount MooseFS, so the =/mnt/mfs= mount in =nixos-base.nix= must be optional per host.
+
+Rejected:
+- NAS (odroid-h4): enough resources, but it runs the media stack and =hermes-agent= (with sudo authorization), and its reboots would take down logins and network coordination.
+- strix and the DGX Spark: inference machines.
+- Odroid H2+ (=mfsmaster=, 192.168.1.195): holds about 18 TB of MooseFS chunk data; an internet-facing IdP there puts family data one exploit away.
+- Raspberry Pi 5: faster, but the =nixos-hardware= Pi kernels were reported uncached and slow to build on the device.
+
+** Host responsibilities
+Decided 2026-10-16. Target state:
+
+| Host                  | OS (target)              | Responsibilities                                                                                   |
+|-----------------------+--------------------------+----------------------------------------------------------------------------------------------------|
+| NAS (Odroid H4+)      | NixOS x86_64             | MooseFS master and CGI monitor; Plex; Roon Server; media stack, monitoring, syncthing, hermes-agent |
+| Odroid H2+            | NixOS x86_64 (reinstall) | MooseFS chunkserver (two 10 TB disks, labels B,H) and metalogger                                   |
+| Odroid HC4 x3         | Ubuntu LTS (NixOS later) | MooseFS chunkservers and metaloggers                                                               |
+| Odroid HC2            | Ubuntu LTS (armv7)       | MooseFS chunkserver; retire when capacity allows                                                   |
+| Edge Raspberry Pi 4   | NixOS aarch64            | Caddy (public entry), Kanidm, NetBird server; no MooseFS mount                                     |
+| strix                 | NixOS x86_64             | Inference                                                                                          |
+| DGX Spark             | NixOS aarch64 (migrate)  | Inference; aarch64 remote builder for the Pi and HC4 configurations                                |
+
+- The MooseFS master needs little: 259,200 objects used 574 MB RAM (2026-10-16). Clients, chunkservers and metaloggers reach it by the name =mfsmaster=, so moving it is a DNS change.
+- The cluster was about 90% full (14.1 TB free of 145.6 TB raw, all data at 2 copies) on 2026-10-16. The H2+ cannot be drained, so its reinstall keeps the chunk disks. The HC2 cannot be retired until capacity is added.
+- Roon Server is =x86_64-linux= only in nixpkgs, so it stays on an x86 host.
+
+Rejected:
+- MooseFS master stays on the H2+: blocks its reinstall, and runs an older master (4.58.3) than the chunkservers (4.59.2).
+- MooseFS master on a dedicated Pi 4: isolates the storage control plane from NAS changes, but adds a host for a negligible load. Remains an option.
+- NixOS on the HC2: as far as known, nixpkgs' Hydra does not build =armv7l-linux=, so every package would build from source.
 
 ** UniFi is the LAN gateway
-Public exposure terminates on UniFi: a port-forward from WAN :443 to strix Caddy, plus a public DNS record. No services exposed there today.
+Public exposure terminates on UniFi: port-forwards from WAN :443 (and the NetBird coturn/relay UDP ports) to the edge Pi, plus public DNS records. The edge Caddy routes by hostname to backends on other hosts. No services exposed there today.
 
 * Caddy trade-offs
 ** Benefits
-- Clean LAN URLs such as =http://ai.home.arpa= or =https://ai.home.arpa= instead of host-port URLs.
+- Clean URLs such as =https://chat.home.emptycannon.eu= instead of host-port URLs.
 - One LAN-facing web ingress rather than many independently exposed services.
 - Easier later HTTPS, header policy, logging, compression, IP allowlists, basic auth, forward-auth, and OIDC integration.
 - Backends can remain private and easier to replace.
@@ -96,26 +147,35 @@ Public exposure terminates on UniFi: a port-forward from WAN :443 to strix Caddy
 - Proxy auth is not a full substitute for application auth.
 
 * Identity direction
-Candidate identity approaches need separate evaluation:
+Decided 2026-10-16: Kanidm, chosen for Nix-native configuration.
 
-- FreeIPA: strongest Linux domain / LDAP / Kerberos / SSH fit, but heavier.
-- Kanidm: modern lighter identity server, promising for home/lab use.
-- Authentik: strong web SSO/OIDC and proxy integration, with LDAP outposts; less native as the sole Linux login domain.
-- Keycloak: strong OIDC/SAML; less ideal alone for Linux SSH identity.
-- SSH certificates: attractive for SSH if a central CA can issue short-lived user certs while local emergency keys remain available.
+- =services.kanidm.provision= declares people, groups and OAuth2 clients in Nix.
+- =services.kanidm.unix= gives PAM/NSS logins through =kanidm-unixd=, which caches users and credentials for roaming devices; =sshIntegration= serves SSH keys from Kanidm.
+- Kanidm requires PKCE (=S256=) and =ES256= OIDC signatures by default. A client that cannot use them needs a per-client =warning-enable-legacy-crypto= (RS256) exception.
+- The login pages must be publicly reachable, because a device logs in to NetBird before it can reach anything behind it.
+- Apps without their own login (Vane, SearXNG) need a separate forward-auth proxy such as =services.oauth2-proxy=.
+
+Rejected:
+- Authentik: strongest family self-service UX and a built-in forward-auth proxy, but no nixpkgs module and most configuration held in its database; Linux accounts need LDAP + SSSD or the deb/rpm-only authentik Agent.
+- Keycloak: strong OIDC/SAML, but no Linux account integration and a JVM.
+- FreeIPA: strongest Linux domain fit, but heavier than needed.
+- SSH certificates (for example =opkssh=): remain an option for SSH if Kanidm's Unix integration falls short.
 
 * Phased roadmap
 ** Phase 1: Local AI chat stack (done 2026-05-28)
 Deployed on =strix=: SearXNG (=services.searx=), Open WebUI (=services.open-webui=), Vane (=oci-containers=), all reading from local SearXNG and Lemonade. Pi consumes SearXNG directly via =mcp-searxng=. Phase 1 deliberately exposes service ports directly on the LAN; Caddy is Phase 2. Reference: [[file:../agents/design/log/2026-05-28-explore-and-adopt-web-search-tooling.org][web-search-tooling change-record]].
 
 ** Phase 2: Caddy ingress and internal DNS
-Add a LAN-facing Caddy service and a stable name such as =ai.home.arpa=. Move Open WebUI behind Caddy and close direct backend ports where possible.
+Add Caddy and stable names under =home.emptycannon.eu=, for example =chat.home.emptycannon.eu=. Move Open WebUI behind Caddy and close direct backend ports where possible.
 
-** Phase 3: Local identity service
-Deploy =id.home.arpa= and choose the identity product after comparing web SSO and Linux SSH requirements.
+** Phase 3: Identity service and off-LAN network
+Deploy Kanidm at =id.emptycannon.eu= on the edge Pi 4, then the NetBird server at =netbird.emptycannon.eu= with Kanidm as its IdP, then NetBird clients on all hosts. Kanidm comes first because NetBird needs it.
 
 ** Phase 4: Web SSO policy
 Integrate Caddy and web applications with OIDC or forward-auth. Prefer native OIDC where the app supports it.
 
 ** Phase 5: Central SSH identity
 Add central SSH/Linux identity only after the identity server is stable and break-glass local access has been tested.
+
+** Storage consolidation (independent of the phases above)
+Move the MooseFS master, Plex and Roon from the H2+ to the NAS, then reinstall the H2+ with NixOS as a chunkserver and metalogger. Later: rolling HC4 OS upgrades, the DGX Spark move to NixOS, added capacity, then retiring the HC2. See the host responsibilities table.

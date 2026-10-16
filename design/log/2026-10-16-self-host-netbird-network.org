@@ -1,0 +1,133 @@
+#+TITLE: Self-host a NetBird network for private off-LAN access to home services
+#+DATE: 2026-10-16 Fri
+#+PARENT: [[task:ad910fe5-5794-4913-8da2-cfd2ce8006de][Self-host a NetBird network for private off-LAN access to home services]]
+#+SETUPFILE: ../../TASKS.setup.org
+#+STATUS: Draft
+#+SPEC: [[proj:design/home-network-infrastructure.org]]
+
+* Intent
+Self-host NetBird on the Raspberry Pi 4 edge host, with Kanidm as its IdP, and enrol every host and family device, so internal home services are reachable off-LAN without public exposure and network access follows Kanidm groups.
+
+* Summary
+*Level:* production · *Tests:* smoke · *Docs:* inline
+
+Draft. NetBird server (=services.netbird.server=) at =netbird.emptycannon.eu= on the edge host, behind the edge Caddy from the Kanidm task. Clients: =services.netbird.clients.<name>= on NixOS, =services.netbird= on nix-darwin, the distribution package on Arch. Blocked by the Kanidm task (2d737e59). Design decisions are recorded in =design/home-network-infrastructure.org=.
+
+** Scope
+*** In scope
+- NetBird management, signal, dashboard, relay and coturn on the edge host, with Kanidm as the OIDC provider.
+- UniFi forwards for the NetBird UDP ports (coturn udp/3478 and the relay).
+- Access policies driven by Kanidm groups (JWT group sync), default deny.
+- A shared NixOS client mixin; strix and other servers join with setup keys.
+- Workstation and phone enrolment: NixOS laptops, the Mac (nix-darwin), Arch hosts, at least one family phone.
+- One service URL that works on and off the LAN, used by pi's =mcp-searxng= (=agents/pi/mcp.json=) and listed in Lemonade's =allowedOrigins= on strix.
+- Relevant contract: =design/home-network-infrastructure.org= (per-service exposure model).
+*** Out of scope
+- Kanidm itself (task 2d737e59).
+- NetBird SSH (roadmap Phase 5, with Kanidm Unix integration).
+- Public exposure of any service (task 5f53ceac).
+- LAN Caddy and internal service names (task 0e5c627e).
+
+** Acceptance
+*** Core functionality
+- [ ] A Kanidm user logs in to the NetBird dashboard at =https://netbird.emptycannon.eu=.
+- [ ] strix joins with a setup key read from a file outside the Nix store.
+- [ ] From an off-LAN laptop on NetBird, a SearXNG JSON query on strix returns results.
+- [ ] From an off-LAN laptop on NetBird, Open WebUI loads.
+- [ ] From an off-LAN laptop on NetBird, Lemonade =/api/v1/models= returns models.
+- [ ] From an off-LAN laptop on NetBird, Vane loads.
+- [ ] pi's =mcp-searxng= works off-LAN with the same =SEARXNG_URL= it uses on the LAN.
+- [ ] A family phone enrols through the NetBird app with a Kanidm login.
+- [ ] Removing a user from the Kanidm group that a policy names removes that user's access.
+*** Edge cases
+- [ ] Two NetBird peers on the same LAN connect directly, not through the relay.
+- [ ] Established peer connections keep working while the edge host restarts.
+*** Anti-criteria
+- [ ] Must not: expose Vane, SearXNG or Lemonade publicly (closed from an off-LAN device that is not on NetBird).
+- [ ] Must not: put setup keys, coturn passwords or OIDC client secrets in the Nix store or git.
+
+** Decisions
+- Decisions shared with the wider network design live in =design/home-network-infrastructure.org=: NetBird (rejected Headscale, Tailscale SaaS), Kanidm as IdP, the Pi 4 edge host.
+
+** Risks
+- NixOS module lag :: =services.netbird.server= runs the older multi-service layout and does not expose upstream's built-in IdP or combined server; accepted because Kanidm is the IdP.
+- Kanidm compatibility :: NetBird does not list Kanidm as a tested IdP; the Kanidm task's spike must pass before this work starts.
+
+* Plan
+** TODO Deploy the NetBird server on the edge host with Kanidm as IdP
+:PROPERTIES:
+:CUSTOM_ID: 2cdce965-5615-4d8b-b05f-c89dfab64512
+:CREATED: [2026-10-16 Fri 00:44]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 00:44]
+:END:
+Acceptance criteria:
+- netbird.emptycannon.eu serves the dashboard through the edge Caddy.
+- A Kanidm user logs in to the dashboard.
+- UniFi forwards the coturn and relay UDP ports to the edge host.
+- Must not: put coturn passwords or OIDC client secrets in the Nix store or git.
+
+Module: services.netbird.server (management.oidcConfigEndpoint, coturn, relay).
+
+** TODO Drive NetBird access policies from Kanidm groups
+:PROPERTIES:
+:CUSTOM_ID: e004a96d-4d7e-4621-bac8-b5f15e4b9758
+:CREATED: [2026-10-16 Fri 00:44]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 00:44]
+:END:
+Acceptance criteria:
+- NetBird groups sync from the Kanidm groups claim.
+- The default policy denies traffic that no rule allows.
+- Removing a user from the named Kanidm group removes that user's access.
+
+** TODO Add a NixOS NetBird client mixin and enrol strix
+:PROPERTIES:
+:CUSTOM_ID: c271d46b-e05c-4dde-875c-a7ec88962138
+:CREATED: [2026-10-16 Fri 00:44]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 00:44]
+:END:
+Acceptance criteria:
+- A shared NixOS module enables services.netbird.clients with the management URL.
+- strix joins with a setup key read from a file outside the Nix store.
+- Two peers on the same LAN connect directly, not through the relay.
+
+** TODO Enrol workstations and a family phone
+:PROPERTIES:
+:CUSTOM_ID: 1575ad45-ea80-48a3-8eab-5f2e8790a079
+:CREATED: [2026-10-16 Fri 00:44]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 00:44]
+:END:
+Acceptance criteria:
+- The NixOS laptops join through the mixin.
+- The Mac joins through nix-darwin services.netbird plus a one-time netbird up with the management URL.
+- Each Arch host joins through the distribution package.
+- A family phone joins through the NetBird app with a Kanidm login.
+
+** TODO Use one service URL on and off the LAN, and smoke-test off-LAN access
+:PROPERTIES:
+:CUSTOM_ID: 97b4d954-38d7-42cc-a8c6-1492aa7c82c4
+:CREATED: [2026-10-16 Fri 00:44]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 00:44]
+:END:
+Acceptance criteria:
+- agents/pi/mcp.json SEARXNG_URL uses a name that resolves on and off the LAN.
+- Lemonade allowedOrigins on strix includes that name.
+- From an off-LAN laptop: SearXNG JSON returns results, Open WebUI and Vane load, Lemonade /api/v1/models returns models.
+- Must not: Vane, SearXNG or Lemonade reachable from an off-LAN device that is not on NetBird.
+
+* Implementation
+
+* Open questions
+** OPEN Does =IdpManagerConfig= need a Kanidm management API, or can NetBird run without an IdP manager?
+** OPEN Which UDP port range does the relay need, and which ports must UniFi forward?
+** OPEN Which name do services use on and off the LAN: NetBird's peer DNS names, or =home.emptycannon.eu= names pushed through NetBird DNS?
+** OPEN Which Arch hosts need a client?

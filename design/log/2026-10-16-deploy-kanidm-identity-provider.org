@@ -1,0 +1,140 @@
+#+TITLE: Deploy Kanidm as the home identity provider on a Raspberry Pi 4 edge host
+#+DATE: 2026-10-16 Fri
+#+PARENT: [[task:2d737e59-b8ff-4fe4-b0e5-f77770e61fd4][Deploy Kanidm as the home identity provider on a Raspberry Pi 4 edge host]]
+#+SETUPFILE: ../../TASKS.setup.org
+#+STATUS: Draft
+#+SPEC: [[proj:design/home-network-infrastructure.org]]
+
+* Intent
+Run Kanidm as the single identity store for family web accounts and admin shell accounts, configured declaratively in Nix, on a dedicated Raspberry Pi 4 that is also the home's public entry point. NetBird (task ad910fe5) and later web apps use it for OIDC.
+
+* Summary
+*Level:* production · *Tests:* smoke · *Docs:* inline
+
+Draft. Kanidm at =id.emptycannon.eu= on a new =aarch64-linux= edge host, behind an edge Caddy that terminates public TLS with ACME DNS-01 certificates. =emptycannon.eu= DNS moves from GoDaddy to an API-capable provider. Design decisions (Kanidm, NetBird, the Pi 4 edge host, the DNS move) are recorded in =design/home-network-infrastructure.org=.
+
+** Scope
+*** In scope
+- Move the =emptycannon.eu= nameservers to Cloudflare or deSEC; GoDaddy stays registrar. Dynamic DNS for the public A record.
+- New Raspberry Pi 4 NixOS host in =flake.nix= (=aarch64-linux=, SSD root, =nixos-server.nix=), with local break-glass admin access and no MooseFS mount (make the =/mnt/mfs= mount in =nixos-base.nix= optional per host).
+- Edge Caddy as the single public entry point: ACME DNS-01 certificates, UniFi forward of WAN :443.
+- Kanidm server with =services.kanidm.provision= (people, groups, the NetBird OAuth2 client) and online backups.
+- A spike that proves NetBird accepts Kanidm as its IdP before the hardware work.
+- Relevant contract: =design/home-network-infrastructure.org= (exposure model, identity direction, roadmap).
+*** Out of scope
+- The NetBird server and clients (task ad910fe5).
+- Kanidm Unix (PAM/NSS) and SSH integration on servers (roadmap Phase 5).
+- OIDC for Open WebUI and other web apps, and forward-auth for apps without a login (roadmap Phase 4).
+- Changes to the NAS Traefik setup.
+
+** Acceptance
+*** Core functionality
+- [ ] A NetBird management service accepts a login by a provisioned Kanidm user (spike, before hardware).
+- [ ] =https://id.emptycannon.eu= serves the Kanidm login page to an off-LAN device with a publicly trusted certificate.
+- [ ] A person declared in =services.kanidm.provision= logs in with a passkey.
+- [ ] The NetBird OAuth2 client exists in Kanidm as declared in Nix.
+- [ ] An online backup file is written on schedule.
+*** Edge cases
+- [ ] On the LAN, =id.emptycannon.eu= resolves to the edge host's LAN address and login works while the WAN link is down.
+- [ ] A restore from the online backup recovers the provisioned people and groups.
+*** Anti-criteria
+- [ ] Must not: put the Kanidm admin passwords, provision secrets or DNS API token in the Nix store or git.
+- [ ] Must not: make the edge host's login depend only on Kanidm (local break-glass admin and SSH key remain).
+- [ ] Must not: change the NAS Traefik configuration.
+- [ ] Must not: mount MooseFS on the edge host.
+
+** Decisions
+- Decisions shared with the wider network design live in =design/home-network-infrastructure.org=: Kanidm (rejected Authentik, Keycloak, FreeIPA), NetBird, the Pi 4 edge host, and the DNS move.
+- Spike before hardware :: NetBird does not list Kanidm as a tested IdP, and Kanidm requires PKCE (=S256=) and =ES256= by default, so prove the pairing in a NixOS VM on an x86 host first.
+  Rejected:
+  - Build the edge host first: the hardware and DNS work would be wasted if the pairing fails.
+
+** Risks
+- Single edge host :: logins and NetBird coordination stop while it is down; local break-glass access and established connections are the fallback.
+- Public IdP :: login pages are internet-facing; require passkeys for admins and keep the admin accounts off daily use.
+- Slow =aarch64-linux= builds on the Pi 4 :: most packages come from the binary cache; decide the build path before the first deploy (see Open questions).
+
+** Follow-ups
+- Kanidm Unix and SSH integration on servers: roadmap Phase 5 in =design/home-network-infrastructure.org=.
+
+* Plan
+** TODO Spike: prove NetBird accepts Kanidm as its OIDC IdP in a NixOS VM
+:PROPERTIES:
+:CUSTOM_ID: 3bf9066c-d405-49e4-aea8-15a0d417f80b
+:CREATED: [2026-10-16 Fri 00:44]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 00:44]
+:END:
+Acceptance criteria:
+- A NixOS VM test on an x86 host runs Kanidm with a provisioned person and a NetBird OAuth2 client.
+- NetBird management in the same test accepts a login by that person.
+- Any Kanidm per-client exception that NetBird needs (PKCE, legacy crypto) is recorded under Implementation.
+
+Existing tests to start from: nixosTests.kanidm-provisioning and nixosTests.netbird in nixpkgs.
+
+** TODO Move emptycannon.eu DNS to an API-capable provider
+:PROPERTIES:
+:CUSTOM_ID: 6a07c022-f821-492d-8b50-842f329a6c55
+:CREATED: [2026-10-16 Fri 00:44]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 00:44]
+:END:
+Acceptance criteria:
+- The emptycannon.eu nameservers point at the chosen provider, and existing records resolve unchanged.
+- An API token scoped to DNS edits is stored outside the Nix store and git.
+- The public A record follows the home WAN address (dynamic DNS).
+
+** TODO Add the Raspberry Pi 4 edge host to the flake
+:PROPERTIES:
+:CUSTOM_ID: b2b4e80d-7a31-4d60-8bae-00dc36346c29
+:CREATED: [2026-10-16 Fri 00:44]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 00:44]
+:END:
+Acceptance criteria:
+- flake.nix has an aarch64-linux nixosConfiguration for the edge host, with nixos-server.nix and the nixos-hardware raspberry-pi-4 profile.
+- The host boots from an SSD.
+- A local admin user with an SSH key logs in without any network identity service.
+- The edge host does not mount /mnt/mfs, and the other NixOS hosts still do (the nixos-base.nix mount becomes an option).
+
+** TODO Edge Caddy with ACME DNS-01 as the public entry point
+:PROPERTIES:
+:CUSTOM_ID: 64b63fc2-b76f-45f6-a5ff-3c617b00bfd5
+:CREATED: [2026-10-16 Fri 00:44]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 00:44]
+:END:
+Acceptance criteria:
+- Caddy on the edge host holds a publicly trusted certificate for id.emptycannon.eu, issued through DNS-01.
+- UniFi forwards WAN :443 to the edge host.
+- On the LAN, id.emptycannon.eu resolves to the edge host LAN address.
+
+Caddy needs a DNS-provider plugin for DNS-01; security.acme (lego) is the alternative issuer.
+
+** TODO Deploy Kanidm with declarative provisioning and online backups
+:PROPERTIES:
+:CUSTOM_ID: dddce59d-9130-4c4c-b014-3da15a5d0f4c
+:CREATED: [2026-10-16 Fri 00:44]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 00:44]
+:END:
+Acceptance criteria:
+- https://id.emptycannon.eu serves Kanidm through the edge Caddy.
+- People, groups and the NetBird OAuth2 client come from services.kanidm.provision.
+- A provisioned person logs in with a passkey.
+- Online backups are written on schedule, and a restore has been tested.
+- Must not: put admin passwords or provision secrets in the Nix store or git.
+
+* Implementation
+
+* Open questions
+** OPEN Cloudflare or deSEC for =emptycannon.eu= DNS?
+** OPEN Which Pi 4 RAM variant, and does it boot directly from the USB SSD?
+** OPEN How to build and deploy =aarch64-linux=: natively on the Pi, binfmt emulation on an x86 host, or a remote builder?
+** OPEN How does Caddy reach Kanidm, which needs its own TLS certificate: reuse the ACME certificate, or a separate internal certificate?
+** OPEN Which groups to provision first (for example family members and admins)?
