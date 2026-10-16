@@ -61,41 +61,25 @@ The hermes agent instance should own the following:
 - Keeping the installation up to date
 - .... what else ...
 
-** TODO [#C] Enable Tailscale on strix for private off-LAN access to home services :strix:tailscale:
+** TODO [#C] Self-host a NetBird network for private off-LAN access to home services :edge:netbird:infrastructure:
 :PROPERTIES:
 :CUSTOM_ID: ad910fe5-5794-4913-8da2-cfd2ce8006de
 :CREATED: [2026-05-29 Fri 00:40]
+:BLOCKED-BY: task:2d737e59-b8ff-4fe4-b0e5-f77770e61fd4
 :END:
 :LOGBOOK:
 - Created [2026-05-29 Fri 00:40]
 :END:
-Strix-hosted home services should be reachable from the user's own devices when off-LAN, without being publicly exposed. Per the per-service exposure model recorded in `design/home-network-infrastructure.org`, Vane / SearXNG / Lemonade / future internal admin UIs are tailnet-only by policy; Open WebUI may eventually also be publicly exposed via Caddy + UniFi but Tailscale remains its private off-LAN path. Verification during change-record `2026-05-28-explore-and-adopt-web-search-tooling.org` (task f86582ce-…) found that `tailscaled` is inactive on strix and no `tailscale0` interface exists — this slot is empty.
+#+IMPORT: [[plan:2026-10-16-self-host-netbird-network.org]]
+Home services (Vane, SearXNG, Lemonade, Open WebUI, future admin UIs) should be reachable from family and own devices off-LAN without public exposure. Decided 2026-10-16 in `design/home-network-infrastructure.org` (NetBird provides the private off-LAN transport): a self-hosted NetBird server at netbird.emptycannon.eu on the Raspberry Pi 4 edge host, with Kanidm as its IdP, and NetBird clients on all hosts. Replaces the earlier plan to enable Tailscale on strix only.
 
-Action:
-- Enable Tailscale on strix declaratively: `services.tailscale.enable = true;` (set `useRoutingFeatures` per intended role; default `"client"` is fine for an endpoint).
-- Authenticate strix to the tailnet (one-shot `tailscale up --authkey=…` or interactive). Document the bootstrap step.
-- Confirm MagicDNS resolves `strix` to the tailnet address from off-LAN workstations.
-- Smoke the host-wide off-LAN path from a tailnet device:
-  - SearXNG: `curl http://strix:8888/search?q=test&format=json`
-  - Vane: browser visit to `http://strix:3001`
-  - Open WebUI: browser visit to `http://strix:8080`
-  - Lemonade: `curl http://strix:13305/api/v1/models`
-  - pi MCP: `mcp({connect:"searxng"})` works from a tailnet workstation
-- If a tailnet ACL needs to expose any of these ports, update accordingly. Default-deny is preferred; explicit allow per service.
-
-Out of scope:
-- Tailscale config on workstations (presumably already done — verify during smoke).
-- Public-internet exposure (separate task; Caddy + UniFi pathway).
-- Wider Tailscale features beyond reaching strix from user devices.
+Blocked by the Kanidm task (2d737e59): the NixOS NetBird server module needs an external IdP. Detail in the linked change-record.
 
 Origin:
-- Spun out of `f86582ce-d749-4c35-8d60-8f142553277b` (web-search verification).
-- Design reference: `~/dotfiles/design/home-network-infrastructure.org` (per-service exposure model).
-- Change-record: ~/dotfiles/design/log/2026-05-28-explore-and-adopt-web-search-tooling.org
-- timestamp: [2026-05-28 Thu]
-- sender: agent
+- Spun out of `f86582ce-d749-4c35-8d60-8f142553277b` (web-search verification), which found no Tailscale on strix.
+- Retargeted from Tailscale to NetBird: [2026-10-16 Fri].
 
-** TODO [#C] Caddy reverse proxy on strix for *.home.arpa hostnames (LAN) :strix:caddy:infrastructure:
+** TODO [#C] Caddy reverse proxy on strix for *.home.emptycannon.eu hostnames (LAN) :strix:caddy:infrastructure:
 :PROPERTIES:
 :CUSTOM_ID: 0e5c627e-1297-4609-8d11-5081c6dae485
 :CREATED: [2026-05-29 Fri 01:40]
@@ -103,27 +87,27 @@ Origin:
 :LOGBOOK:
 - Created [2026-05-29 Fri 01:40]
 :END:
-Phase 2 of the home-network-infrastructure roadmap (see `~/dotfiles/design/home-network-infrastructure.org`). Introduce Caddy on strix as the LAN-facing reverse proxy with stable hostnames under `home.arpa`, so user-facing URLs decouple from host+port pairs.
+Phase 2 of the home-network-infrastructure roadmap (see `~/dotfiles/design/home-network-infrastructure.org`). Introduce Caddy on strix as the LAN-facing reverse proxy with stable hostnames under `home.emptycannon.eu`, so user-facing URLs decouple from host+port pairs.
 
-Hostname plan (per existing decision, RFC 8375):
-- `chat.home.arpa` → Open WebUI (currently strix:8080)
-- `search.home.arpa` → Vane (currently strix:3001)
-- `lemonade.home.arpa` → Lemonade OpenAI-compatible API (currently strix:13305)
+Hostname plan (decided 2026-10-16 in the design doc):
+- `chat.home.emptycannon.eu` → Open WebUI (currently strix:8080)
+- `search.home.emptycannon.eu` → Vane (currently strix:3001)
+- `lemonade.home.emptycannon.eu` → Lemonade OpenAI-compatible API (currently strix:13305)
 - SearXNG remains internal (no public Caddy vhost; Vane / Open WebUI / pi continue hitting it via `host.docker.internal` / `127.0.0.1` / `strix:8888` respectively).
 
 Worth promoting to its own change-record via planner — multiple design decisions need pinning before code:
 
 Design questions for the planner pass:
-- DNS source for `*.home.arpa`: UniFi DNS override vs Pi-hole/AdGuard vs `services.resolved` host records. Whichever resolves on every LAN client without per-device config.
-- TLS strategy: skip TLS for LAN (HTTP-only) vs internal CA + trust on devices vs ACME DNS-01 against a real domain. Probably HTTP for Phase 2, defer TLS.
+- DNS source for `*.home.emptycannon.eu`: UniFi DNS override vs Pi-hole/AdGuard vs `services.resolved` host records. Whichever resolves on every LAN client without per-device config.
+- TLS: ACME DNS-01 against emptycannon.eu (decided 2026-10-16), so LAN names get publicly trusted certificates. Needs the DNS provider API from task 2d737e59.
 - Should backends bind 127.0.0.1 once Caddy fronts them (per existing "Prefer localhost-only backends" decision)? Open WebUI and Vane currently bind 0.0.0.0 + openFirewall. Tightening should be the same NixOS pass as adding Caddy.
 - Caddy NixOS module: `services.caddy` is in nixpkgs; verify it covers what's needed.
 
 Acceptance shape (refine in planner pass):
 - All three hostnames resolve on LAN clients without per-device hosts-file edits.
-- `curl http://chat.home.arpa` reaches Open WebUI.
-- `curl http://search.home.arpa` reaches Vane.
-- `curl http://lemonade.home.arpa/api/v1/models` works for the OpenAI-API clients (verify they accept the new base URL — pi config, etc.).
+- `curl http://chat.home.emptycannon.eu` reaches Open WebUI.
+- `curl http://search.home.emptycannon.eu` reaches Vane.
+- `curl http://lemonade.home.emptycannon.eu/api/v1/models` works for the OpenAI-API clients (verify they accept the new base URL — pi config, etc.).
 - Backends no longer LAN-reachable on their raw host:port (or this is deferred to a followup; flag explicitly).
 
 Origin:
@@ -136,13 +120,14 @@ Origin:
 :PROPERTIES:
 :CUSTOM_ID: 5f53ceac-06f0-4fc3-ae7f-ebbcc3712980
 :CREATED: [2026-05-29 Fri 01:41]
+:BLOCKED-BY: task:2d737e59-b8ff-4fe4-b0e5-f77770e61fd4
 :END:
 :LOGBOOK:
 - Created [2026-05-29 Fri 01:41]
 :END:
 :BLOCKED-BY+: 0e5c627e-1297-4609-8d11-5081c6dae485
 
-Expose a curated subset of home services to the public internet, using strix Caddy as the TLS terminator and UniFi as the WAN gateway with port-forward to Caddy. Blocked by the LAN Caddy task (`0e5c627e-1297-4609-8d11-5081c6dae485`) — needs Caddy already running internally before any public path is added.
+Expose a curated subset of home services to the public internet, using the edge Caddy on the Raspberry Pi 4 (task 2d737e59) as the TLS terminator and UniFi as the WAN gateway with port-forward to Caddy. Blocked by the Kanidm task (`2d737e59-b8ff-4fe4-b0e5-f77770e61fd4`), which builds the edge host, its Caddy and the UniFi :443 forward.
 
 Per-service exposure policy (see [[file:design/home-network-infrastructure.org::*Per-service exposure model]]):
 
@@ -156,16 +141,16 @@ Per-service exposure policy (see [[file:design/home-network-infrastructure.org::
 So the initial public surface is **Open WebUI only**.
 
 Design questions for the planner pass:
-- Public DNS: separate public hostname (e.g. `chat.<somedomain>`), not `chat.home.arpa`. Where does the apex domain live (e.g. existing Cloudflare / registrar)?
-- TLS: ACME via HTTP-01 (UniFi forwards :80 + :443) or DNS-01 against the public domain. DNS-01 keeps :80 closed.
-- UniFi port forward: WAN :443 → strix Caddy. Verify UniFi firmware version + recent config patterns.
-- Caddy multi-vhost: same Caddy serves `chat.home.arpa` (LAN HTTP) and `chat.<somedomain>` (public HTTPS) for the same Open WebUI backend.
+- Public DNS: `chat.emptycannon.eu` (decided 2026-10-16). DNS moves from GoDaddy to Cloudflare or deSEC in task 2d737e59.
+- TLS: ACME DNS-01 (decided 2026-10-16); :80 stays closed.
+- UniFi port forward: WAN :443 → edge Pi Caddy (decided 2026-10-16), which proxies to Open WebUI on strix. Verify UniFi firmware version + recent config patterns.
+- Caddy vhosts: the edge Caddy serves `chat.emptycannon.eu`; the strix LAN Caddy serves `chat.home.emptycannon.eu`; both front the same Open WebUI backend.
 - Open WebUI hardening before exposing: forced strong passwords, disable signup, audit log review, rate-limit at Caddy, geo-block via Caddy if desired.
 - Threat model: brute-force on the login form is the dominant risk. Caddy-level rate-limit and fail2ban-equivalent before going live.
-- DDNS: dynamic public IP handling if the home WAN IP changes (UniFi has built-in DDNS options or a Cloudflare API hook).
+- DDNS: handled in task 2d737e59 through the DNS provider API.
 
 Acceptance shape (refine in planner pass):
-- `https://chat.<publicdomain>/` reaches Open WebUI login from any internet client.
+- `https://chat.emptycannon.eu/` reaches Open WebUI login from any internet client.
 - TLS cert is auto-renewing.
 - Vane / SearXNG / Lemonade are NOT exposed (negative test from off-tailnet, off-LAN device).
 - UniFi forward + Caddy config both checked into NixOS where possible (UniFi probably manual unless using UniFi's API).
@@ -178,3 +163,25 @@ Origin:
 - Blocked by `0e5c627e-1297-4609-8d11-5081c6dae485` (LAN Caddy).
 - timestamp: [2026-05-29 Fri]
 - sender: agent
+
+** TODO [#C] Deploy Kanidm as the home identity provider on a Raspberry Pi 4 edge host :edge:kanidm:infrastructure:
+:PROPERTIES:
+:CUSTOM_ID: 2d737e59-b8ff-4fe4-b0e5-f77770e61fd4
+:CREATED: [2026-10-16 Fri 00:42]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 00:42]
+:END:
+#+IMPORT: [[plan:2026-10-16-deploy-kanidm-identity-provider.org]]
+Phase 3 of design/home-network-infrastructure.org (identity before the off-LAN network). Kanidm at id.emptycannon.eu on a dedicated Raspberry Pi 4 edge host, with emptycannon.eu DNS moved to an API-capable provider for ACME DNS-01. NetBird (task ad910fe5) needs this IdP first. Detail in the linked change-record.
+
+** TODO [#C] Move the MooseFS master, Plex and Roon to the NAS and reinstall the Odroid H2+ with NixOS :moosefs:nas:infrastructure:
+:PROPERTIES:
+:CUSTOM_ID: c394a695-ac39-435c-bbf9-faacb8df7f36
+:CREATED: [2026-10-16 Fri 09:19]
+:END:
+:LOGBOOK:
+- Created [2026-10-16 Fri 09:19]
+:END:
+#+IMPORT: [[plan:2026-10-16-move-moosefs-master-to-nas-and-reinstall-h2.org]]
+Storage consolidation in design/home-network-infrastructure.org (Host responsibilities). The H2+ (mfsmaster, <lan-address>, Ubuntu focal) runs the MooseFS master (4.58.3), a chunkserver with about 18 TB of chunks, Plex and Roon. Move the master, Plex and Roon to the NAS, then reinstall the H2+ with NixOS as a chunkserver and metalogger, keeping its chunk disks. Detail in the linked change-record.
