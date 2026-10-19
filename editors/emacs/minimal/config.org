@@ -54,6 +54,7 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
   - [[#eca][ECA]]
 - [[#file-format-support][File format support]]
   - [[#org][Org]]
+    - [[#diagrams-and-html-export][Diagrams and HTML export]]
   - [[#markdown][Markdown]]
     - [[#export][Export]]
     - [[#live-preview-in-eww][Live preview in EWW]]
@@ -1211,6 +1212,47 @@ Built-in org (9.8.x), never installed via Elpaca, so the tangle in =init.el= can
 (use-package toc-org
   :ensure t
   :hook (org-mode . toc-org-mode))
+#+end_src
+
+*** Diagrams and HTML export
+:PROPERTIES:
+:CUSTOM_ID: diagrams-and-html-export
+:END:
+
+Diagrams are Babel blocks: =mermaid= through [[https://github.com/arnm/ob-mermaid][ob-mermaid]] and =mmdc=, =plantuml= through the built-in =ob-plantuml=. Both command-line tools come from =emacs.nix= (=mermaid-cli=, =plantuml=), so they are on =exec-path=, and =org-plantuml-exec-mode= ='plantuml= runs that wrapper rather than =java -jar=. A block draws nothing without =:file=; add =:exports results= to export only the picture:
+
+#+begin_src org :tangle no
+,#+BEGIN_SRC mermaid :file img/flow.svg :exports results
+flowchart TD
+  A --> B
+,#+END_SRC
+#+end_src
+
+HTML export evaluates these blocks, so =org-confirm-babel-evaluate= skips the prompt for the two diagram languages only; any other language still asks.
+
+=#+SETUPFILE:= may be a URL: the [[https://github.com/fniessen/org-html-themes][org-html-themes]] themes are referenced as =https://fniessen.github.io/org-html-themes/org/setup/html-theme-readtheorg.setup=. Org asks before fetching a remote resource unless its URL matches =org-safe-remote-resources=, so the theme host is allowed here.
+
+#+begin_src emacs-lisp
+(use-package ob-mermaid
+  :ensure t
+  :after org
+  :config
+  (setq ob-mermaid-cli-path (executable-find "mmdc")))
+
+(with-eval-after-load 'org
+  (setq org-plantuml-exec-mode 'plantuml
+        org-plantuml-executable-path "plantuml")
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   (append org-babel-load-languages '((plantuml . t))))
+
+  (defun my/org-confirm-babel-evaluate (lang _body)
+    "Ask before evaluating a block, unless LANG is a diagram language."
+    (not (member lang '("mermaid" "plantuml"))))
+  (setq org-confirm-babel-evaluate #'my/org-confirm-babel-evaluate)
+
+  (add-to-list 'org-safe-remote-resources
+               "\\`https://fniessen\\.github\\.io/org-html-themes/"))
 #+end_src
 
 ** Markdown
