@@ -19,7 +19,7 @@
 #+OPTIONS: author:nil ^:nil
 
 # 3. HTML export theme
-#+SETUPFILE: ~/Documents/templates/org-html-themes/org/theme-readtheorg.setup
+#+SETUPFILE: https://fniessen.github.io/org-html-themes/org/setup/html-theme-readtheorg.setup
 
 # 4. ODT (and DOCX) export styles/theme
 #    N.B. Editing the ODT can cause the embedded logo jpg name to change... if this occurs, unzip the odt to check the new name and update this line

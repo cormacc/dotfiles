@@ -6,7 +6,7 @@
 
 # HTML EXPORT SETUP
 # 1. Apply a theme
-#+SETUPFILE: ~/Documents/templates/org-html-themes/org/theme-readtheorg.setup
+#+SETUPFILE: https://fniessen.github.io/org-html-themes/org/setup/html-theme-readtheorg.setup
 
 # 2. Ensure exports include both source block contents and any results
 #+PROPERTY: header-args :exports both
