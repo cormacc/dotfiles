@@ -206,6 +206,9 @@ in
       # gitlab-cli-skills resident as a single entry while its 30+ glab-*
       # sub-skills stay on-demand -- the gradual-discovery behaviour the
       # sub-skill layout assumes. Out-of-store, matching ~/.agents/skills.
+      # Claude Code writes its account skills to ~/.claude/skills/synced/, so
+      # they land in the submodule; agents/skills/.gitignore keeps them out of
+      # git and out of pi's discovery.
       "${claudeConfig}/skills" = link "${agentsRoot}/skills";
 
       # Claude Code's user-scope memory, giving claude the same portable rules
