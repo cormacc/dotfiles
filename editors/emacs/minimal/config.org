@@ -13,6 +13,7 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
 - [[#startup][Startup]]
   - [[#defaults][Defaults]]
   - [[#run-time-state-hygiene-no-littering][Run-time state hygiene (no-littering)]]
+  - [[#server][Server]]
   - [[#optimisation][Optimisation]]
   - [[#restore-open-buffers][Restore open buffers]]
 - [[#keybindings][Keybindings]]
@@ -20,6 +21,7 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
   - [[#core-keybindings---leaders-and-prefixes][Core keybindings - leaders and prefixes]]
   - [[#session][Session]]
   - [[#editing-text][Editing text]]
+  - [[#soft-wrapping][Soft wrapping]]
   - [[#expand-region][Expand region]]
   - [[#simultaneous-editing-iedit][Simultaneous editing (iedit)]]
   - [[#multiple-cursors][Multiple cursors]]
@@ -53,6 +55,7 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
 - [[#file-format-support][File format support]]
   - [[#org][Org]]
   - [[#markdown][Markdown]]
+    - [[#export][Export]]
     - [[#live-preview-in-eww][Live preview in EWW]]
 - [[#language-support][Language support]]
   - [[#clojure][Clojure]]
@@ -386,6 +389,32 @@ The next launch starts fresh; use \\[restart-emacs] to come back to this one."
 #+begin_src emacs-lisp
 (my/leader
   "; ;" '("comment dwim" . comment-dwim))
+#+end_src
+
+** Soft wrapping
+:PROPERTIES:
+:CUSTOM_ID: soft-wrapping
+:END:
+
+Prose in org and markdown is not hard-wrapped, so an edit never needs a reflow: each paragraph is one long line, displayed wrapped. =visual-line-mode= wraps at word boundaries but only at the window edge, and Emacs has no built-in wrap column. [[https://codeberg.org/joostkremers/visual-fill-column][visual-fill-column]] supplies one: it widens the right window margin so the text area is =visual-fill-column-width= columns, and recomputes the margins when the window is resized or split, or the text is scaled. =visual-line-fill-column-mode= turns on both.
+
+The text stays left-aligned (=visual-fill-column-center-text= is nil, its default). The width is 120 rather than =fill-column= (80, [[#defaults][Defaults]]), which still governs hard filling with =M-q= elsewhere. Line numbers sit outside the text area, so they do not reduce it. =evil-respect-visual-line-mode= (see [[#evil][Evil]]) makes =j=, =k=, =0= and =$= move by screen line in these buffers.
+
+Markdown also gets =visual-wrap-prefix-mode= (built in), which indents a wrapped line under its list item or indented text. Org does not: =org-indent-mode= (=org-startup-indented=, [[#org][Org]]) already sets the wrap prefix there, and the two would conflict.
+
+=SPC t w= turns the fixed width off and on in the current buffer; with it off, lines wrap at the window edge.
+
+#+begin_src emacs-lisp
+(use-package visual-fill-column
+  :ensure t
+  :hook ((org-mode markdown-ts-mode) . visual-line-fill-column-mode)
+  :init
+  (setq-default visual-fill-column-width 120))
+
+(add-hook 'markdown-ts-mode-hook #'visual-wrap-prefix-mode)
+
+(my/leader
+  "t w" '("wrap width" . visual-fill-column-mode))
 #+end_src
 
 ** Expand region
