@@ -73,7 +73,6 @@ in
         "strix"
         "strix.internal"   # what `strix` resolves to on the LAN
         "strix.local"
-        "<lan-address>"
       ];
     };
   };
