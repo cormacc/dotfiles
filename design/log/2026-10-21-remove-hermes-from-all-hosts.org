@@ -39,7 +39,7 @@ The dotfiles configuration no longer references the =hermes-agent= flake input, 
 *** Edge cases
 - [ ] A failed NAS switch is rolled back with =sudo nixos-rebuild switch --rollback= before any clean-up.
 *** Anti-criteria
-- [ ] Must not: delete =/var/lib/hermes=, the =hermes-agent= container or image, or =~cormacc/.hermes= without a recorded listing and separate approval.
+- [X] Must not: delete =/var/lib/hermes=, the =hermes-agent= container or image, or =~cormacc/.hermes= without a recorded listing and separate approval.
 - [ ] Must not: change Compose services, monitoring, MooseFS or =/var/lib/homelab-unifi/= contents in the same switch.
 
 ** Decisions
@@ -92,14 +92,18 @@ CLOSED: [2026-10-21 Wed 08:13]
 :END:
 Acceptance criteria: hermes-agent.service not found; homelab-health.timer active; no failed units; Compose units in the same active state as before. Needs owner approval. Push the branch first. Record readlink -f /run/current-system, systemctl --failed and the Compose unit states before the switch. Operator runs: ssh -t nas 'cd ~/dotfiles && git fetch && git switch nas/remove-hermes && git submodule update --init --recursive && sudo nixos-rebuild switch --flake .#nas --impure'. Verify the NAS checkout path and that it is clean first. Rollback: ssh -t nas 'sudo nixos-rebuild switch --rollback'.
 
-** TODO Clean up Hermes host state on the NAS
+** DONE Clean up Hermes host state on the NAS
+CLOSED: [2026-10-21 Wed 08:24]
 :PROPERTIES:
 :CUSTOM_ID: bbec2a2c-9cc7-4d85-91bf-5680c65316d5
 :CREATED: [2026-10-21 Wed 01:01]
 :BLOCKED-BY: task:c4b0d558-198b-4bc0-9d9a-f3b71aced97e
+:STARTED: [2026-10-21 Wed 08:24]
 :END:
 :LOGBOOK:
 - Created [2026-10-21 Wed 01:01]
+- State "STARTED" from "TODO" [2026-10-21 Wed 08:24]
+- State "DONE" from "STARTED" [2026-10-21 Wed 08:24]
 :END:
 Acceptance criteria: no hermes-agent container or image; /var/lib/hermes and ~cormacc/.hermes absent. Needs separate approval after the switch is verified. First record ls -ln /var/lib/hermes, du -sh /var/lib/hermes, docker ps -a and docker images for hermes, and readlink ~/.hermes. Ask whether to keep a tarball of /var/lib/hermes/.hermes (sessions, memories) before deletion.
 
@@ -158,3 +162,5 @@ Tips, so that a commit can be recovered while GitHub still holds it. No content 
 - Switched =nas= on 2026-10-21 from =4fb1llxd…= to the =nas/remove-hermes= build =k07m53hx…= (set the system profile, then =switch-to-configuration switch= in its own systemd unit). Activation stopped =hermes-agent.service=, removed the =hermes= user and group, and did not restart the six changed Compose units (=X-RestartIfChanged=false=).
 - After the switch: =hermes-agent.service= not found; no failed units; Compose units active; the nine application containers still "Up 5 days". The =hermes-agent= container is stopped (Exited 1), not removed.
 - The same session then switched to the =nas/unifi-babashka= build for the homelab-agent collectors.
+- Clean-up on =nas= (2026-10-21, owner-approved): removed the stopped =hermes-agent= container, the =ubuntu:24.04= image, =/var/lib/hermes= (207 MB), the =~/.hermes= symlink, 19 retired =~/homelab-unifi-*.sh= scripts, 22 =~/.cache/hermes-*= build directories, and the handover workspace. The listing before deletion found nothing of design value: SOUL.md (already in Git history), weekly skill-curator reports, a 483-byte USER.md, bundled skills, and a Python runtime.
+- Clean-up on the laptop: removed four clean Hermes-era dotfiles worktrees and =~/homelab-unifi-diagnostic-v2.py=. =~/.hermes= (8.7 GB, with credentials) and =~/Library/Application Support/Hermes= remain until the MacBook switch removes Hermes Desktop.
