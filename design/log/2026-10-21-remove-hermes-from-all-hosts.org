@@ -113,13 +113,17 @@ Acceptance criteria: no hermes-agent container or image; /var/lib/hermes and ~co
 :END:
 Acceptance criteria: hermes-agent no longer on PATH on xps15 (home-manager); Hermes Desktop uninstalled on the MacBook after darwin-rebuild switch. Ordinary owner switches; no ordering constraint.
 
-** TODO Delete the abandoned remote branches
+** DONE Delete the abandoned remote branches
+CLOSED: [2026-10-21 Wed 08:21]
 :PROPERTIES:
 :CUSTOM_ID: d5df8ab7-f468-43a9-988c-e87062db1b14
 :CREATED: [2026-10-21 Wed 01:01]
+:STARTED: [2026-10-21 Wed 08:21]
 :END:
 :LOGBOOK:
 - Created [2026-10-21 Wed 01:01]
+- State "STARTED" from "TODO" [2026-10-21 Wed 08:21]
+- State "DONE" from "STARTED" [2026-10-21 Wed 08:21]
 :END:
 Acceptance criteria: dotfiles homelab/unifi-native-rehearsal-20261016 and the UniFi draft archive branches listed in handover/unifi-preserved-drafts.org on that branch, and homelab-agent feat/unifi-controller-names-20261016, are deleted from origin. Needs owner approval. Record each branch tip SHA in this record first.
 
@@ -130,6 +134,25 @@ The =nas= system and user lists were compared between =origin/main= (=edd69d9=) 
 - Users removed: =hermes=. =cormacc= loses only the =hermes= group.
 - tmpfiles rules removed: the nine =/var/lib/hermes= directories, =d /var/lib/homelab-unifi= and the disabled UniFi =config.json= copy. tmpfiles does not delete existing paths, so the host-local UniFi inputs stay in place.
 - The =xps15= drv path did not change: the Hermes module there was imported but not enabled.
+
+
+** Deleted Hermes-era branches (2026-10-21)
+Tips, so that a commit can be recovered while GitHub still holds it. No content was kept: everything in them is superseded by this record and the homelab-agent UniFi record.
+| Repository | Branch | Tip |
+|-+-+-|
+| dotfiles | =archive/unifi-laptop-drafts-handover= | =bef1035d2059b18d73887fabe59ac39367a5338f= |
+| dotfiles | =feat/unifi-disabled-candidate-20261013= | =c2c81d3041054096f52dfd9d823e6cf124f67ff5= |
+| dotfiles | =homelab/compose-services= | =db727b6ef19c7fa37c96118985b766b0f6abd1e6= |
+| dotfiles | =homelab/nas-maintenance-20261013= | =656c0e473651f5c9ef58d339da7fe49e343fab5a= |
+| dotfiles | =homelab/unifi-deadline-20261016= | =fd4339341065ab0842c20c7d28ddb95aeefe7320= |
+| dotfiles | =homelab/unifi-native-rehearsal-20261016= | =c78cc6b1d1bb6d890d3a414543939591d0297166= |
+| dotfiles | =homelab/unifi-tty-candidate-20261016= | =b7086a9691ab01d981867ad8e5427adf89717a0c= |
+| dotfiles (local only, merged) | =homelab/service-autostart= | =aff2254821c7c15d3af08a6c5531033d60c9c9bd= |
+| dotfiles (local only, merged) | =recovery/homelab-centralization= | =9ab48f724b48eb21cf243c4b86178eed16d99bff= |
+| homelab-agent | =archive/unifi-laptop-drafts-handover= | =22c5fd7872e050580d488f92f6ea0568caccfd10= |
+| homelab-agent | =feat/unifi-controller-names-20261016= | =843239de170d0612bf592fc8e29838ed5748094e= |
+| homelab-agent | =feat/unifi-private-enrollment-20261013= | =a82aa5380dd6ac71a31b880e94e3e6ef8e11894e= |
+| homelab-agent | =fix/unifi-native-tty-20261016= | =9eb348b97a37ff89ec0b059f687414a9f5af5a8c= |
 
 * Validation
 - Switched =nas= on 2026-10-21 from =4fb1llxd…= to the =nas/remove-hermes= build =k07m53hx…= (set the system profile, then =switch-to-configuration switch= in its own systemd unit). Activation stopped =hermes-agent.service=, removed the =hermes= user and group, and did not restart the six changed Compose units (=X-RestartIfChanged=false=).
