@@ -9,6 +9,11 @@
     ./nixos-base.nix
   ];
 
+  # flake.nix applies linuxOverlays only to the Home Manager pkgs set; NixOS
+  # builds its own pkgs, so the overlays it needs must be listed here.
+  # microchip provides mplab-x-unwrapped for services.udev.packages below.
+  nixpkgs.overlays = [ specialArgs.inputs.microchip.overlays.default ];
+
   # Use latest kernel for workstations
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
@@ -70,6 +75,9 @@
     pkgs.nrf-udev
     pkgs.openocd
     pkgs.segger-jlink
+    # MPLAB-X installed per-project via devshell, but this load udev rules,
+    # preventing some noise in logging.
+    pkgs.mplab-x-unwrapped
   ];
 
   # segger-jlink (needed for its udev rules above) is unfree and pulls in the
