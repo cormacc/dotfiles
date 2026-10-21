@@ -194,6 +194,7 @@ Storage consolidation in design/home-network-infrastructure.org (Host responsibi
 :CUSTOM_ID: 4a40c9c8-9d47-4fe7-8dca-f2cac3537b76
 :CREATED: [2026-10-21 Wed 00:55]
 :STARTED: [2026-10-21 Wed 01:01]
+:HANDOFF: Config change committed on branch nas/remove-hermes (unpushed). Next: owner pushes, then approves the NAS switch (plan task c4b0d558). Branch nas/unifi-babashka builds on this branch and adds the Babashka collectors (homelab-agent branch rework/without-hermes, also unpushed); deploy it only after this switch is verified.
 :END:
 :LOGBOOK:
 - Created [2026-10-21 Wed 00:55]

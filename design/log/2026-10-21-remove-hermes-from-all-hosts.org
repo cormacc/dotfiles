@@ -65,7 +65,8 @@ The dotfiles configuration no longer references the =hermes-agent= flake input, 
 - NixOS user management is expected to delete the =hermes= user and group, which leaves =/var/lib/hermes= owned by a numeric UID until the clean-up. Not verified; check with =ls -ln= after the switch.
 
 * Plan
-** STARTED Remove Hermes from the dotfiles configuration
+** DONE Remove Hermes from the dotfiles configuration
+CLOSED: [2026-10-21 Wed 02:58]
 :PROPERTIES:
 :CUSTOM_ID: 4a00cdcd-9c55-4ee3-910d-2d5150a67fb5
 :CREATED: [2026-10-21 Wed 01:01]
@@ -74,6 +75,7 @@ The dotfiles configuration no longer references the =hermes-agent= flake input, 
 :LOGBOOK:
 - Created [2026-10-21 Wed 01:01]
 - State "STARTED" from "TODO" [2026-10-21 Wed 01:01]
+- State "DONE" from "STARTED" [2026-10-21 Wed 02:58]
 :END:
 Acceptance criteria: the four evaluations and the nas service/user diff in Summary Acceptance pass. Done on branch nas/remove-hermes; awaiting commit approval and push.
 
