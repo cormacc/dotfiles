@@ -5,7 +5,6 @@
     zeal
     dirge-bin
 
-    hermes-agent
     claude-desktop
 
     # Tools to help with nixpkg development...

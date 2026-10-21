@@ -155,8 +155,6 @@ in
       pi
       claude-code
       codex
-      # This is installed for linux only -- installed via homebrew on darwin
-      # hermes-agent
       herdr
       prettier
       # FIXME: Disabled - failing in nixpkgs 13/10/2026

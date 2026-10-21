@@ -75,10 +75,7 @@ in
     # Emacs comes from nixpkgs (programs.emacs in editors/emacs/emacs.nix), with
     # the vterm module prebuilt against nix's libvterm-neovim. The emacs-app
     # cask and the libtool/libvterm brews it needed for vterm were dropped.
-    brews = [
-      # This doesn't work, and is included in hermes-desktop anyway...
-      # "hermes-agent"
-    ];
+    brews = [ ];
     casks = [
       "ghostty"
       "google-chrome"
@@ -87,7 +84,6 @@ in
       "reaper"
       "claude"
       "dash"
-      "hermes-desktop"
       # "gimp"
       # "libreoffice"
     ];

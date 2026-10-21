@@ -47,13 +47,16 @@ SearXNG seems to be the way forward.
 Or Vane, which wraps it: https://github.com/ItzCrazyKns/Vane
 
 
-** TODO [#C] Add hermes agent instance to administer the local llm server
+** CANCELLED [#C] Add hermes agent instance to administer the local llm server
+CLOSED: [2026-10-21 Wed 00:55]
 :PROPERTIES:
 :CUSTOM_ID: 01086cc6-9635-4883-97f2-cb3e0522adbe
 :CREATED: [2026-05-21 Thu 12:52]
+:HANDOFF: Cancelled 2026-10-21: the owner abandoned Hermes on all hosts.
 :END:
 :LOGBOOK:
 - Created [2026-05-21 Thu 12:52]
+- State "CANCELLED" from "TODO" [2026-10-21 Wed 00:55]
 :END:
 LLM server admin looks like a good opportunity to play with long-running non-coding agents.
 The hermes agent instance should own the following:
@@ -185,3 +188,16 @@ Phase 3 of design/home-network-infrastructure.org (identity before the off-LAN n
 :END:
 #+IMPORT: [[plan:2026-10-16-move-moosefs-master-to-nas-and-reinstall-h2.org]]
 Storage consolidation in design/home-network-infrastructure.org (Host responsibilities). The H2+ (mfsmaster, <lan-address>, Ubuntu focal) runs the MooseFS master (4.58.3), a chunkserver with about 18 TB of chunks, Plex and Roon. Move the master, Plex and Roon to the NAS, then reinstall the H2+ with NixOS as a chunkserver and metalogger, keeping its chunk disks. Detail in the linked change-record.
+
+** STARTED [#B] Remove Hermes from all hosts :nas:
+:PROPERTIES:
+:CUSTOM_ID: 4a40c9c8-9d47-4fe7-8dca-f2cac3537b76
+:CREATED: [2026-10-21 Wed 00:55]
+:STARTED: [2026-10-21 Wed 01:01]
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 00:55]
+- State "STARTED" from "TODO" [2026-10-21 Wed 01:01]
+:END:
+#+IMPORT: [[plan:2026-10-21-remove-hermes-from-all-hosts.org]]
+The owner abandoned Hermes on 2026-10-21. Remove the hermes-agent flake input, overlay and NixOS module (nas, xps15), the services.hermes-agent block and /opt/homelab-agent mount in hosts/odroid-h4/homelab-agent.nix, the disabled Python UniFi unit, hermes-agent in dev/dev-linux.nix, the hermes-desktop cask, and Hermes mentions in docs. Keep hosts/odroid-h4/sudo-authorization.nix (global sudo ticket). The NAS switch unblocks the homelab-agent UniFi collector task. Record /var/lib/hermes and container state before deletion; deletion needs separate approval.

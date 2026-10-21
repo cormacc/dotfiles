@@ -78,10 +78,6 @@
       url = "github:tomsch/claude-desktop-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    hermes-agent = {
-      url = "github:NousResearch/hermes-agent";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
 
     dirge = {
       #Latest combines commits from all my open upstream PRs
@@ -123,7 +119,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-code, claude-desktop, codex-desktop, hermes-agent, rust-overlay, nur, pi, dirge, herdr, nix-amd-ai, nix-babashka, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-code, claude-desktop, codex-desktop, rust-overlay, nur, pi, dirge, herdr, nix-amd-ai, nix-babashka, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -132,7 +128,6 @@
         claude-desktop.overlays.default
         dirge.overlays.default
         herdr.overlays.default
-        hermes-agent.overlays.default
         microchip.overlays.default
         nur.overlays.default
         pi.overlays.default
@@ -174,7 +169,6 @@
             hostName = "xps15";
           };
           modules = [
-            hermes-agent.nixosModules.default
             # envfs.nixosModules.envfs
             ./nixos-nvidia.nix
             ./hosts/xps15/hardware-configuration.nix
@@ -218,9 +212,8 @@
         nas = nixpkgs.lib.nixosSystem {
           specialArgs = { hostName = "nas"; };
           modules = [
-            hermes-agent.nixosModules.default
             ./hosts/odroid-h4/hardware-configuration.nix
-            ./hosts/odroid-h4/homelab-agent.nix
+            ./hosts/odroid-h4/homelab-health.nix
             ./hosts/odroid-h4/homelab-compose.nix
             ./hosts/odroid-h4/sudo-authorization.nix
             ./nixos-boot-default.nix
