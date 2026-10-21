@@ -33,7 +33,7 @@ Extracted the reusable agent surface (generic skills, pi extensions, prompts, th
 - Re-tier self-improvement skill routing for the dotfiles/dotagents split (=dotagents= =TASKS.org= =7e21788d=).
 
 ** Dotfiles / dotagents commits landed
-- Dotfiles: =a456268= (rewire), =c25b10f= (activation guard).
+- Dotfiles: =f8cd05c= (rewire), =d92fd75= (activation guard).
 - Dotagents: =802cb5f= (skeleton), =d65c3e7= (source import), =00b2915= (flake.lock), =2235b52= (task graph + design log import).
 
 * Plan

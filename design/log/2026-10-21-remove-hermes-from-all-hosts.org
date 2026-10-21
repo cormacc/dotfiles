@@ -132,7 +132,7 @@ Acceptance criteria: dotfiles homelab/unifi-native-rehearsal-20261016 and the Un
 
 * Implementation
 ** Evaluation evidence
-The =nas= system and user lists were compared between =origin/main= (=edd69d9=) and the working tree:
+The =nas= system and user lists were compared between =origin/main= (=f8cc48c=) and the working tree:
 - Services removed: =hermes-agent=, =homelab-unifi-watch=. Timers removed: =homelab-unifi-watch=. Nothing added.
 - Users removed: =hermes=. =cormacc= loses only the =hermes= group.
 - tmpfiles rules removed: the nine =/var/lib/hermes= directories, =d /var/lib/homelab-unifi= and the disabled UniFi =config.json= copy. tmpfiles does not delete existing paths, so the host-local UniFi inputs stay in place.

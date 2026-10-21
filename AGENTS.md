@@ -33,7 +33,7 @@ aliases, provisioning, and required submodule bootstraps.
   occurs, without a change to the Linux package set. The earlier
   `release-25.11` pin (for
   [nixpkgs#507531](https://github.com/NixOS/nixpkgs/issues/507531)) was
-  removed at `22ed8db`.
+  removed at `e7a2fe2`.
 - **`strix` host (Framework Desktop / Ryzen AI Max+ 395)** pulls in
   `inputs.nix-amd-ai.nixosModules.default` for XRT/XDNA/Lemonade/ROCm/
   Vulkan. **Do not** add `nix-amd-ai.inputs.nixpkgs.follows` — closure
@@ -48,7 +48,7 @@ auto-discovery mechanism and how to add a package.
 
 - **`pkgs/` holds no packages right now** — only `overlay.nix` and `README.md`.
   Do not cite `pkgs/dirge`: the local dirge derivations were removed at
-  `15cfd6c` in favour of the upstream flake.
+  `cf764ca` in favour of the upstream flake.
 - **dirge** (pure-Rust coding agent) now comes from the `dirge` flake input.
   `dev/dev-linux.nix` installs `pkgs.dirge-bin` and sources the `:` zsh plugin
   from `${inputs.dirge}`, because neither package output ships
