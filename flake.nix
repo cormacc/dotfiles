@@ -155,7 +155,7 @@
       # is no duplication and new pkgs/<name>/ dirs appear automatically.
       packages.${system} = (import ./pkgs/overlay.nix) pkgs pkgs;
 
-      # Shared with the homelab flake (cormacc/homelab-agent), which owns the
+      # Shared with the homelab flake (cormacc/homelab), which owns the
       # infrastructure hosts. `base` reads specialArgs.hostName.
       nixosModules = {
         base = ./nixos-base.nix;

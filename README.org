@@ -153,7 +153,7 @@ See [[#set-git-name-and-e-mail][Set Git name and e-mail]] for the actual =export
 
 * The homelab repository
 
-The homelab infrastructure hosts (=nas= and later infrastructure hosts), their service modules, and the home-network design live in the private repository [[https://github.com/cormacc/homelab-agent][=cormacc/homelab-agent=]]. That repository is a flake: it takes this flake as its =dotfiles= input and imports =nixosModules.base= and =nixosModules.boot-default= from it. Keep credentials, private addresses and inventory out of this public repository.
+The homelab infrastructure hosts (=nas= and later infrastructure hosts), their service modules, and the home-network design live in the private repository [[https://github.com/cormacc/homelab][=cormacc/homelab=]]. That repository is a flake: it takes this flake as its =dotfiles= input and imports =nixosModules.base= and =nixosModules.boot-default= from it. Keep credentials, private addresses and inventory out of this public repository.
 
 A change to those two modules reaches the homelab hosts only after =nix flake update dotfiles= in the homelab repository. To test an unpushed change there, pass =--override-input dotfiles ~/dotfiles=.
 

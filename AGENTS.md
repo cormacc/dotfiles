@@ -19,7 +19,7 @@ aliases, provisioning, and required submodule bootstraps.
   `nixos-base.nix`, with optional mixins (`nixos-nvidia*.nix`,
   `nixos-gaming.nix`).
 - The homelab infrastructure hosts (including `nas`) live in the private
-  repository `cormacc/homelab-agent`, which imports this flake's
+  repository `cormacc/homelab`, which imports this flake's
   `nixosModules.base` and `nixosModules.boot-default`. A change to
   `nixos-base.nix` or `nixos-boot-default.nix` therefore also affects those
   hosts. Keep credentials, private addresses and inventory out of this public
