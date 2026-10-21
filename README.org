@@ -65,7 +65,6 @@ fresh machine.
     - [[#generate-a-unique-ssh-key-for-this-installation][Generate a unique SSH key for this installation]]
     - [[#hybridarch-linux-additional-setup-steps][Hybrid/arch linux additional setup steps]]
       - [[#printing-cups-avahi-etc][Printing (CUPS, Avahi etc.)]]
-      - [[#microchip-mplab-x][Microchip MPLAB-X]]
 - [[#maintenance][Maintenance]]
   - [[#shell-aliases][Shell aliases]]
     - [[#emacs-aliases][Emacs aliases]]
@@ -412,11 +411,6 @@ Then add the new key via Gitlab settings.
 **** Printing (CUPS, Avahi etc.)
 Install cups, hplip, hplip-plugin
 Follow instructions on avahi setup on [[https://wiki.archlinux.org/title/Avahi][arch wiki]] for network printer discovery to work.
-
-**** Microchip MPLAB-X
-I've made some progress (building on other people's work) to getting a nix-based setup for microchip development. However the licensed compiler is still a stumbling block. For now, installing MPLAB-X under Arch linux via the AUR.
-
-MPLAB-X requires some funky setup. The Arch install notes and the =java8-openjfx= PKGBUILD patch were removed from this repo on 2026-09-11; recover them from git history (=git show <rev>:microchip/README.org=) if needed.
 
 * Maintenance
 
