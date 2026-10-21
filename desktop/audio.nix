@@ -2,7 +2,8 @@
 
 {
   home.packages = with pkgs; [
-    audacity
+    # FIXME: Audacity v4.00 build failing 21/10/2026
+    # audacity
     reaper
   ];
 }
