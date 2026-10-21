@@ -33,9 +33,9 @@ The dotfiles configuration no longer references the =hermes-agent= flake input, 
 - [X] The evaluated =nas= config has no =hermes-agent= service, no =hermes= user or group, and no =homelab-unifi-watch= service or timer.
 - [X] The evaluated =nas= config keeps =homelab-health.service= and =homelab-health.timer=.
 - [X] =flake.lock= drops only =hermes-agent= from the root inputs; every other root input keeps its locked revision.
-- [ ] After the NAS switch, =systemctl status hermes-agent.service= reports that the unit is not found.
-- [ ] After the NAS switch, =homelab-health.timer= is active and no unit is failed.
-- [ ] After the NAS switch, the Compose units have the same active state as before the switch.
+- [X] After the NAS switch, =systemctl status hermes-agent.service= reports that the unit is not found.
+- [X] After the NAS switch, =homelab-health.timer= is active and no unit is failed.
+- [X] After the NAS switch, the Compose units have the same active state as before the switch.
 *** Edge cases
 - [ ] A failed NAS switch is rolled back with =sudo nixos-rebuild switch --rollback= before any clean-up.
 *** Anti-criteria
@@ -61,8 +61,6 @@ The dotfiles configuration no longer references the =hermes-agent= flake input, 
 - =darwin-configuration.nix= sets =homebrew.onActivation.cleanup = "uninstall"=, so the next =darwin-rebuild switch= uninstalls the Hermes Desktop cask. It keeps the app data.
 - This checkout has many pre-existing stashes that belong to the owner. Do not use =git stash= to take a baseline; evaluate =git+file://…?rev=<rev>&submodules=1= instead.
 
-** Risks
-- NixOS user management is expected to delete the =hermes= user and group, which leaves =/var/lib/hermes= owned by a numeric UID until the clean-up. Not verified; check with =ls -ln= after the switch.
 
 * Plan
 ** DONE Remove Hermes from the dotfiles configuration
@@ -79,14 +77,18 @@ CLOSED: [2026-10-21 Wed 02:58]
 :END:
 Acceptance criteria: the four evaluations and the nas service/user diff in Summary Acceptance pass. Done on branch nas/remove-hermes; awaiting commit approval and push.
 
-** TODO Switch the NAS to the Hermes-free generation
+** DONE Switch the NAS to the Hermes-free generation
+CLOSED: [2026-10-21 Wed 08:13]
 :PROPERTIES:
 :CUSTOM_ID: c4b0d558-198b-4bc0-9d9a-f3b71aced97e
 :CREATED: [2026-10-21 Wed 01:01]
 :BLOCKED-BY: task:4a00cdcd-9c55-4ee3-910d-2d5150a67fb5
+:STARTED: [2026-10-21 Wed 08:13]
 :END:
 :LOGBOOK:
 - Created [2026-10-21 Wed 01:01]
+- State "STARTED" from "TODO" [2026-10-21 Wed 08:13]
+- State "DONE" from "STARTED" [2026-10-21 Wed 08:13]
 :END:
 Acceptance criteria: hermes-agent.service not found; homelab-health.timer active; no failed units; Compose units in the same active state as before. Needs owner approval. Push the branch first. Record readlink -f /run/current-system, systemctl --failed and the Compose unit states before the switch. Operator runs: ssh -t nas 'cd ~/dotfiles && git fetch && git switch nas/remove-hermes && git submodule update --init --recursive && sudo nixos-rebuild switch --flake .#nas --impure'. Verify the NAS checkout path and that it is clean first. Rollback: ssh -t nas 'sudo nixos-rebuild switch --rollback'.
 
@@ -128,3 +130,8 @@ The =nas= system and user lists were compared between =origin/main= (=edd69d9=) 
 - Users removed: =hermes=. =cormacc= loses only the =hermes= group.
 - tmpfiles rules removed: the nine =/var/lib/hermes= directories, =d /var/lib/homelab-unifi= and the disabled UniFi =config.json= copy. tmpfiles does not delete existing paths, so the host-local UniFi inputs stay in place.
 - The =xps15= drv path did not change: the Hermes module there was imported but not enabled.
+
+* Validation
+- Switched =nas= on 2026-10-21 from =4fb1llxd…= to the =nas/remove-hermes= build =k07m53hx…= (set the system profile, then =switch-to-configuration switch= in its own systemd unit). Activation stopped =hermes-agent.service=, removed the =hermes= user and group, and did not restart the six changed Compose units (=X-RestartIfChanged=false=).
+- After the switch: =hermes-agent.service= not found; no failed units; Compose units active; the nine application containers still "Up 5 days". The =hermes-agent= container is stopped (Exited 1), not removed.
+- The same session then switched to the =nas/unifi-babashka= build for the homelab-agent collectors.
