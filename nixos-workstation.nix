@@ -75,9 +75,17 @@
     pkgs.nrf-udev
     pkgs.openocd
     pkgs.segger-jlink
-    # MPLAB-X installed per-project via devshell, but this load udev rules,
-    # preventing some noise in logging.
+    # MPLAB-X is installed per project via a devshell, but udev rules must be
+    # installed on the host for hardware tools (PICkit, ICD etc.).
     pkgs.mplab-x-unwrapped
+    # The XC compilers' licence manager (xclm) opens every USB device to look for a
+    # dongle and logs "Access denied" for each one that it cannot open. Give the
+    # seat user access to all USB devices. The rule must sort before
+    # 73-seat-late.rules, which applies the uaccess tag, so extraRules
+    # (99-local.rules) is too late.
+    (pkgs.writeTextDir "lib/udev/rules.d/71-usb-uaccess.rules" ''
+      SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", TAG+="uaccess"
+    '')
   ];
 
   # segger-jlink (needed for its udev rules above) is unfree and pulls in the
