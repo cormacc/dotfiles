@@ -214,6 +214,7 @@
           modules = [
             ./hosts/odroid-h4/hardware-configuration.nix
             ./hosts/odroid-h4/homelab-health.nix
+            ./hosts/odroid-h4/homelab-unifi.nix
             ./hosts/odroid-h4/homelab-compose.nix
             ./hosts/odroid-h4/sudo-authorization.nix
             ./nixos-boot-default.nix
