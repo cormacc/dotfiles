@@ -15,9 +15,15 @@ aliases, provisioning, and required submodule bootstraps.
 - `allowUnfree = true` globally.
 - `home.nix` is the full-Linux-workstation entry point — read it to see which
   modules a workstation pulls in. NixOS host modules live in
-  `hosts/<hostname>/`; shared profiles `nixos-workstation.nix` and
-  `nixos-server.nix` both import `nixos-base.nix`, with optional mixins
-  (`nixos-nvidia*.nix`, `nixos-gaming.nix`).
+  `hosts/<hostname>/`; the shared profile `nixos-workstation.nix` imports
+  `nixos-base.nix`, with optional mixins (`nixos-nvidia*.nix`,
+  `nixos-gaming.nix`).
+- The homelab infrastructure hosts (including `nas`) live in the private
+  repository `cormacc/homelab-agent`, which imports this flake's
+  `nixosModules.base` and `nixosModules.boot-default`. A change to
+  `nixos-base.nix` or `nixos-boot-default.nix` therefore also affects those
+  hosts. Keep credentials, private addresses and inventory out of this public
+  repository.
 
 ## Nix-specific gotchas
 

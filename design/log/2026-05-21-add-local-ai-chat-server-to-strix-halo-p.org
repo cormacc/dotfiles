@@ -9,7 +9,7 @@ Add Open WebUI to the =strix= NixOS profile as the LAN-facing chat UI for the co
 ** Decisions
 - Use Open WebUI: best fit for a lightweight local-LLM chat layer over Lemonade and available as =nixpkgs#open-webui= with an upstream =services.open-webui= NixOS module.
 - Reject LibreChat (more platform-like, overbuilt for a domestic LAN) and LobeChat (Docker/full-stack, no nixpkgs package or NixOS service).
-- Design toward =LAN -> Caddy -> Open WebUI -> Lemonade= per [[file:../home-network-infrastructure.org][home-network-infrastructure.org]]; Caddy/SSO is deferred.
+- Design toward =LAN -> Caddy -> Open WebUI -> Lemonade= per the home-network design, which the private homelab repository (cormacc/homelab-agent) holds; Caddy/SSO is deferred.
 - Keep the raw LAN Lemonade API reachable. Coding harness clients on other machines use it directly, so Open WebUI is an additional frontend, not the only LAN-facing path.
 - Use Lemonade's =sd-cpp=-backed image generation as the first image backend (=hardware.amd-npu.enableImageGen=). Defer ComfyUI as a fallback if Lemonade's workflows prove insufficient (graph workflows, ControlNet, heavy LoRA experimentation).
 
@@ -87,7 +87,7 @@ CLOSED: [2026-05-21 Thu 21:50]
 :END:
 
 * Implementation
-Background extracted to [[file:../home-network-infrastructure.org][design/home-network-infrastructure.org]]. Used the upstream =services.open-webui= module rather than hand-writing a systemd unit.
+Background extracted to the home-network design, which the private homelab repository (cormacc/homelab-agent) holds. Used the upstream =services.open-webui= module rather than hand-writing a systemd unit.
 
 Phase 1 — in =hosts/strix/nixos-configuration.nix=:
 - Added =openWebUIPort = 8080= next to =lemonadePort=.

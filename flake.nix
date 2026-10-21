@@ -3,10 +3,6 @@
   # See here for a well commented nixos + home-manager modular config: # https://github.com/TLATER/dotfiles
 
   inputs = {
-    # Include initialized Git submodules in the flake source.  In particular,
-    # sources/homelab-agent is the exact operations revision deployed to NAS.
-    self.submodules = true;
-
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     # Emacs 30.2 pinned to nixpkgs @ 2026-08-25, scoped to Spacemacs only.
@@ -159,6 +155,13 @@
       # is no duplication and new pkgs/<name>/ dirs appear automatically.
       packages.${system} = (import ./pkgs/overlay.nix) pkgs pkgs;
 
+      # Shared with the homelab flake (cormacc/homelab-agent), which owns the
+      # infrastructure hosts. `base` reads specialArgs.hostName.
+      nixosModules = {
+        base = ./nixos-base.nix;
+        boot-default = ./nixos-boot-default.nix;
+      };
+
       nixosConfigurations = {
         # Standalone home-manager pattern (os config separate from user env)
         # is the canonical approach -- os-level tweaking should happen less
@@ -206,22 +209,6 @@
             ./nixos-boot-default.nix
             ./nixos-workstation.nix
             ./nixos-gaming.nix
-          ];
-        };
-        # Current NAS: odroid-h4.
-        nas = nixpkgs.lib.nixosSystem {
-          specialArgs = { hostName = "nas"; };
-          modules = [
-            ./hosts/odroid-h4/hardware-configuration.nix
-            ./hosts/odroid-h4/homelab-health.nix
-            ./hosts/odroid-h4/homelab-unifi.nix
-            ./hosts/odroid-h4/homelab-compose.nix
-            ./hosts/odroid-h4/sudo-authorization.nix
-            ./nixos-boot-default.nix
-            #... server-only
-            ./nixos-server.nix
-            #... or if we want best of both worlds
-            # ./nixos-workstation.nix
           ];
         };
       };

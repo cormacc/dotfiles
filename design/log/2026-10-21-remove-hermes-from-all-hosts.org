@@ -3,7 +3,6 @@
 #+PARENT: [[task:4a40c9c8-9d47-4fe7-8dca-f2cac3537b76][Remove Hermes from all hosts]]
 #+SETUPFILE: ../../TASKS.setup.org
 #+STATUS: Active
-#+SPEC: [[proj:design/home-network-infrastructure.org]]
 
 * Intent
 Remove the Hermes agent from every host configuration, so that the NAS runs only declarative services that a person or a coding agent operates directly. The owner abandoned Hermes on 2026-10-21.
@@ -11,19 +10,19 @@ Remove the Hermes agent from every host configuration, so that the NAS runs only
 * Summary
 *Level:* production · *Tests:* smoke · *Docs:* inline
 
-The dotfiles configuration no longer references the =hermes-agent= flake input, overlay, NixOS module, package or Homebrew cask. On =nas=, the former =homelab-agent.nix= module is now =hosts/odroid-h4/homelab-health.nix= and keeps only the =homelab-health= user, timer and service. The disabled Python =homelab-unifi-watch= units are also removed; the Babashka collector arrives in its own change (homelab-agent task =ebd571e3=).
+The dotfiles configuration no longer references the =hermes-agent= flake input, overlay, NixOS module, package or Homebrew cask. On =nas=, the former =homelab-agent.nix= module became =homelab-health.nix= (since moved to the homelab repository) and keeps only the =homelab-health= user, timer and service. The disabled Python =homelab-unifi-watch= units are also removed; the Babashka collector arrives in its own change (homelab-agent task =ebd571e3=).
 
 ** Scope
 *** In scope
 - =flake.nix=: the =hermes-agent= input, its overlay in =linuxOverlays=, and its NixOS module on =nas= and =xps15=. =flake.lock= drops the input and its transitive nodes.
 - =hosts/odroid-h4/=: the =services.hermes-agent= block, the =/opt/homelab-agent= mount, the =/var/lib/hermes= sandbox exclusion, and the disabled Python UniFi service, timer and tmpfiles rules.
-- =dev/dev-linux.nix= (=hermes-agent= package), =darwin-configuration.nix= (=hermes-desktop= cask), comments in =agents.nix=, =README.org=, =design/home-network-infrastructure.org=.
+- =dev/dev-linux.nix= (=hermes-agent= package), =darwin-configuration.nix= (=hermes-desktop= cask), comments in =agents.nix=, =README.org=, and the home-network design (now in the homelab repository).
 - One NAS switch, its verification, then a separately approved clean-up of the Hermes host state.
 - =xps15= and the MacBook pick up the change at their next ordinary switch.
 *** Out of scope
 - Restructuring the homelab-agent repository (its task =11089b66=).
 - The Babashka UniFi collector and the =homelab-health= port to Babashka.
-- =hosts/odroid-h4/sudo-authorization.nix=: kept; only its comment changed.
+- The =nas= sudo policy module (=sudo-authorization.nix=, since moved to the homelab repository): kept; only its comment changed.
 - Deleting the old remote branches (=homelab/unifi-native-rehearsal-20261016= and the UniFi draft archive branches).
 - Compose services, monitoring, MooseFS and the UniFi controller.
 
