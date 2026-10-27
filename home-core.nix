@@ -197,5 +197,8 @@ in
   programs.vim = {
     enable = true;
     defaultEditor = true;
+    # vim-full builds the GTK2 GUI on Darwin, and Vim 9.2.x image support
+    # references gui.scale, which gui.h declares only for GTK3.
+    packageConfigurable = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin pkgs.vim-darwin;
   };
 }
