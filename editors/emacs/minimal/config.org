@@ -61,6 +61,8 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
     - [[#export][Export]]
     - [[#live-preview-in-eww][Live preview in EWW]]
 - [[#language-support][Language support]]
+  - [[#c-and-c][C and C++]]
+    - [[#ceedling][Ceedling]]
   - [[#clojure][Clojure]]
   - [[#nix][Nix]]
 - [[#terminal-and-repl-states][Terminal and REPL states]]
@@ -1581,6 +1583,85 @@ This is a structural /reading/ preview, not a fidelity one: =shr= handles headin
 #+end_src
 
 * Language support
+** C and C++
+
+=, g a= toggles between a source file and its header (=Button.c= ↔ =Button.h=) with the built-in =ff-find-other-file=; =, g A= opens the other file in another window. The pairs come from =cc-other-file-alist= (=.c= ↔ =.h=, =.cpp= ↔ =.hpp=/=.h=, and so on), matched on the file extension, so the command works the same in the =cc-mode= modes and the =*-ts-mode= modes. It searches the directories in =cc-search-directories=, which starts with the file's own directory. If the other file does not exist, it offers to create it.
+
+With point on an =#include= line, =ff-find-other-file= opens the included header instead of the other file.
+
+The bindings go on both base maps: =c-mode-base-map= covers =c-mode= and =c++-mode=, and =c-ts-base-mode-map= covers =c-ts-mode= and =c++-ts-mode=.
+
+#+begin_src emacs-lisp
+  (defun my/find-other-file-other-window ()
+    "Open the matching source or header file in another window."
+    (interactive)
+    (ff-find-other-file t))
+
+  (defun my/bind-c-other-file (keymap)
+    "Bind the source/header toggle under the local leader in KEYMAP."
+    (my/local-leader
+      :keymaps keymap
+      "g"   (cons "goto" (make-sparse-keymap))
+      "g a" '("alternate file" . ff-find-other-file)
+      "g A" '("alternate file other window" . my/find-other-file-other-window)))
+
+  (use-package cc-mode
+    :ensure nil
+    :config
+    (my/bind-c-other-file 'c-mode-base-map))
+
+  (use-package c-ts-mode
+    :ensure nil
+    :config
+    (my/bind-c-other-file 'c-ts-base-mode-map))
+#+end_src
+
+*** Ceedling
+
+[[https://www.throwtheswitch.org/ceedling][Ceedling]] runs through =compile= from the Ceedling root: the project.el root when it holds a =project.yml=, otherwise the nearest =project.yml= above the file. Preferring the project root means a component that carries its own =project.yml= inside a merged submodule still runs the enclosing project's suite. The commands live in =lisp/ceedling.el= beside this file, ported from the Spacemacs =ceedling= layer with project.el in place of projectile.
+
+| Key     | Command                               | Runs                            |
+|---------+---------------------------------------+---------------------------------|
+| =, t b= | =ceedling-test-this-file=             | =ceedling test:NAME=            |
+| =, t c= | =ceedling-clobber-and-test-this-file= | =ceedling clobber test:NAME=    |
+| =, t a= | =ceedling-test-all=                   | =ceedling test:all=             |
+| =, t d= | =ceedling-test-delta=                 | =ceedling test:delta=           |
+| =, t C= | =ceedling-clobber=                    | =ceedling clobber=              |
+| =, g t= | =ceedling-toggle-test=                | visits =NAME.c= ↔ =test_NAME.c= |
+
+=NAME= is the file's base name without the =test_= prefix, so =Button.c=, =Button.h= and =test_Button.c= all run =test:Button=. =ceedling-toggle-test= searches the project's files under the Ceedling root, and prompts, nearest first, when more than one matches.
+
+=ceedling= itself normally comes from a project's devshell, so it is only on Emacs's =PATH= when Emacs inherits that environment.
+
+The =g= prefix is declared in [[#c-and-c][C and C++]]; re-declaring it here would replace that prefix map and lose =, g a=.
+
+#+begin_src emacs-lisp
+  (use-package ceedling
+    :ensure nil
+    :load-path "~/dotfiles/editors/emacs/minimal/lisp"
+    :commands (ceedling-test-this-file ceedling-clobber-and-test-this-file
+               ceedling-test-all ceedling-test-delta ceedling-clobber
+               ceedling-toggle-test))
+
+  (defun my/bind-ceedling (keymap)
+    "Bind the Ceedling commands under the local leader in KEYMAP."
+    (my/local-leader
+      :keymaps keymap
+      "t"   (cons "test" (make-sparse-keymap))
+      "t b" '("test this file" . ceedling-test-this-file)
+      "t c" '("clobber and test this file" . ceedling-clobber-and-test-this-file)
+      "t a" '("test all" . ceedling-test-all)
+      "t d" '("test delta" . ceedling-test-delta)
+      "t C" '("clobber" . ceedling-clobber)
+      "g t" '("test/implementation" . ceedling-toggle-test)))
+
+  (with-eval-after-load 'cc-mode
+    (my/bind-ceedling 'c-mode-base-map))
+
+  (with-eval-after-load 'c-ts-mode
+    (my/bind-ceedling 'c-ts-base-mode-map))
+#+end_src
+
 ** Clojure
 
 #+begin_src emacs-lisp
