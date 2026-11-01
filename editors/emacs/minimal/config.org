@@ -49,6 +49,7 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
 - [[#tools][Tools]]
   - [[#tree-sitter][Tree-sitter]]
   - [[#editorconfig][editorconfig]]
+  - [[#direnv-envrc][direnv (envrc)]]
   - [[#eglot][eglot]]
     - [[#definitions-inside-jars][Definitions inside jars]]
 - [[#llm][LLM]]
@@ -1252,6 +1253,25 @@ Built in since Emacs 30.
     :ensure nil
     :config
     (editorconfig-mode 1))
+#+end_src
+
+** direnv (envrc)
+
+[[https://github.com/purcell/envrc][envrc]] (MELPA) gives each buffer the environment of its directory's =.envrc=, so tools from a project devshell (=ceedling=, a project's own =clangd=) are on that buffer's =exec-path= and =process-environment=. =compile=, =shell-command= and Eglot started from the buffer inherit them. The environment is buffer-local, so projects with different devshells do not interfere; the global environment stays as Emacs started.
+
+=direnv= itself comes from =programs.direnv= in =home-core.nix=, with =nix-direnv= caching the =use flake= result, so a cached devshell loads quickly. A directory whose =.envrc= is not allowed yet loads nothing until =SPC p e a= (=direnv allow=).
+
+Upstream turns =envrc-global-mode= on from =after-init-hook=, as late as possible: its =after-change-major-mode-hook= function must be added after other modes' hooks, so it is first in the list and runs before them. Otherwise a mode hook such as =eglot-ensure= could start its server before the buffer has the project environment. Here that hook is too early to be useful --- =init.el= runs =elpaca-process-queues= from it, so this block has not even been evaluated yet --- so the mode goes on from =elpaca-after-init-hook=. Depth -90 puts it ahead of =my/restore-session= on the same hook ([[#restore-open-buffers][Restore open buffers]]), so restored buffers come back with their project environment.
+
+=SPC p e= is =envrc-command-map=: =a= allow, =d= deny, =r= reload, =l= show the log.
+
+#+begin_src emacs-lisp
+  (use-package envrc
+    :ensure t
+    :config
+    (add-hook 'elpaca-after-init-hook #'envrc-global-mode -90)
+    (my/leader
+      "p e" (cons "direnv" envrc-command-map)))
 #+end_src
 
 ** eglot
