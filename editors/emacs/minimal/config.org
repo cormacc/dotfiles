@@ -919,11 +919,47 @@ Preview helpers (=vipsthumbnail=, =ffmpegthumbnailer=, =mediainfo=, =pdftoppm=, 
 
 Built-in =project.el=; no projectile.
 
+=project-vc-merge-submodules= does two jobs: it decides whether a submodule's root climbs to its parent repo, and whether a root lists its submodules' files and buffers. A repo that is itself a submodule but wants to be its own root (via =.dir-locals.el=, value =nil=) therefore loses its nested submodules from =project-find-file= and =project-switch-to-buffer=, even when those nested submodules opt back in (value =t=). The advice below adds files and buffers from nested submodules whose own dir-local value is =t=.
+
 #+begin_src emacs-lisp
   (use-package project
     :ensure nil
     :init
-    (setq project-vc-extra-root-markers '(".project" "deps.edn" "bb.edn" "pyproject.toml")))
+    (setq project-vc-extra-root-markers '(".project" "deps.edn" "bb.edn" "pyproject.toml"))
+    :config
+    (defun my/project--opted-in-submodules (dir)
+      "Submodule paths of DIR that merge into it although DIR itself does not merge."
+      (unless (project--vc-merge-submodules-p dir nil)
+        (let ((default-directory (file-name-as-directory (expand-file-name dir))))
+          (seq-filter (lambda (module)
+                        (and (file-directory-p module)
+                             (project--vc-merge-submodules-p (expand-file-name module) nil)))
+                      (project--git-submodules)))))
+
+    (define-advice vc-git-project-list-files
+        (:around (orig dir extra-ignores) my/opted-in-submodules)
+      (let ((files (funcall orig dir extra-ignores)))
+        (dolist (module (my/project--opted-in-submodules dir) files)
+          (let ((sub-files (vc-git-project-list-files (expand-file-name module dir) extra-ignores)))
+            (setq files
+                  (nconc files
+                         (if project-files-relative-names
+                             (mapcar (lambda (f) (concat (file-name-as-directory module) f))
+                                     sub-files)
+                           sub-files)))))))
+
+    (define-advice project-buffers (:around (orig project) my/opted-in-submodules)
+      (let ((bufs (funcall orig project)))
+        (if (not (eq (car-safe project) 'vc))
+            bufs
+          (let* ((root (file-name-as-directory (expand-file-name (project-root project))))
+                 (modules (mapcar (lambda (m) (file-name-as-directory (expand-file-name m root)))
+                                  (my/project--opted-in-submodules root))))
+            (dolist (buf (buffer-list) bufs)
+              (let ((dd (expand-file-name (buffer-local-value 'default-directory buf))))
+                (when (and (seq-some (lambda (m) (string-prefix-p m dd)) modules)
+                           (not (memq buf bufs)))
+                  (setq bufs (append bufs (list buf)))))))))))
 
   (my/leader
     "p p" '("switch project" . project-switch-project)
