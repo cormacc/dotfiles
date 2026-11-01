@@ -29,6 +29,7 @@ A literate, Evil-based Emacs configuration, small enough to read end to end.
   - [[#parens][Parens]]
 - [[#layout-and-file-management][Layout and file management]]
   - [[#windows][Windows]]
+  - [[#side-windows-and-popups][Side windows and popups]]
   - [[#frames][Frames]]
   - [[#buffers][Buffers]]
   - [[#files][Files]]
@@ -602,12 +603,22 @@ Ten near-identical which-key rows are noise, so the =window 1= row is relabelled
     (winner-mode 1))
 
   (defun my/toggle-maximize-window ()
-    "Maximize the selected window, or restore the previous layout."
+    "Maximize the selected window, or restore the previous layout.
+A side window cannot be the only window, so from one its buffer is
+shown in the most recently used ordinary window, which is then
+maximized; the restore brings the side window back."
     (interactive)
     (if (and (= 1 (length (window-list)))
              (assq ?_ register-alist))
         (jump-to-register ?_)
       (window-configuration-to-register ?_)
+      (when (window-parameter nil 'window-side)
+        (let ((buffer (current-buffer))
+              (main (car (sort (seq-remove (lambda (w) (window-parameter w 'window-side))
+                                           (window-list))
+                               :key #'window-use-time :reverse t))))
+          (set-window-buffer main buffer)
+          (select-window main)))
       (delete-other-windows)))
 
   (my/leader
@@ -646,6 +657,101 @@ Ten near-identical which-key rows are noise, so the =window 1= row is relabelled
                '((" 1\\'" . "\\`window 1\\'") . (" 0..9" . "select window")))
   (add-to-list 'which-key-replacement-alist
                '((nil . "\\`window [02-9]\\'") . t))
+#+end_src
+
+=SPC w m= also works from a side window ([[#side-windows-and-popups][Side windows and popups]]). Emacs refuses to make a side window the only window, so the buffer is moved to the most recently used ordinary window first.
+
+** Side windows and popups
+:PROPERTIES:
+:CUSTOM_ID: side-windows-and-popups
+:END:
+
+Buffers you read rather than edit open in Emacs's side windows, by rule, so they land in the same place every time and the editing area stays put. This replaces Spacemacs's =popwin=.
+
+| Side   | Buffers                                                                           |
+|--------+-----------------------------------------------------------------------------------|
+| top    | =COMMIT_EDITMSG=                                                                  |
+| right  | help, Info, =*Messages*=, every Magit buffer                                      |
+| bottom | compilation (Ceedling runs too), grep, xref, occur, Flymake diagnostics, =*Warnings*=, shells |
+
+[[https://github.com/MArpogaus/auto-side-windows][auto-side-windows]] (MELPA) turns the per-side lists below into one =display-buffer-alist= entry. Mode rules match derived modes, so =compilation-mode= also catches =grep-mode=, and =magit-mode= catches every Magit buffer. Name rules catch buffers whose mode is set only after they are shown (shells, Magit's diff and process buffers). The mode appends its entry, so a rule added to =display-buffer-alist= elsewhere wins. Sizes:
+- =window-sides-vertical= makes the left and right sides run the full frame height, so the bottom panel spans only the editing area.
+- The right side is 40% of the frame, the width ECA's chat window also asks for (=eca-chat-window-width=).
+- A side you resize keeps that size for the rest of the session (=auto-side-windows-remember-sizes=).
+
+=switch-to-buffer-obey-display-actions= makes =SPC b b= follow the same rules, so switching to =*compilation*= opens it in its panel rather than over the file being edited.
+
+The ECA chat places itself on the right in slot 0 with its own action, and no rule here matches it. A Magit buffer opened while the chat is visible therefore takes the next free slot, stacked below the chat.
+
+[[https://github.com/karthink/popper][popper]] (MELPA) gives the popup commands: hide and show the latest panel, cycle through them. It is told which buffers are popups from the same lists --- the name regexps as they are, and the modes through a predicate, because popper compares a mode symbol with =major-mode= exactly and =magit-mode= would match no Magit buffer --- but =popper-display-control= is nil, so it never places them: popper reopens a hidden panel through =display-buffer=, and the rules put it back on its side. The one popper command left out is =popper-toggle-type=: it raises a popup with =pop-to-buffer=, which the rules send straight back to the side. =auto-side-windows-toggle-side-window= does that job instead, and its second call puts the buffer back on its side.
+
+| Key       | Command                                | Does                                                  |
+|-----------+----------------------------------------+-------------------------------------------------------|
+| =SPC w p p= | =popper-toggle=                        | hide or show the latest popup                         |
+| =SPC w p c= | =popper-cycle=                         | show the next popup in its place                      |
+| =SPC w p k= | =popper-kill-latest-popup=             | kill the latest popup and its window                  |
+| =SPC w p t= | =auto-side-windows-toggle-side-window= | move the buffer to an ordinary window, and back again |
+| =SPC w p s= | =window-toggle-side-windows=           | hide or show every side window                        |
+
+#+begin_src emacs-lisp
+  (use-package auto-side-windows
+    :ensure t
+    :demand t
+    :init
+    (setq auto-side-windows-top-buffer-names '("^COMMIT_EDITMSG$")
+          auto-side-windows-top-height 0.25
+
+          auto-side-windows-right-buffer-names '("^\\*Messages\\*$"
+                                                 "^magit\\(-[a-z]+\\)?: ")
+          auto-side-windows-right-buffer-modes '(help-mode Info-mode magit-mode)
+          auto-side-windows-right-width 0.4
+
+          auto-side-windows-bottom-buffer-names '("^\\*Warnings\\*$"
+                                                  "^\\*e?shell\\*")
+          auto-side-windows-bottom-buffer-modes '(compilation-mode
+                                                  xref--xref-buffer-mode
+                                                  occur-mode
+                                                  flymake-diagnostics-buffer-mode
+                                                  flymake-project-diagnostics-mode
+                                                  eshell-mode shell-mode term-mode)
+          auto-side-windows-bottom-height 0.3
+
+          auto-side-windows-remember-sizes t
+          window-sides-vertical t
+          switch-to-buffer-obey-display-actions t)
+    :config
+    (auto-side-windows-mode 1))
+
+  (use-package popper
+    :ensure t
+    :demand t
+    :after auto-side-windows
+    :init
+    (setq popper-display-control nil)
+    :config
+    (defun my/side-window-mode-p (buffer)
+      "Non-nil if BUFFER's major mode derives from a side-window mode rule."
+      (provided-mode-derived-p
+       (buffer-local-value 'major-mode buffer)
+       (append auto-side-windows-top-buffer-modes
+               auto-side-windows-right-buffer-modes
+               auto-side-windows-bottom-buffer-modes)))
+
+    (setq popper-reference-buffers
+          (append auto-side-windows-top-buffer-names
+                  auto-side-windows-right-buffer-names
+                  auto-side-windows-bottom-buffer-names
+                  (list #'my/side-window-mode-p)))
+    (popper-mode 1)
+    (popper-echo-mode 1))
+
+  (my/leader
+    "w p"   (cons "popups" (make-sparse-keymap))
+    "w p p" '("toggle latest" . popper-toggle)
+    "w p c" '("cycle" . popper-cycle)
+    "w p k" '("kill latest" . popper-kill-latest-popup)
+    "w p t" '("side window / ordinary" . auto-side-windows-toggle-side-window)
+    "w p s" '("hide / show all sides" . window-toggle-side-windows))
 #+end_src
 
 ** Frames
@@ -1038,7 +1144,12 @@ TAB is indentation only ([[#indentation][Indentation]]), so completion comes fro
   :commands (magit-status magit-dispatch)
   :init
   (setq magit-diff-refine-hunk 'all
-        magit-save-repository-buffers 'dontask)
+        magit-save-repository-buffers 'dontask
+        ;; Placement by the side-window rules (see Side windows and popups):
+        ;; Magit's default display function picks windows itself.
+        magit-display-buffer-function #'display-buffer
+        ;; Show the commit diff beside the message, not in its window.
+        magit-commit-diff-inhibit-same-window t)
   :config
   ;; Bedrock: start commit messages in insert state.
   (add-hook 'git-commit-setup-hook #'evil-insert-state)
