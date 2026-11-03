@@ -2,7 +2,7 @@
 
 {
   home.packages = with pkgs; [
-    xsane
+    simple-scan
     #graphics
     gimp3-with-plugins
     krita
