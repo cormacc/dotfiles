@@ -156,6 +156,7 @@ in
       claude-code
       codex
       herdr
+      herdr-desktop
       prettier
       # FIXME: Disabled - failing in nixpkgs 13/10/2026
       typescript-language-server

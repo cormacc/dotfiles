@@ -65,10 +65,6 @@
       # Only used for upstream's own packages.x86_64-darwin output.
       inputs.nixpkgs-darwin-x64.follows = "nixpkgs-darwin";
     };
-    herdr = {
-      url = "github:ogulcancelik/herdr";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     claude-desktop = {
       # url = "github:aaddrick/claude-desktop-debian";
       url = "github:tomsch/claude-desktop-nix";
@@ -115,7 +111,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-code, claude-desktop, codex-desktop, rust-overlay, nur, pi, dirge, herdr, nix-amd-ai, nix-babashka, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-code, claude-desktop, codex-desktop, rust-overlay, nur, pi, dirge, nix-amd-ai, nix-babashka, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -123,7 +119,6 @@
         claude-code.overlays.default
         claude-desktop.overlays.default
         dirge.overlays.default
-        herdr.overlays.default
         microchip.overlays.default
         nur.overlays.default
         pi.overlays.default
@@ -135,7 +130,6 @@
       darwinOverlays = [
         claude-code.overlays.default
         dirge.overlays.default
-        herdr.overlays.default
         pi.overlays.default
         nix-babashka.overlays.default
       ];
