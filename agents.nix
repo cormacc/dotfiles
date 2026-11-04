@@ -149,10 +149,10 @@ in
     ];
 
     home.packages = with pkgs; [
-      # Pi coding-agent. Provided by `pi.overlays.default` from the upstream
-      # `earendil-works/pi` flake input (replaces the third-party
-      # lukasl-dev/pi.nix flake, which exposed `pi-coding-agent`).
-      pi
+      # Pi coding-agent (binary `pi`). nixpkgs builds each release tag with
+      # its own derivation, so an upstream flake build failure does not hold
+      # it back.
+      pi-coding-agent
       claude-code
       codex
       herdr
