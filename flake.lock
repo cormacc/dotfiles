@@ -56,26 +56,6 @@
         "type": "github"
       }
     },
-    "dirge": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1793731482,
-        "narHash": "sha256-b4K7G6zAg7HT0/oNnekNn+U/cX7wq1SLwnQq67bn0gk=",
-        "owner": "dirge-code",
-        "repo": "dirge",
-        "rev": "3f8a63862911fe00ca16eae9b352012a79a1805b",
-        "type": "github"
-      },
-      "original": {
-        "owner": "dirge-code",
-        "repo": "dirge",
-        "type": "github"
-      }
-    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -490,7 +470,6 @@
       "inputs": {
         "claude-desktop": "claude-desktop",
         "codex-desktop": "codex-desktop",
-        "dirge": "dirge",
         "home-manager": "home-manager",
         "home-manager-darwin": "home-manager-darwin",
         "homebrew-cask": "homebrew-cask",

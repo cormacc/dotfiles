@@ -47,13 +47,6 @@ no flake edits to add one. See [pkgs/README.md](pkgs/README.md) for the
 auto-discovery mechanism and how to add a package.
 
 - **`pkgs/` holds no packages right now** — only `overlay.nix` and `README.md`.
-  Do not cite `pkgs/dirge`: the local dirge derivations were removed at
-  `cf764ca` in favour of the upstream flake.
-- **dirge** (pure-Rust coding agent) now comes from the `dirge` flake input.
-  `dev/dev-linux.nix` installs `pkgs.dirge-bin` and sources the `:` zsh plugin
-  from `${inputs.dirge}`, because neither package output ships
-  `shell-plugin/`. History:
-  `design/log/2026-06-17-package-dirge-coding-agent-as-a-local-ni.org`.
 
 ## `agents.nix` — the dotagents bridge
 

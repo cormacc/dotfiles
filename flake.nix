@@ -58,13 +58,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    dirge = {
-      #Latest combines commits from all my open upstream PRs
-      #url = "github:cormacc/dirge/latest";
-      #Upstream
-      url = "github:dirge-code/dirge";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -96,13 +89,12 @@
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-desktop, codex-desktop, rust-overlay, nur, dirge, nix-amd-ai, nix-babashka, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-desktop, codex-desktop, rust-overlay, nur, nix-amd-ai, nix-babashka, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
       linuxOverlays = [
         claude-desktop.overlays.default
-        dirge.overlays.default
         microchip.overlays.default
         nur.overlays.default
         rust-overlay.overlays.default
@@ -111,7 +103,6 @@
         (import ./pkgs/overlay.nix)
       ];
       darwinOverlays = [
-        dirge.overlays.default
         nix-babashka.overlays.default
       ];
       # pkgs = nixpkgs.legacyPackages.${system};
@@ -124,7 +115,7 @@
       };
     in {
       # Local packages (pkgs/<name>/default.nix) exposed as flake outputs so
-      # they can be built directly, e.g. `nix build .#dirge --impure`. This is
+      # they can be built directly, e.g. `nix build .#<name> --impure`. This is
       # the exact same attrset the overlay injects into the home/nixos `pkgs`
       # set above (callPackage-wired against the fully-overlaid pkgs), so there
       # is no duplication and new pkgs/<name>/ dirs appear automatically.

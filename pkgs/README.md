@@ -4,11 +4,8 @@ Drop-in local Nix packages for this flake. `overlay.nix` auto-discovers every
 `pkgs/<name>/default.nix` and wires it up — no edits to `overlay.nix` or
 `flake.nix` are needed to add one.
 
-> This directory is currently **empty** (only the overlay remains). The `dirge`
-> packages that used to live here now come from the upstream flake
-> (`github:dirge-code/dirge`, applied via `dirge.overlays.default` in
-> `flake.nix`).
-> The overlay is retained for the next local package.
+> This directory is currently **empty** (only the overlay remains). The overlay
+> is retained for the next local package.
 
 ## How it works
 
