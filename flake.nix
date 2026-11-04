@@ -50,7 +50,6 @@
 
     nur.url  = "github:nix-community/NUR";
     nix-amd-ai.url = "github:noamsto/nix-amd-ai";
-    claude-code.url = "github:sadjow/claude-code-nix";
     codex-desktop.url = "github:ilysenko/codex-desktop-linux";
 
     # Upstream pi flake. No binary cache: the overlay builds from source with
@@ -99,7 +98,6 @@
     extra-substituters = [
       "https://cache.nixos.org"
       "https://nix-community.cachix.org"
-      "https://claude-code.cachix.org"
       #Not sure whether this last one is in use...
       "https://cache.numtide.com"
     ];
@@ -107,16 +105,14 @@
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
       "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
       "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
-      "claude-code.cachix.org-1:YeXf2aNu7UTX8Vwrze0za1WEDS+4DuI2kVeWEE4fsRk="
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-code, claude-desktop, codex-desktop, rust-overlay, nur, pi, dirge, nix-amd-ai, nix-babashka, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-desktop, codex-desktop, rust-overlay, nur, pi, dirge, nix-amd-ai, nix-babashka, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
       linuxOverlays = [
-        claude-code.overlays.default
         claude-desktop.overlays.default
         dirge.overlays.default
         microchip.overlays.default
@@ -128,7 +124,6 @@
         (import ./pkgs/overlay.nix)
       ];
       darwinOverlays = [
-        claude-code.overlays.default
         dirge.overlays.default
         pi.overlays.default
         nix-babashka.overlays.default
