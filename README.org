@@ -182,9 +182,9 @@ property.
   # Already cloned without --recurse-submodules
   git -C ~/dotfiles submodule update --init --recursive
 #+end_src
-[[./agents.nix]] runs a fail-fast =home.activation= guard that refuses
-to activate when =agents/package.json= is missing, with the same
-instruction in the error message.
+[[./agents.nix]] runs a fail-fast =home.activation= guard that refuses to activate when =agents/package.json= is missing, with the same instruction in the error message.
+
+Activation installs only the local npm dependencies of Chromium, pi-clojure and dataspex. Root npm validation tooling is an explicit development install (=npm ci --ignore-scripts= inside =agents/=), not an activation prerequisite. Herdr subscription reporting uses the owned Babashka collector without an npm collector or setup step; see [[file:agents/skills/herdr-orch/scripts/docs/contract.md]] section 'Usage' for credential selection and refresh ownership.
 
 ** Update workflow
 #+begin_src shell

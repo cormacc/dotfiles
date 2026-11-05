@@ -73,13 +73,7 @@ Out-of-store symlinks, so edits in `agents/` take effect immediately via
 
 On activation, `agents.nix`:
 1. Fails fast with an actionable error if the submodule is uninitialised.
-2. Runs `npm ci --ignore-scripts` in `agents/` when its `package-lock.json`
-   hash changes. This installs the dotagents Pi package dependency
-   `quota-axi`, which herdr-orch `oh usage` and the Herdr tab-bar quota
-   status discover in `agents/node_modules`. It also runs
-   `npm install --omit=dev --ignore-scripts` for local-only pi extensions
-   (`chromium`, `pi-clojure`, `dataspex`) when their `package.json` hash
-   changes.
+2. Runs `npm install --omit=dev --ignore-scripts` for local-only pi extensions (`chromium`, `pi-clojure`, `dataspex`) when their `package.json` hash changes. It does not install root npm dependencies. Herdr subscription reporting uses the owned Babashka collector; root `npm ci --ignore-scripts` is an explicit development step.
 3. Registers the submodule-local `pi-settings` git clean filter by running
    `agents/install-git-filter.sh` on every activation; the script exits early
    when the filter is current (the filter definition lives in `.git/config`,

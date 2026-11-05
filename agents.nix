@@ -99,12 +99,6 @@ in
     # the live checkout. Install them into ignored node_modules directories and
     # rerun only when the extension package.json changes.
     #
-    # The checkout root is the dotagents Pi package. Its package.json declares
-    # the runtime dependency quota-axi, which herdr-orch's `oh usage` (and the
-    # Herdr tab-bar quota status) discovers in the root node_modules. Install it
-    # with `npm ci` from the tracked lock, as `pi install` would for a package
-    # install. Not `--omit=dev`: that would prune the checkout's test tooling.
-    #
     # `--ignore-scripts` everywhere: no dependency needs an install-time script,
     # and it stops any package in the tree from running code at install time.
     home.activation.installLocalPiExtensionDeps =
@@ -132,23 +126,6 @@ in
           mkdir -p "$node_modules"
           printf '%s\n' "$hash" > "$stamp"
         }
-
-        # npm ci deletes node_modules, and the stamp with it, before it installs.
-        install_dotagents_package_deps() {
-          local lock="${agentsRoot}/package-lock.json"
-          local stamp="${agentsRoot}/node_modules/.dotagents-package-lock.sha256"
-          local hash
-          hash="$(${pkgs.coreutils}/bin/sha256sum "$lock" | ${pkgs.coreutils}/bin/cut -d ' ' -f 1)"
-          if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$hash" ]; then
-            return 0
-          fi
-
-          echo "Installing dotagents package npm deps"
-          (cd "${agentsRoot}" && ${pkgs.nodejs}/bin/npm ci --ignore-scripts --no-audit --no-fund)
-          printf '%s\n' "$hash" > "$stamp"
-        }
-
-        install_dotagents_package_deps
 
         install_local_pi_extension_deps chromium "${piRoot}/extensions/chromium"
         install_local_pi_extension_deps pi-clojure "${piRoot}/extensions/pi-clojure"
