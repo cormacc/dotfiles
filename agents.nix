@@ -61,6 +61,30 @@ in
         fi
       '';
 
+    # Home Manager may accept identical foreign files or back them up. These
+    # personal app paths must instead reject every foreign occupant.
+    home.activation.checkHerdrAppLeaves =
+      lib.hm.dag.entryBefore [ "writeBoundary" ] ''
+        check_herdr_app_leaf() {
+          local target="$1" source="$2" link_target resolved resolved_source
+          if [ -e "$target" ] || [ -L "$target" ]; then
+            link_target="$(${pkgs.coreutils}/bin/readlink "$target" || true)"
+            case "$link_target" in
+              ${builtins.storeDir}/*-home-manager-files/*)
+                if [ -e "$source" ] &&
+                   resolved="$(${pkgs.coreutils}/bin/readlink -f "$target")" && [ -n "$resolved" ] &&
+                   resolved_source="$(${pkgs.coreutils}/bin/readlink -f "$source")" && [ -n "$resolved_source" ] &&
+                   [ "$resolved" = "$resolved_source" ]; then return; fi ;;
+            esac
+            echo "ERROR: foreign Herdr app path: $target" >&2
+            exit 1
+          fi
+        }
+        check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/herdr-orch" "${agentsRoot}/herdr-app/mods/herdr-orch"
+        check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/system" "${agentsRoot}/herdr-app/mods/system"
+        check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/layouts/herdr-orch.json" "${agentsRoot}/herdr-app/layouts/herdr-orch.json"
+      '';
+
     # ─────────────── pi/settings.json git clean filter ────────────────
     # The tracked `agents/pi/settings.json` is live-linked into ~/.pi/agent,
     # and pi writes runtime state (lastChangelogVersion on upgrade, a
@@ -258,6 +282,20 @@ in
       # `mutableSettings`, merges into an untracked file), so the tracked file
       # would not be live-editable.
       "${config.home.homeDirectory}/.config/herdr/config.toml" = link "${agentsRoot}/herdr/config.toml";
+
+      # Herdr desktop app (herdr-desktop) settings. `option_as_alt = "on"`
+      # because its `auto` default sends Option as Alt only on US/ABC layouts;
+      # on the Irish layout Option+T types a character, so Pi's `alt+t`
+      # org-tasks shortcut never fires. Only the file is linked: the directory
+      # also holds the app socket, state and caches. Out-of-store, so the app
+      # can write its own settings and edits apply without a switch. No Home
+      # Manager module exists for herdr-desktop.
+      "${config.home.homeDirectory}/.config/herdr-app/settings.json" = link "${agentsRoot}/herdr-app/settings.json";
+
+      # Link only personal leaves; bundled mods and layouts remain app-owned.
+      "${config.home.homeDirectory}/.config/herdr-app/mods/herdr-orch" = link "${agentsRoot}/herdr-app/mods/herdr-orch";
+      "${config.home.homeDirectory}/.config/herdr-app/mods/system" = link "${agentsRoot}/herdr-app/mods/system";
+      "${config.home.homeDirectory}/.config/herdr-app/layouts/herdr-orch.json" = link "${agentsRoot}/herdr-app/layouts/herdr-orch.json";
     };
   };
 }
