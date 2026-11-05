@@ -179,13 +179,9 @@
         };
       };
 
-      # Agent skills + pi extensions (incl. the `agent-org-memory` Nix
+      # Agent skills + pi extensions (incl. the `agent-org-memory` pi
       # package) live in the github:cormacc/dotagents repo, registered
-      # here as a git submodule under `agents/`. To build the package
-      # locally:
-      #     nix build ./agents#agent-org-memory
-      # Or remotely:
-      #     nix build github:cormacc/dotagents#agent-org-memory
+      # here as a git submodule under `agents/` and wired by agents.nix.
 
       homeConfigurations = {
         default = home-manager.lib.homeManagerConfiguration {

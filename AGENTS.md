@@ -73,7 +73,11 @@ Out-of-store symlinks, so edits in `agents/` take effect immediately via
 
 On activation, `agents.nix`:
 1. Fails fast with an actionable error if the submodule is uninitialised.
-2. Runs `npm install --omit=dev` for local-only pi extensions
+2. Runs `npm ci --ignore-scripts` in `agents/` when its `package-lock.json`
+   hash changes. This installs the dotagents Pi package dependency
+   `quota-axi`, which herdr-orch `oh usage` and the Herdr tab-bar quota
+   status discover in `agents/node_modules`. It also runs
+   `npm install --omit=dev --ignore-scripts` for local-only pi extensions
    (`chromium`, `pi-clojure`, `dataspex`) when their `package.json` hash
    changes.
 3. Registers the submodule-local `pi-settings` git clean filter by running
