@@ -3,7 +3,13 @@
 {
   programs.chromium = {
     enable = true;
-    commandLineArgs = [ "--remote-debugging-port=9222" ];
+    # Chromium disables its own Vulkan backend on Linux by default; WebGPU
+    # uses Vulkan through Dawn regardless of these flags.
+    commandLineArgs = [
+      "--remote-debugging-port=9222"
+      "--enable-features=Vulkan,VulkanFromANGLE,DefaultANGLEVulkan"
+      "--use-angle=vulkan"
+    ];
     dictionaries = [ pkgs.hunspellDictsChromium.en-gb ];
     extensions = [
       # Bitwarden
