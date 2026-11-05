@@ -65,6 +65,7 @@ live submodule tree into:
   in [agents/skills/herdr-orch/scripts/docs/contract.md#Model resolution](agents/skills/herdr-orch/scripts/docs/contract.md#model-resolution) and
   [agents/skills/herdr-orch/scripts/docs/contract.md#Harness `:extra-args`](agents/skills/herdr-orch/scripts/docs/contract.md#harness-extra-args)
 - `~/.pi/agent/{AGENTS.md, prompts, extensions, skills, settings.json, mcp.json}`
+- `~/.config/herdr/config.toml` → `agents/herdr/config.toml` (the file only; the directory also holds Herdr's sockets and session state)
 - `~/.local/bin/ot` → org-tasks CLI shim
 
 Out-of-store symlinks, so edits in `agents/` take effect immediately via

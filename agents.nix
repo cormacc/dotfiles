@@ -246,6 +246,15 @@ in
       # (e.g. the lemonade plugin's hardcoded 4096 `maxTokens`) without
       # patching the extension.
       "${piConfig}/models.json" = link piModels;
+
+      # Herdr config, including the herdr-orch quota status in `[ui] tab_bar_right`.
+      # Only the file is linked: ~/.config/herdr/ also holds sockets, logs and
+      # session state. Out-of-store, so Herdr can write the file (for example
+      # `onboarding = false`) and edits apply after `herdr server reload-config`.
+      # Not `programs.herdr.settings`: it writes a store copy (or, with
+      # `mutableSettings`, merges into an untracked file), so the tracked file
+      # would not be live-editable.
+      "${config.home.homeDirectory}/.config/herdr/config.toml" = link "${agentsRoot}/herdr/config.toml";
     };
   };
 }
