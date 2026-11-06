@@ -107,6 +107,26 @@ in
         fi
       '';
 
+    # Herdr keeps plugin registration in its own registry, which no Home
+    # Manager option manages; registering the leaf is a `herdr plugin link`
+    # call. Register only when the id is absent, so a deliberate manual link
+    # or unlink of another checkout is not replaced. Linking needs no running
+    # server. Non-fatal: a failure warns rather than aborting activation.
+    home.activation.registerHerdrOrgTasksPlugin =
+      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        leaf="${config.home.homeDirectory}/.local/share/herdr-plugins/org-tasks"
+        if [ -e "$leaf" ]; then
+          if ! plugins="$(${pkgs.herdr}/bin/herdr plugin list 2>&1)"; then
+            echo "WARNING: could not list Herdr plugins: $plugins" >&2
+          elif ! printf '%s\n' "$plugins" | ${pkgs.gnugrep}/bin/grep -qF 'cormacc.org-tasks'; then
+            if ! run ${pkgs.herdr}/bin/herdr plugin link "$leaf"; then
+              echo "WARNING: could not register the Herdr org-tasks plugin." >&2
+              echo "         Run: herdr plugin link $leaf" >&2
+            fi
+          fi
+        fi
+      '';
+
     # ─────────────── pi/settings.json git clean filter ────────────────
     # The tracked `agents/pi/settings.json` is live-linked into ~/.pi/agent,
     # and pi writes runtime state (lastChangelogVersion on upgrade, a
@@ -306,7 +326,7 @@ in
       # would not be live-editable.
       "${config.home.homeDirectory}/.config/herdr/config.toml" = link "${agentsRoot}/herdr/config.toml";
 
-      # Explicit `herdr plugin link` registers this leaf; do not replace its registry.
+      # registerHerdrOrgTasksPlugin links this leaf; it never replaces the registry.
       ".local/share/herdr-plugins/org-tasks" = link "${agentsRoot}/herdr-plugin/org-tasks";
 
       # Herdr desktop app (herdr-desktop) settings. `option_as_alt = "on"`
