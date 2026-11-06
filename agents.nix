@@ -85,6 +85,28 @@ in
         check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/layouts/herdr-orch.json" "${agentsRoot}/herdr-app/layouts/herdr-orch.json"
       '';
 
+    # programs.herdr exposes settings, not editable plugin source leaves.
+    home.activation.checkHerdrOrgTasksLeaf =
+      lib.hm.dag.entryBefore [ "writeBoundary" ] ''
+        target="${config.home.homeDirectory}/.local/share/herdr-plugins/org-tasks"
+        source="${agentsRoot}/herdr-plugin/org-tasks"
+        if [ -e "$target" ] || [ -L "$target" ]; then
+          link_target="$(${pkgs.coreutils}/bin/readlink "$target" || true)"
+          owned=false
+          case "$link_target" in
+            ${builtins.storeDir}/*-home-manager-files/*)
+              if [ -e "$source" ] &&
+                 resolved="$(${pkgs.coreutils}/bin/readlink -f "$target")" && [ -n "$resolved" ] &&
+                 resolved_source="$(${pkgs.coreutils}/bin/readlink -f "$source")" && [ -n "$resolved_source" ] &&
+                 [ "$resolved" = "$resolved_source" ]; then owned=true; fi ;;
+          esac
+          if [ "$owned" != true ]; then
+            echo "ERROR: foreign Herdr org-tasks path: $target" >&2
+            exit 1
+          fi
+        fi
+      '';
+
     # ─────────────── pi/settings.json git clean filter ────────────────
     # The tracked `agents/pi/settings.json` is live-linked into ~/.pi/agent,
     # and pi writes runtime state (lastChangelogVersion on upgrade, a
@@ -282,6 +304,9 @@ in
       # `mutableSettings`, merges into an untracked file), so the tracked file
       # would not be live-editable.
       "${config.home.homeDirectory}/.config/herdr/config.toml" = link "${agentsRoot}/herdr/config.toml";
+
+      # Explicit `herdr plugin link` registers this leaf; do not replace its registry.
+      ".local/share/herdr-plugins/org-tasks" = link "${agentsRoot}/herdr-plugin/org-tasks";
 
       # Herdr desktop app (herdr-desktop) settings. `option_as_alt = "on"`
       # because its `auto` default sends Option as Alt only on US/ABC layouts;
