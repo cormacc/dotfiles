@@ -205,6 +205,7 @@ in
       claude-code
       codex
       herdr
+      herdr-core
       herdr-desktop
       prettier
       # FIXME: Disabled - failing in nixpkgs 13/10/2026
