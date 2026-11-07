@@ -83,6 +83,7 @@ in
         check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/herdr-orch" "${agentsRoot}/herdr-app/mods/herdr-orch"
         check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/system" "${agentsRoot}/herdr-app/mods/system"
         check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/org-tasks" "${agentsRoot}/herdr-app/mods/org-tasks"
+        check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/orch-spaces" "${agentsRoot}/herdr-app/mods/orch-spaces"
         check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/layouts/herdr-orch.json" "${agentsRoot}/herdr-app/layouts/herdr-orch.json"
       '' + lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
         # herdr-app writes a default keys.json whenever the file is missing,
@@ -353,6 +354,7 @@ in
       "${config.home.homeDirectory}/.config/herdr-app/mods/herdr-orch" = link "${agentsRoot}/herdr-app/mods/herdr-orch";
       "${config.home.homeDirectory}/.config/herdr-app/mods/system" = link "${agentsRoot}/herdr-app/mods/system";
       "${config.home.homeDirectory}/.config/herdr-app/mods/org-tasks" = link "${agentsRoot}/herdr-app/mods/org-tasks";
+      "${config.home.homeDirectory}/.config/herdr-app/mods/orch-spaces" = link "${agentsRoot}/herdr-app/mods/orch-spaces";
       "${config.home.homeDirectory}/.config/herdr-app/layouts/herdr-orch.json" = link "${agentsRoot}/herdr-app/layouts/herdr-orch.json";
     } // lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
       # Herdr desktop app key bindings. macOS only: the file uses `cmd-`
