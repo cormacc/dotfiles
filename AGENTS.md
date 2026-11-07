@@ -67,6 +67,7 @@ live submodule tree into:
 - `~/.pi/agent/{AGENTS.md, prompts, extensions, skills, settings.json, mcp.json}`
 - `~/.config/herdr/config.toml` → `agents/herdr/config.toml` (the file only; the directory also holds Herdr's sockets and session state)
 - `~/.config/herdr-app/settings.json` → `agents/herdr-app/settings.json` (the file only; Herdr desktop app settings, including `option_as_alt`)
+- `~/.config/herdr-app/keys.json` → `agents/herdr-app/keys.darwin.json` (macOS only; Herdr desktop app key bindings)
 - `~/.local/bin/ot` → org-tasks CLI shim
 - `~/.local/share/herdr-plugins/org-tasks` → `agents/herdr-plugin/org-tasks` (Herdr org-tasks plugin leaf; activation rejects a foreign occupant)
 
