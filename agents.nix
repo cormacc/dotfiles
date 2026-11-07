@@ -82,6 +82,7 @@ in
         }
         check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/herdr-orch" "${agentsRoot}/herdr-app/mods/herdr-orch"
         check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/system" "${agentsRoot}/herdr-app/mods/system"
+        check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/org-tasks" "${agentsRoot}/herdr-app/mods/org-tasks"
         check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/layouts/herdr-orch.json" "${agentsRoot}/herdr-app/layouts/herdr-orch.json"
       '';
 
@@ -341,6 +342,7 @@ in
       # Link only personal leaves; bundled mods and layouts remain app-owned.
       "${config.home.homeDirectory}/.config/herdr-app/mods/herdr-orch" = link "${agentsRoot}/herdr-app/mods/herdr-orch";
       "${config.home.homeDirectory}/.config/herdr-app/mods/system" = link "${agentsRoot}/herdr-app/mods/system";
+      "${config.home.homeDirectory}/.config/herdr-app/mods/org-tasks" = link "${agentsRoot}/herdr-app/mods/org-tasks";
       "${config.home.homeDirectory}/.config/herdr-app/layouts/herdr-orch.json" = link "${agentsRoot}/herdr-app/layouts/herdr-orch.json";
     };
   };
