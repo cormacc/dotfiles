@@ -17,6 +17,22 @@ let
   emacsDotfile = path: config.lib.file.mkOutOfStoreSymlink
     "${config.home.homeDirectory}/dotfiles/editors/emacs/${path}";
 
+  # nixpkgs sets PUPPETEER_EXECUTABLE_PATH only where its chromium builds, which excludes
+  # Darwin, so mmdc there cannot start a browser. Point it at the google-chrome cask from
+  # darwin-configuration.nix; --set-default keeps a caller's own value.
+  mermaidCli =
+    if pkgs.stdenv.hostPlatform.isDarwin then
+      pkgs.symlinkJoin {
+        name = "mermaid-cli-${pkgs.mermaid-cli.version}";
+        paths = [ pkgs.mermaid-cli ];
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+        postBuild = ''
+          wrapProgram $out/bin/mmdc --set-default PUPPETEER_EXECUTABLE_PATH \
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        '';
+      }
+    else pkgs.mermaid-cli;
+
   commonSessionVariables = {
     #Use xdg-config layout for spacemacs
     SPACEMACSDIR = "${config.xdg.configHome}/spacemacs";
@@ -56,7 +72,7 @@ in {
     # plantuml-c4
     # jdk21
     graphviz
-    mermaid-cli
+    mermaidCli
     # Layer dependencies.
     # TODO: install these in project flakes instead maybe?
     #       ... though the layers are enabled in global config ...
