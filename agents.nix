@@ -101,7 +101,7 @@ in
     home.activation.checkHerdrOrgTasksLeaf =
       lib.hm.dag.entryBefore [ "writeBoundary" ] ''
         target="${config.home.homeDirectory}/.local/share/herdr-plugins/org-tasks"
-        source="${agentsRoot}/herdr-plugin/org-tasks"
+        source="${agentsRoot}/herdr/plugins/org-tasks"
         if [ -e "$target" ] || [ -L "$target" ]; then
           link_target="$(${pkgs.coreutils}/bin/readlink "$target" || true)"
           owned=false
@@ -339,7 +339,7 @@ in
       "${config.home.homeDirectory}/.config/herdr/config.toml" = link "${agentsRoot}/herdr/config.toml";
 
       # registerHerdrOrgTasksPlugin links this leaf; it never replaces the registry.
-      ".local/share/herdr-plugins/org-tasks" = link "${agentsRoot}/herdr-plugin/org-tasks";
+      ".local/share/herdr-plugins/org-tasks" = link "${agentsRoot}/herdr/plugins/org-tasks";
 
       # Herdr desktop app (herdr-desktop) settings. `option_as_alt = "on"`
       # because its `auto` default sends Option as Alt only on US/ABC layouts;

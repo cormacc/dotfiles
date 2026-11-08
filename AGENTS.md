@@ -69,7 +69,7 @@ live submodule tree into:
 - `~/.config/herdr-app/settings.json` → `agents/herdr-app/settings.json` (the file only; Herdr desktop app settings, including `option_as_alt`)
 - `~/.config/herdr-app/keys.json` → `agents/herdr-app/keys.darwin.json` (macOS only; Herdr desktop app key bindings)
 - `~/.local/bin/ot` → org-tasks CLI shim
-- `~/.local/share/herdr-plugins/org-tasks` → `agents/herdr-plugin/org-tasks` (Herdr org-tasks plugin leaf; activation rejects a foreign occupant)
+- `~/.local/share/herdr-plugins/org-tasks` → `agents/herdr/plugins/org-tasks` (Herdr org-tasks plugin leaf; activation rejects a foreign occupant)
 
 Out-of-store symlinks, so edits in `agents/` take effect immediately via
 `/reload` — no Home Manager switch needed.
