@@ -178,3 +178,38 @@ CLOSED: [2026-09-03 Thu 21:04]
 - State "DONE" from "STARTED" [2026-09-03 Thu 21:04]
 :END:
 #+IMPORT: [[plan:2026-09-03-bootstrap-standalone-emacs-config.org]]
+** DONE Setup minecraft with the SWEM mod
+CLOSED: [2026-11-09 Mon 12:57]
+:PROPERTIES:
+:CUSTOM_ID: eba242ca-609a-44f6-92db-8a473421873d
+:CREATED: [2026-09-09 Wed 20:01]
+:STARTED: [2026-09-09 Wed 21:22]
+:ARCHIVED: [2026-11-09 Mon 12:57]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-09-09 Wed 20:01]
+- State "STARTED" from "TODO" [2026-09-09 Wed 21:22]
+- State "WAITING" from "STARTED" [2026-11-09 Mon 12:57]
+- State "DONE" from "WAITING" [2026-11-09 Mon 12:57]
+:END:
+#+IMPORT: [[plan:2026-09-09-setup-minecraft-with-the-swem-mod.org]]
+
+** CANCELLED [#C] Add hermes agent instance to administer the local llm server
+CLOSED: [2026-10-21 Wed 00:55]
+:PROPERTIES:
+:CUSTOM_ID: 01086cc6-9635-4883-97f2-cb3e0522adbe
+:CREATED: [2026-05-21 Thu 12:52]
+:HANDOFF: Cancelled 2026-10-21: the owner abandoned Hermes on all hosts.
+:ARCHIVED: [2026-10-21 Wed 00:55]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-05-21 Thu 12:52]
+- State "CANCELLED" from "TODO" [2026-10-21 Wed 00:55]
+:END:
+LLM server admin looks like a good opportunity to play with long-running non-coding agents.
+The hermes agent instance should own the following:
+- Adding models, and applying the correct settings
+- Keeping the installation up to date
+- .... what else ...

@@ -1,6 +1,6 @@
 #+TITLE: Setup minecraft with the SWEM mod
 #+DATE: 2026-09-09 Wed
-#+PARENT: [[task:eba242ca-609a-44f6-92db-8a473421873d][Setup minecraft with the SWEM mod]]
+#+PARENT: [[archive:eba242ca-609a-44f6-92db-8a473421873d][Setup minecraft with the SWEM mod]]
 #+SETUPFILE: ../../TASKS.setup.org
 #+STATUS: Accepted
 #+NO_SPEC: true
