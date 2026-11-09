@@ -14,6 +14,13 @@ let
   # at the live submodule path so edits reload in place via `/reload` without
   # a Home Manager switch.
   agentsRoot = "${dotRoot}/agents";
+
+  # Herdr plugins under agents/herdr/plugins/: directory -> plugin id.
+  herdrPlugins = {
+    org-tasks = "cormacc.org-tasks";
+    herdr-orch = "cormacc.herdr-orch";
+  };
+  herdrPluginLeaves = "${config.home.homeDirectory}/.local/share/herdr-plugins";
   piRoot = "${agentsRoot}/pi";
   piSettings = "${piRoot}/settings.json";
   piMcp = "${piRoot}/mcp.json";
@@ -98,10 +105,10 @@ in
       '');
 
     # programs.herdr exposes settings, not editable plugin source leaves.
-    home.activation.checkHerdrOrgTasksLeaf =
-      lib.hm.dag.entryBefore [ "writeBoundary" ] ''
-        target="${config.home.homeDirectory}/.local/share/herdr-plugins/org-tasks"
-        source="${agentsRoot}/herdr/plugins/org-tasks"
+    home.activation.checkHerdrPluginLeaves =
+      lib.hm.dag.entryBefore [ "writeBoundary" ] (lib.concatStrings (lib.mapAttrsToList (dir: _: ''
+        target="${herdrPluginLeaves}/${dir}"
+        source="${agentsRoot}/herdr/plugins/${dir}"
         if [ -e "$target" ] || [ -L "$target" ]; then
           link_target="$(${pkgs.coreutils}/bin/readlink "$target" || true)"
           owned=false
@@ -113,31 +120,38 @@ in
                  [ "$resolved" = "$resolved_source" ]; then owned=true; fi ;;
           esac
           if [ "$owned" != true ]; then
-            echo "ERROR: foreign Herdr org-tasks path: $target" >&2
+            echo "ERROR: foreign Herdr plugin path: $target" >&2
             exit 1
           fi
         fi
-      '';
+      '') herdrPlugins));
 
     # Herdr keeps plugin registration in its own registry, which no Home
-    # Manager option manages; registering the leaf is a `herdr plugin link`
-    # call. Register only when the id is absent, so a deliberate manual link
-    # or unlink of another checkout is not replaced. Linking needs no running
-    # server. Non-fatal: a failure warns rather than aborting activation.
-    home.activation.registerHerdrOrgTasksPlugin =
-      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        leaf="${config.home.homeDirectory}/.local/share/herdr-plugins/org-tasks"
+    # Manager option manages; registering a leaf is a `herdr plugin link`
+    # call. Herdr records the resolved checkout path, so a registration whose
+    # root differs from the leaf's target (for example after the plugin
+    # directory moves) is stale: unlink and link again. Linking needs no
+    # running server. Non-fatal: a failure warns rather than aborting
+    # activation.
+    home.activation.registerHerdrPlugins =
+      lib.hm.dag.entryAfter [ "writeBoundary" ] (lib.concatStrings (lib.mapAttrsToList (dir: id: ''
+        leaf="${herdrPluginLeaves}/${dir}"
         if [ -e "$leaf" ]; then
-          if ! plugins="$(${pkgs.herdr}/bin/herdr plugin list 2>&1)"; then
-            echo "WARNING: could not list Herdr plugins: $plugins" >&2
-          elif ! printf '%s\n' "$plugins" | ${pkgs.gnugrep}/bin/grep -qF 'cormacc.org-tasks'; then
+          if ! listed="$(${pkgs.herdr}/bin/herdr plugin list --json --plugin ${id} 2>&1)" ||
+             ! root="$(printf '%s' "$listed" | ${pkgs.jq}/bin/jq -er '.result.plugins | map(.plugin_root) | first // ""')"; then
+            echo "WARNING: could not list Herdr plugin ${id}: $listed" >&2
+          elif [ "$root" != "$(${pkgs.coreutils}/bin/readlink -f "$leaf")" ]; then
+            if [ -n "$root" ]; then
+              run ${pkgs.herdr}/bin/herdr plugin unlink ${id} ||
+                echo "WARNING: could not unlink stale Herdr plugin ${id} at $root." >&2
+            fi
             if ! run ${pkgs.herdr}/bin/herdr plugin link "$leaf"; then
-              echo "WARNING: could not register the Herdr org-tasks plugin." >&2
+              echo "WARNING: could not register the Herdr plugin ${id}." >&2
               echo "         Run: herdr plugin link $leaf" >&2
             fi
           fi
         fi
-      '';
+      '') herdrPlugins));
 
     # ─────────────── pi/settings.json git clean filter ────────────────
     # The tracked `agents/pi/settings.json` is live-linked into ~/.pi/agent,
@@ -338,8 +352,9 @@ in
       # would not be live-editable.
       "${config.home.homeDirectory}/.config/herdr/config.toml" = link "${agentsRoot}/herdr/config.toml";
 
-      # registerHerdrOrgTasksPlugin links this leaf; it never replaces the registry.
+      # registerHerdrPlugins registers these leaves in Herdr's registry.
       ".local/share/herdr-plugins/org-tasks" = link "${agentsRoot}/herdr/plugins/org-tasks";
+      ".local/share/herdr-plugins/herdr-orch" = link "${agentsRoot}/herdr/plugins/herdr-orch";
 
       # Herdr desktop app (herdr-desktop) settings. `option_as_alt = "on"`
       # because its `auto` default sends Option as Alt only on US/ABC layouts;

@@ -69,7 +69,7 @@ live submodule tree into:
 - `~/.config/herdr-app/settings.json` → `agents/herdr-app/settings.json` (the file only; Herdr desktop app settings, including `option_as_alt`)
 - `~/.config/herdr-app/keys.json` → `agents/herdr-app/keys.darwin.json` (macOS only; Herdr desktop app key bindings)
 - `~/.local/bin/ot` → org-tasks CLI shim
-- `~/.local/share/herdr-plugins/org-tasks` → `agents/herdr/plugins/org-tasks` (Herdr org-tasks plugin leaf; activation rejects a foreign occupant)
+- `~/.local/share/herdr-plugins/{org-tasks,herdr-orch}` → `agents/herdr/plugins/{org-tasks,herdr-orch}` (Herdr plugin leaves; activation rejects a foreign occupant)
 
 Out-of-store symlinks, so edits in `agents/` take effect immediately via
 `/reload` — no Home Manager switch needed.
@@ -87,4 +87,4 @@ On activation, `agents.nix`:
    is `required = true`.
    Failure warns instead of aborting activation. See
    [README.org#The pi-settings clean filter](README.org#the-pi-settings-clean-filter).
-4. Runs `herdr plugin link` on the org-tasks plugin leaf when `herdr plugin list` does not show `cormacc.org-tasks`. Failure warns instead of aborting activation. The tracked `agents/herdr/config.toml` binds its actions to keys.
+4. Runs `herdr plugin link` on each Herdr plugin leaf (`cormacc.org-tasks`, `cormacc.herdr-orch`) when Herdr does not list the plugin, or lists it with a `plugin_root` other than the leaf's resolved target; a stale registration is unlinked first. Failure warns instead of aborting activation. The tracked `agents/herdr/config.toml` binds their actions and panes to keys.
