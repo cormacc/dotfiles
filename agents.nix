@@ -258,10 +258,12 @@ in
       # codex
       herdr
       herdr-core
-      # FIXME: nixpkgs' cargoUseSystemLibs hook sets ZSTD_SYS_USE_PKG_CONFIG=1,
-      # but the herdr-desktop package does not list zstd, so zstd-sys fails.
-      # Drop the override when nixpkgs adds zstd to its buildInputs.
+      # FIXME: nixpkgs' cargoUseSystemLibs hook sets ZSTD_SYS_USE_PKG_CONFIG=1
+      # on every platform, but the herdr-desktop package does not list zstd,
+      # and lists pkg-config only on Linux, so zstd-sys fails. Drop the
+      # override when nixpkgs adds both on all platforms.
       (herdr-desktop.overrideAttrs (old: {
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkg-config ];
         buildInputs = (old.buildInputs or [ ]) ++ [ zstd ];
       }))
       prettier
