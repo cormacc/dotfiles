@@ -4,6 +4,30 @@
 
 { config, pkgs, specialArgs, ... }:
 
+let
+  # FIXME: curl 8.23.0 rejects the resume flag that the fetchurl builder
+  # always adds when the request also sends POST data, which segger-jlink
+  # needs to accept the licence (https://github.com/NixOS/nixpkgs/issues/580434).
+  # Fetch without resume. Name and hash match fetchurl, so the store path is
+  # unchanged. Remove when the issue is fixed.
+  seggerJlinkNoResume = final: prev: {
+    segger-jlink = prev.segger-jlink.override {
+      fetchurl = { url, hash, curlOpts ? "" }:
+        prev.stdenvNoCC.mkDerivation {
+          name = baseNameOf url;
+          nativeBuildInputs = [ prev.curl ];
+          SSL_CERT_FILE = "${prev.cacert}/etc/ssl/certs/ca-bundle.crt";
+          impureEnvVars = prev.lib.fetchers.proxyImpureEnvVars;
+          outputHashMode = "flat";
+          outputHash = hash;
+          buildCommand = ''
+            curl --fail --location --retry 3 ${curlOpts} \
+              --output "$out" ${prev.lib.escapeShellArg url}
+          '';
+        };
+    };
+  };
+in
 {
   imports = [
     ./nixos-base.nix
@@ -12,7 +36,11 @@
   # flake.nix applies linuxOverlays only to the Home Manager pkgs set; NixOS
   # builds its own pkgs, so the overlays it needs must be listed here.
   # microchip provides mplab-x-unwrapped for services.udev.packages below.
-  nixpkgs.overlays = [ specialArgs.inputs.microchip.overlays.default ];
+  # seggerJlinkNoResume replaces segger-jlink's source fetcher (see above).
+  nixpkgs.overlays = [
+    specialArgs.inputs.microchip.overlays.default
+    seggerJlinkNoResume
+  ];
 
   # Use latest kernel for workstations
   boot.kernelPackages = pkgs.linuxPackages_latest;
