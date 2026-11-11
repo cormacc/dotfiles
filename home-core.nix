@@ -63,7 +63,7 @@ in
   home.shellAliases = {
     hmb = "home-manager build --flake '${flakePath}' --impure";
     hms = "home-manager switch --flake '${flakePath}' --impure";
-    nob = "nixos-rebuild build --flake '${flakePath}' --impure";
+    nob = "nixos-rebuild build --flake \"${dotRoot}#`cat /etc/hostname`\" --impure";
     nos = "sudo nixos-rebuild switch --flake \"${dotRoot}#`cat /etc/hostname`\" --impure";
     # Constructing path manually here -- sudo -E doesn't inherit USER or HOME
     drs = "sudo -E darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure";
