@@ -21,6 +21,9 @@ let
     herdr-orch = "cormacc.herdr-orch";
   };
   herdrPluginLeaves = "${config.home.homeDirectory}/.local/share/herdr-plugins";
+  # Herdr desktop app key names differ by platform (`cmd-` on macOS), so
+  # each platform has its own tracked key table.
+  herdrAppKeysPlatform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "linux";
   piRoot = "${agentsRoot}/pi";
   piSettings = "${piRoot}/settings.json";
   piMcp = "${piRoot}/mcp.json";
@@ -92,7 +95,7 @@ in
         check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/org-tasks" "${agentsRoot}/herdr-app/mods/org-tasks"
         check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/orch-spaces" "${agentsRoot}/herdr-app/mods/orch-spaces"
         check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/layouts/herdr-orch.json" "${agentsRoot}/herdr-app/layouts/herdr-orch.json"
-      '' + lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
+
         # herdr-app writes a default keys.json whenever the file is missing,
         # so a plain file here is app-written: keep it aside with a timestamp.
         # A foreign symlink is still rejected.
@@ -101,7 +104,7 @@ in
           run mv "$keys" "$keys.pre-hm-$(date +%Y%m%d%H%M%S)"
           echo "Moved app-written $keys aside" >&2
         fi
-        check_herdr_app_leaf "$keys" "${agentsRoot}/herdr-app/keys.darwin.json"
+        check_herdr_app_leaf "$keys" "${agentsRoot}/herdr-app/keys.${herdrAppKeysPlatform}.json"
       '');
 
     # programs.herdr exposes settings, not editable plugin source leaves.
@@ -379,11 +382,10 @@ in
       "${config.home.homeDirectory}/.config/herdr-app/mods/org-tasks" = link "${agentsRoot}/herdr-app/mods/org-tasks";
       "${config.home.homeDirectory}/.config/herdr-app/mods/orch-spaces" = link "${agentsRoot}/herdr-app/mods/orch-spaces";
       "${config.home.homeDirectory}/.config/herdr-app/layouts/herdr-orch.json" = link "${agentsRoot}/herdr-app/layouts/herdr-orch.json";
-    } // lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
-      # Herdr desktop app key bindings. macOS only: the file uses `cmd-`
-      # chords, and a Linux variant waits on a check of that platform's key
-      # names. Out-of-store, so app writes land here for review.
-      "${config.home.homeDirectory}/.config/herdr-app/keys.json" = link "${agentsRoot}/herdr-app/keys.darwin.json";
+
+      # Herdr desktop app key bindings, from the platform's key table.
+      # Out-of-store, so app writes land here for review.
+      "${config.home.homeDirectory}/.config/herdr-app/keys.json" = link "${agentsRoot}/herdr-app/keys.${herdrAppKeysPlatform}.json";
     };
   };
 }
