@@ -249,10 +249,18 @@ in
       # it back.
       pi-coding-agent
       claude-code
-      codex
+      # FIXME: Disabled - codex 0.167.0 fails to build (aws-lc-sys finds no
+      # system AWS-LC) in nixos-unstable. Re-enable when the channel contains
+      # NixOS/nixpkgs@16b463698a5b (https://github.com/NixOS/nixpkgs/issues/585124).
+      # codex
       herdr
       herdr-core
-      herdr-desktop
+      # FIXME: nixpkgs' cargoUseSystemLibs hook sets ZSTD_SYS_USE_PKG_CONFIG=1,
+      # but the herdr-desktop package does not list zstd, so zstd-sys fails.
+      # Drop the override when nixpkgs adds zstd to its buildInputs.
+      (herdr-desktop.overrideAttrs (old: {
+        buildInputs = (old.buildInputs or [ ]) ++ [ zstd ];
+      }))
       prettier
       # FIXME: Disabled - failing in nixpkgs 13/10/2026
       typescript-language-server
