@@ -309,11 +309,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794400975,
-        "narHash": "sha256-n5zGCzdNJj8pw3rrGJ3Zt/HLy/gwuWgIhFjVfxMdmBc=",
+        "lastModified": 1794405662,
+        "narHash": "sha256-b1Ub8fDcEQ+kqkcZIyxrYtkEM1PEuFwwqKgI21BZOC4=",
         "owner": "cormacc",
         "repo": "nix-herdr-app",
-        "rev": "edaabe14b3bf33f445937c295a8e7fa6fac570c2",
+        "rev": "8ab168a8f037efeffd9465ba8d725a0781dee042",
         "type": "github"
       },
       "original": {
