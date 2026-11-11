@@ -1226,6 +1226,8 @@ They land in =~/.config/emacs/tree-sitter/=. =treesit-auto= remaps a classic mod
 
 =treesit-auto-add-to-auto-mode-alist= is called with *no* argument on purpose: ='all= would overwrite Emacs 31's own =\.rs\' → rust-ts-mode-maybe= style entries, whose job is to degrade when the grammar is missing, and every uninstalled language would prompt instead.
 
+=treesit-auto= asks =treesit-language-available-p= about each of its ~60 languages, about three times for each file visit. Each call runs =dlopen=. On macOS, dyld scans every loaded image for each =dlopen=, and native compilation loads several hundred =.eln= images, so each probe costs 20--30 ms and a file visit costs about 6 s. The advice below caches each result for the session. A grammar install clears the cache. After you change =treesit-extra-load-path=, run =M-x my/treesit-clear-availability-cache=.
+
 =treesit-language-source-alist= starts empty; built-in language files push their own entry on load. =treesit-auto= only /let-binds/ its recipes inside =treesit-auto-install-all=, so a plain =treesit-install-language-grammar= sees nothing for a language whose mode came from a package. The entries below are the grammars this config wires by hand (see [[#nix][Nix]]).
 
 #+begin_src emacs-lisp
@@ -1235,6 +1237,28 @@ They land in =~/.config/emacs/tree-sitter/=. =treesit-auto= remaps a classic mod
     ;; src/ is at the repository root for this grammar, so URL alone is enough.
     (add-to-list 'treesit-language-source-alist
                  '(nix "https://github.com/nix-community/tree-sitter-nix")))
+
+  (defvar my/treesit--availability-cache (make-hash-table :test #'equal)
+    "Results of `treesit-language-available-p', keyed by (LANGUAGE . DETAIL).")
+
+  (defun my/treesit--cached-language-available-p (orig language &optional detail)
+    "Call ORIG for LANGUAGE and DETAIL once per session, then reuse the result."
+    (let ((key (cons language (and detail t))))
+      (pcase (gethash key my/treesit--availability-cache 'miss)
+        ('miss (puthash key (funcall orig language detail)
+                        my/treesit--availability-cache))
+        (hit hit))))
+
+  (defun my/treesit-clear-availability-cache (&rest _)
+    "Forget cached grammar availability, e.g. after a load-path change."
+    (interactive)
+    (clrhash my/treesit--availability-cache))
+
+  (advice-add 'treesit-language-available-p :around
+              #'my/treesit--cached-language-available-p)
+  ;; Clear before `treesit-install-language-grammar' re-checks the new grammar.
+  (advice-add 'treesit--install-language-grammar-1 :after
+              #'my/treesit-clear-availability-cache)
 
   (use-package treesit-auto
     :ensure t
