@@ -75,6 +75,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-babashka.url = "github:cormacc/nix-babashka";
+    # Upstream Herdr release builds: nixpkgs' herdr-desktop and herdr-core lag
+    # upstream. Its overlay ignores this nixpkgs; follows only trims the lock.
+    nix-herdr-app = {
+      url = "github:cormacc/nix-herdr-app";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   # NOTE: nixConfig must be a literal attrset of literals — nix parses it
@@ -101,7 +107,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-desktop, codex-desktop, rust-overlay, nur, pi, nix-amd-ai, nix-babashka, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-desktop, codex-desktop, rust-overlay, nur, pi, nix-amd-ai, nix-babashka, nix-herdr-app, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -112,12 +118,14 @@
         pi.overlays.default
         rust-overlay.overlays.default
         nix-babashka.overlays.default
+        nix-herdr-app.overlays.default
         # Local packages: pkgs/<name>/default.nix -> pkgs.<name>
         (import ./pkgs/overlay.nix)
       ];
       darwinOverlays = [
         pi.overlays.default
         nix-babashka.overlays.default
+        nix-herdr-app.overlays.default
       ];
       # pkgs = nixpkgs.legacyPackages.${system};
       pkgs = import nixpkgs {

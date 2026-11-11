@@ -242,15 +242,10 @@ in
       # NixOS/nixpkgs@16b463698a5b (https://github.com/NixOS/nixpkgs/issues/585124).
       # codex
       herdr
+      # herdr-core and herdr-app (the desktop app, nixpkgs' herdr-desktop) are
+      # upstream release builds from `nix-herdr-app.overlays.default`.
       herdr-core
-      # FIXME: nixpkgs' cargoUseSystemLibs hook sets ZSTD_SYS_USE_PKG_CONFIG=1
-      # on every platform, but the herdr-desktop package does not list zstd,
-      # and lists pkg-config only on Linux, so zstd-sys fails. Drop the
-      # override when nixpkgs adds both on all platforms.
-      (herdr-desktop.overrideAttrs (old: {
-        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkg-config ];
-        buildInputs = (old.buildInputs or [ ]) ++ [ zstd ];
-      }))
+      herdr-app
       typescript-language-server
       # Required on PATH at stage time by the `pi-settings` git clean filter
       # registered above (the filter command is `jq 'del(...)'`), which is
@@ -348,13 +343,13 @@ in
       # would not be live-editable.
       "${config.home.homeDirectory}/.config/herdr/config.toml" = link "${agentsRoot}/herdr/config.toml";
 
-      # Herdr desktop app (herdr-desktop) settings. `option_as_alt = "on"`
+      # Herdr desktop app (herdr-app) settings. `option_as_alt = "on"`
       # because its `auto` default sends Option as Alt only on US/ABC layouts;
       # on the Irish layout Option+T types a character, so Pi's `alt+t`
       # org-tasks shortcut never fires. Only the file is linked: the directory
       # also holds the app socket, state and caches. Out-of-store, so the app
       # can write its own settings and edits apply without a switch. No Home
-      # Manager module exists for herdr-desktop.
+      # Manager module exists for herdr-app.
       "${config.home.homeDirectory}/.config/herdr-app/settings.json" = link "${agentsRoot}/herdr-app/settings.json";
 
       # Herdr desktop app key bindings, from the platform's key table.

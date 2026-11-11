@@ -172,11 +172,11 @@
     "homebrew-cask": {
       "flake": false,
       "locked": {
-        "lastModified": 1794383085,
-        "narHash": "sha256-AWLXf0+Ms0JAcmZ1LaNM1Y2TPuDvb8L+NKtG6xNMS30=",
+        "lastModified": 1794397931,
+        "narHash": "sha256-pjpBCNKuV19m7S+wBJCmA9yWCuIpWFdPq7+aJV0A8Kw=",
         "owner": "homebrew",
         "repo": "homebrew-cask",
-        "rev": "b5e0f3511656c2bf37312cfd739cbaf2334b633a",
+        "rev": "6b8a59b4e9b927ca54d3b921b1c8949106a3eb44",
         "type": "github"
       },
       "original": {
@@ -188,11 +188,11 @@
     "homebrew-core": {
       "flake": false,
       "locked": {
-        "lastModified": 1794380863,
-        "narHash": "sha256-qFvlFAQqTf662wF4ocGSM2q4xljtVhpU2r5YCGoP7HE=",
+        "lastModified": 1794400774,
+        "narHash": "sha256-3gygHNwRJlfNSxPUfNX1QpQRMDZc6yKefs+zsAKUJJk=",
         "owner": "homebrew",
         "repo": "homebrew-core",
-        "rev": "40c1db9b3cf2978876ba274c05e27601368af572",
+        "rev": "cce2602b1c8797282579f4baea3137e53a628fe4",
         "type": "github"
       },
       "original": {
@@ -299,6 +299,26 @@
         "owner": "nix-darwin",
         "ref": "master",
         "repo": "nix-darwin",
+        "type": "github"
+      }
+    },
+    "nix-herdr-app": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1794400975,
+        "narHash": "sha256-n5zGCzdNJj8pw3rrGJ3Zt/HLy/gwuWgIhFjVfxMdmBc=",
+        "owner": "cormacc",
+        "repo": "nix-herdr-app",
+        "rev": "edaabe14b3bf33f445937c295a8e7fa6fac570c2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cormacc",
+        "repo": "nix-herdr-app",
         "type": "github"
       }
     },
@@ -453,11 +473,11 @@
         "nixpkgs": "nixpkgs_5"
       },
       "locked": {
-        "lastModified": 1794383613,
-        "narHash": "sha256-u/p6KQFvoNXIKHwRRQf45DTMMLHUh8+pPL2KbQeJ2Ik=",
+        "lastModified": 1794401407,
+        "narHash": "sha256-kFfX3GFQT5Crs4ytQVnuu974mB7PErlQ41aZXk+ZC34=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "8f1568477558615182700ad19a396f1a352a44c3",
+        "rev": "6d62be6e0801ce1672953ecccc9ed3c3d0b45e7f",
         "type": "github"
       },
       "original": {
@@ -502,6 +522,7 @@
         "nix-amd-ai": "nix-amd-ai",
         "nix-babashka": "nix-babashka",
         "nix-darwin": "nix-darwin_2",
+        "nix-herdr-app": "nix-herdr-app",
         "nix-homebrew": "nix-homebrew",
         "nixpkgs": "nixpkgs_4",
         "nixpkgs-darwin": "nixpkgs-darwin",
@@ -518,11 +539,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794303164,
-        "narHash": "sha256-UZMtOt43/HRVssXPSuPv8t11Toq9+CjyWUfYQ3tqGVE=",
+        "lastModified": 1794388042,
+        "narHash": "sha256-rsskkiDNmuZGK6Xk3JvWUxWENjuX4Jf0hOSFYujGC0s=",
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "89750a2ef1c6a44db9f4251b16c23deffdcfddff",
+        "rev": "0070500a3d72ade21323092e7bdd7125c5268482",
         "type": "github"
       },
       "original": {
