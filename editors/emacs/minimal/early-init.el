@@ -54,6 +54,31 @@
            (>= (string-to-number operating-system-release) 25))
   (setenv "MACOSX_DEPLOYMENT_TARGET" "26.0"))
 
+;; An app started from the Dock, Finder or Spotlight inherits launchd's PATH
+;; (/usr/bin:/bin:/usr/sbin:/sbin), so Home Manager and nix-darwin tools such
+;; as rg are missing.  Insert the profile directories ahead of the system
+;; directories, in nix-darwin's `environment.systemPath' order, then Homebrew.
+;; A launch from a shell already has them, so nothing changes.
+(when (eq system-type 'darwin)
+  (let* ((wanted (list (expand-file-name "~/.nix-profile/bin")
+                       (concat "/etc/profiles/per-user/" (user-login-name) "/bin")
+                       "/run/current-system/sw/bin"
+                       "/nix/var/nix/profiles/default/bin"
+                       "/opt/homebrew/bin"
+                       "/opt/homebrew/sbin"
+                       "/usr/local/bin"))
+         (path (split-string (or (getenv "PATH") "") path-separator t))
+         (missing (delq nil (mapcar (lambda (dir)
+                                      (and (not (member dir path))
+                                           (file-directory-p dir)
+                                           dir))
+                                    wanted))))
+    (when missing
+      (let* ((tail (member "/usr/bin" path))
+             (new (append (butlast path (length tail)) missing tail)))
+        (setenv "PATH" (mapconcat #'identity new path-separator))
+        (setq exec-path (append new (list exec-directory)))))))
+
 ;; Site-lisp default file loading is not used by this config.
 (setq inhibit-default-init t)
 
