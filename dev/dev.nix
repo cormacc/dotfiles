@@ -21,8 +21,6 @@
     };
   };
 
-  programs.wezterm.enable = true;
-
   home.packages = with pkgs; [
     # This page compares some fonts: https://jdsalaro.com/note/best-programming-fonts/index.html
     nerd-fonts.hack
