@@ -8,11 +8,9 @@ let
   # extension, prompt, the pi-side AGENTS.md, and the user-local
   # pi/settings.json (package list, default provider/model, secrets toggles)
   # and pi/mcp.json (native MCP servers).
-  # Whole-directory symlinks below point ~/.agents/skills, ~/.claude/skills,
-  # ~/.pi/agent/extensions, ~/.pi/agent/skills, ~/.pi/agent/agents,
-  # ~/.pi/agent/prompts, ~/.pi/agent/AGENTS.md, and ~/.pi/agent/settings.json
-  # at the live submodule path so edits reload in place via `/reload` without
-  # a Home Manager switch.
+  # Every home.file entry below is an out-of-store symlink into the live
+  # submodule, so edits apply in place (pi via `/reload`) without a Home
+  # Manager switch.
   agentsRoot = "${dotRoot}/agents";
 
   # Herdr plugins under agents/herdr/plugins/: directory -> plugin id.
@@ -21,6 +19,17 @@ let
     herdr-orch = "cormacc.herdr-orch";
   };
   herdrPluginLeaves = "${config.home.homeDirectory}/.local/share/herdr-plugins";
+  # Personal Herdr desktop app leaves, relative to both ~/.config/herdr-app
+  # and agents/herdr-app. Only these are linked: bundled mods and layouts
+  # remain app-owned.
+  herdrAppConfig = "${config.home.homeDirectory}/.config/herdr-app";
+  herdrAppLeaves = [
+    "mods/herdr-orch"
+    "mods/system"
+    "mods/org-tasks"
+    "mods/orch-spaces"
+    "layouts/herdr-orch.json"
+  ];
   # Herdr desktop app key names differ by platform (`cmd-` on macOS), so
   # each platform has its own tracked key table.
   herdrAppKeysPlatform = if pkgs.stdenv.hostPlatform.isDarwin then "darwin" else "linux";
@@ -32,9 +41,8 @@ let
   # ───────────────────────────── Dest paths ───────────────────────────────
   agentsConfig = "${config.home.homeDirectory}/.agents";
   claudeConfig = "${config.home.homeDirectory}/.claude";
+  # Not under xdg.configHome: pi detects its directory erratically there.
   piConfig = "${config.home.homeDirectory}/.pi/agent";
-  # The xdg.configHome stuff causes pain / erratic detection...
-  # piConfig = "${config.xdg.configHome}/pi";
   npmCache = "${config.xdg.cacheHome}/npm";
 
   # Live-editable link into the dotfiles checkout.
@@ -72,11 +80,13 @@ in
       '';
 
     # Home Manager may accept identical foreign files or back them up. These
-    # personal app paths must instead reject every foreign occupant.
-    home.activation.checkHerdrAppLeaves =
+    # personal Herdr paths must instead reject every foreign occupant.
+    # programs.herdr exposes settings, not editable plugin source leaves, so
+    # the plugin leaves need the same check.
+    home.activation.checkHerdrLeaves =
       lib.hm.dag.entryBefore [ "writeBoundary" ] (''
-        check_herdr_app_leaf() {
-          local target="$1" source="$2" link_target resolved resolved_source
+        check_herdr_leaf() {
+          local kind="$1" target="$2" source="$3" link_target resolved resolved_source
           if [ -e "$target" ] || [ -L "$target" ]; then
             link_target="$(${pkgs.coreutils}/bin/readlink "$target" || true)"
             case "$link_target" in
@@ -86,48 +96,26 @@ in
                    resolved_source="$(${pkgs.coreutils}/bin/readlink -f "$source")" && [ -n "$resolved_source" ] &&
                    [ "$resolved" = "$resolved_source" ]; then return; fi ;;
             esac
-            echo "ERROR: foreign Herdr app path: $target" >&2
+            echo "ERROR: foreign Herdr $kind path: $target" >&2
             exit 1
           fi
         }
-        check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/herdr-orch" "${agentsRoot}/herdr-app/mods/herdr-orch"
-        check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/system" "${agentsRoot}/herdr-app/mods/system"
-        check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/org-tasks" "${agentsRoot}/herdr-app/mods/org-tasks"
-        check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/mods/orch-spaces" "${agentsRoot}/herdr-app/mods/orch-spaces"
-        check_herdr_app_leaf "${config.home.homeDirectory}/.config/herdr-app/layouts/herdr-orch.json" "${agentsRoot}/herdr-app/layouts/herdr-orch.json"
+      '' + lib.concatMapStrings (leaf: ''
+        check_herdr_leaf app "${herdrAppConfig}/${leaf}" "${agentsRoot}/herdr-app/${leaf}"
+      '') herdrAppLeaves + lib.concatMapStrings (dir: ''
+        check_herdr_leaf plugin "${herdrPluginLeaves}/${dir}" "${agentsRoot}/herdr/plugins/${dir}"
+      '') (lib.attrNames herdrPlugins) + ''
 
         # herdr-app writes a default keys.json whenever the file is missing,
         # so a plain file here is app-written: keep it aside with a timestamp.
         # A foreign symlink is still rejected.
-        keys="${config.home.homeDirectory}/.config/herdr-app/keys.json"
+        keys="${herdrAppConfig}/keys.json"
         if [ -f "$keys" ] && [ ! -L "$keys" ]; then
           run mv "$keys" "$keys.pre-hm-$(date +%Y%m%d%H%M%S)"
           echo "Moved app-written $keys aside" >&2
         fi
-        check_herdr_app_leaf "$keys" "${agentsRoot}/herdr-app/keys.${herdrAppKeysPlatform}.json"
+        check_herdr_leaf app "$keys" "${agentsRoot}/herdr-app/keys.${herdrAppKeysPlatform}.json"
       '');
-
-    # programs.herdr exposes settings, not editable plugin source leaves.
-    home.activation.checkHerdrPluginLeaves =
-      lib.hm.dag.entryBefore [ "writeBoundary" ] (lib.concatStrings (lib.mapAttrsToList (dir: _: ''
-        target="${herdrPluginLeaves}/${dir}"
-        source="${agentsRoot}/herdr/plugins/${dir}"
-        if [ -e "$target" ] || [ -L "$target" ]; then
-          link_target="$(${pkgs.coreutils}/bin/readlink "$target" || true)"
-          owned=false
-          case "$link_target" in
-            ${builtins.storeDir}/*-home-manager-files/*)
-              if [ -e "$source" ] &&
-                 resolved="$(${pkgs.coreutils}/bin/readlink -f "$target")" && [ -n "$resolved" ] &&
-                 resolved_source="$(${pkgs.coreutils}/bin/readlink -f "$source")" && [ -n "$resolved_source" ] &&
-                 [ "$resolved" = "$resolved_source" ]; then owned=true; fi ;;
-          esac
-          if [ "$owned" != true ]; then
-            echo "ERROR: foreign Herdr plugin path: $target" >&2
-            exit 1
-          fi
-        fi
-      '') herdrPlugins));
 
     # Herdr keeps plugin registration in its own registry, which no Home
     # Manager option manages; registering a leaf is a `herdr plugin link`
@@ -185,8 +173,6 @@ in
         fi
       '';
 
-    # home.sessionVariables.PI_CODING_AGENT_DIR = "$piConfig";
-
     # Local-only pi extensions such as chromium and pi-clojure live in the
     # editable dotagents checkout but are intentionally excluded from the
     # published agent-org-memory package. Pi still auto-discovers them from
@@ -228,19 +214,18 @@ in
       '';
 
     # npm's default global prefix points into the (read-only) Nix store when
-    # node comes from nixpkgs. Redirect it to a writable location so
-    # `pi install` works. This is philosophically unsound w.r.t. Nix, but
-    # a necessary hypocrisy... nodejs itself comes from dev/dev.nix.
+    # node comes from nixpkgs, so `npm install -g` needs a writable prefix.
+    # pi does not use it: pi installs its npm packages under ~/.pi/agent/npm.
+    # nodejs itself comes from dev/dev.nix.
     programs.npm = {
       enable = true;
       package = null;
       settings.prefix = npmCache;
     };
 
-    # Expose local npm globals plus the in-tree `ot` CLI shim. Third-party
-    # installs should prefer bbin (`bbin install io.github.cormacc/dotagents
-    # --as ot --latest-sha`), but this fallback keeps the pi extension and
-    # local shell workflows working immediately from the editable submodule.
+    # The org-tasks scripts directory is on the session path, not only
+    # ~/.local/bin/ot: shell/shell.nix adds ~/.local/bin for bash and zsh,
+    # but not for fish.
     home.sessionPath = [
       "${npmCache}/bin"
       "${agentsRoot}/skills/org-tasks/scripts"
@@ -266,25 +251,21 @@ in
         nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkg-config ];
         buildInputs = (old.buildInputs or [ ]) ++ [ zstd ];
       }))
-      prettier
-      # FIXME: Disabled - failing in nixpkgs 13/10/2026
       typescript-language-server
       # Required on PATH at stage time by the `pi-settings` git clean filter
       # registered above (the filter command is `jq 'del(...)'`), which is
       # declared `required = true` and so fails the stage without it.
       jq
-      fswatch
-      # Support
-      # lmstudio
     ];
 
-    home.shellAliases = {
-      # Portable: avoid GNU-only `realpath --relative-to` (BSD realpath on macOS lacks it).
-      # ${PWD#$HOME/} strips the $HOME/ prefix; tmux session names can't contain `.` or `:`.
-      pit = ''tmux new -s "$(echo "''${PWD#$HOME/}" | tr ':.' '__')" -n "''${PWD#$HOME/}" pi'';
-    };
-
-    home.file = {
+    home.file = lib.listToAttrs (map (leaf:
+      lib.nameValuePair "${herdrAppConfig}/${leaf}" (link "${agentsRoot}/herdr-app/${leaf}"))
+      herdrAppLeaves)
+    # registerHerdrPlugins registers these leaves in Herdr's registry.
+    // lib.mapAttrs' (dir: _:
+      lib.nameValuePair ".local/share/herdr-plugins/${dir}" (link "${agentsRoot}/herdr/plugins/${dir}"))
+      herdrPlugins
+    // {
       # Generic harness-agnostic skills (Agent Skills spec location).
       "${agentsConfig}/skills" = link "${agentsRoot}/skills";
 
@@ -329,7 +310,9 @@ in
       # either way, and assumes only the `dotRoot` this module already assumes.
       "${claudeConfig}/CLAUDE.md" = link "${agentsRoot}/home/CLAUDE.md";
 
-      # Add the org-tasks cli tool shim to the path
+      # The org-tasks CLI, live from the editable submodule. Third-party
+      # installs should prefer bbin:
+      # `bbin install io.github.cormacc/dotagents --as ot --latest-sha`.
       ".local/bin/ot" = link "${agentsRoot}/skills/org-tasks/scripts/ot";
 
       # Pi-side discovery locations. AGENTS.md comes from the submodule's
@@ -365,10 +348,6 @@ in
       # would not be live-editable.
       "${config.home.homeDirectory}/.config/herdr/config.toml" = link "${agentsRoot}/herdr/config.toml";
 
-      # registerHerdrPlugins registers these leaves in Herdr's registry.
-      ".local/share/herdr-plugins/org-tasks" = link "${agentsRoot}/herdr/plugins/org-tasks";
-      ".local/share/herdr-plugins/herdr-orch" = link "${agentsRoot}/herdr/plugins/herdr-orch";
-
       # Herdr desktop app (herdr-desktop) settings. `option_as_alt = "on"`
       # because its `auto` default sends Option as Alt only on US/ABC layouts;
       # on the Irish layout Option+T types a character, so Pi's `alt+t`
@@ -377,13 +356,6 @@ in
       # can write its own settings and edits apply without a switch. No Home
       # Manager module exists for herdr-desktop.
       "${config.home.homeDirectory}/.config/herdr-app/settings.json" = link "${agentsRoot}/herdr-app/settings.json";
-
-      # Link only personal leaves; bundled mods and layouts remain app-owned.
-      "${config.home.homeDirectory}/.config/herdr-app/mods/herdr-orch" = link "${agentsRoot}/herdr-app/mods/herdr-orch";
-      "${config.home.homeDirectory}/.config/herdr-app/mods/system" = link "${agentsRoot}/herdr-app/mods/system";
-      "${config.home.homeDirectory}/.config/herdr-app/mods/org-tasks" = link "${agentsRoot}/herdr-app/mods/org-tasks";
-      "${config.home.homeDirectory}/.config/herdr-app/mods/orch-spaces" = link "${agentsRoot}/herdr-app/mods/orch-spaces";
-      "${config.home.homeDirectory}/.config/herdr-app/layouts/herdr-orch.json" = link "${agentsRoot}/herdr-app/layouts/herdr-orch.json";
 
       # Herdr desktop app key bindings, from the platform's key table.
       # Out-of-store, so app writes land here for review.
