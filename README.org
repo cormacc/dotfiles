@@ -11,10 +11,6 @@
 # 2. Ensure exports include both source block contents and any results
 #+PROPERTY: header-args :exports both
 
-# 3. Specify styles for ODT (and DOCX) export
-
-#+ODT_STYLES_FILE: ("~/Documents/templates/nmd-template.odt" ("styles.xml" "content.xml" "Pictures/1000000000000A4F000004650AA167B89A2F5561.jpg"))
-
 # Startup options : Want to view rendered versions of latex fragments (equations etc.) by default
 #+STARTUP:: latexpreview
 
@@ -79,7 +75,7 @@ Formerly managed using the [[https://github.com/cormacc/dotmodule][dotmodule]] g
 
 The flake covers three deployment shapes:
 - *Home Manager* (standalone) on Arch / hybrid Linux installs and on macOS via nix-darwin -- this is the primary daily-driver path.
-- *NixOS* system configurations for several hosts (=xps15=, =strix=, =t580=, =nas=). =xps15= is the canonical pattern (system config + standalone home-manager applied separately).
+- *NixOS* system configurations for (=xps15=, =strix=, =t580=); the homelab hosts live in the homelab repository. =xps15= is the canonical pattern (system config + standalone home-manager applied separately).
 - *nix-darwin* system configuration for =Cormacs-MacBook-Air= (with home-manager included as a darwin module).
 
 The golden path for development machines is currently Arch Linux + nix + home-manager rather than full NixOS, due to difficulties packaging some toolchains required for embedded development, specifically:
@@ -129,11 +125,10 @@ home-darwin.nix  ->  home-core.nix  (macOS, adds: editors, dev, agents)
 [[./home-core.nix]] owns shell config, direnv, git, ssh, vim, fonts, XDG, and defines the =hms= / =nos= / =drs= shell aliases.
 
 ** Environment variables consumed on first apply
-The flake uses =builtins.getEnv= for identity and a couple of secrets, hence =--impure=. Persisted to the shell session after first apply, so you only need to set them once per installation:
+The flake uses =builtins.getEnv= for identity, hence =--impure=. =NAME=, =EMAIL= and =GITLAB= are persisted to the shell session after first apply (=USER= and =HOME= are set by the login shell), so you only need to set them once per installation:
 - =NAME=, =EMAIL=, =USER=, =HOME= -- identity and paths. =EMAIL= is the default git =user.email= (typically the work address).
-- =EMAIL_OSS= -- personal / OSS git =user.email=. Scoped to =~/dev/= repos via an =includeIf= so personal commits don't leak the work address. Optional: when unset it falls back to =$EMAIL=, making it a no-op for single-identity setups.
+- =EMAIL_OSS= -- personal / OSS git =user.email=. Scoped to =~/dev/= repos via an =includeIf= so personal commits don't leak the work address. Optional: when unset it falls back to =$EMAIL=, making it a no-op for single-identity setups. Not persisted to the shell session; a re-apply in a new session falls back to =$EMAIL= until you re-export it.
 - =GITLAB= -- self-hosted gitlab TLD for SSH config (optional)
-- =OPENAI_API_KEY=, =ANTHROPIC_API_KEY= -- propagated to the shell env (optional)
 
 See [[#set-git-name-and-e-mail][Set Git name and e-mail]] for the actual =export= commands.
 
@@ -147,7 +142,7 @@ See [[#set-git-name-and-e-mail][Set Git name and e-mail]] for the actual =export
 | =desktop/= | Desktop app modules (web, audio, office, entertainment) |
 | =wayland/= | Wayland compositor configs (sway, hyprland, foot, rofi) |
 | =nmd/= | Work-specific tooling (OneDrive etc.) |
-| =agents/= | Git submodule pointing at [[https://github.com/cormacc/dotagents][=cormacc/dotagents=]] — every reusable skill, pi extension, prompt template, the pi-side =AGENTS.md=, the user-local =pi/settings.json=, and the =agent-org-memory= pi package. [[./agents.nix]] symlinks the working tree into =~/.agents/skills= (including packaged Herdr personas at =skills/herdr-subagents/subagents/=) and =~/.pi/agent/{extensions,skills,prompts,AGENTS.md,settings.json}= for live editing. =~/.agents/subagents/= remains unmanaged for genuine home overrides. |
+| =agents/= | Git submodule pointing at [[https://github.com/cormacc/dotagents][=cormacc/dotagents=]] — every reusable skill, pi extension, prompt template, the pi-side =AGENTS.md=, the user-local =pi/settings.json= and =pi/mcp.json=, and the =agent-org-memory= pi package. [[./agents.nix]] symlinks the live working tree (out-of-store, so edits reload via pi's =/reload= without a Home Manager switch) into: =~/.agents/{skills,subagents,traits}= (packaged Herdr personas at =skills/herdr-orch/subagents/=), =~/.pi/agent/{extensions,skills,prompts,AGENTS.md,settings.json,mcp.json,models.json}=, =~/.claude/{skills,CLAUDE.md}=, =~/.local/bin/ot=, =~/.local/share/herdr-plugins/{org-tasks,herdr-orch}=, =~/.config/herdr/config.toml=, and =~/.config/herdr-app/{settings.json,keys.json}= (key bindings from the platform table =keys.<platform>.json=). |
 | =darwin-configuration.nix= | macOS system config (nix-darwin) |
 
 * The homelab repository
@@ -165,14 +160,7 @@ and the =agent-org-memory= pi package live in a sibling repo at
 skills and configuration. This repo registers it as a git submodule under
 [[file:./agents/][=agents/=]].
 
-Why a submodule rather than a flake input? Editability. Home Manager
-points =mkOutOfStoreSymlink=s at the live submodule working tree, so
-editable changes (skills, extensions, prompts) reload via pi's =/reload=
-without a Home Manager switch. The Herdr packaged persona defaults travel
-inside the =skills/= link; =agents.nix= deliberately does not project them
-into =~/.agents/subagents/=, leaving that path for true home overrides. A
-flake input would resolve to an immutable Nix store path and lose that
-property.
+Why a submodule rather than a flake input? Editability. Home Manager points =mkOutOfStoreSymlink=s at the live submodule working tree, so editable changes (skills, extensions, prompts) reload via pi's =/reload= without a Home Manager switch. Herdr subagent resolution is layered (packaged < home < project): the packaged persona defaults travel inside the =skills/= link at =skills/herdr-orch/subagents/=, and =agents.nix= additionally projects the submodule's own =subagents/= into =~/.agents/subagents/= as the managed home layer, so the harness permission overrides in dotagents apply on every host. A flake input would resolve to an immutable Nix store path and lose that property.
 
 ** Bootstrap
 #+begin_src shell
@@ -288,10 +276,7 @@ comma-separated paths.
 
 * Known issues / limitations
 
-OpenGL applications under Home Manager on non-NixOS used to require
-[[https://github.com/nix-community/nixGL][NixGL]]; home-manager's =targets.genericLinux.enable= now seems to handle
-this transparently (see the [[https://nix-community.github.io/home-manager/index.xhtml#sec-usage-gpu-non-nixos][HM docs]]). Not currently re-verified on a
-non-NixOS install.
+OpenGL applications under Home Manager on non-NixOS used to require [[https://github.com/nix-community/nixGL][NixGL]]. This repository sets no GL workaround (=targets.genericLinux= is not enabled and no nixGL package is used), and the current behaviour is not verified on a non-NixOS install -- re-test before relying on it (background: [[https://nix-community.github.io/home-manager/index.xhtml#sec-usage-gpu-non-nixos][HM docs on GPU under non-NixOS]]).
 
 * Provisioning a new account/installation
 
@@ -330,7 +315,7 @@ Enable flakes and add =git= so that the repo can be cloned and the flake evaluat
 #+end_src
 Then rebuild with =sudo nixos-rebuild switch=.
 
-[[./nixos-bootstrap.nix]] is a checked-in minimal =configuration.nix= you can drop over =/etc/nixos/configuration.nix= (or merge with the generated one) before the first =nixos-install=, so the freshly built system already has flakes, git, and openssh. After reboot, clone the repo and run [[./bootstrap.sh]] -- that script copies =/etc/nixos/hardware-configuration.nix= into =hosts/<host>/= and runs =nixos-rebuild switch --flake .#<host>=, at which point =nixos-base.nix= takes over.
+[[./nixos-bootstrap.nix]] is a checked-in minimal =configuration.nix= you can drop over =/etc/nixos/configuration.nix= (or merge with the generated one) before the first =nixos-install=, so the freshly built system already has flakes, git, and openssh. After reboot, clone the repo and run =./bootstrap.sh <hostname>= -- that script prompts for any missing =NAME=/=EMAIL=/=GITLAB=, copies =/etc/nixos/hardware-configuration.nix= into =hosts/<hostname>/=, runs =sudo nixos-rebuild switch --flake .#<hostname> --impure= (at which point =nixos-base.nix= takes over), then applies Home Manager via =home-manager switch --flake .#default --impure -b backup= (=--hm-config <name>= to pick another profile, =--skip-hm= to skip this step).
 
 *** Integrate host hardware configuration and apply NixOS config from flake
 For a brand new host:
@@ -358,7 +343,7 @@ The darwin config bundles home-manager as a module (using the =minimal= cfgName,
 ** Setup your home environment
 
 *** Set Git name and e-mail
-The flake reads identity from environment variables on initial application via =builtins.getEnv= (hence the =--impure= flag on all rebuild commands). These are propagated into the shell config for future re-applications -- you only need to set them once per installation.
+The flake reads identity from environment variables on initial application via =builtins.getEnv= (hence the =--impure= flag on all rebuild commands). =NAME=, =EMAIL= and =GITLAB= are persisted into the shell session for future re-applications -- you only need to set them once per installation.
 
 #+begin_src shell
   export NAME="<Your Name>"
@@ -368,9 +353,6 @@ The flake reads identity from environment variables on initial application via =
   export EMAIL_OSS="<personal.email>@<domain.com>"
   # Optional -- self-hosted gitlab TLD for SSH host alias
   export GITLAB="<gitlab.example.com>"
-  # Optional -- propagated to your shell env after first apply
-  export OPENAI_API_KEY="<...>"
-  export ANTHROPIC_API_KEY="<...>"
 #+end_src
 =USER= and =HOME= are also consumed but set automatically at login.
 
@@ -418,11 +400,11 @@ Follow instructions on avahi setup on [[https://wiki.archlinux.org/title/Avahi][
 Defined in [[./home-core.nix]] and available after the first successful apply:
 | Alias | Expands to |
 |-------+------------|
-| =hms= | =home-manager switch --flake './dotfiles#<cfgName>' --impure= |
-| =hmb= | =home-manager build --flake './dotfiles#<cfgName>' --impure= |
-| =nos= | =sudo nixos-rebuild switch --flake './dotfiles#$(hostname)' --impure= |
-| =nob= | =nixos-rebuild build --flake './dotfiles#$(hostname)' --impure= |
-| =drs= | =sudo darwin-rebuild switch --flake './dotfiles#<host>' --impure= |
+| =hms= | =home-manager switch --flake '$HOME/dotfiles#<cfgName>' --impure= |
+| =hmb= | =home-manager build --flake '$HOME/dotfiles#<cfgName>' --impure= |
+| =nos= | =sudo nixos-rebuild switch --flake "$HOME/dotfiles#$(cat /etc/hostname)" --impure= |
+| =nob= | =nixos-rebuild build --flake "$HOME/dotfiles#$(cat /etc/hostname)" --impure= |
+| =drs= | =sudo -E darwin-rebuild switch --flake '/Users/cormacc/dotfiles#Cormacs-MacBook-Air' --impure= |
 
 *** Emacs aliases
 Defined in [[./editors/emacs/emacs.nix]]. The literate minimal config is the default: bare =emacs= finds it at =~/.config/emacs= through the normal XDG startup search, with no alias and no =--init-dir=. Every other config is launched with its own =--init-dir=, so they coexist without touching each other's state:
