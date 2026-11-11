@@ -247,10 +247,10 @@ in
     ];
 
     home.packages = with pkgs; [
-      # Pi coding-agent (binary `pi`). nixpkgs builds each release tag with
-      # its own derivation, so an upstream flake build failure does not hold
-      # it back.
-      pi-coding-agent
+      # Pi coding-agent, from `pi.overlays.default` (upstream
+      # `earendil-works/pi` stable branch). nixpkgs' pi-coding-agent can lag
+      # behind upstream releases.
+      pi
       claude-code
       # FIXME: Disabled - codex 0.167.0 fails to build (aws-lc-sys finds no
       # system AWS-LC) in nixos-unstable. Re-enable when the channel contains

@@ -52,6 +52,18 @@
     nix-amd-ai.url = "github:noamsto/nix-amd-ai";
     codex-desktop.url = "github:ilysenko/codex-desktop-linux";
 
+    # Upstream pi flake. No binary cache: the overlay builds from source with
+    # `final.callPackage`, so following our nixpkgs costs nothing.
+    # Track `stable`, not `main`: upstream CI fast-forwards `stable` to a
+    # release only after the Nix build of that release succeeds, and nixpkgs'
+    # pi-coding-agent can lag behind upstream releases.
+    pi = {
+      url = "github:earendil-works/pi/stable";
+      inputs.nixpkgs.follows = "nixpkgs";
+      # Only used for upstream's own packages.x86_64-darwin output.
+      inputs.nixpkgs-darwin-x64.follows = "nixpkgs-darwin";
+    };
+
     claude-desktop = {
       # url = "github:aaddrick/claude-desktop-debian";
       url = "github:tomsch/claude-desktop-nix";
@@ -89,7 +101,7 @@
     ];
   };
 
-  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-desktop, codex-desktop, rust-overlay, nur, nix-amd-ai, nix-babashka, ... } @inputs:
+  outputs = { self, nixpkgs, nixpkgs-darwin, home-manager, home-manager-darwin, nix-darwin, nix-homebrew, homebrew-core, homebrew-cask, microchip, claude-desktop, codex-desktop, rust-overlay, nur, pi, nix-amd-ai, nix-babashka, ... } @inputs:
     let
       inherit (self) outputs;
       system = "x86_64-linux";
@@ -97,12 +109,14 @@
         claude-desktop.overlays.default
         microchip.overlays.default
         nur.overlays.default
+        pi.overlays.default
         rust-overlay.overlays.default
         nix-babashka.overlays.default
         # Local packages: pkgs/<name>/default.nix -> pkgs.<name>
         (import ./pkgs/overlay.nix)
       ];
       darwinOverlays = [
+        pi.overlays.default
         nix-babashka.overlays.default
       ];
       # pkgs = nixpkgs.legacyPackages.${system};
