@@ -62,7 +62,9 @@ in
     alsa.enable = true;
     alsa.support32Bit = true;
     pulse.enable = true;
-    jack.enable = true;
+    # No jack.enable: it is deprecated because it sets a global
+    # LD_LIBRARY_PATH. A JACK client links pipewire.jack itself (see
+    # desktop/audio.nix) or runs under `pw-jack`.
   };
 
   services.blueman.enable = true;
