@@ -4,6 +4,13 @@
   # ... MBT IOD bootloader configuration
   home.file.".mutebutton".source=./.mutebutton;
 
+  # Company skills stay in the process repository, apart from the shared
+  # dotagents skills. Pi reads ~/.agents/skill-roots (the `skills` entry in
+  # agents/pi/settings.json) and follows this directory link, so a new skill in
+  # nmd-dev is visible after /reload with no Home Manager switch. See
+  # agents/README.md section 'Additional skill roots'.
+  home.file.".agents/skill-roots/nmd-dev".source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/nmd/process/nmd-dev/.agents/skills";
+
   # OneDrive etc.
   # See https://github.com/abraunegg/onedrive
   home.packages = with pkgs; [
