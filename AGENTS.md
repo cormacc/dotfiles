@@ -81,7 +81,7 @@ On activation, `agents.nix`:
    `agents/install-git-filter.sh` on every activation; the script exits early
    when the filter is current (the filter definition lives in `.git/config`,
    so it cannot be tracked). The filter strips pi's volatile runtime keys
-   (`lastChangelogVersion`, `deviceId`) from `agents/pi/settings.json` at
+   (`lastChangelogVersion`, `extensionChangelogVersions`, `deviceId`) from `agents/pi/settings.json` at
    stage time; `defaultProvider` and `defaultModel` are tracked (pi saves them
    only on Ctrl+S in `/model`). `jq` is in `home.packages` because the filter
    is `required = true`.

@@ -210,7 +210,8 @@ Then bump the dotfiles submodule pointer (see *Update workflow*).
 single source of truth for two very different concerns: durable
 settings (the =packages= list, =defaultProvider= and =defaultModel=) and
 volatile runtime state (=lastChangelogVersion=, rewritten on every pi
-upgrade, and =deviceId=, a per-installation ID). Without intervention
+upgrade, =extensionChangelogVersions=, rewritten on every extension
+package update, and =deviceId=, a per-installation ID). Without intervention
 the volatile fields show up as repo churn, and =deviceId= would be
 shared by every clone. The default model is tracked on purpose: since
 pi 0.84.3 a =/model= choice is session-only, and only =Ctrl+S= in the
